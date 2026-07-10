@@ -1,0 +1,33 @@
+---
+description: REELYOU splash screen is locked production artwork — no visual changes without explicit approval
+globs: src/screens/SplashScreen.tsx,src/components/splash/**,src/constants/splash*.ts,assets/images/splash-approved.png
+alwaysApply: false
+---
+
+# REELYOU Splash — Locked Beta Baseline
+
+The splash screen is **approved production artwork**. Treat it as locked.
+
+## Do NOT change (unless the user explicitly requests it)
+
+- Artwork (`assets/images/splash-approved.png`)
+- Composition, layout, framing, spacing
+- Logo position or size
+- Background, clouds, sunrise, mountains, stars
+- Colors, lighting, typography
+
+## Allowed without prior approval
+
+- Bug fixes
+- Performance improvements
+- Responsiveness
+- Animation optimization (must not alter the approved look)
+
+## Required before any visual change
+
+If a request would visually alter the splash screen, **ask for approval first** and explain the exact delta.
+
+## Baseline asset
+
+- Master artwork: `assets/images/splash-approved.png`
+- Entry screen: `src/screens/SplashScreen.tsx`

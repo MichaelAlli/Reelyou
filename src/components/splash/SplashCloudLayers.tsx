@@ -11,6 +11,7 @@ import Animated, {
 
 import { ReelyouEasing } from '@/constants/animation';
 import { SPLASH_CLOUD_LAYERS, type CloudLayerSpec } from '@/constants/splashScene';
+import { SplashColors } from '@/constants/splashTheme';
 
 const VolumetricCloud = memo(function VolumetricCloud(spec: CloudLayerSpec) {
   const { width, height } = useWindowDimensions();
@@ -91,6 +92,12 @@ const VolumetricCloud = memo(function VolumetricCloud(spec: CloudLayerSpec) {
             <View style={[styles.puffBody, { width: puffW * 0.96, height: puffH * 0.72 }]} />
             <View style={[styles.puffHighlight, { width: puffW * 0.7, height: puffH * 0.28 }]} />
             <View style={[styles.puffRim, { width: puffW * 0.9, height: puffH * 0.32 }]} />
+            <View
+              style={[
+                styles.puffGlint,
+                { width: puffW * 0.42, height: puffH * 0.1, bottom: puffH * 0.24 },
+              ]}
+            />
           </View>
         );
       })}
@@ -127,27 +134,32 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     borderRadius: 999,
-    backgroundColor: 'rgba(8, 10, 28, 0.82)',
+    backgroundColor: 'rgba(10, 12, 30, 0.72)',
   },
   puffBody: {
     position: 'absolute',
     bottom: '10%',
     borderRadius: 999,
-    backgroundColor: 'rgba(24, 28, 58, 0.88)',
+    backgroundColor: 'rgba(22, 26, 54, 0.78)',
   },
   puffHighlight: {
     position: 'absolute',
     bottom: '18%',
     borderRadius: 999,
-    backgroundColor: 'rgba(60, 50, 80, 0.35)',
+    backgroundColor: 'rgba(75, 62, 95, 0.28)',
   },
   puffRim: {
     position: 'absolute',
     bottom: 0,
     borderRadius: 999,
-    backgroundColor: 'rgba(255, 155, 70, 0.48)',
-    shadowColor: '#FF9020',
-    shadowOpacity: 0.6,
-    shadowRadius: 14,
+    backgroundColor: SplashColors.cloudRim,
+    shadowColor: '#FFB040',
+    shadowOpacity: 0.75,
+    shadowRadius: 18,
+  },
+  puffGlint: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 205, 120, 0.16)',
   },
 });

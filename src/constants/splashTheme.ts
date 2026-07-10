@@ -10,20 +10,22 @@ import { CosmicTheme, Fonts, Radius, Spacing } from '@/constants/theme';
 /** Colors sampled from the approved REELYOU splash mockup. */
 export const SplashColors = {
   ...CosmicTheme,
-  navyDeep: '#0A0E1A',
-  navyMid: '#0D1224',
-  navySoft: '#161B33',
+  navyDeep: '#101848',
+  navyMid: '#101840',
+  navySoft: '#18204A',
   goldBright: '#E8C872',
   goldMetallic: '#D4AF37',
   goldChampagne: '#C9A962',
   goldMuted: '#A8894A',
-  goldGlow: 'rgba(212, 175, 55, 0.38)',
+  goldGlow: 'rgba(232, 200, 114, 0.4)',
+  goldBloom: 'rgba(255, 210, 120, 0.26)',
   goldSpinner: '#D4AF37',
-  goldSpinnerTrack: 'rgba(212, 175, 55, 0.22)',
+  goldSpinnerTrack: 'rgba(212, 175, 55, 0.2)',
   goldSpinnerHead: '#FFF4C2',
-  sunriseGlow: 'rgba(255, 140, 50, 0.24)',
-  sunriseCore: 'rgba(255, 220, 150, 0.5)',
+  sunriseGlow: 'rgba(255, 150, 55, 0.28)',
+  sunriseCore: 'rgba(255, 225, 160, 0.54)',
   loadingText: '#C9A962',
+  cloudRim: 'rgba(255, 168, 60, 0.58)',
 } as const;
 
 export const SplashGradients = {
@@ -41,8 +43,8 @@ export const SplashSpacing = {
 export const SplashTypography = {
   wordmark: {
     fontFamily: Fonts.sans,
-    fontSize: 18,
-    letterSpacing: 5.2,
+    fontSize: 18.5,
+    letterSpacing: 6.8,
     textTransform: 'uppercase' as const,
   },
   tagline: {
@@ -55,11 +57,11 @@ export const SplashTypography = {
   },
   loadingLabel: {
     fontFamily: Fonts.sans,
-    fontSize: 9.5,
-    fontWeight: '400' as const,
-    letterSpacing: 3.6,
+    fontSize: 10,
+    fontWeight: '500' as const,
+    letterSpacing: 4.2,
     textTransform: 'uppercase' as const,
-    color: SplashColors.loadingText,
+    color: SplashColors.goldBright,
   },
 } as const;
 

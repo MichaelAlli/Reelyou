@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import { memo, useEffect } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -12,23 +13,23 @@ import { ReelyouEasing, ReelyouMotion, ReelyouMotionValues } from '@/constants/a
 import { SplashAssets } from '@/constants/splashAssets';
 import { SplashColors } from '@/constants/splashTheme';
 
-function SplashCelestialBackgroundComponent() {
+function SplashArtworkBackgroundComponent() {
+  const opacity = useSharedValue<number>(0);
   const scale = useSharedValue<number>(ReelyouMotionValues.backgroundZoomMin);
   const translateY = useSharedValue<number>(0);
 
   useEffect(() => {
+    opacity.value = withTiming(1, {
+      duration: ReelyouMotion.fadeIn + 300,
+      easing: ReelyouEasing.out,
+    });
+
     const half = ReelyouMotion.backgroundZoom / 2;
 
     scale.value = withRepeat(
       withSequence(
-        withTiming(ReelyouMotionValues.backgroundZoomMax, {
-          duration: half,
-          easing: ReelyouEasing.inOut,
-        }),
-        withTiming(ReelyouMotionValues.backgroundZoomMin, {
-          duration: half,
-          easing: ReelyouEasing.inOut,
-        }),
+        withTiming(ReelyouMotionValues.backgroundZoomMax, { duration: half, easing: ReelyouEasing.inOut }),
+        withTiming(ReelyouMotionValues.backgroundZoomMin, { duration: half, easing: ReelyouEasing.inOut }),
       ),
       -1,
       false,
@@ -37,43 +38,42 @@ function SplashCelestialBackgroundComponent() {
     translateY.value = withRepeat(
       withSequence(
         withTiming(-ReelyouMotionValues.backgroundDriftY, { duration: half, easing: ReelyouEasing.inOut }),
-        withTiming(0, { duration: half, easing: ReelyouEasing.inOut }),
+        withTiming(ReelyouMotionValues.backgroundDriftY * 0.35, { duration: half, easing: ReelyouEasing.inOut }),
       ),
       -1,
-      false,
+      true,
     );
-  }, [scale, translateY]);
+  }, [opacity, scale, translateY]);
 
   const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
     transform: [{ scale: scale.value }, { translateY: translateY.value }],
   }));
 
   return (
     <View style={styles.container}>
-      <View style={styles.skyBase} />
       <Animated.View style={[styles.artFrame, animatedStyle]}>
         <Image
-          source={SplashAssets.celestialReference}
+          source={SplashAssets.approved}
           style={styles.art}
-          resizeMode="cover"
-          accessibilityLabel="REELYOU celestial splash background"
+          contentFit="cover"
+          accessibilityLabel="REELYOU splash artwork"
         />
       </Animated.View>
     </View>
   );
 }
 
-export const SplashCelestialBackground = memo(SplashCelestialBackgroundComponent);
+export const SplashArtworkBackground = memo(SplashArtworkBackgroundComponent);
+
+/** @deprecated Use SplashArtworkBackground — kept for import compatibility. */
+export const SplashCelestialBackground = SplashArtworkBackground;
 
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFill,
     backgroundColor: SplashColors.navyDeep,
     overflow: 'hidden',
-  },
-  skyBase: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: SplashColors.navyMid,
   },
   artFrame: {
     ...StyleSheet.absoluteFill,

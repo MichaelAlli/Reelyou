@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '45%',
-    backgroundColor: 'rgba(13, 18, 36, 0.9)',
+    backgroundColor: 'rgba(16, 22, 50, 0.72)',
   },
   indigoMid: {
     position: 'absolute',
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '40%',
-    backgroundColor: 'rgba(22, 27, 51, 0.45)',
+    backgroundColor: 'rgba(28, 36, 72, 0.28)',
   },
   horizonWarmth: {
     position: 'absolute',
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '42%',
-    backgroundColor: 'rgba(255, 100, 30, 0.07)',
+    backgroundColor: 'rgba(255, 110, 35, 0.09)',
   },
   horizonGlow: {
     position: 'absolute',
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     left: '8%',
     right: '8%',
     height: '24%',
-    backgroundColor: 'rgba(255, 150, 60, 0.1)',
+    backgroundColor: 'rgba(255, 160, 65, 0.12)',
     borderTopLeftRadius: 999,
     borderTopRightRadius: 999,
   },
@@ -63,8 +63,8 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: '16%',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    height: '14%',
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
   },
   vignetteSides: {
     position: 'absolute',

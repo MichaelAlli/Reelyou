@@ -1,5 +1,5 @@
 import { memo, useEffect } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,14 +9,13 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ReelyouEasing, ReelyouMotionValues } from '@/constants/animation';
+import { ReelyouEasing, ReelyouMotion, ReelyouMotionValues } from '@/constants/animation';
 import { SplashColors, SplashStars } from '@/constants/splashTheme';
-
-const { width, height } = Dimensions.get('window');
 
 type StarSpec = (typeof SplashStars)[number];
 
 const TwinkleStar = memo(function TwinkleStar({ x, y, size, delay, duration }: StarSpec) {
+  const { width, height } = useWindowDimensions();
   const opacity = useSharedValue<number>(ReelyouMotionValues.starOpacityMin);
 
   useEffect(() => {
@@ -60,12 +59,32 @@ const TwinkleStar = memo(function TwinkleStar({ x, y, size, delay, duration }: S
 });
 
 function StarShimmerLayerComponent() {
+  const parallax = useSharedValue<number>(0);
+
+  useEffect(() => {
+    const half = ReelyouMotion.backgroundZoom / 2;
+    const amount = ReelyouMotionValues.backgroundDriftY * 0.25;
+
+    parallax.value = withRepeat(
+      withSequence(
+        withTiming(-amount, { duration: half, easing: ReelyouEasing.inOut }),
+        withTiming(amount * 0.35, { duration: half, easing: ReelyouEasing.inOut }),
+      ),
+      -1,
+      true,
+    );
+  }, [parallax]);
+
+  const parallaxStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: parallax.value }],
+  }));
+
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, parallaxStyle]}>
       {SplashStars.map((star) => (
         <TwinkleStar key={star.id} {...star} />
       ))}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -76,7 +95,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     backgroundColor: SplashColors.white,
     shadowColor: SplashColors.goldBright,
-    shadowOpacity: 0.35,
-    shadowRadius: 3,
+    shadowOpacity: 0.28,
+    shadowRadius: 2.5,
   },
 });

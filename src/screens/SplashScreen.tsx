@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   runOnJS,
@@ -10,14 +10,22 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SplashBrandMark } from '@/components/splash/SplashBrandMark';
-import { SplashCelestialScene } from '@/components/splash/SplashCelestialScene';
-import { SplashLoadingFooter } from '@/components/splash/SplashLoadingFooter';
+import { LuxurySparkleLayer } from '@/components/splash/LuxurySparkleLayer';
+import { SplashLogoShimmer } from '@/components/splash/SplashLogoShimmer';
+import { SplashArtworkBackground } from '@/components/splash/SplashCelestialBackground';
+import {
+  SplashPolishOverlays,
+  SplashSkyPolish,
+} from '@/components/splash/SplashPolishOverlays';
+import { StarShimmerLayer } from '@/components/splash/StarShimmerLayer';
 import { ReelyouEasing } from '@/constants/animation';
 import { SplashAnimation, SplashColors } from '@/constants/splashTheme';
 
-/** Review mode: splash stays until manually continued. Set false for production auto-transition. */
-const SPLASH_REVIEW_MODE = true;
+/** Review mode: splash stays until manually continued. Set true only for local design review. */
+const SPLASH_REVIEW_MODE = false;
+
+/** Continue (Dev) appears only while review mode is enabled. */
+const SHOW_DEV_CONTINUE = SPLASH_REVIEW_MODE;
 
 export function SplashScreen() {
   const router = useRouter();
@@ -40,6 +48,15 @@ export function SplashScreen() {
     );
   }, [goToWelcome, screenOpacity]);
 
+  useEffect(() => {
+    if (SPLASH_REVIEW_MODE) {
+      return;
+    }
+
+    const timer = setTimeout(exitSplash, SplashAnimation.autoTransition);
+    return () => clearTimeout(timer);
+  }, [exitSplash]);
+
   const screenStyle = useAnimatedStyle(() => ({
     opacity: screenOpacity.value,
   }));
@@ -47,10 +64,13 @@ export function SplashScreen() {
   return (
     <Animated.View style={[styles.root, screenStyle]}>
       <StatusBar style="light" />
-      <SplashCelestialScene />
-      <SplashBrandMark />
-      <SplashLoadingFooter />
-      {SPLASH_REVIEW_MODE && (
+      <SplashArtworkBackground />
+      <SplashSkyPolish />
+      <SplashPolishOverlays />
+      <StarShimmerLayer />
+      <LuxurySparkleLayer />
+      <SplashLogoShimmer />
+      {SHOW_DEV_CONTINUE && (
         <Pressable
           onPress={exitSplash}
           style={[styles.devContinue, { bottom: insets.bottom + 12, right: insets.right + 12 }]}>

@@ -15,7 +15,10 @@ import { ReelyouEasing, ReelyouMotionValues } from '@/constants/animation';
 import { SPLASH_LAYOUT } from '@/constants/splashScene';
 import { SplashAnimation, SplashTypography } from '@/constants/splashTheme';
 
-function SplashLoadingFooterComponent() {
+const LOADING_LABEL_GAP = 14;
+const LOADING_LABEL_HEIGHT = 14;
+
+function SplashLoadingFooterComponent({ showLabel = true }: { showLabel?: boolean }) {
   const { height: screenHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const opacity = useSharedValue<number>(0);
@@ -64,13 +67,16 @@ function SplashLoadingFooterComponent() {
     opacity: textBreath.value,
   }));
 
-  const bottom = insets.bottom + screenHeight * SPLASH_LAYOUT.loadingBottomRatio;
-  const gap = screenHeight * SPLASH_LAYOUT.loadingStackGapRatio;
+  const spinnerBottom = insets.bottom + screenHeight * SPLASH_LAYOUT.loadingBottomRatio;
+  const bottom =
+    spinnerBottom + (showLabel ? LOADING_LABEL_GAP + LOADING_LABEL_HEIGHT : 0);
 
   return (
-    <Animated.View style={[styles.container, { bottom, gap }, containerStyle]} pointerEvents="none">
+    <Animated.View style={[styles.container, { bottom }, containerStyle]} pointerEvents="none">
       <GoldSpinner />
-      <Animated.Text style={[styles.label, labelStyle]}>LOADING YOUR JOURNEY...</Animated.Text>
+      {showLabel && (
+        <Animated.Text style={[styles.label, labelStyle]}>LOADING YOUR JOURNEY...</Animated.Text>
+      )}
     </Animated.View>
   );
 }
@@ -87,6 +93,10 @@ const styles = StyleSheet.create({
   },
   label: {
     ...SplashTypography.loadingLabel,
+    marginTop: LOADING_LABEL_GAP,
     textAlign: 'center',
+    textShadowColor: 'rgba(232, 200, 114, 0.35)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
   },
 });

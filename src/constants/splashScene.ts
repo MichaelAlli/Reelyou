@@ -12,14 +12,12 @@ export const SPLASH_RING = {
 } as const;
 
 export const SPLASH_LAYOUT = {
-  /** Vertical center of logo stack — aligned with celestial ring center. */
-  brandCenterY: SPLASH_RING.cy,
-  /** Half-height of brand block (R → tagline) as a screen-height ratio. */
-  brandBlockHalfRatio: 0.102,
-  /** Distance from bottom safe area to loading stack anchor. */
-  loadingBottomRatio: 0.115,
-  /** Gap between spinner and loading label as screen-height ratio. */
-  loadingStackGapRatio: 0.012,
+  /** Vertical center of logo stack — slightly below ring center for R breathing room. */
+  brandCenterY: SPLASH_RING.cy + 0.014,
+  brandBlockHalfRatio: 0.112,
+  brandTopPadding: 20,
+  loadingBottomRatio: 0.138,
+  loadingStackGapRatio: 0.011,
 } as const;
 
 /** Deterministic pseudo-random for stable star placement across builds. */

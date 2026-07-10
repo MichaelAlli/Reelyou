@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   horizonBloomWide: {
     position: 'absolute',
     borderRadius: 999,
-    backgroundColor: 'rgba(255, 120, 40, 0.14)',
+    backgroundColor: 'rgba(255, 135, 45, 0.17)',
   },
   horizonBloom: {
     position: 'absolute',
@@ -129,10 +129,10 @@ const styles = StyleSheet.create({
   },
   sunCore: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 210, 130, 0.4)',
+    backgroundColor: SplashColors.sunriseCore,
     shadowColor: '#FF9830',
     shadowOpacity: 0.95,
-    shadowRadius: 36,
+    shadowRadius: 40,
   },
   sunInner: {
     position: 'absolute',
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   ray: {
     position: 'absolute',
     width: 2,
-    backgroundColor: 'rgba(255, 185, 90, 0.1)',
+    backgroundColor: 'rgba(255, 195, 95, 0.13)',
     borderRadius: 2,
   },
 });
