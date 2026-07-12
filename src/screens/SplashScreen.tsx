@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -10,6 +10,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BrandLogo } from '@/components/branding/BrandLogo';
+import { BrandLogoSpec } from '@/constants/branding';
+import { SPLASH_LAYOUT } from '@/constants/splashScene';
 import { LuxurySparkleLayer } from '@/components/splash/LuxurySparkleLayer';
 import { SplashLogoShimmer } from '@/components/splash/SplashLogoShimmer';
 import { SplashArtworkBackground } from '@/components/splash/SplashCelestialBackground';
@@ -30,10 +33,13 @@ const SHOW_DEV_CONTINUE = SPLASH_REVIEW_MODE;
 export function SplashScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const screenOpacity = useSharedValue<number>(1);
+  const logoWidth = Math.min(screenWidth * 0.55, BrandLogoSpec.maxWidth);
+  const logoHeight = logoWidth * (BrandLogoSpec.height / BrandLogoSpec.width);
 
   const goToWelcome = useCallback(() => {
-    router.replace('/onboarding' as never);
+    router.replace('/welcome' as never);
   }, [router]);
 
   const exitSplash = useCallback(() => {
@@ -69,6 +75,14 @@ export function SplashScreen() {
       <SplashPolishOverlays />
       <StarShimmerLayer />
       <LuxurySparkleLayer />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.brandLogo,
+          { top: screenHeight * SPLASH_LAYOUT.brandCenterY - logoHeight / 2 },
+        ]}>
+        <BrandLogo width={logoWidth} backgroundTone="dark" includeTagline />
+      </View>
       <SplashLogoShimmer />
       {SHOW_DEV_CONTINUE && (
         <Pressable
@@ -101,5 +115,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  brandLogo: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 5,
   },
 });

@@ -17,6 +17,7 @@ export default function RootLayout() {
           animationDuration: ReelyouMotion.screenTransition,
         }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="welcome" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="skywrite" options={{ presentation: 'modal' }} />

@@ -1,0 +1,44 @@
+---
+description: REELYOU brand logo is locked — use BrandLogo component only, never redraw
+alwaysApply: true
+---
+
+# REELYOU Brand — Locked Logo (Permanent)
+
+The official REELYOU logo and wordmark are **approved production assets**. Treat them as locked on every screen.
+
+## Single source of truth
+
+- Assets: `src/assets/branding/reelyou-logo-*.png`, `src/assets/branding/reelyou-icon.png`
+- Component: `src/components/branding/BrandLogo.tsx`
+- Constants: `src/constants/branding.ts`
+
+## Approved logo files
+
+- `reelyou-logo-light-no-tagline.png` — UI on dark backgrounds
+- `reelyou-logo-dark-no-tagline.png` — UI on light backgrounds
+- `reelyou-logo-light-with-tagline.png` — brand-first screens on dark backgrounds
+- `reelyou-logo-dark-with-tagline.png` — brand-first screens on light backgrounds
+- `reelyou-icon.png` — limited-space contexts only
+
+## Do NOT (ever)
+
+- Redraw, recreate, approximate, or substitute the logo
+- Use Text, SVG, Canvas, icons, or custom drawing for the brand mark
+- Change spacing, proportions, colors, shadows, or metallic finish
+- Duplicate logo code per screen
+- Place logos inside white containers
+
+## Required on every screen
+
+```tsx
+import { BrandLogo } from '@/components/branding/BrandLogo';
+
+<BrandLogo backgroundTone="dark" />
+```
+
+Scale with the `width` prop only. Preserve aspect ratio. Use `includeTagline` only on welcome, splash, and onboarding.
+
+## Future updates
+
+Change `BrandingAssets` or `BrandLogo` once — the entire app updates.
