@@ -1,27 +1,61 @@
 import { Platform } from 'react-native';
 
+import { darkThemeTokens, lightThemeTokens } from '@/theme/tokens';
+
+/** Legacy Expo template color map — prefer useTheme() tokens in app UI. */
+export type ThemeColor =
+  | 'background'
+  | 'text'
+  | 'backgroundElement'
+  | 'backgroundSelected'
+  | 'textSecondary';
+
+export const Colors = {
+  light: {
+    background: lightThemeTokens.appBackground,
+    text: lightThemeTokens.primaryText,
+    backgroundElement: lightThemeTokens.elevatedSurface,
+    backgroundSelected: lightThemeTokens.cardSurface,
+    textSecondary: lightThemeTokens.secondaryText,
+  },
+  dark: {
+    background: darkThemeTokens.appBackground,
+    text: darkThemeTokens.primaryText,
+    backgroundElement: darkThemeTokens.elevatedSurface,
+    backgroundSelected: darkThemeTokens.cardSurface,
+    textSecondary: darkThemeTokens.secondaryText,
+  },
+} as const;
+
+/** @deprecated Prefer semantic tokens from useTheme() for theme-aware UI. */
 export const CosmicTheme = {
-  background: '#050818',
+  background: darkThemeTokens.appBackground,
   backgroundSecondary: '#0a0f2e',
-  backgroundElevated: '#111836',
-  card: 'rgba(255, 255, 255, 0.06)',
-  cardBorder: 'rgba(212, 175, 55, 0.22)',
-  gold: '#D4AF37',
-  goldLight: '#F5D76E',
-  goldMuted: 'rgba(212, 175, 55, 0.35)',
-  purple: '#9B7EDE',
-  purpleSoft: 'rgba(155, 126, 222, 0.25)',
-  purpleGlow: 'rgba(123, 97, 255, 0.18)',
+  backgroundElevated: darkThemeTokens.elevatedSurface,
+  card: darkThemeTokens.cardSurface,
+  cardBorder: darkThemeTokens.border,
+  gold: darkThemeTokens.gold,
+  goldLight: darkThemeTokens.goldLight,
+  goldMuted: darkThemeTokens.goldMuted,
+  purple: darkThemeTokens.purple,
+  purpleSoft: darkThemeTokens.purpleSoft,
+  purpleGlow: darkThemeTokens.purpleGlow,
   white: '#FFFFFF',
-  textPrimary: '#F8F9FC',
-  textSecondary: 'rgba(248, 249, 252, 0.68)',
-  textMuted: 'rgba(248, 249, 252, 0.42)',
-  success: '#6EE7B7',
-  star: '#FFFFFF',
-  tabBar: 'rgba(5, 8, 24, 0.95)',
+  textPrimary: darkThemeTokens.primaryText,
+  textSecondary: darkThemeTokens.secondaryText,
+  textMuted: darkThemeTokens.mutedText,
+  success: darkThemeTokens.success,
+  star: darkThemeTokens.star,
+  tabBar: darkThemeTokens.navigationBackground,
 } as const;
 
 export const Spacing = {
+  half: 2,
+  one: 4,
+  two: 8,
+  three: 12,
+  four: 16,
+  five: 20,
   xs: 4,
   sm: 8,
   md: 16,

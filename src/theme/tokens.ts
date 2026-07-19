@@ -1,0 +1,63 @@
+import type { ResolvedAppearance, ThemeTokens } from './types';
+
+/** Approved REELYOU dark application theme. */
+export const darkThemeTokens: ThemeTokens = {
+  appBackground: '#050818',
+  elevatedSurface: '#111836',
+  cardSurface: 'rgba(255, 255, 255, 0.06)',
+  primaryText: '#F8F9FC',
+  secondaryText: 'rgba(248, 249, 252, 0.68)',
+  mutedText: 'rgba(248, 249, 252, 0.42)',
+  border: 'rgba(212, 175, 55, 0.22)',
+  divider: 'rgba(212, 175, 55, 0.55)',
+  primaryAction: '#D4AF37',
+  secondaryAction: '#9B7EDE',
+  inputBackground: 'rgba(255, 255, 255, 0.08)',
+  inputText: '#F8F9FC',
+  placeholderText: 'rgba(248, 249, 252, 0.42)',
+  navigationBackground: 'rgba(5, 8, 24, 0.95)',
+  navigationIconActive: '#D4AF37',
+  navigationIconInactive: 'rgba(248, 249, 252, 0.42)',
+  statusBarStyle: 'light',
+  gold: '#D4AF37',
+  goldLight: '#F5D76E',
+  goldMuted: 'rgba(212, 175, 55, 0.35)',
+  purple: '#9B7EDE',
+  purpleSoft: 'rgba(155, 126, 222, 0.25)',
+  purpleGlow: 'rgba(123, 97, 255, 0.18)',
+  success: '#6EE7B7',
+  star: '#FFFFFF',
+};
+
+/** Approved REELYOU light application theme — navy, gold, and premium surfaces. */
+export const lightThemeTokens: ThemeTokens = {
+  appBackground: '#F4F6FB',
+  elevatedSurface: '#FFFFFF',
+  cardSurface: 'rgba(16, 24, 72, 0.05)',
+  primaryText: '#0A0F2E',
+  secondaryText: 'rgba(10, 15, 46, 0.72)',
+  mutedText: 'rgba(10, 15, 46, 0.45)',
+  border: 'rgba(212, 175, 55, 0.35)',
+  divider: 'rgba(212, 175, 55, 0.45)',
+  primaryAction: '#D4AF37',
+  secondaryAction: '#101848',
+  inputBackground: '#FFFFFF',
+  inputText: '#0A0F2E',
+  placeholderText: 'rgba(10, 15, 46, 0.4)',
+  navigationBackground: 'rgba(244, 246, 251, 0.96)',
+  navigationIconActive: '#B8941F',
+  navigationIconInactive: 'rgba(10, 15, 46, 0.4)',
+  statusBarStyle: 'dark',
+  gold: '#B8941F',
+  goldLight: '#D4AF37',
+  goldMuted: 'rgba(212, 175, 55, 0.28)',
+  purple: '#7B5CB8',
+  purpleSoft: 'rgba(123, 92, 184, 0.14)',
+  purpleGlow: 'rgba(123, 92, 184, 0.12)',
+  success: '#059669',
+  star: '#101848',
+};
+
+export function getThemeTokens(appearance: ResolvedAppearance): ThemeTokens {
+  return appearance === 'light' ? lightThemeTokens : darkThemeTokens;
+}

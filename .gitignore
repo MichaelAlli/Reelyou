@@ -5,9 +5,10 @@ node_modules/
 
 # Expo
 .expo/
+.expo-web-check/
 dist/
 web-build/
-expo-env.d.ts
+web-build-checkpoint/
 
 # Native
 .kotlin/
@@ -35,6 +36,7 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+expo-env.d.ts
 
 example
 

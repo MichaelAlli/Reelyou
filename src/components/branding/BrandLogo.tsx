@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Image, ImageStyle, useWindowDimensions } from 'react-native';
+import { Image, ImageSourcePropType, ImageStyle, useWindowDimensions } from 'react-native';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
@@ -16,6 +16,8 @@ export interface BrandLogoProps {
   /** Target width — height scales proportionally from the approved asset. */
   width?: number;
   style?: ImageStyle;
+  /** Optional approved asset override — bypasses theme-based asset switching. */
+  source?: ImageSourcePropType;
   /** Screen background tone. `auto` follows the system color scheme. */
   theme?: BrandTheme;
   /** Logo presentation: standard UI, marketing lockup, or R icon. */
@@ -57,6 +59,7 @@ function resolveBrandLogoProps({
 function BrandLogoComponent({
   width,
   style,
+  source,
   theme = 'auto',
   variant = 'standard',
   backgroundTone,
@@ -70,8 +73,11 @@ function BrandLogoComponent({
     backgroundTone,
     includeTagline,
   });
-  const backgroundTheme = resolveBrandTheme(resolvedTheme, colorScheme);
-  const source = resolveBrandLogoAsset(backgroundTheme, resolvedVariant);
+  const backgroundTheme = resolveBrandTheme(
+    resolvedTheme,
+    colorScheme === 'light' || colorScheme === 'dark' ? colorScheme : null,
+  );
+  const resolvedSource = source ?? resolveBrandLogoAsset(backgroundTheme, resolvedVariant);
   const spec = resolvedVariant === 'icon' ? BrandIconSpec : BrandLogoSpec;
   const logoWidth =
     width ??
@@ -83,8 +89,8 @@ function BrandLogoComponent({
 
   return (
     <Image
-      source={source}
-      style={[{ width: logoWidth, height: logoHeight }, style]}
+      source={resolvedSource}
+      style={[{ width: logoWidth, height: logoHeight, backgroundColor: 'transparent' }, style]}
       resizeMode="contain"
       accessibilityLabel={resolvedVariant === 'icon' ? 'REELYOU icon' : 'REELYOU'}
     />

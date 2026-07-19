@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
 
-import { CosmicTheme, Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/theme/useTheme';
 
 interface GlassCardProps {
   children: ReactNode;
@@ -10,6 +11,26 @@ interface GlassCardProps {
 }
 
 export function GlassCard({ children, style, glow = 'gold' }: GlassCardProps) {
+  const styles = useThemedStyles((tokens) =>
+    StyleSheet.create({
+      card: {
+        backgroundColor: tokens.cardSurface,
+        borderRadius: Radius.lg,
+        padding: Spacing.md,
+        borderWidth: 1,
+      },
+      goldBorder: {
+        borderColor: tokens.border,
+      },
+      purpleBorder: {
+        borderColor: tokens.purpleSoft,
+      },
+      noBorder: {
+        borderColor: 'transparent',
+      },
+    }),
+  );
+
   return (
     <View
       style={[
@@ -23,21 +44,3 @@ export function GlassCard({ children, style, glow = 'gold' }: GlassCardProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: CosmicTheme.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-  },
-  goldBorder: {
-    borderColor: CosmicTheme.cardBorder,
-  },
-  purpleBorder: {
-    borderColor: CosmicTheme.purpleSoft,
-  },
-  noBorder: {
-    borderColor: 'transparent',
-  },
-});

@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { CosmicTheme, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/theme/useTheme';
 
 interface MetricPillProps {
   label: string;
@@ -9,6 +10,39 @@ interface MetricPillProps {
 }
 
 export function MetricPill({ label, value, accent = 'gold' }: MetricPillProps) {
+  const styles = useThemedStyles((tokens) =>
+    StyleSheet.create({
+      pill: {
+        flex: 1,
+        backgroundColor: tokens.elevatedSurface,
+        borderRadius: Radius.md,
+        padding: Spacing.sm,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: tokens.border,
+      },
+      purplePill: {
+        borderColor: tokens.purpleSoft,
+      },
+      value: {
+        fontFamily: Fonts.sans,
+        fontSize: 22,
+        fontWeight: '700',
+        color: tokens.gold,
+      },
+      purpleValue: {
+        color: tokens.purple,
+      },
+      label: {
+        fontFamily: Fonts.sans,
+        fontSize: 11,
+        color: tokens.mutedText,
+        textAlign: 'center',
+        marginTop: 2,
+      },
+    }),
+  );
+
   return (
     <View style={[styles.pill, accent === 'purple' && styles.purplePill]}>
       <Text style={[styles.value, accent === 'purple' && styles.purpleValue]}>{value}</Text>
@@ -16,34 +50,3 @@ export function MetricPill({ label, value, accent = 'gold' }: MetricPillProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  pill: {
-    flex: 1,
-    backgroundColor: CosmicTheme.backgroundElevated,
-    borderRadius: Radius.md,
-    padding: Spacing.sm,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: CosmicTheme.cardBorder,
-  },
-  purplePill: {
-    borderColor: CosmicTheme.purpleSoft,
-  },
-  value: {
-    fontFamily: Fonts.sans,
-    fontSize: 22,
-    fontWeight: '700',
-    color: CosmicTheme.gold,
-  },
-  purpleValue: {
-    color: CosmicTheme.purple,
-  },
-  label: {
-    fontFamily: Fonts.sans,
-    fontSize: 11,
-    color: CosmicTheme.textMuted,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-});

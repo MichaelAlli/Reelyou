@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { CosmicTheme, Fonts, Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/theme/useTheme';
 
 interface SectionHeaderProps {
   title: string;
@@ -9,6 +10,30 @@ interface SectionHeaderProps {
 }
 
 export function SectionHeader({ title, action, onAction }: SectionHeaderProps) {
+  const styles = useThemedStyles((tokens) =>
+    StyleSheet.create({
+      container: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Spacing.sm,
+        marginTop: Spacing.md,
+      },
+      title: {
+        fontFamily: Fonts.sans,
+        fontSize: 18,
+        fontWeight: '700',
+        color: tokens.primaryText,
+      },
+      action: {
+        fontFamily: Fonts.sans,
+        fontSize: 13,
+        fontWeight: '600',
+        color: tokens.gold,
+      },
+    }),
+  );
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
@@ -20,25 +45,3 @@ export function SectionHeader({ title, action, onAction }: SectionHeaderProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.md,
-  },
-  title: {
-    fontFamily: Fonts.sans,
-    fontSize: 18,
-    fontWeight: '700',
-    color: CosmicTheme.textPrimary,
-  },
-  action: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '600',
-    color: CosmicTheme.gold,
-  },
-});

@@ -1,0 +1,41 @@
+---
+description: Splash and Welcome screens are approved and visually locked — no redesign without explicit approval
+globs: src/screens/SplashScreen.tsx,src/screens/WelcomeScreen.tsx,src/constants/splash*.ts,src/constants/branding.ts,src/constants/welcome.ts,src/components/splash/**,src/components/branding/**,src/components/layout/BackgroundImage.tsx,src/assets/branding/**,assets/images/splash-approved.png,src/assets/backgrounds/welcome-background.jpg
+alwaysApply: true
+---
+
+# REELYOU — Approved Splash & Welcome (Locked)
+
+Splash and Welcome are **approved production screens**. Preserve them exactly unless the user explicitly requests a change.
+
+## Do NOT change
+
+- Splash or Welcome layout, composition, spacing, or typography
+- Approved asset references in `splashAssets.ts`, `branding.ts`, or screen files
+- Logo size, position, or logo-to-blurb spacing on Welcome
+- Welcome background scale, crop, or celestial-ring framing
+- CTA button or SIGN IN link styling/placement
+- Transparent Welcome logo rendering (no boxes, cards, or theme surfaces behind the logo)
+
+## Asset rules
+
+- Use canonical paths documented in `src/assets/branding/README.md`
+- Do not swap transparent PNGs for JPEGs or fake PNGs
+- Do not pull assets from Downloads, chat attachments, or paths outside the repo
+- Welcome renders `reelyou-welcome-logo-white-tagline-cropped.png` — do not revert to legacy JPEG lockups for Welcome
+
+## Theme system boundary
+
+- Splash and Welcome remain **locked cinematic dark** routes
+- Do not apply global theme styling, theme-based logo switching, or light-mode tokens to these screens
+- Theme work applies only to **post-Welcome** screens unless explicitly instructed otherwise
+
+## Allowed without approval
+
+- Bug fixes that do not alter the approved visual appearance
+- Performance/responsiveness improvements that preserve the approved look
+- Documentation and asset-preservation updates requested by the user
+
+## Before any visual change
+
+Stop and ask for explicit user approval. State the exact files, properties, and visual delta.

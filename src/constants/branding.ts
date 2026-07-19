@@ -9,6 +9,10 @@ export const BrandingAssets = {
   logoDarkNoTagline: require('../assets/branding/reelyou-logo-dark-no-tagline.png'),
   logoLightWithTagline: require('../assets/branding/reelyou-logo-light-with-tagline.png'),
   logoDarkWithTagline: require('../assets/branding/reelyou-logo-dark-with-tagline.png'),
+  /** Approved transparent Welcome logo — white tagline, RGBA PNG. */
+  welcomeLogoWhiteTagline: require('../assets/branding/reelyou-welcome-logo-white-tagline.png'),
+  /** Welcome logo cropped to alpha bounds — removes excess transparent canvas padding. */
+  welcomeLogoWhiteTaglineCropped: require('../assets/branding/reelyou-welcome-logo-white-tagline-cropped.png'),
   icon: require('../assets/branding/reelyou-icon.png'),
   welcomeBackground: require('../assets/backgrounds/welcome-background.jpg'),
   welcomeMaster: require('../assets/references/welcome-screen-master.jpg'),

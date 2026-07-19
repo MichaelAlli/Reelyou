@@ -1,8 +1,8 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { Animated, Dimensions, StyleSheet, View, ViewStyle } from 'react-native';
 
-import { CosmicTheme } from '@/constants/theme';
 import { constellationStars as stars } from '@/data/mockData';
+import { useThemedStyles } from '@/theme/useTheme';
 
 interface CosmicBackgroundProps {
   children: ReactNode;
@@ -11,6 +11,40 @@ interface CosmicBackgroundProps {
 }
 
 export function CosmicBackground({ children, style, showStars = true }: CosmicBackgroundProps) {
+  const styles = useThemedStyles((tokens) =>
+    StyleSheet.create({
+      container: {
+        flex: 1,
+        backgroundColor: tokens.appBackground,
+      },
+      auroraTop: {
+        position: 'absolute',
+        top: -100,
+        left: -50,
+        right: -50,
+        height: 300,
+        backgroundColor: tokens.purpleGlow,
+        borderRadius: 200,
+        opacity: 0.6,
+      },
+      auroraBottom: {
+        position: 'absolute',
+        bottom: -80,
+        left: 50,
+        right: 50,
+        height: 200,
+        backgroundColor: tokens.goldMuted,
+        borderRadius: 150,
+        opacity: 0.15,
+      },
+      star: {
+        position: 'absolute',
+        backgroundColor: tokens.star,
+        borderRadius: 999,
+      },
+    }),
+  );
+
   const pulse = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
@@ -53,35 +87,3 @@ export function CosmicBackground({ children, style, showStars = true }: CosmicBa
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: CosmicTheme.background,
-  },
-  auroraTop: {
-    position: 'absolute',
-    top: -100,
-    left: -50,
-    right: -50,
-    height: 300,
-    backgroundColor: CosmicTheme.purpleGlow,
-    borderRadius: 200,
-    opacity: 0.6,
-  },
-  auroraBottom: {
-    position: 'absolute',
-    bottom: -80,
-    left: 50,
-    right: 50,
-    height: 200,
-    backgroundColor: CosmicTheme.goldMuted,
-    borderRadius: 150,
-    opacity: 0.15,
-  },
-  star: {
-    position: 'absolute',
-    backgroundColor: CosmicTheme.star,
-    borderRadius: 999,
-  },
-});

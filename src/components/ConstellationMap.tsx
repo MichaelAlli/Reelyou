@@ -1,10 +1,66 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/GlassCard';
-import { CosmicTheme, Fonts } from '@/constants/theme';
+import { Fonts } from '@/constants/theme';
 import { currentUser, legacyConstellationNodes } from '@/data/mockData';
+import { useTheme, useThemedStyles } from '@/theme/useTheme';
 
 export function ConstellationMap() {
+  const { tokens } = useTheme();
+  const styles = useThemedStyles((themeTokens) =>
+    StyleSheet.create({
+      container: {
+        padding: 0,
+        overflow: 'hidden',
+      },
+      map: {
+        height: 280,
+        position: 'relative',
+      },
+      line: {
+        position: 'absolute',
+        height: 1,
+        backgroundColor: themeTokens.goldMuted,
+        transformOrigin: 'left center',
+      },
+      node: {
+        position: 'absolute',
+        alignItems: 'center',
+      },
+      star: {
+        width: 16,
+        height: 16,
+        borderRadius: 999,
+        shadowColor: themeTokens.gold,
+        shadowOpacity: 0.6,
+        shadowRadius: 8,
+      },
+      centerStar: {
+        width: 28,
+        height: 28,
+        backgroundColor: themeTokens.gold,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: themeTokens.goldLight,
+      },
+      centerInitials: {
+        fontFamily: Fonts.sans,
+        fontSize: 10,
+        fontWeight: '800',
+        color: themeTokens.appBackground,
+      },
+      nodeName: {
+        fontFamily: Fonts.sans,
+        fontSize: 9,
+        color: themeTokens.mutedText,
+        marginTop: 2,
+        maxWidth: 50,
+        textAlign: 'center',
+      },
+    }),
+  );
+
   return (
     <GlassCard glow="purple" style={styles.container}>
       <View style={styles.map}>
@@ -41,7 +97,7 @@ export function ConstellationMap() {
               style={[
                 styles.star,
                 node.isCenter && styles.centerStar,
-                !node.isCenter && { backgroundColor: CosmicTheme.purple },
+                !node.isCenter && { backgroundColor: tokens.purple },
               ]}>
               {node.isCenter && (
                 <Text style={styles.centerInitials}>{currentUser.avatarInitials}</Text>
@@ -58,55 +114,3 @@ export function ConstellationMap() {
     </GlassCard>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 0,
-    overflow: 'hidden',
-  },
-  map: {
-    height: 280,
-    position: 'relative',
-  },
-  line: {
-    position: 'absolute',
-    height: 1,
-    backgroundColor: CosmicTheme.goldMuted,
-    transformOrigin: 'left center',
-  },
-  node: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  star: {
-    width: 16,
-    height: 16,
-    borderRadius: 999,
-    shadowColor: CosmicTheme.gold,
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-  },
-  centerStar: {
-    width: 28,
-    height: 28,
-    backgroundColor: CosmicTheme.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: CosmicTheme.goldLight,
-  },
-  centerInitials: {
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '800',
-    color: CosmicTheme.background,
-  },
-  nodeName: {
-    fontFamily: Fonts.sans,
-    fontSize: 9,
-    color: CosmicTheme.textMuted,
-    marginTop: 2,
-    maxWidth: 50,
-    textAlign: 'center',
-  },
-});

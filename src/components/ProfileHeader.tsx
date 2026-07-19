@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { CosmicTheme, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/theme/useTheme';
 import type { User } from '@/types';
 
 interface ProfileHeaderProps {
@@ -9,6 +10,71 @@ interface ProfileHeaderProps {
 }
 
 export function ProfileHeader({ user, compact }: ProfileHeaderProps) {
+  const styles = useThemedStyles((tokens) =>
+    StyleSheet.create({
+      container: {
+        alignItems: 'center',
+        paddingVertical: Spacing.lg,
+      },
+      compact: {
+        paddingVertical: Spacing.md,
+      },
+      avatar: {
+        width: 96,
+        height: 96,
+        borderRadius: Radius.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: Spacing.md,
+        borderWidth: 2,
+        borderColor: tokens.gold,
+      },
+      avatarGlow: {
+        position: 'absolute',
+        width: 110,
+        height: 110,
+        borderRadius: Radius.full,
+        borderWidth: 1,
+        borderColor: tokens.goldMuted,
+      },
+      initials: {
+        fontFamily: Fonts.sans,
+        fontSize: 32,
+        fontWeight: '700',
+        color: tokens.appBackground,
+      },
+      name: {
+        fontFamily: Fonts.sans,
+        fontSize: 24,
+        fontWeight: '700',
+        color: tokens.primaryText,
+        textAlign: 'center',
+      },
+      subtitle: {
+        fontFamily: Fonts.sans,
+        fontSize: 14,
+        color: tokens.gold,
+        marginTop: Spacing.xs,
+        textAlign: 'center',
+      },
+      bio: {
+        fontFamily: Fonts.sans,
+        fontSize: 15,
+        color: tokens.secondaryText,
+        textAlign: 'center',
+        marginTop: Spacing.md,
+        lineHeight: 22,
+        paddingHorizontal: Spacing.lg,
+      },
+      location: {
+        fontFamily: Fonts.sans,
+        fontSize: 13,
+        color: tokens.mutedText,
+        marginTop: Spacing.sm,
+      },
+    }),
+  );
+
   return (
     <View style={[styles.container, compact && styles.compact]}>
       <View style={[styles.avatar, { backgroundColor: user.avatarColor }]}>
@@ -26,66 +92,3 @@ export function ProfileHeader({ user, compact }: ProfileHeaderProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    paddingVertical: Spacing.lg,
-  },
-  compact: {
-    paddingVertical: Spacing.md,
-  },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
-    borderWidth: 2,
-    borderColor: CosmicTheme.gold,
-  },
-  avatarGlow: {
-    position: 'absolute',
-    width: 110,
-    height: 110,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: CosmicTheme.goldMuted,
-  },
-  initials: {
-    fontFamily: Fonts.sans,
-    fontSize: 32,
-    fontWeight: '700',
-    color: CosmicTheme.background,
-  },
-  name: {
-    fontFamily: Fonts.sans,
-    fontSize: 24,
-    fontWeight: '700',
-    color: CosmicTheme.textPrimary,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    color: CosmicTheme.gold,
-    marginTop: Spacing.xs,
-    textAlign: 'center',
-  },
-  bio: {
-    fontFamily: Fonts.sans,
-    fontSize: 15,
-    color: CosmicTheme.textSecondary,
-    textAlign: 'center',
-    marginTop: Spacing.md,
-    lineHeight: 22,
-    paddingHorizontal: Spacing.lg,
-  },
-  location: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    color: CosmicTheme.textMuted,
-    marginTop: Spacing.sm,
-  },
-});

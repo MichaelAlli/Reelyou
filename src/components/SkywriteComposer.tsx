@@ -1,9 +1,10 @@
-import { GlassCard } from '@/components/GlassCard';
-import { GlowButton } from '@/components/GlowButton';
-import { CosmicTheme, Fonts, Radius, Spacing } from '@/constants/theme';
-import { moods, privacyOptions, skywriteTags } from '@/data/mockData';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+
+import { GlowButton } from '@/components/GlowButton';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { moods, privacyOptions, skywriteTags } from '@/data/mockData';
+import { useTheme, useThemedStyles } from '@/theme/useTheme';
 import type { Mood, Privacy, SkywriteTag } from '@/types';
 
 interface SkywriteComposerProps {
@@ -11,10 +12,126 @@ interface SkywriteComposerProps {
 }
 
 export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
+  const { tokens } = useTheme();
   const [text, setText] = useState('');
   const [mood, setMood] = useState<Mood>('reflective');
   const [selectedTags, setSelectedTags] = useState<SkywriteTag[]>([]);
   const [privacy, setPrivacy] = useState<Privacy>('orbit');
+
+  const styles = useThemedStyles((themeTokens) =>
+    StyleSheet.create({
+      container: {
+        gap: Spacing.sm,
+      },
+      label: {
+        fontFamily: Fonts.sans,
+        fontSize: 20,
+        fontWeight: '700',
+        color: themeTokens.primaryText,
+        marginBottom: Spacing.sm,
+      },
+      input: {
+        backgroundColor: themeTokens.inputBackground,
+        borderRadius: Radius.lg,
+        borderWidth: 1,
+        borderColor: themeTokens.border,
+        padding: Spacing.md,
+        minHeight: 120,
+        color: themeTokens.inputText,
+        fontFamily: Fonts.sans,
+        fontSize: 16,
+        textAlignVertical: 'top',
+      },
+      sectionLabel: {
+        fontFamily: Fonts.sans,
+        fontSize: 14,
+        fontWeight: '600',
+        color: themeTokens.gold,
+        marginTop: Spacing.sm,
+      },
+      row: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+      },
+      wrap: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+      },
+      moodChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: Spacing.sm,
+        paddingVertical: Spacing.xs,
+        borderRadius: Radius.full,
+        backgroundColor: themeTokens.elevatedSurface,
+        borderWidth: 1,
+        borderColor: 'transparent',
+      },
+      moodChipActive: {
+        borderColor: themeTokens.gold,
+        backgroundColor: themeTokens.goldMuted,
+      },
+      tagChip: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.xs,
+        borderRadius: Radius.full,
+        backgroundColor: themeTokens.elevatedSurface,
+        borderWidth: 1,
+        borderColor: 'transparent',
+      },
+      tagChipActive: {
+        borderColor: themeTokens.purple,
+        backgroundColor: themeTokens.purpleSoft,
+      },
+      chipText: {
+        fontFamily: Fonts.sans,
+        fontSize: 13,
+        color: themeTokens.secondaryText,
+      },
+      chipTextActive: {
+        color: themeTokens.primaryText,
+        fontWeight: '600',
+      },
+      moodEmoji: {
+        fontSize: 14,
+      },
+      privacyRow: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+      },
+      privacyChip: {
+        flex: 1,
+        padding: Spacing.sm,
+        borderRadius: Radius.md,
+        backgroundColor: themeTokens.elevatedSurface,
+        borderWidth: 1,
+        borderColor: 'transparent',
+        alignItems: 'center',
+      },
+      privacyChipActive: {
+        borderColor: themeTokens.gold,
+        backgroundColor: themeTokens.goldMuted,
+      },
+      privacyLabel: {
+        fontFamily: Fonts.sans,
+        fontSize: 13,
+        fontWeight: '600',
+        color: themeTokens.secondaryText,
+      },
+      privacyDesc: {
+        fontFamily: Fonts.sans,
+        fontSize: 10,
+        color: themeTokens.mutedText,
+        marginTop: 2,
+      },
+      submit: {
+        marginTop: Spacing.lg,
+      },
+    }),
+  );
 
   const toggleTag = (tag: SkywriteTag) => {
     setSelectedTags((prev) =>
@@ -28,7 +145,7 @@ export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
       <TextInput
         style={styles.input}
         placeholder="Share your reflection..."
-        placeholderTextColor={CosmicTheme.textMuted}
+        placeholderTextColor={tokens.placeholderText}
         multiline
         value={text}
         onChangeText={setText}
@@ -80,116 +197,3 @@ export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: Spacing.sm,
-  },
-  label: {
-    fontFamily: Fonts.sans,
-    fontSize: 20,
-    fontWeight: '700',
-    color: CosmicTheme.textPrimary,
-    marginBottom: Spacing.sm,
-  },
-  input: {
-    backgroundColor: CosmicTheme.backgroundElevated,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: CosmicTheme.cardBorder,
-    padding: Spacing.md,
-    minHeight: 120,
-    color: CosmicTheme.textPrimary,
-    fontFamily: Fonts.sans,
-    fontSize: 16,
-    textAlignVertical: 'top',
-  },
-  sectionLabel: {
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    fontWeight: '600',
-    color: CosmicTheme.gold,
-    marginTop: Spacing.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  wrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  moodChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.full,
-    backgroundColor: CosmicTheme.backgroundElevated,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  moodChipActive: {
-    borderColor: CosmicTheme.gold,
-    backgroundColor: CosmicTheme.goldMuted,
-  },
-  tagChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.full,
-    backgroundColor: CosmicTheme.backgroundElevated,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  tagChipActive: {
-    borderColor: CosmicTheme.purple,
-    backgroundColor: CosmicTheme.purpleSoft,
-  },
-  chipText: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    color: CosmicTheme.textSecondary,
-  },
-  chipTextActive: {
-    color: CosmicTheme.textPrimary,
-    fontWeight: '600',
-  },
-  moodEmoji: {
-    fontSize: 14,
-  },
-  privacyRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  privacyChip: {
-    flex: 1,
-    padding: Spacing.sm,
-    borderRadius: Radius.md,
-    backgroundColor: CosmicTheme.backgroundElevated,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    alignItems: 'center',
-  },
-  privacyChipActive: {
-    borderColor: CosmicTheme.gold,
-    backgroundColor: CosmicTheme.goldMuted,
-  },
-  privacyLabel: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '600',
-    color: CosmicTheme.textSecondary,
-  },
-  privacyDesc: {
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    color: CosmicTheme.textMuted,
-    marginTop: 2,
-  },
-  submit: {
-    marginTop: Spacing.lg,
-  },
-});

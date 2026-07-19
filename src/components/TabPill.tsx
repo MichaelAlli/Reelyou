@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
-import { CosmicTheme, Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/theme/useTheme';
 
 interface TabPillProps {
   tabs: string[];
@@ -9,6 +10,37 @@ interface TabPillProps {
 }
 
 export function TabPill({ tabs, activeTab, onTabChange }: TabPillProps) {
+  const styles = useThemedStyles((tokens) =>
+    StyleSheet.create({
+      scroll: {
+        flexGrow: 0,
+        marginBottom: Spacing.md,
+      },
+      pill: {
+        paddingHorizontal: Spacing.md,
+        paddingVertical: Spacing.sm,
+        borderRadius: Radius.full,
+        marginRight: Spacing.sm,
+        backgroundColor: tokens.elevatedSurface,
+        borderWidth: 1,
+        borderColor: 'transparent',
+      },
+      activePill: {
+        backgroundColor: tokens.goldMuted,
+        borderColor: tokens.gold,
+      },
+      label: {
+        fontFamily: Fonts.sans,
+        fontSize: 13,
+        fontWeight: '600',
+        color: tokens.mutedText,
+      },
+      activeLabel: {
+        color: tokens.goldLight,
+      },
+    }),
+  );
+
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll}>
       {tabs.map((tab) => {
@@ -25,32 +57,3 @@ export function TabPill({ tabs, activeTab, onTabChange }: TabPillProps) {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: {
-    flexGrow: 0,
-    marginBottom: Spacing.md,
-  },
-  pill: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.full,
-    marginRight: Spacing.sm,
-    backgroundColor: CosmicTheme.backgroundElevated,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  activePill: {
-    backgroundColor: CosmicTheme.goldMuted,
-    borderColor: CosmicTheme.gold,
-  },
-  label: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '600',
-    color: CosmicTheme.textMuted,
-  },
-  activeLabel: {
-    color: CosmicTheme.goldLight,
-  },
-});

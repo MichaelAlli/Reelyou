@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/GlassCard';
-import { CosmicTheme, Fonts, Spacing } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/theme/useTheme';
 import type { ImpactMoment } from '@/types';
 
 interface ImpactMomentCardProps {
@@ -9,6 +10,44 @@ interface ImpactMomentCardProps {
 }
 
 export function ImpactMomentCard({ moment }: ImpactMomentCardProps) {
+  const styles = useThemedStyles((tokens) =>
+    StyleSheet.create({
+      card: {
+        marginBottom: Spacing.sm,
+      },
+      header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: Spacing.xs,
+      },
+      metric: {
+        fontFamily: Fonts.sans,
+        fontSize: 11,
+        fontWeight: '700',
+        color: tokens.purple,
+        textTransform: 'uppercase',
+      },
+      time: {
+        fontFamily: Fonts.sans,
+        fontSize: 11,
+        color: tokens.mutedText,
+      },
+      title: {
+        fontFamily: Fonts.sans,
+        fontSize: 16,
+        fontWeight: '700',
+        color: tokens.primaryText,
+        marginBottom: Spacing.xs,
+      },
+      description: {
+        fontFamily: Fonts.sans,
+        fontSize: 14,
+        color: tokens.secondaryText,
+        lineHeight: 20,
+      },
+    }),
+  );
+
   return (
     <GlassCard glow="purple" style={styles.card}>
       <View style={styles.header}>
@@ -20,39 +59,3 @@ export function ImpactMomentCard({ moment }: ImpactMomentCardProps) {
     </GlassCard>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    marginBottom: Spacing.sm,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.xs,
-  },
-  metric: {
-    fontFamily: Fonts.sans,
-    fontSize: 11,
-    fontWeight: '700',
-    color: CosmicTheme.purple,
-    textTransform: 'uppercase',
-  },
-  time: {
-    fontFamily: Fonts.sans,
-    fontSize: 11,
-    color: CosmicTheme.textMuted,
-  },
-  title: {
-    fontFamily: Fonts.sans,
-    fontSize: 16,
-    fontWeight: '700',
-    color: CosmicTheme.textPrimary,
-    marginBottom: Spacing.xs,
-  },
-  description: {
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    color: CosmicTheme.textSecondary,
-    lineHeight: 20,
-  },
-});

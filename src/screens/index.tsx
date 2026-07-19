@@ -12,7 +12,8 @@ import { SectionHeader } from '@/components/SectionHeader';
 import { SkyPreviewCard } from '@/components/SkyPreviewCard';
 import { SkywriteComposer } from '@/components/SkywriteComposer';
 import { TabPill } from '@/components/TabPill';
-import { CosmicTheme, Fonts, Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
+import { useThemedStyles } from '@/theme/useTheme';
 import {
   currentUser,
   dailySignal,
@@ -32,6 +33,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export function OnboardingScreen() {
+  const styles = useScreenStyles();
   const router = useRouter();
 
   return (
@@ -55,6 +57,7 @@ export function OnboardingScreen() {
 }
 
 export function HomeScreen() {
+  const styles = useScreenStyles();
   const router = useRouter();
 
   return (
@@ -107,6 +110,7 @@ export function HomeScreen() {
 }
 
 export function SkywriteScreen() {
+  const styles = useScreenStyles();
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
 
@@ -135,6 +139,7 @@ export function SkywriteScreen() {
 }
 
 export function StarpathScreen() {
+  const styles = useScreenStyles();
   const router = useRouter();
 
   return (
@@ -169,6 +174,7 @@ export function StarpathScreen() {
 }
 
 export function ImpactScreen() {
+  const styles = useScreenStyles();
   return (
     <ScreenLayout showTabBar>
       <Text style={styles.screenTitle}>Impact</Text>
@@ -200,6 +206,7 @@ export function ImpactScreen() {
 }
 
 export function ProfileScreen() {
+  const styles = useScreenStyles();
   const router = useRouter();
   const [tab, setTab] = useState('Lives Encouraged');
 
@@ -239,6 +246,7 @@ export function ProfileScreen() {
 }
 
 export function LegacyScreen() {
+  const styles = useScreenStyles();
   const router = useRouter();
   const [tab, setTab] = useState('Constellation');
 
@@ -301,6 +309,7 @@ export function LegacyScreen() {
 }
 
 export function OrbitScreen() {
+  const styles = useScreenStyles();
   const router = useRouter();
 
   return (
@@ -338,6 +347,7 @@ export function OrbitScreen() {
 }
 
 export function PublicSkyScreen({ userId }: { userId?: string }) {
+  const styles = useScreenStyles();
   const router = useRouter();
   const user = orbitUsers.find((u) => u.id === userId) ?? orbitUsers[0];
 
@@ -380,6 +390,7 @@ export function PublicSkyScreen({ userId }: { userId?: string }) {
 }
 
 export function HumanPotentialMapScreen() {
+  const styles = useScreenStyles();
   const router = useRouter();
   const [filter, setFilter] = useState('Creativity');
 
@@ -430,18 +441,20 @@ export function HumanPotentialMapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function useScreenStyles() {
+  return useThemedStyles((tokens) =>
+    StyleSheet.create({
   screenTitle: {
     fontFamily: Fonts.sans,
     fontSize: 28,
     fontWeight: '800',
-    color: CosmicTheme.textPrimary,
+    color: tokens.primaryText,
     marginTop: Spacing.sm,
   },
   screenSubtitle: {
     fontFamily: Fonts.sans,
     fontSize: 15,
-    color: CosmicTheme.textSecondary,
+    color: tokens.secondaryText,
     marginBottom: Spacing.md,
     lineHeight: 22,
   },
@@ -452,20 +465,20 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 12,
     fontWeight: '700',
-    color: CosmicTheme.gold,
+    color: tokens.gold,
     marginBottom: Spacing.xs,
   },
   slideText: {
     fontFamily: Fonts.sans,
     fontSize: 17,
     fontWeight: '600',
-    color: CosmicTheme.textPrimary,
+    color: tokens.primaryText,
     lineHeight: 24,
   },
   slideSub: {
     fontFamily: Fonts.sans,
     fontSize: 14,
-    color: CosmicTheme.textSecondary,
+    color: tokens.secondaryText,
     lineHeight: 20,
     marginTop: Spacing.xs,
   },
@@ -476,7 +489,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 26,
     fontWeight: '700',
-    color: CosmicTheme.textPrimary,
+    color: tokens.primaryText,
     marginTop: Spacing.sm,
     marginBottom: Spacing.md,
   },
@@ -484,7 +497,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 13,
     fontWeight: '700',
-    color: CosmicTheme.gold,
+    color: tokens.gold,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: Spacing.sm,
@@ -493,14 +506,14 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 12,
     fontWeight: '700',
-    color: CosmicTheme.purple,
+    color: tokens.purple,
     textTransform: 'uppercase',
     marginBottom: Spacing.xs,
   },
   signalText: {
     fontFamily: Fonts.sans,
     fontSize: 16,
-    color: CosmicTheme.textPrimary,
+    color: tokens.primaryText,
     lineHeight: 24,
   },
   promptCard: {
@@ -511,24 +524,24 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 17,
     fontWeight: '600',
-    color: CosmicTheme.textPrimary,
+    color: tokens.primaryText,
   },
   promptHint: {
     fontFamily: Fonts.sans,
     fontSize: 13,
-    color: CosmicTheme.gold,
+    color: tokens.gold,
     marginTop: Spacing.xs,
   },
   previewTitle: {
     fontFamily: Fonts.sans,
     fontSize: 16,
     fontWeight: '700',
-    color: CosmicTheme.textPrimary,
+    color: tokens.primaryText,
   },
   previewSub: {
     fontFamily: Fonts.sans,
     fontSize: 14,
-    color: CosmicTheme.textSecondary,
+    color: tokens.secondaryText,
     lineHeight: 20,
     marginTop: Spacing.xs,
   },
@@ -550,7 +563,7 @@ const styles = StyleSheet.create({
   backText: {
     fontFamily: Fonts.sans,
     fontSize: 15,
-    color: CosmicTheme.gold,
+    color: tokens.gold,
     fontWeight: '600',
   },
   success: {
@@ -562,13 +575,13 @@ const styles = StyleSheet.create({
   },
   successStar: {
     fontSize: 64,
-    color: CosmicTheme.gold,
+    color: tokens.gold,
   },
   successTitle: {
     fontFamily: Fonts.sans,
     fontSize: 22,
     fontWeight: '700',
-    color: CosmicTheme.textPrimary,
+    color: tokens.primaryText,
     textAlign: 'center',
     lineHeight: 30,
   },
@@ -576,21 +589,21 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 17,
     fontWeight: '600',
-    color: CosmicTheme.textPrimary,
+    color: tokens.primaryText,
     lineHeight: 24,
   },
   doorType: {
     fontFamily: Fonts.sans,
     fontSize: 11,
     fontWeight: '700',
-    color: CosmicTheme.purple,
+    color: tokens.purple,
     textTransform: 'uppercase',
     marginBottom: Spacing.xs,
   },
   insightText: {
     fontFamily: Fonts.sans,
     fontSize: 15,
-    color: CosmicTheme.textSecondary,
+    color: tokens.secondaryText,
     lineHeight: 22,
     fontStyle: 'italic',
   },
@@ -607,20 +620,20 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 14,
     fontWeight: '700',
-    color: CosmicTheme.gold,
+    color: tokens.gold,
     marginBottom: Spacing.sm,
   },
   defText: {
     fontFamily: Fonts.sans,
     fontSize: 13,
-    color: CosmicTheme.textSecondary,
+    color: tokens.secondaryText,
     lineHeight: 20,
   },
   momentMetric: {
     fontFamily: Fonts.sans,
     fontSize: 11,
     fontWeight: '700',
-    color: CosmicTheme.purple,
+    color: tokens.purple,
     textTransform: 'uppercase',
     marginBottom: Spacing.xs,
   },
@@ -628,7 +641,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 20,
     fontWeight: '700',
-    color: CosmicTheme.textPrimary,
+    color: tokens.primaryText,
     lineHeight: 28,
     marginTop: Spacing.xs,
   },
@@ -636,13 +649,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 14,
     fontWeight: '700',
-    color: CosmicTheme.gold,
+    color: tokens.gold,
     marginBottom: Spacing.xs,
   },
   storyQuote: {
     fontFamily: Fonts.sans,
     fontSize: 15,
-    color: CosmicTheme.textSecondary,
+    color: tokens.secondaryText,
     lineHeight: 22,
     fontStyle: 'italic',
   },
@@ -650,7 +663,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 12,
     fontWeight: '700',
-    color: CosmicTheme.purple,
+    color: tokens.purple,
     marginBottom: Spacing.xs,
   },
   movieCard: {
@@ -660,7 +673,7 @@ const styles = StyleSheet.create({
   movieSub: {
     fontFamily: Fonts.sans,
     fontSize: 13,
-    color: CosmicTheme.textMuted,
+    color: tokens.mutedText,
     marginTop: Spacing.sm,
   },
   orbitCard: {
@@ -677,7 +690,7 @@ const styles = StyleSheet.create({
   themes: {
     fontFamily: Fonts.sans,
     fontSize: 13,
-    color: CosmicTheme.textMuted,
+    color: tokens.mutedText,
     marginTop: 2,
   },
   viewSkyBtn: {
@@ -701,6 +714,8 @@ const styles = StyleSheet.create({
   searchPlaceholder: {
     fontFamily: Fonts.sans,
     fontSize: 16,
-    color: CosmicTheme.textMuted,
+    color: tokens.mutedText,
   },
-});
+    }),
+  );
+}
