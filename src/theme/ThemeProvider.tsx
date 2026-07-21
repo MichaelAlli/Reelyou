@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { Appearance, AppState, type ColorSchemeName } from 'react-native';
 
-import { loadThemeMode, saveThemeMode } from './persistence';
+import { loadThemeMode, saveThemeMode, DEFAULT_THEME_MODE } from './persistence';
 import { resolveAppearance } from './resolveAppearance';
 import { getThemeTokens } from './tokens';
 import { defaultTimeSource, getMsUntilNextTimeBoundary } from './timeOfDay';
@@ -23,7 +23,7 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(DEFAULT_THEME_MODE);
   const [systemScheme, setSystemScheme] = useState<ColorSchemeName | null>(() =>
     Appearance.getColorScheme() ?? null,
   );

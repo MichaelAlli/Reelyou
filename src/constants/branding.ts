@@ -13,6 +13,8 @@ export const BrandingAssets = {
   welcomeLogoWhiteTagline: require('../assets/branding/reelyou-welcome-logo-white-tagline.png'),
   /** Welcome logo cropped to alpha bounds — removes excess transparent canvas padding. */
   welcomeLogoWhiteTaglineCropped: require('../assets/branding/reelyou-welcome-logo-white-tagline-cropped.png'),
+  /** Approved transparent daytime Sign Up logo — gold lockup with tagline, RGBA PNG. */
+  logoDayWithTagline: require('../assets/branding/reelyou-logo-day-with-tagline.png'),
   icon: require('../assets/branding/reelyou-icon.png'),
   welcomeBackground: require('../assets/backgrounds/welcome-background.jpg'),
   welcomeMaster: require('../assets/references/welcome-screen-master.jpg'),
@@ -37,6 +39,12 @@ export const BrandIconSpec = {
   width: 1024,
   height: 1024,
   maxWidth: 120,
+} as const;
+
+/** Native dimensions of logoDayWithTagline — verified RGBA PNG. */
+export const BrandDayLogoSpec = {
+  width: 1254,
+  height: 1254,
 } as const;
 
 export function resolveBrandTheme(

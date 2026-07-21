@@ -6,10 +6,9 @@ import { useTheme } from '@/theme/useTheme';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 
 /**
- * TEMP DEV-ONLY control for validating all four theme modes.
- * Remove this component once a real Settings screen ships.
+ * DEV-ONLY theme QA controls — use only on `/dev-theme-lab` in development builds.
  */
-export function ThemeModeDevControl() {
+export function ThemeModeDevControl({ embedded = false }: { embedded?: boolean }) {
   const { themeMode, resolvedAppearance, setThemeMode, setTimeOverride, tokens } = useTheme();
 
   if (!__DEV__) {
@@ -42,7 +41,11 @@ export function ThemeModeDevControl() {
   return (
     <View
       pointerEvents="box-none"
-      style={[styles.container, { borderColor: tokens.border, backgroundColor: tokens.elevatedSurface }]}>
+      style={[
+        styles.container,
+        embedded ? styles.embedded : null,
+        { borderColor: tokens.border, backgroundColor: tokens.elevatedSurface },
+      ]}>
       <Text style={[styles.title, { color: tokens.primaryText }]}>DEV: Theme Modes</Text>
       <Text style={[styles.meta, { color: tokens.secondaryText }]}>
         Mode: {THEME_MODE_LABELS[themeMode]} · Resolved: {resolvedAppearance}
@@ -101,6 +104,13 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     padding: Spacing.sm,
     gap: Spacing.xs,
+  },
+  embedded: {
+    position: 'relative',
+    top: undefined,
+    left: undefined,
+    right: undefined,
+    zIndex: 0,
   },
   title: {
     fontFamily: Fonts.sans,

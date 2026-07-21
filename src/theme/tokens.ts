@@ -3,7 +3,9 @@ import type { ResolvedAppearance, ThemeTokens } from './types';
 /** Approved REELYOU dark application theme. */
 export const darkThemeTokens: ThemeTokens = {
   appBackground: '#050818',
+  surface: '#111836',
   elevatedSurface: '#111836',
+  cardBackground: 'rgba(255, 255, 255, 0.06)',
   cardSurface: 'rgba(255, 255, 255, 0.06)',
   primaryText: '#F8F9FC',
   secondaryText: 'rgba(248, 249, 252, 0.68)',
@@ -16,6 +18,8 @@ export const darkThemeTokens: ThemeTokens = {
   inputText: '#F8F9FC',
   placeholderText: 'rgba(248, 249, 252, 0.42)',
   navigationBackground: 'rgba(5, 8, 24, 0.95)',
+  navigationActive: '#D4AF37',
+  navigationInactive: 'rgba(248, 249, 252, 0.42)',
   navigationIconActive: '#D4AF37',
   navigationIconInactive: 'rgba(248, 249, 252, 0.42)',
   statusBarStyle: 'light',
@@ -32,7 +36,9 @@ export const darkThemeTokens: ThemeTokens = {
 /** Approved REELYOU light application theme — navy, gold, and premium surfaces. */
 export const lightThemeTokens: ThemeTokens = {
   appBackground: '#F4F6FB',
+  surface: '#FFFFFF',
   elevatedSurface: '#FFFFFF',
+  cardBackground: 'rgba(16, 24, 72, 0.05)',
   cardSurface: 'rgba(16, 24, 72, 0.05)',
   primaryText: '#0A0F2E',
   secondaryText: 'rgba(10, 15, 46, 0.72)',
@@ -45,6 +51,8 @@ export const lightThemeTokens: ThemeTokens = {
   inputText: '#0A0F2E',
   placeholderText: 'rgba(10, 15, 46, 0.4)',
   navigationBackground: 'rgba(244, 246, 251, 0.96)',
+  navigationActive: '#B8941F',
+  navigationInactive: 'rgba(10, 15, 46, 0.4)',
   navigationIconActive: '#B8941F',
   navigationIconInactive: 'rgba(10, 15, 46, 0.4)',
   statusBarStyle: 'dark',

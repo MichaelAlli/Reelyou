@@ -5,7 +5,7 @@ import { THEME_MODES } from './types';
 
 const STORAGE_KEY = '@reellyou/theme-mode';
 
-export const DEFAULT_THEME_MODE: ThemeMode = 'system';
+export const DEFAULT_THEME_MODE: ThemeMode = 'timeOfDay';
 
 function isThemeMode(value: string | null): value is ThemeMode {
   return value != null && (THEME_MODES as string[]).includes(value);

@@ -9,7 +9,9 @@ export type ResolvedAppearance = 'light' | 'dark';
 /** Semantic theme tokens shared across iOS, Android, and web. */
 export interface ThemeTokens {
   appBackground: string;
+  surface: string;
   elevatedSurface: string;
+  cardBackground: string;
   cardSurface: string;
   primaryText: string;
   secondaryText: string;
@@ -22,6 +24,8 @@ export interface ThemeTokens {
   inputText: string;
   placeholderText: string;
   navigationBackground: string;
+  navigationActive: string;
+  navigationInactive: string;
   navigationIconActive: string;
   navigationIconInactive: string;
   statusBarStyle: StatusBarStyle;

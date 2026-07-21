@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { Platform, StyleSheet, useWindowDimensions, View, ViewStyle, type ImageStyle } from 'react-native';
 
 import { BrandLogo } from '@/components/branding/BrandLogo';
@@ -37,6 +38,7 @@ function resolveWelcomeBackgroundImageStyle(): ImageStyle {
 }
 
 export function WelcomeScreen() {
+  const router = useRouter();
   const { width, height } = useWindowDimensions();
   const isCompact = height < 900;
   const contentMaxWidth = Math.min(width - spacing.Spacing40, spacing.Spacing64 * 6);
@@ -92,7 +94,10 @@ export function WelcomeScreen() {
                 styles.actionsBlock,
                 isCompact ? styles.actionsBlockCompact : styles.actionsBlockRegular,
               ]}>
-              <PrimaryButton label={WelcomeCopy.primaryCta} />
+              <PrimaryButton
+                label={WelcomeCopy.primaryCta}
+                onPress={() => router.push('/signup' as never)}
+              />
               <SecondaryButton label={WelcomeCopy.signInCta} />
             </View>
           </View>
