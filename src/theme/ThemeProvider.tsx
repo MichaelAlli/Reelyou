@@ -29,6 +29,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   );
   const [isReady, setIsReady] = useState(false);
   const [timeOverride, setTimeOverride] = useState<Date | null>(null);
+  const [devAppearanceOverride, setDevAppearanceOverride] = useState<ResolvedAppearance | null>(null);
   const [nowTick, setNowTick] = useState(0);
 
   const timeSourceRef = useRef(defaultTimeSource);
@@ -93,9 +94,12 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, []);
 
   const resolvedAppearance: ResolvedAppearance = useMemo(() => {
+    if (__DEV__ && devAppearanceOverride != null) {
+      return devAppearanceOverride;
+    }
     void nowTick;
     return resolveAppearance(themeMode, systemScheme, getNow());
-  }, [themeMode, systemScheme, getNow, nowTick]);
+  }, [themeMode, systemScheme, getNow, nowTick, devAppearanceOverride]);
 
   const tokens = useMemo(() => getThemeTokens(resolvedAppearance), [resolvedAppearance]);
 
@@ -107,8 +111,14 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       isReady,
       setThemeMode,
       setTimeOverride,
+      ...(__DEV__
+        ? {
+            setDevAppearanceOverride,
+            clearDevAppearanceOverride: () => setDevAppearanceOverride(null),
+          }
+        : {}),
     }),
-    [themeMode, resolvedAppearance, tokens, isReady, setThemeMode],
+    [themeMode, resolvedAppearance, tokens, isReady, setThemeMode, devAppearanceOverride],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

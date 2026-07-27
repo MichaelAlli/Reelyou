@@ -1,18 +1,25 @@
-import { useSegments } from 'expo-router';
+import { createContext, createElement, useContext, type ReactNode } from 'react';
 
 import { useTheme } from '@/theme';
 
+const AuthAppearanceOverrideContext = createContext<boolean | null>(null);
+
+interface AuthAppearanceProviderProps {
+  isLight: boolean;
+  children: ReactNode;
+}
+
+/** Forces auth component styling without changing global theme preferences. */
+export function AuthAppearanceProvider({ isLight, children }: AuthAppearanceProviderProps) {
+  return createElement(AuthAppearanceOverrideContext.Provider, { value: isLight }, children);
+}
+
 /**
- * Resolves auth UI appearance. The /signup route always uses the approved daytime design.
+ * Resolves auth UI appearance from the active theme (light = daytime, dark = nighttime).
+ * Route-level overrides (e.g. Daytime Sign In fallback) take precedence.
  */
 export function useAuthAppearance(): boolean {
+  const override = useContext(AuthAppearanceOverrideContext);
   const { isLight } = useTheme();
-  const segments = useSegments();
-  const onSignUpRoute = segments.some((segment) => segment === 'signup');
-
-  if (onSignUpRoute) {
-    return true;
-  }
-
-  return isLight;
+  return override ?? isLight;
 }

@@ -7,4 +7,7 @@ export { AuthSegmentedControl } from './AuthSegmentedControl';
 export type { AuthTab } from './AuthSegmentedControl';
 export { AuthSocialButton } from './AuthSocialButton';
 export { AuthTextField } from './AuthTextField';
+export { LogInDayBackground, logInDayWebViewportStyle } from './LogInDayBackground';
+export { LogInNightBackground, logInNightWebViewportStyle } from './LogInNightBackground';
 export { SignUpDayBrandHeader } from './SignUpDayBrandHeader';
+export { SignUpNightBrandHeader } from './SignUpNightBrandHeader';

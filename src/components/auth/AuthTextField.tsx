@@ -9,9 +9,10 @@ import Animated, {
 
 import { AuthIcon } from '@/components/auth/AuthIcon';
 import { SignUpDayLayout } from '@/constants/signUpDayLayout';
+import { SignUpNightLayout } from '@/constants/signUpNightLayout';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAuthAppearance } from '@/hooks/use-auth-appearance';
-import { useTheme, useThemedStyles } from '@/theme';
+import { useThemedStyles } from '@/theme';
 
 const FOCUS_DURATION = 200;
 
@@ -37,13 +38,13 @@ export function AuthTextField({
   onBlur,
   ...inputProps
 }: AuthTextFieldProps) {
-  const { tokens } = useTheme();
   const isLight = useAuthAppearance();
   const day = SignUpDayLayout;
+  const night = SignUpNightLayout;
   const [focused, setFocused] = useState(false);
   const focusProgress = useSharedValue(0);
 
-  const styles = useThemedStyles((themeTokens) =>
+  const styles = useThemedStyles(() =>
     StyleSheet.create({
       fieldWrap: {
         gap: 3,
@@ -52,16 +53,16 @@ export function AuthTextField({
         flexDirection: 'row',
         alignItems: 'center',
         overflow: 'hidden',
-        borderWidth: 1,
+        borderWidth: isLight ? 1 : night.fieldBorderWidth,
         borderColor: error
           ? '#C24141'
           : isLight
             ? day.navyBorder
-            : themeTokens.border,
-        borderRadius: isLight ? day.fieldRadius : Radius.lg,
-        backgroundColor: isLight ? day.fieldSurface : themeTokens.inputBackground,
-        paddingHorizontal: isLight ? day.fieldHorizontalPadding : 16,
-        minHeight: isLight ? day.fieldMinHeight : 50,
+            : night.fieldBorder,
+        borderRadius: isLight ? day.fieldRadius : night.fieldRadius,
+        backgroundColor: isLight ? day.fieldSurface : night.fieldSurface,
+        paddingHorizontal: isLight ? day.fieldHorizontalPadding : night.fieldHorizontalPadding,
+        minHeight: isLight ? day.fieldMinHeight : night.fieldMinHeight,
         gap: 8,
         ...(isLight
           ? Platform.select({
@@ -77,10 +78,22 @@ export function AuthTextField({
               } as object,
               default: {},
             })
-          : null),
+          : Platform.select({
+              ios: {
+                shadowColor: '#F5E6C8',
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.13,
+                shadowRadius: night.fieldGlowRadius,
+              },
+              android: { elevation: 1 },
+              web: {
+                boxShadow: `0 0 ${night.fieldGlowRadius}px rgba(245, 230, 200, 0.15), 0 0 1px rgba(212, 175, 55, 0.22)`,
+              } as object,
+              default: {},
+            })),
       },
       inputRowFocused: {
-        backgroundColor: isLight ? day.fieldFocusSurface : themeTokens.inputBackground,
+        backgroundColor: isLight ? day.fieldFocusSurface : night.fieldFocusSurface,
         ...(isLight
           ? Platform.select({
               ios: {
@@ -96,14 +109,27 @@ export function AuthTextField({
               } as object,
               default: {},
             })
-          : null),
+          : Platform.select({
+              ios: {
+                shadowColor: '#F5E6C8',
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.18,
+                shadowRadius: night.fieldFocusGlowRadius,
+              },
+              android: { elevation: 2 },
+              web: {
+                boxShadow: `0 0 ${night.fieldFocusGlowRadius}px rgba(245, 230, 200, 0.2), 0 0 1px rgba(221, 185, 69, 0.3)`,
+                transition: 'box-shadow 200ms ease, border-color 200ms ease, background-color 200ms ease',
+              } as object,
+              default: {},
+            })),
       },
       input: {
         flex: 1,
         fontFamily: Fonts.sans,
         fontSize: 15,
         fontWeight: '400',
-        color: isLight ? day.navyText : themeTokens.inputText,
+        color: isLight ? day.navyText : night.fieldInputText,
         paddingVertical: 0,
         minHeight: 20,
         textAlignVertical: 'center',
@@ -118,15 +144,15 @@ export function AuthTextField({
           : null),
       },
       iconSlot: {
-        width: day.fieldIconSlot,
-        height: day.fieldIconSlot,
+        width: isLight ? day.fieldIconSlot : night.fieldIconSlot,
+        height: isLight ? day.fieldIconSlot : night.fieldIconSlot,
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
       },
       toggle: {
-        width: day.fieldIconSlot,
-        height: day.fieldIconSlot,
+        width: isLight ? day.fieldIconSlot : night.fieldIconSlot,
+        height: isLight ? day.fieldIconSlot : night.fieldIconSlot,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'transparent',
@@ -158,11 +184,27 @@ export function AuthTextField({
         [day.navyBorder, day.goldAccent],
       ),
     };
-  }, [error, isLight]);
+  }, [error, isLight, day.navyBorder, day.goldAccent]);
+
+  const animatedBorderStyleNight = useAnimatedStyle(() => {
+    if (isLight || error) {
+      return {};
+    }
+
+    return {
+      borderColor: interpolateColor(
+        focusProgress.value,
+        [0, 1],
+        [night.fieldBorder, night.fieldFocusBorder],
+      ),
+    };
+  }, [error, isLight, night.fieldBorder, night.fieldFocusBorder]);
 
   const handleFocus: TextInputProps['onFocus'] = (event) => {
     setFocused(true);
     if (isLight) {
+      focusProgress.value = withTiming(1, { duration: FOCUS_DURATION });
+    } else {
       focusProgress.value = withTiming(1, { duration: FOCUS_DURATION });
     }
     onFocus?.(event);
@@ -183,17 +225,20 @@ export function AuthTextField({
     }
   }, [error, focusProgress, isLight]);
 
+  const nightIconColor = night.fieldIconColor;
+  const dayIconColor = day.goldAccent;
+
   const inputRow = (
     <>
       <View style={styles.iconSlot}>
-        <AuthIcon name={icon} />
+        <AuthIcon name={icon} color={isLight ? dayIconColor : nightIconColor} />
       </View>
       <TextInput
         {...inputProps}
         accessibilityLabel={accessibilityLabel ?? (typeof placeholder === 'string' ? placeholder : undefined)}
         placeholder={placeholder}
         style={[styles.input, style]}
-        placeholderTextColor={isLight ? day.placeholderColor : tokens.placeholderText}
+        placeholderTextColor={isLight ? day.placeholderColor : night.fieldPlaceholder}
         secureTextEntry={showSecureToggle ? !secureVisible : inputProps.secureTextEntry}
         onFocus={handleFocus}
         onBlur={handleBlur}
@@ -206,7 +251,7 @@ export function AuthTextField({
           android_ripple={{ color: 'rgba(221, 185, 69, 0.12)' }}
           onPress={onToggleSecure}
           style={({ pressed }) => [styles.toggle, pressed && { opacity: 0.72 }]}>
-          <AuthIcon name={secureVisible ? 'eye' : 'eyeSlash'} />
+          <AuthIcon name={secureVisible ? 'eye' : 'eyeSlash'} color={isLight ? dayIconColor : nightIconColor} />
         </Pressable>
       ) : null}
     </>
@@ -224,7 +269,14 @@ export function AuthTextField({
           {inputRow}
         </Animated.View>
       ) : (
-        <View style={styles.inputRow}>{inputRow}</View>
+        <Animated.View
+          style={[
+            styles.inputRow,
+            focused && !error && styles.inputRowFocused,
+            animatedBorderStyleNight,
+          ]}>
+          {inputRow}
+        </Animated.View>
       )}
       <View style={styles.errorSlot}>{error ? <Text style={styles.error}>{error}</Text> : null}</View>
     </View>

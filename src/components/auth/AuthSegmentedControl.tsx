@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 
 import { AuthCopy } from '@/constants/auth';
 import { SignUpDayLayout } from '@/constants/signUpDayLayout';
+import { SignUpNightLayout } from '@/constants/signUpNightLayout';
 import { Fonts, Radius } from '@/constants/theme';
 import { useAuthAppearance } from '@/hooks/use-auth-appearance';
 import { useTheme, useThemedStyles } from '@/theme';
@@ -153,6 +154,11 @@ function DaySegmentedControl({ selected, onLogInPress, onSignUpPress }: AuthSegm
 }
 
 function NightSegmentedControl({ selected, onLogInPress, onSignUpPress }: AuthSegmentedControlProps) {
+  const night = SignUpNightLayout;
+  const indicatorX = useSharedValue(0);
+  const indicatorWidth = useSharedValue(0);
+  const SEGMENT_DURATION = 300;
+
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       container: {
@@ -162,21 +168,22 @@ function NightSegmentedControl({ selected, onLogInPress, onSignUpPress }: AuthSe
         borderRadius: Radius.full,
         padding: 3,
         backgroundColor: 'rgba(255, 255, 255, 0.06)',
+        minHeight: 44,
+        position: 'relative',
       },
       segment: {
         flex: 1,
         borderRadius: Radius.full,
-        paddingVertical: 10,
+        paddingVertical: 9,
         alignItems: 'center',
         justifyContent: 'center',
-      },
-      segmentSelected: {
-        backgroundColor: tokens.primaryAction,
+        zIndex: 1,
       },
       label: {
         fontFamily: Fonts.sans,
         fontSize: 14,
         fontWeight: '600',
+        letterSpacing: 0.1,
       },
       labelSelected: {
         color: tokens.appBackground,
@@ -184,16 +191,53 @@ function NightSegmentedControl({ selected, onLogInPress, onSignUpPress }: AuthSe
       labelUnselected: {
         color: tokens.primaryText,
       },
+      indicator: {
+        position: 'absolute',
+        top: 3,
+        bottom: 3,
+        borderRadius: Radius.full,
+        overflow: 'hidden',
+      },
     }),
   );
 
+  const indicatorStyle = useAnimatedStyle(() => ({
+    left: indicatorX.value,
+    width: indicatorWidth.value,
+  }));
+
+  const handleLayout = (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    const segmentWidth = (width - 6) / 2;
+    indicatorWidth.value = segmentWidth;
+    indicatorX.value = withTiming(selected === 'signUp' ? segmentWidth + 3 : 3, {
+      duration: SEGMENT_DURATION,
+    });
+  };
+
+  useEffect(() => {
+    if (indicatorWidth.value > 0) {
+      indicatorX.value = withTiming(selected === 'signUp' ? indicatorWidth.value + 3 : 3, {
+        duration: SEGMENT_DURATION,
+      });
+    }
+  }, [selected, indicatorWidth, indicatorX]);
+
   return (
-    <View style={styles.container} accessibilityRole="tablist">
+    <View style={styles.container} onLayout={handleLayout} accessibilityRole="tablist">
+      <Animated.View pointerEvents="none" style={[styles.indicator, indicatorStyle]}>
+        <LinearGradient
+          colors={[night.goldHighlight, night.goldAccent, night.goldShadow]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
       <Pressable
         accessibilityRole="tab"
         accessibilityState={{ selected: selected === 'logIn' }}
         onPress={onLogInPress}
-        style={[styles.segment, selected === 'logIn' && styles.segmentSelected]}>
+        style={({ pressed }) => [styles.segment, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}>
         <Text style={[styles.label, selected === 'logIn' ? styles.labelSelected : styles.labelUnselected]}>
           {AuthCopy.logInTab}
         </Text>
@@ -202,7 +246,7 @@ function NightSegmentedControl({ selected, onLogInPress, onSignUpPress }: AuthSe
         accessibilityRole="tab"
         accessibilityState={{ selected: selected === 'signUp' }}
         onPress={onSignUpPress}
-        style={[styles.segment, selected === 'signUp' && styles.segmentSelected]}>
+        style={({ pressed }) => [styles.segment, pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}>
         <Text style={[styles.label, selected === 'signUp' ? styles.labelSelected : styles.labelUnselected]}>
           {AuthCopy.signUpTab}
         </Text>

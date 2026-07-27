@@ -1,9 +1,9 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AuthSocialMark } from '@/components/auth/AuthSocialMark';
 import { AuthSocialLabels, type AuthSocialProvider } from '@/constants/auth';
 import { SignUpDayLayout } from '@/constants/signUpDayLayout';
-import { Fonts } from '@/constants/theme';
+import { SignUpNightLayout } from '@/constants/signUpNightLayout';
 import { useAuthAppearance } from '@/hooks/use-auth-appearance';
 import { useTheme, useThemedStyles } from '@/theme';
 
@@ -72,34 +72,36 @@ function DayAuthSocialButton({ provider, onPress }: AuthSocialButtonProps) {
 }
 
 function NightAuthSocialButton({ provider, onPress }: AuthSocialButtonProps) {
+  const night = SignUpNightLayout;
+
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       button: {
-        width: 50,
-        height: 50,
-        borderRadius: 999,
-        borderWidth: 1,
+        width: night.socialSize,
+        height: night.socialSize,
+        borderRadius: night.socialSize / 2,
+        borderWidth: night.socialBorderWidth,
         borderColor: tokens.border,
-        backgroundColor: tokens.surface,
+        backgroundColor: 'rgba(255, 255, 255, 0.06)',
         alignItems: 'center',
         justifyContent: 'center',
+        ...(Platform.select({
+          ios: {
+            shadowColor: '#000000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.2,
+            shadowRadius: 3,
+          },
+          android: { elevation: 1 },
+          web: { boxShadow: '0 1px 4px rgba(0, 0, 0, 0.2)' } as object,
+          default: {},
+        }) ?? {}),
       },
-      google: {
-        fontFamily: Fonts.sans,
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#4285F4',
-      },
-      apple: {
-        fontFamily: Fonts.sans,
-        fontSize: 22,
-        color: tokens.primaryText,
-      },
-      facebook: {
-        fontFamily: Fonts.sans,
-        fontSize: 22,
-        fontWeight: '700',
-        color: '#1877F2',
+      markWrap: {
+        width: night.fieldIconSlot,
+        height: night.fieldIconSlot,
+        alignItems: 'center',
+        justifyContent: 'center',
       },
     }),
   );
@@ -108,11 +110,12 @@ function NightAuthSocialButton({ provider, onPress }: AuthSocialButtonProps) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Sign up with ${AuthSocialLabels[provider]}`}
+      hitSlop={6}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] }]}>
-      {provider === 'google' ? <Text style={styles.google}>G</Text> : null}
-      {provider === 'apple' ? <Text style={styles.apple}></Text> : null}
-      {provider === 'facebook' ? <Text style={styles.facebook}>f</Text> : null}
+      style={({ pressed }) => [styles.button, pressed && { opacity: 0.88, transform: [{ scale: 0.96 }] }]}>
+      <View style={styles.markWrap}>
+        <AuthSocialMark provider={provider} />
+      </View>
     </Pressable>
   );
 }

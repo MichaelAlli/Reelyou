@@ -17,6 +17,14 @@ export const AuthCopy = {
   socialDivider: 'Or sign up with',
   footerPrefix: 'Already have an account? ',
   footerLink: 'Log in',
+  logInTitle: 'Welcome Back',
+  logInSubtitle: 'Your sky is waiting.',
+  rememberMe: 'Remember Me',
+  forgotPassword: 'Forgot Password?',
+  logInButton: 'LOG IN',
+  socialDividerLogIn: 'Or log in with',
+  logInFooterPrefix: "Don't have an account? ",
+  logInFooterLink: 'Sign up',
 } as const;
 
 export type AuthSocialProvider = 'google' | 'apple' | 'facebook';

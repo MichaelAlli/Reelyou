@@ -1,12 +1,12 @@
 import { ReactNode, useEffect, useRef } from 'react';
-import { Animated, Platform, StyleSheet, View, type ImageStyle, type ViewStyle } from 'react-native';
+import { Animated, Platform, StyleSheet, type ImageStyle, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { BackgroundImage } from '@/components/layout/BackgroundImage';
-import { AuthTempAssets } from '@/constants/authAssets';
-import { useAuthAppearance } from '@/hooks/use-auth-appearance';
+import { LogInAssets } from '@/constants/logInAssets';
+import { signUpDayWebViewportStyle } from '@/constants/signUpDayLayout';
 
-interface AuthCelestialBackgroundProps {
+interface LogInDayBackgroundProps {
   children: ReactNode;
   style?: ViewStyle;
 }
@@ -24,40 +24,24 @@ const LANDSCAPE_IMAGE_STYLE: ImageStyle =
         width: '100%',
       };
 
-export function AuthCelestialBackground({ children, style }: AuthCelestialBackgroundProps) {
-  const isLight = useAuthAppearance();
-
-  if (isLight) {
-    return (
-      <BackgroundImage
-        source={AuthTempAssets.signupDayLandscape}
-        resizeMode="cover"
-        style={StyleSheet.flatten([styles.root, style])}
-        imageStyle={LANDSCAPE_IMAGE_STYLE}>
-        <DayAliveOverlay />
-        {children}
-      </BackgroundImage>
-    );
-  }
-
+/** Daytime Sign In full-screen background — separate from locked Sign Up background assets. */
+export function LogInDayBackground({ children, style }: LogInDayBackgroundProps) {
   return (
     <BackgroundImage
-      source={AuthTempAssets.signupNightLandscape}
+      source={LogInAssets.loginDayBackground}
       resizeMode="cover"
       style={StyleSheet.flatten([styles.root, style])}
       imageStyle={LANDSCAPE_IMAGE_STYLE}>
-      <LinearGradient
-        pointerEvents="none"
-        colors={['rgba(5,8,24,0)', 'rgba(5,8,24,0.08)', 'rgba(5,8,24,0.18)']}
-        locations={[0, 0.72, 1]}
-        style={StyleSheet.absoluteFill}
-      />
+      <DayAliveOverlay />
       {children}
     </BackgroundImage>
   );
 }
 
-/** Subtle sunrise luminosity — daytime Sign Up only. */
+export function logInDayWebViewportStyle(): ViewStyle | undefined {
+  return signUpDayWebViewportStyle();
+}
+
 function DayAliveOverlay() {
   const pulse = useRef(new Animated.Value(0)).current;
 

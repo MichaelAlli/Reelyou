@@ -48,6 +48,9 @@ export interface ThemeContextValue {
   setThemeMode: (mode: ThemeMode) => void;
   /** Dev-only: override clock for Time of Day testing. */
   setTimeOverride: (date: Date | null) => void;
+  /** Dev-only: temporary appearance override without persisting preference. */
+  setDevAppearanceOverride?: (appearance: ResolvedAppearance | null) => void;
+  clearDevAppearanceOverride?: () => void;
 }
 
 export const THEME_MODE_LABELS: Record<ThemeMode, string> = {

@@ -9,7 +9,7 @@ type NamedStyles<T> = {
 };
 
 export function useTheme() {
-  const { tokens, themeMode, resolvedAppearance, isReady, setThemeMode, setTimeOverride } =
+  const { tokens, themeMode, resolvedAppearance, isReady, setThemeMode, setTimeOverride, setDevAppearanceOverride, clearDevAppearanceOverride } =
     useThemeContext();
 
   return {
@@ -19,6 +19,8 @@ export function useTheme() {
     isReady,
     setThemeMode,
     setTimeOverride,
+    setDevAppearanceOverride: setDevAppearanceOverride ?? undefined,
+    clearDevAppearanceOverride: clearDevAppearanceOverride ?? undefined,
     isDark: resolvedAppearance === 'dark',
     isLight: resolvedAppearance === 'light',
   };

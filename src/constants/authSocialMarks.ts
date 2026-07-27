@@ -7,6 +7,8 @@ const APPLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><
 
 const FACEBOOK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="24" fill="#1877F2"/><path fill="#FFFFFF" d="M26.5 38V25.5h4.2l.6-4.9H26.5v-3.1c0-1.4.4-2.4 2.5-2.4h2.6V11.2c-.5-.1-2.2-.2-4.1-.2-4.1 0-7 2.5-7 7.1v4.5h-4.7v4.9h4.7V38h5.6z"/></svg>`;
 
+const APPLE_SVG_WHITE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#FFFFFF" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>`;
+
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -14,5 +16,11 @@ function svgDataUri(svg: string): string {
 export const AuthSocialMarkUris: Record<AuthSocialProvider, string> = {
   google: svgDataUri(GOOGLE_SVG),
   apple: svgDataUri(APPLE_SVG),
+  facebook: svgDataUri(FACEBOOK_SVG),
+};
+
+export const AuthSocialMarkUrisDark: Record<AuthSocialProvider, string> = {
+  google: svgDataUri(GOOGLE_SVG),
+  apple: svgDataUri(APPLE_SVG_WHITE),
   facebook: svgDataUri(FACEBOOK_SVG),
 };

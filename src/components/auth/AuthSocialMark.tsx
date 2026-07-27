@@ -2,8 +2,10 @@ import { Image } from 'expo-image';
 import { StyleSheet } from 'react-native';
 
 import type { AuthSocialProvider } from '@/constants/auth';
-import { AuthSocialMarkUris } from '@/constants/authSocialMarks';
+import { AuthSocialMarkUris, AuthSocialMarkUrisDark } from '@/constants/authSocialMarks';
 import { SignUpDayLayout } from '@/constants/signUpDayLayout';
+import { SignUpNightLayout } from '@/constants/signUpNightLayout';
+import { useAuthAppearance } from '@/hooks/use-auth-appearance';
 
 interface AuthSocialMarkProps {
   provider: AuthSocialProvider;
@@ -16,15 +18,23 @@ const MARK_SIZE: Record<AuthSocialProvider, number> = {
   facebook: SignUpDayLayout.socialMarkFacebook,
 };
 
+const MARK_SIZE_NIGHT: Record<AuthSocialProvider, number> = {
+  google: SignUpNightLayout.socialMarkGoogle,
+  apple: SignUpNightLayout.socialMarkApple,
+  facebook: SignUpNightLayout.socialMarkFacebook,
+};
+
 /** Official brand marks for daytime Sign Up social buttons. */
 export function AuthSocialMark({ provider, size }: AuthSocialMarkProps) {
-  const markSize = size ?? MARK_SIZE[provider];
+  const isLight = useAuthAppearance();
+  const markSize = size ?? (isLight ? MARK_SIZE[provider] : MARK_SIZE_NIGHT[provider]);
+  const uris = isLight ? AuthSocialMarkUris : AuthSocialMarkUrisDark;
 
   return (
     <Image
       accessibilityElementsHidden
       importantForAccessibility="no"
-      source={{ uri: AuthSocialMarkUris[provider] }}
+      source={{ uri: uris[provider] }}
       contentFit="contain"
       allowDownscaling={false}
       cachePolicy="memory-disk"

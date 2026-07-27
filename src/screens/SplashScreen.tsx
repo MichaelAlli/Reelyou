@@ -1,3 +1,12 @@
+/**
+ * REELYOU Splash Screen v1.0 — DESIGN LOCKED
+ *
+ * Status: DESIGN APPROVED | PRODUCTION READY | DESIGN LOCKED
+ * Git rollback tag: "Splash v1.0 Design Lock"
+ *
+ * Visual design is frozen. Only functional, accessibility, responsive,
+ * keyboard, safe-area, validation, performance, and integration changes allowed.
+ */
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect } from 'react';

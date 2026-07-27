@@ -1,3 +1,12 @@
+/**
+ * REELYOU Welcome Screen v1.0 — DESIGN LOCKED
+ *
+ * Status: DESIGN APPROVED | PRODUCTION READY | DESIGN LOCKED
+ * Git rollback tag: "Welcome v1.0 Design Lock"
+ *
+ * Visual design is frozen. Only functional, accessibility, responsive,
+ * keyboard, safe-area, validation, performance, and integration changes allowed.
+ */
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Platform, StyleSheet, useWindowDimensions, View, ViewStyle, type ImageStyle } from 'react-native';
@@ -98,7 +107,10 @@ export function WelcomeScreen() {
                 label={WelcomeCopy.primaryCta}
                 onPress={() => router.push('/signup' as never)}
               />
-              <SecondaryButton label={WelcomeCopy.signInCta} />
+              <SecondaryButton
+                label={WelcomeCopy.signInCta}
+                onPress={() => router.push('/login' as never)}
+              />
             </View>
           </View>
         </ScreenContainer>
