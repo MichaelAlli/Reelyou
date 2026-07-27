@@ -1,5 +1,12 @@
+export { OnboardingBackButton } from './OnboardingBackButton';
+export { OnboardingBrandHeader } from './OnboardingBrandHeader';
+export { OnboardingGoalChip } from './OnboardingGoalChip';
+export { OnboardingGoalIcon } from './OnboardingGoalIcon';
 export { OnboardingInfoDisclosure } from './OnboardingInfoDisclosure';
 export { OnboardingInterestChip } from './OnboardingInterestChip';
 export { OnboardingInterestIcon } from './OnboardingInterestIcon';
 export { OnboardingPrimaryButton } from './OnboardingPrimaryButton';
+export { OnboardingProgress } from './OnboardingProgress';
+export { OnboardingPurposeCallout } from './OnboardingPurposeCallout';
 export { OnboardingScreenShell } from './OnboardingScreenShell';
+export { OnboardingSelectionCounter } from './OnboardingSelectionCounter';

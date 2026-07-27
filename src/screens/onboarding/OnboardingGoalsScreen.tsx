@@ -1,17 +1,17 @@
 /**
- * REELYOU Onboarding Screen 1 v1.0 — DESIGN LOCKED
+ * REELYOU Onboarding Screen 2 v1.0 — DESIGN LOCKED
  *
- * Status: DESIGN APPROVED | DESIGN LOCKED | READY FOR ONBOARDING FLOW
- * Git rollback tag: "Onboarding Screen 1 v1.0 Design Lock"
+ * Status: DESIGN APPROVED | DESIGN LOCKED | NAVIGATION VERIFIED | READY FOR ONBOARDING SCREEN 3
+ * Git rollback tag: "Onboarding Screen 2 v1.0 Design Lock"
  *
  * Visual design is frozen. Only functional, accessibility, responsive,
  * keyboard, safe-area, validation, persistence, integration, and loading/error changes allowed.
  */
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
+  BackHandler,
   Pressable,
   StyleSheet,
   Text,
@@ -21,27 +21,34 @@ import {
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import {
-  OnboardingInfoDisclosure,
-  OnboardingInterestChip,
+  OnboardingBackButton,
+  OnboardingBrandHeader,
+  OnboardingGoalChip,
   OnboardingPrimaryButton,
+  OnboardingPurposeCallout,
   OnboardingScreenShell,
+  OnboardingSelectionCounter,
 } from '@/components/onboarding';
-import { BrandingAssets } from '@/constants/branding';
-import { ONBOARDING_INTEREST_ROWS } from '@/constants/onboardingInterests';
-import { OnboardingProfileCopy } from '@/constants/onboardingProfileCopy';
+import { ONBOARDING_GOAL_ROWS } from '@/constants/onboardingGoals';
+import {
+  formatGoalSelectionCount,
+  OnboardingGoalsCopy,
+} from '@/constants/onboardingGoalsCopy';
+import { OnboardingGoalsLayout } from '@/constants/onboardingGoalsLayout';
 import {
   onboardingTitleShadow,
   OnboardingProfileLayout,
 } from '@/constants/onboardingProfileLayout';
 import { ReelyouMotion } from '@/constants/animation';
 import { Fonts } from '@/constants/theme';
-import { useOnboarding } from '@/onboarding';
+import { MAX_ONBOARDING_GOALS, useOnboarding } from '@/onboarding';
 
-export function OnboardingProfileScreen() {
+export function OnboardingGoalsScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { profile, toggleInterest, isInterestSelected, canSelectMoreInterests } = useOnboarding();
+  const { goals, toggleGoal, isGoalSelected, canSelectMoreGoals } = useOnboarding();
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -74,84 +81,98 @@ export function OnboardingProfileScreen() {
     foregroundTranslateY.value = withTiming(0, { duration: ReelyouMotion.fadeIn });
   }, [foregroundOpacity, foregroundTranslateY, reduceMotion]);
 
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/onboarding/profile' as never);
+  }, [router]);
+
+  const handleHardwareBack = useCallback(() => {
+    handleBack();
+    return true;
+  }, [handleBack]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handleHardwareBack);
+    return () => subscription.remove();
+  }, [handleHardwareBack]);
+
   const foregroundStyle = useAnimatedStyle(() => ({
     opacity: foregroundOpacity.value,
     transform: [{ translateY: foregroundTranslateY.value }],
   }));
 
-  const advanceToGoals = useCallback(
+  const saveAndAdvance = useCallback(
     (options?: { allowEmpty?: boolean }) => {
       setValidationError(null);
+      setSavedMessage(null);
 
-      if (!options?.allowEmpty && profile.interests.length === 0) {
-        setValidationError(OnboardingProfileCopy.validationSelectOne);
+      if (!options?.allowEmpty && goals.length === 0) {
+        setValidationError(OnboardingGoalsCopy.validationSelectOne);
         return;
       }
 
       setIsSubmitting(true);
+
+      // TODO: secure persistence + navigation to onboarding screen 3 when route exists.
       setTimeout(() => {
         setIsSubmitting(false);
-        router.push('/onboarding/goals' as never);
-      }, 300);
+        setSavedMessage(OnboardingGoalsCopy.savedPlaceholder);
+      }, 400);
     },
-    [profile.interests.length, router],
+    [goals.length],
   );
 
   const handleContinue = useCallback(() => {
-    advanceToGoals();
-  }, [advanceToGoals]);
+    saveAndAdvance();
+  }, [saveAndAdvance]);
 
   const handleSkip = useCallback(() => {
-    advanceToGoals({ allowEmpty: true });
-  }, [advanceToGoals]);
+    saveAndAdvance({ allowEmpty: true });
+  }, [saveAndAdvance]);
 
   return (
-    <OnboardingScreenShell>
+    <OnboardingScreenShell
+      backgroundKey="screen2Background"
+      leadingAccessory={<OnboardingBackButton onPress={handleBack} />}>
       <Animated.View style={foregroundStyle}>
-        <View style={styles.logoWrap}>
-          <Image
-            source={BrandingAssets.logoNightSignUp}
-            style={{ width: logoWidth, height: logoWidth * OnboardingProfileLayout.logoAspect }}
-            contentFit="contain"
-            accessibilityLabel="REELYOU"
-          />
-        </View>
-
-        <View style={styles.headingBlock}>
-          <Text style={styles.welcomeTitle}>{OnboardingProfileCopy.welcomeTitle}</Text>
-          <Text style={styles.welcomeSubtitle}>{OnboardingProfileCopy.welcomeSubtitle}</Text>
-        </View>
+        <OnboardingBrandHeader logoWidth={logoWidth} />
 
         <View style={styles.questionBlock}>
-          <Text style={styles.question}>{OnboardingProfileCopy.interestsQuestion}</Text>
-          <Text style={styles.hint}>{OnboardingProfileCopy.interestsHint}</Text>
-          <Text style={styles.personalizationNote}>{OnboardingProfileCopy.personalizationNote}</Text>
-          <OnboardingInfoDisclosure linkLabel={OnboardingProfileCopy.infoLink} />
+          <Text style={styles.question}>{OnboardingGoalsCopy.title}</Text>
+          <Text style={styles.hint}>{OnboardingGoalsCopy.subtitle}</Text>
+          <OnboardingSelectionCounter
+            selectedCount={goals.length}
+            maxCount={MAX_ONBOARDING_GOALS}
+            label={formatGoalSelectionCount(goals.length, MAX_ONBOARDING_GOALS)}
+          />
         </View>
 
         <View
           style={styles.grid}
           accessibilityRole="none"
-          accessibilityLabel="Interest options. Choose up to five.">
-          {ONBOARDING_INTEREST_ROWS.map(([left, right]) => (
+          accessibilityLabel="Goal options. Choose up to three.">
+          {ONBOARDING_GOAL_ROWS.map(([left, right]) => (
             <View key={`${left.id}-${right.id}`} style={styles.gridRow}>
-              <OnboardingInterestChip
+              <OnboardingGoalChip
                 option={left}
-                selected={isInterestSelected(left.id)}
-                disabled={!isInterestSelected(left.id) && !canSelectMoreInterests}
+                selected={isGoalSelected(left.id)}
+                disabled={!isGoalSelected(left.id) && !canSelectMoreGoals}
                 onPress={() => {
                   setValidationError(null);
-                  toggleInterest(left.id);
+                  toggleGoal(left.id);
                 }}
                 style={styles.gridChip}
               />
-              <OnboardingInterestChip
+              <OnboardingGoalChip
                 option={right}
-                selected={isInterestSelected(right.id)}
-                disabled={!isInterestSelected(right.id) && !canSelectMoreInterests}
+                selected={isGoalSelected(right.id)}
+                disabled={!isGoalSelected(right.id) && !canSelectMoreGoals}
                 onPress={() => {
                   setValidationError(null);
-                  toggleInterest(right.id);
+                  toggleGoal(right.id);
                 }}
                 style={styles.gridChip}
               />
@@ -159,27 +180,36 @@ export function OnboardingProfileScreen() {
           ))}
         </View>
 
+        <OnboardingPurposeCallout message={OnboardingGoalsCopy.purposeCallout} />
+
         {validationError ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {validationError}
           </Text>
         ) : null}
 
+        {savedMessage ? (
+          <Text accessibilityLiveRegion="polite" style={styles.savedMessage}>
+            {savedMessage}
+          </Text>
+        ) : null}
+
         <View style={styles.ctaBlock}>
           <OnboardingPrimaryButton
-            label={OnboardingProfileCopy.continue}
+            label={OnboardingGoalsCopy.continue}
             onPress={handleContinue}
-            disabled={profile.interests.length === 0}
+            disabled={goals.length === 0}
             loading={isSubmitting}
+            variant="solidGold"
           />
         </View>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={OnboardingProfileCopy.skip}
+          accessibilityLabel={OnboardingGoalsCopy.skip}
           onPress={handleSkip}
           style={({ pressed }) => [styles.skipButton, pressed && { opacity: 0.82 }]}>
-          <Text style={styles.skipLabel}>{OnboardingProfileCopy.skip}</Text>
+          <Text style={styles.skipLabel}>{OnboardingGoalsCopy.skip}</Text>
         </Pressable>
       </Animated.View>
     </OnboardingScreenShell>
@@ -187,35 +217,10 @@ export function OnboardingProfileScreen() {
 }
 
 const layout = OnboardingProfileLayout;
+const goalsLayout = OnboardingGoalsLayout;
 const titleShadow = onboardingTitleShadow();
 
 const styles = StyleSheet.create({
-  logoWrap: {
-    alignItems: 'center',
-    marginBottom: layout.logoBottomGap,
-  },
-  headingBlock: {
-    alignItems: 'center',
-    gap: layout.headingGap,
-    marginBottom: layout.sectionGap,
-  },
-  welcomeTitle: {
-    fontFamily: Fonts.sans,
-    fontSize: layout.titleSize,
-    fontWeight: '700',
-    color: layout.titleColor,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-    ...titleShadow,
-  },
-  welcomeSubtitle: {
-    fontFamily: Fonts.sans,
-    fontSize: layout.subtitleSize,
-    lineHeight: 20,
-    fontWeight: '400',
-    color: layout.subtitleColor,
-    textAlign: 'center',
-  },
   questionBlock: {
     alignItems: 'center',
     gap: 6,
@@ -237,15 +242,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 8,
   },
-  personalizationNote: {
-    fontFamily: Fonts.sans,
-    fontSize: layout.hintSize,
-    lineHeight: 18,
-    color: layout.hintColor,
-    textAlign: 'center',
-    paddingHorizontal: 4,
-    marginTop: 2,
-  },
   grid: {
     gap: layout.chipGap,
   },
@@ -264,12 +260,20 @@ const styles = StyleSheet.create({
     color: layout.errorColor,
     textAlign: 'center',
   },
+  savedMessage: {
+    marginTop: 10,
+    fontFamily: Fonts.sans,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: layout.subtitleColor,
+    textAlign: 'center',
+  },
   ctaBlock: {
     marginTop: layout.ctaTopGap,
   },
   skipButton: {
     alignSelf: 'center',
-    marginTop: layout.skipTopGap,
+    marginTop: goalsLayout.skipTopGap,
     paddingVertical: 8,
     paddingHorizontal: 12,
     minHeight: 44,
@@ -278,8 +282,8 @@ const styles = StyleSheet.create({
   skipLabel: {
     fontFamily: Fonts.sans,
     fontSize: 13,
-    fontWeight: '600',
-    color: layout.goldAccent,
+    fontWeight: '500',
+    color: goalsLayout.skipColor,
     textAlign: 'center',
   },
 });

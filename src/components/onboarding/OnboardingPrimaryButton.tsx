@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
 import { OnboardingProfileLayout } from '@/constants/onboardingProfileLayout';
 import { Fonts } from '@/constants/theme';
@@ -11,6 +11,7 @@ interface OnboardingPrimaryButtonProps {
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  variant?: 'gradient' | 'solidGold';
 }
 
 function OnboardingPrimaryButtonComponent({
@@ -19,8 +20,18 @@ function OnboardingPrimaryButtonComponent({
   disabled = false,
   loading = false,
   style,
+  variant = 'gradient',
 }: OnboardingPrimaryButtonProps) {
   const isDisabled = disabled || loading;
+
+  const content = loading ? (
+    <ActivityIndicator color="#050818" />
+  ) : (
+    <>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.arrow}>→</Text>
+    </>
+  );
 
   return (
     <Pressable
@@ -35,20 +46,17 @@ function OnboardingPrimaryButtonComponent({
         pressed && !isDisabled && styles.pressed,
         style,
       ]}>
-      <LinearGradient
-        colors={[OnboardingProfileLayout.goldHighlight, OnboardingProfileLayout.goldAccent, OnboardingProfileLayout.goldShadow]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={styles.gradient}>
-        {loading ? (
-          <ActivityIndicator color="#050818" />
-        ) : (
-          <>
-            <Text style={styles.label}>{label}</Text>
-            <Text style={styles.arrow}>→</Text>
-          </>
-        )}
-      </LinearGradient>
+      {variant === 'solidGold' ? (
+        <View style={[styles.gradient, styles.solidGold]}>{content}</View>
+      ) : (
+        <LinearGradient
+          colors={[OnboardingProfileLayout.goldHighlight, OnboardingProfileLayout.goldAccent, OnboardingProfileLayout.goldShadow]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.gradient}>
+          {content}
+        </LinearGradient>
+      )}
     </Pressable>
   );
 }
@@ -74,6 +82,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  solidGold: {
+    backgroundColor: OnboardingProfileLayout.goldAccent,
   },
   label: {
     flex: 1,
