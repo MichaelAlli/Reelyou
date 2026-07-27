@@ -56,6 +56,7 @@ export function onboardingWebViewportStyle(): ViewStyle {
 }
 
 export function onboardingBackgroundImageStyle(): ImageStyle {
+  /** ONBOARDING BACKGROUND SYSTEM v1.0 — shared focal position for Screens 1–4. */
   if (Platform.OS === 'web') {
     return {
       height: '100%',

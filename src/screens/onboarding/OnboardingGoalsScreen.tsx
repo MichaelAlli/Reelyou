@@ -1,7 +1,7 @@
 /**
  * REELYOU Onboarding Screen 2 v1.0 — DESIGN LOCKED
  *
- * Status: DESIGN APPROVED | DESIGN LOCKED | NAVIGATION VERIFIED | READY FOR ONBOARDING SCREEN 3
+ * Status: DESIGN APPROVED | DESIGN LOCKED | NAVIGATION VERIFIED | SHARED BACKGROUND v1.0 | READY FOR ONBOARDING SCREEN 3
  * Git rollback tag: "Onboarding Screen 2 v1.0 Design Lock"
  *
  * Visual design is frozen. Only functional, accessibility, responsive,
@@ -134,9 +134,7 @@ export function OnboardingGoalsScreen() {
   }, [saveAndAdvance]);
 
   return (
-    <OnboardingScreenShell
-      backgroundKey="screen2Background"
-      leadingAccessory={<OnboardingBackButton onPress={handleBack} />}>
+    <OnboardingScreenShell leadingAccessory={<OnboardingBackButton onPress={handleBack} />}>
       <Animated.View style={foregroundStyle}>
         <OnboardingBrandHeader logoWidth={logoWidth} />
 

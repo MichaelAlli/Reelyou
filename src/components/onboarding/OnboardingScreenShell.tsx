@@ -1,3 +1,9 @@
+/**
+ * ONBOARDING BACKGROUND SYSTEM v1.0 — APPROVED | SHARED | DESIGN LOCKED
+ *
+ * Renders the single approved onboarding background for Screens 1–4.
+ * Screen-specific foreground content belongs in each screen component.
+ */
 import { StatusBar } from 'expo-status-bar';
 import { type ReactNode } from 'react';
 import {
@@ -11,7 +17,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BackgroundImage } from '@/components/layout/BackgroundImage';
-import { OnboardingAssets, type OnboardingBackgroundKey } from '@/constants/onboardingAssets';
+import { ONBOARDING_SHARED_BACKGROUND } from '@/constants/onboardingAssets';
 import {
   onboardingBackgroundImageStyle,
   onboardingWebViewportStyle,
@@ -21,24 +27,24 @@ import {
 interface OnboardingScreenShellProps {
   children: ReactNode;
   contentStyle?: ViewStyle;
-  backgroundKey?: OnboardingBackgroundKey;
   /** Fixed top-left accessory (e.g. Screen 2 back control). Does not affect Screen 1 layout. */
   leadingAccessory?: ReactNode;
 }
 
-/** Shared onboarding shell — Screen 1 and Screen 2 use identical safe-area and margin treatment. */
+/**
+ * Shared onboarding shell — Screens 1–4 use identical background, safe-area, and margin treatment.
+ * Future screens: wrap content in `<OnboardingScreenShell>` with no background overrides.
+ */
 export function OnboardingScreenShell({
   children,
   contentStyle,
-  backgroundKey = 'profileBackground',
   leadingAccessory,
 }: OnboardingScreenShellProps) {
   const insets = useSafeAreaInsets();
-  const source = OnboardingAssets[backgroundKey];
 
   return (
     <BackgroundImage
-      source={source}
+      source={ONBOARDING_SHARED_BACKGROUND}
       resizeMode="cover"
       style={StyleSheet.flatten([styles.root, onboardingWebViewportStyle()])}
       imageStyle={onboardingBackgroundImageStyle()}>
