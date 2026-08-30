@@ -1,0 +1,38 @@
+/**
+ * DEV-only feature flags — flip before release.
+ *
+ * Screen Preview requires BOTH `__DEV__` and `DEV_SCREEN_PREVIEW_ENABLED`.
+ * Set `DEV_SCREEN_PREVIEW_ENABLED` to false to disable preview in dev builds
+ * without removing any preview code.
+ */
+export const DEV_SCREEN_PREVIEW_ENABLED = true;
+
+/**
+ * When true (and preview is enabled), dev builds open to Screen Preview on launch
+ * instead of Splash. Set to false to restore normal Splash startup in development.
+ */
+export const DEV_SCREEN_PREVIEW_STARTUP = true;
+
+/** True when Screen Preview route and launcher are active. */
+export function isScreenPreviewEnabled(): boolean {
+  return __DEV__ && DEV_SCREEN_PREVIEW_ENABLED;
+}
+
+/** True when dev app should boot directly into Screen Preview. Never true in production. */
+export function isScreenPreviewStartupEnabled(): boolean {
+  return isScreenPreviewEnabled() && DEV_SCREEN_PREVIEW_STARTUP;
+}
+
+let devPreviewStartupConsumed = false;
+
+/**
+ * Returns true only on the first app entry in a dev session, so `/` can still
+ * open Splash from the preview menu after the initial boot redirect.
+ */
+export function consumeDevPreviewStartupRedirect(): boolean {
+  if (!isScreenPreviewStartupEnabled() || devPreviewStartupConsumed) {
+    return false;
+  }
+  devPreviewStartupConsumed = true;
+  return true;
+}

@@ -1,8 +1,12 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 
 import { ReelyouMotion } from '@/constants/animation';
+import { ONBOARDING_SHARED_BACKGROUND } from '@/constants/onboardingAssets';
+import { OnboardingProvider } from '@/onboarding';
 import { ThemeProvider, useTheme } from '@/theme';
+import { Asset } from 'expo-asset';
 
 /**
  * Post-Welcome navigation tree — the only place ThemeProvider is mounted.
@@ -13,6 +17,10 @@ import { ThemeProvider, useTheme } from '@/theme';
  */
 function PostWelcomeStack() {
   const { tokens } = useTheme();
+
+  useEffect(() => {
+    void Asset.fromModule(ONBOARDING_SHARED_BACKGROUND).downloadAsync();
+  }, []);
 
   return (
     <>
@@ -25,6 +33,7 @@ function PostWelcomeStack() {
           animationDuration: ReelyouMotion.screenTransition,
         }}>
         <Stack.Screen name="skywrite" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="process" options={{ animation: 'fade', gestureEnabled: false }} />
       </Stack>
     </>
   );
@@ -33,7 +42,9 @@ function PostWelcomeStack() {
 export default function PostWelcomeLayout() {
   return (
     <ThemeProvider>
-      <PostWelcomeStack />
+      <OnboardingProvider>
+        <PostWelcomeStack />
+      </OnboardingProvider>
     </ThemeProvider>
   );
 }

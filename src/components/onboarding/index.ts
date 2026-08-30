@@ -1,10 +1,13 @@
 export { OnboardingBackButton } from './OnboardingBackButton';
 export { OnboardingBrandHeader } from './OnboardingBrandHeader';
+export { OnboardingChallengeChip } from './OnboardingChallengeChip';
+export { OnboardingChallengeIcon } from './OnboardingChallengeIcon';
 export { OnboardingGoalChip } from './OnboardingGoalChip';
 export { OnboardingGoalIcon } from './OnboardingGoalIcon';
 export { OnboardingInfoDisclosure } from './OnboardingInfoDisclosure';
 export { OnboardingInterestChip } from './OnboardingInterestChip';
 export { OnboardingInterestIcon } from './OnboardingInterestIcon';
+export { OnboardingNorthStarInput } from './OnboardingNorthStarInput';
 export { OnboardingPrimaryButton } from './OnboardingPrimaryButton';
 export { OnboardingProgress } from './OnboardingProgress';
 export { OnboardingPurposeCallout } from './OnboardingPurposeCallout';

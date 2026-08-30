@@ -8,18 +8,20 @@ interface OnboardingSelectionCounterProps {
   selectedCount: number;
   maxCount: number;
   label: string;
+  itemNoun?: string;
 }
 
-/** Selection progress pill — matches Screen 2 UI reference counter treatment. */
+/** Selection progress pill — matches Screen 2/3 UI reference counter treatment. */
 function OnboardingSelectionCounterComponent({
   selectedCount,
   maxCount,
   label,
+  itemNoun = 'items',
 }: OnboardingSelectionCounterProps) {
   return (
     <View
       accessibilityRole="text"
-      accessibilityLabel={`${selectedCount} of ${maxCount} goals selected.`}
+      accessibilityLabel={`${selectedCount} of ${maxCount} ${itemNoun} selected.`}
       style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
     </View>

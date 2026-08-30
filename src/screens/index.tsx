@@ -16,7 +16,6 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { useThemedStyles } from '@/theme/useTheme';
 import {
   currentUser,
-  dailySignal,
   impactMetrics,
   impactMoments,
   legacyStories,
@@ -51,59 +50,6 @@ export function OnboardingScreen() {
         label="Start My Sky"
         onPress={() => router.replace('/(tabs)/home' as never)}
         style={styles.cta}
-      />
-    </ScreenLayout>
-  );
-}
-
-export function HomeScreen() {
-  const styles = useScreenStyles();
-  const router = useRouter();
-
-  return (
-    <ScreenLayout showTabBar>
-      <Text style={styles.greeting}>Good Morning, Michael</Text>
-      <Text style={styles.sectionLabel}>My Sky</Text>
-
-      <GlassCard glow="purple">
-        <Text style={styles.cardLabel}>Daily Signal</Text>
-        <Text style={styles.signalText}>{dailySignal}</Text>
-      </GlassCard>
-
-      <Pressable onPress={() => router.push('/skywrite' as never)}>
-        <GlassCard style={styles.promptCard}>
-          <Text style={styles.promptLabel}>What&apos;s on your heart today?</Text>
-          <Text style={styles.promptHint}>Tap to Skywrite →</Text>
-        </GlassCard>
-      </Pressable>
-
-      <SectionHeader title="My Sky" />
-      <SkyPreviewCard description="A living map of your growth, patterns, and the communities shaping your journey." />
-
-      <SectionHeader title="Starpath" action="View" onAction={() => router.push('/starpath' as never)} />
-      <Pressable onPress={() => router.push('/starpath' as never)}>
-        <GlassCard>
-          <Text style={styles.previewTitle}>{starpathData.currentPath}</Text>
-          <Text style={styles.previewSub}>{starpathData.suggestedNextStep}</Text>
-        </GlassCard>
-      </Pressable>
-
-      <SectionHeader title="Orbit" action="View all" onAction={() => router.push('/orbit' as never)} />
-      <View style={styles.avatarRow}>
-        {orbitUsers.slice(0, 4).map((user) => (
-          <OrbitAvatar
-            key={user.id}
-            user={user}
-            size="sm"
-            onPress={() => router.push(`/public-sky?id=${user.id}` as never)}
-          />
-        ))}
-      </View>
-
-      <SectionHeader title="Legacy" action="Enter" onAction={() => router.push('/legacy' as never)} />
-      <LegacyCard
-        heroLine="The people whose lives became different because you existed."
-        showButton={false}
       />
     </ScreenLayout>
   );

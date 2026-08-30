@@ -46,9 +46,14 @@ import { MAX_ONBOARDING_GOALS, useOnboarding } from '@/onboarding';
 export function OnboardingGoalsScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { goals, toggleGoal, isGoalSelected, canSelectMoreGoals } = useOnboarding();
+  const {
+    goals,
+    toggleGoal,
+    isGoalSelected,
+    canSelectMoreGoals,
+    markStep,
+  } = useOnboarding();
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -107,7 +112,6 @@ export function OnboardingGoalsScreen() {
   const saveAndAdvance = useCallback(
     (options?: { allowEmpty?: boolean }) => {
       setValidationError(null);
-      setSavedMessage(null);
 
       if (!options?.allowEmpty && goals.length === 0) {
         setValidationError(OnboardingGoalsCopy.validationSelectOne);
@@ -115,14 +119,14 @@ export function OnboardingGoalsScreen() {
       }
 
       setIsSubmitting(true);
+      markStep('goals', options?.allowEmpty ? 'skipped' : 'completed');
 
-      // TODO: secure persistence + navigation to onboarding screen 3 when route exists.
       setTimeout(() => {
         setIsSubmitting(false);
-        setSavedMessage(OnboardingGoalsCopy.savedPlaceholder);
-      }, 400);
+        router.push('/onboarding/challenges' as never);
+      }, 300);
     },
-    [goals.length],
+    [goals.length, markStep, router],
   );
 
   const handleContinue = useCallback(() => {
@@ -145,6 +149,7 @@ export function OnboardingGoalsScreen() {
             selectedCount={goals.length}
             maxCount={MAX_ONBOARDING_GOALS}
             label={formatGoalSelectionCount(goals.length, MAX_ONBOARDING_GOALS)}
+            itemNoun="goals"
           />
         </View>
 
@@ -183,12 +188,6 @@ export function OnboardingGoalsScreen() {
         {validationError ? (
           <Text accessibilityRole="alert" style={styles.error}>
             {validationError}
-          </Text>
-        ) : null}
-
-        {savedMessage ? (
-          <Text accessibilityLiveRegion="polite" style={styles.savedMessage}>
-            {savedMessage}
           </Text>
         ) : null}
 
@@ -256,14 +255,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     color: layout.errorColor,
-    textAlign: 'center',
-  },
-  savedMessage: {
-    marginTop: 10,
-    fontFamily: Fonts.sans,
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: layout.subtitleColor,
     textAlign: 'center',
   },
   ctaBlock: {

@@ -40,7 +40,8 @@ import { useOnboarding } from '@/onboarding';
 export function OnboardingProfileScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { profile, toggleInterest, isInterestSelected, canSelectMoreInterests } = useOnboarding();
+  const { profile, toggleInterest, isInterestSelected, canSelectMoreInterests, markStep } =
+    useOnboarding();
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
@@ -89,12 +90,13 @@ export function OnboardingProfileScreen() {
       }
 
       setIsSubmitting(true);
+      markStep('profile', options?.allowEmpty ? 'skipped' : 'completed');
       setTimeout(() => {
         setIsSubmitting(false);
         router.push('/onboarding/goals' as never);
       }, 300);
     },
-    [profile.interests.length, router],
+    [profile.interests.length, markStep, router],
   );
 
   const handleContinue = useCallback(() => {

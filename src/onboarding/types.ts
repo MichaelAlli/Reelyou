@@ -79,6 +79,46 @@ export type OnboardingInterestIconName =
 
 export const MAX_ONBOARDING_INTERESTS = 5;
 export const MAX_ONBOARDING_GOALS = 3;
+export const MAX_ONBOARDING_CHALLENGES = 5;
+
+/** Challenge option identifiers for onboarding screen 3. */
+export type OnboardingChallengeId =
+  | 'lack-of-motivation'
+  | 'career-uncertainty'
+  | 'finding-purpose'
+  | 'starting-business'
+  | 'building-confidence'
+  | 'mental-wellness'
+  | 'financial-stress'
+  | 'building-discipline'
+  | 'relationship-challenges'
+  | 'spiritual-growth'
+  | 'time-management'
+  | 'finding-community'
+  | 'fear-of-future'
+  | 'work-life-balance';
+
+export type OnboardingChallengeIconName =
+  | 'brain'
+  | 'briefcase'
+  | 'star'
+  | 'rocket'
+  | 'shield'
+  | 'lotus'
+  | 'dollarsign'
+  | 'target'
+  | 'heart'
+  | 'leaf'
+  | 'clock'
+  | 'people'
+  | 'warning'
+  | 'scale';
+
+export interface OnboardingChallengeOption {
+  id: OnboardingChallengeId;
+  label: string;
+  icon: OnboardingChallengeIconName;
+}
 
 export const EMPTY_ONBOARDING_PROFILE: OnboardingProfileData = {
   interests: [],
