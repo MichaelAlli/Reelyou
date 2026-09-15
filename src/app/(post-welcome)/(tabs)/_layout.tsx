@@ -4,15 +4,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/BottomNav';
 import { TabBarHeight } from '@/constants/theme';
-import { useTheme } from '@/theme/useTheme';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  const { tokens } = useTheme();
   const tabContentInset = TabBarHeight + Math.max(insets.bottom, 8);
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.appBackground }]}>
+    <View style={styles.container}>
       <View style={[styles.content, { paddingBottom: tabContentInset }]}>
         <Slot />
       </View>
@@ -24,6 +22,8 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    // Match Home backdrop — paddingBottom inset otherwise exposes appBackground as a light band above nav.
+    backgroundColor: '#05070A',
   },
   content: {
     flex: 1,

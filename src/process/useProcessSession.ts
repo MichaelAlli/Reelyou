@@ -8,8 +8,10 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 
-import { ReelyouEasing, ReelyouMotion } from '@/constants/animation';
+import { ReelyouEasing } from '@/constants/animation';
+import { HomeMotion } from '@/constants/homeLayout';
 import { ProcessScreenCopy } from '@/constants/processScreenCopy';
+import { markHomeArrivalPending } from '@/home';
 import { useOnboarding } from '@/onboarding';
 import {
   PROCESS_COMPLETION_LINGER_MS,
@@ -63,6 +65,7 @@ export function useProcessSession(): ProcessProgressState & ProcessSessionAction
   const exitOpacity = useSharedValue(1);
 
   const onNavigateHome = useCallback(() => {
+    markHomeArrivalPending();
     router.replace('/home' as never);
   }, [router]);
 
@@ -73,7 +76,7 @@ export function useProcessSession(): ProcessProgressState & ProcessSessionAction
     completeOnboarding();
     exitOpacity.value = withTiming(
       0,
-      { duration: ReelyouMotion.fadeIn + 220, easing: ReelyouEasing.out },
+      { duration: HomeMotion.screenTransitionMs, easing: ReelyouEasing.out },
       (ok) => {
         if (ok) runOnJS(onNavigateHome)();
       },

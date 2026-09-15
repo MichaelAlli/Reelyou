@@ -77,6 +77,6 @@ export const DEV_SCREEN_PREVIEW_TARGETS: DevScreenPreviewTarget[] = [
     id: 'home',
     label: 'Home',
     description: 'Main home tab',
-    href: '/home',
+    href: '/home?preview=1',
   },
 ];

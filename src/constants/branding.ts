@@ -19,6 +19,8 @@ export const BrandingAssets = {
   splashLogoTransparent: require('../assets/branding/Splash Screen Reelyou Logo Transparent.png'),
   /** Approved transparent Night Sign Up logo — RGBA PNG, true alpha. DESIGN LOCKED v1.0 */
   logoNightSignUp: require('../assets/branding/reelyou-logo-night-signup.png'),
+  /** Home header — verified RGBA transparent wordmark (see HomeHeaderLogo). */
+  homeHeaderWordmark: require('../assets/branding/reelyou-welcome-logo-white-tagline-cropped.png'),
   icon: require('../assets/branding/reelyou-icon.png'),
   welcomeBackground: require('../assets/backgrounds/welcome-background.jpg'),
   welcomeMaster: require('../assets/references/welcome-screen-master.jpg'),

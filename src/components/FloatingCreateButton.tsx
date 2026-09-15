@@ -5,9 +5,15 @@ import { useThemedStyles } from '@/theme/useTheme';
 
 interface FloatingCreateButtonProps {
   onPress: () => void;
+  label?: string;
+  icon?: string;
 }
 
-export function FloatingCreateButton({ onPress }: FloatingCreateButtonProps) {
+export function FloatingCreateButton({
+  onPress,
+  label = 'Skywrite',
+  icon = '✎',
+}: FloatingCreateButtonProps) {
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       wrapper: {
@@ -31,13 +37,14 @@ export function FloatingCreateButton({ onPress }: FloatingCreateButtonProps) {
         borderColor: tokens.goldLight,
       },
       icon: {
-        fontSize: 28,
-        fontWeight: '300',
+        fontSize: 24,
+        fontWeight: '400',
         color: tokens.appBackground,
-        marginTop: -2,
+        marginTop: -1,
       },
       label: {
-        fontSize: 11,
+        fontFamily: 'System',
+        fontSize: 10.5,
         fontWeight: '600',
         color: tokens.primaryAction,
         marginTop: 4,
@@ -52,9 +59,9 @@ export function FloatingCreateButton({ onPress }: FloatingCreateButtonProps) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.wrapper, pressed && styles.pressed]}>
       <View style={styles.button}>
-        <Text style={styles.icon}>+</Text>
+        <Text style={styles.icon}>{icon}</Text>
       </View>
-      <Text style={styles.label}>Create</Text>
+      <Text style={styles.label}>{label}</Text>
     </Pressable>
   );
 }
