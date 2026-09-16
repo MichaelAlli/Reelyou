@@ -34,6 +34,7 @@ export type {
   GuidingLightRecord,
   GuidingLightSource,
 } from '@/guidingLight';
+export type { SkywriteDraft, SkywriteRecord, SkywritesState } from '@/skywrite';
 export type {
   OnboardingChallengeId,
   OnboardingGoalId,

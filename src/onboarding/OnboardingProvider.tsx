@@ -47,6 +47,14 @@ import {
 } from '@/guidingLight';
 import { buildMySkyView, type MySkyView } from '@/mySky';
 import {
+  EMPTY_SKYWRITES,
+  loadSkywrites,
+  saveSkywrites,
+  type SkywriteDraft,
+  type SkywriteRecord,
+  type SkywritesState,
+} from '@/skywrite';
+import {
   buildAroundYourSkyHomeFeed,
   toAroundYourSkyState,
   type AroundYourSkyHomeFeed,
@@ -127,6 +135,9 @@ interface OnboardingContextValue {
   guidingLightView: GuidingLightHomeView;
   /** Dismiss the active Guiding Light — user choice is authoritative */
   dismissGuidingLight: () => void;
+  /** User-authored Skywrites — local-first, explicit hashtags parsed from text */
+  skywrites: SkywriteRecord[];
+  createSkywrite: (draft: SkywriteDraft) => SkywriteRecord;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -139,6 +150,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [communities, setCommunitiesState] = useState<CommunitiesRecord>(EMPTY_COMMUNITIES);
   const [guidingLightDismiss, setGuidingLightDismissState] =
     useState<GuidingLightDismissRecord>(EMPTY_GUIDING_LIGHT_DISMISS);
+  const [skywritesState, setSkywritesState] = useState<SkywritesState>(EMPTY_SKYWRITES);
   useEffect(() => {
     let live = true;
     loadTodayFocus().then((record) => {
@@ -154,6 +166,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     loadGuidingLightDismiss().then((record) => {
       if (live) {
         setGuidingLightDismissState(record);
+      }
+    });
+    loadSkywrites().then((record) => {
+      if (live) {
+        setSkywritesState(record);
       }
     });
     return () => {
@@ -197,8 +214,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         contributions: mySkyView.contributions,
       },
       guidingLight: guidingLightView.light,
+      skywrites: skywritesState.posts,
     }),
-    [basePersonalizationProfile, mySkyView, guidingLightView],
+    [basePersonalizationProfile, mySkyView, guidingLightView, skywritesState.posts],
   );
   const humanPotentialProfile = useMemo(() => buildHumanPotentialProfile(state), [state]);
   const aiContext = useMemo(
@@ -432,6 +450,24 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     void saveGuidingLightDismiss(next);
   }, [guidingLightView.light?.id]);
 
+  const createSkywrite = useCallback((draft: SkywriteDraft): SkywriteRecord => {
+    const record: SkywriteRecord = {
+      id: `skywrite-${Date.now()}`,
+      text: draft.text,
+      media: null,
+      visibility: draft.visibility,
+      mood: draft.mood,
+      userHashtags: draft.userHashtags,
+      createdAt: new Date().toISOString(),
+    };
+    setSkywritesState((current) => {
+      const next: SkywritesState = { posts: [record, ...current.posts] };
+      void saveSkywrites(next);
+      return next;
+    });
+    return record;
+  }, []);
+
   const value = useMemo(
     () => ({
       state,
@@ -454,6 +490,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       mySkyView,
       guidingLightView,
       dismissGuidingLight,
+      skywrites: skywritesState.posts,
+      createSkywrite,
       profile,
       goals,
       challenges,
@@ -499,6 +537,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       mySkyView,
       guidingLightView,
       dismissGuidingLight,
+      skywritesState.posts,
+      createSkywrite,
       profile,
       goals,
       challenges,

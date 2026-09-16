@@ -27,9 +27,11 @@ import {
   starpathData,
   suggestedSkies,
 } from '@/data/mockData';
+import { useOnboarding } from '@/onboarding';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { SkywriteDraft } from '@/skywrite/types';
 
 export function OnboardingScreen() {
   const styles = useScreenStyles();
@@ -58,6 +60,7 @@ export function OnboardingScreen() {
 export function SkywriteScreen() {
   const styles = useScreenStyles();
   const router = useRouter();
+  const { createSkywrite } = useOnboarding();
   const [submitted, setSubmitted] = useState(false);
 
   if (submitted) {
@@ -79,7 +82,12 @@ export function SkywriteScreen() {
       </Pressable>
       <Text style={styles.screenTitle}>Skywrite</Text>
       <Text style={styles.screenSubtitle}>Release what&apos;s on your heart into your sky.</Text>
-      <SkywriteComposer onSubmit={() => setSubmitted(true)} />
+      <SkywriteComposer
+        onSubmit={(draft: SkywriteDraft) => {
+          createSkywrite(draft);
+          setSubmitted(true);
+        }}
+      />
     </ScreenLayout>
   );
 }

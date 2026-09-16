@@ -96,6 +96,24 @@ export function buildAiCompanionContext(
       items: [profile.guidingLight.title],
     });
   }
+  const aiEligibleSkywrites = profile.skywrites.filter((post) => post.visibility !== 'private');
+  if (aiEligibleSkywrites.length > 0) {
+    const explicitHashtags = [
+      ...new Set(aiEligibleSkywrites.flatMap((post) => post.userHashtags)),
+    ];
+    if (explicitHashtags.length > 0) {
+      sections.push({
+        id: 'skywrite-hashtags',
+        title: 'Explicit Skywrite Hashtags',
+        items: explicitHashtags,
+      });
+    }
+    sections.push({
+      id: 'skywrites',
+      title: 'Skywrites',
+      items: aiEligibleSkywrites.map((post) => post.text),
+    });
+  }
 
   return {
     enabled: sections.length > 0,

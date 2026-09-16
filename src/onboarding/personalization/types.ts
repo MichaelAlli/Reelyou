@@ -2,6 +2,7 @@ import type { CommunityId, JoinedCommunity } from '@/onboarding/personalization/
 import type { TodayFocusSource } from '@/onboarding/personalization/todayFocus/types';
 import type { GuidingLightRecord } from '@/guidingLight/types';
 import type { MySkyState } from '@/mySky/types';
+import type { SkywriteRecord } from '@/skywrite/types';
 import type { AroundYourSkyState } from '@/social/aroundYourSky/types';
 
 /** Explicit community membership — user join/leave actions are authoritative. */
@@ -60,6 +61,8 @@ export interface UserPersonalizationProfile {
   mySky: MySkyState;
   /** Home StarPath signal — at most one active Guiding Light, or peace state */
   guidingLight: GuidingLightRecord | null;
+  /** User-authored Skywrites — explicit hashtags stored separately from future inferred themes */
+  skywrites: SkywriteRecord[];
 }
 
 export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
@@ -93,4 +96,5 @@ export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
     contributions: [],
   },
   guidingLight: null,
+  skywrites: [],
 };

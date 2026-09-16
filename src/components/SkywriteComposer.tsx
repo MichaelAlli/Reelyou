@@ -3,19 +3,20 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { GlowButton } from '@/components/GlowButton';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
-import { moods, privacyOptions, skywriteTags } from '@/data/mockData';
+import { moods, privacyOptions } from '@/data/mockData';
+import { parseUserHashtags } from '@/skywrite';
+import type { SkywriteDraft } from '@/skywrite/types';
 import { useTheme, useThemedStyles } from '@/theme/useTheme';
-import type { Mood, Privacy, SkywriteTag } from '@/types';
+import type { Mood, Privacy } from '@/types';
 
 interface SkywriteComposerProps {
-  onSubmit: () => void;
+  onSubmit: (draft: SkywriteDraft) => void;
 }
 
 export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
   const { tokens } = useTheme();
   const [text, setText] = useState('');
   const [mood, setMood] = useState<Mood>('reflective');
-  const [selectedTags, setSelectedTags] = useState<SkywriteTag[]>([]);
   const [privacy, setPrivacy] = useState<Privacy>('orbit');
 
   const styles = useThemedStyles((themeTokens) =>
@@ -54,11 +55,6 @@ export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
         flexWrap: 'wrap',
         gap: Spacing.sm,
       },
-      wrap: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: Spacing.sm,
-      },
       moodChip: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -73,18 +69,6 @@ export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
       moodChipActive: {
         borderColor: themeTokens.gold,
         backgroundColor: themeTokens.goldMuted,
-      },
-      tagChip: {
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-        borderRadius: Radius.full,
-        backgroundColor: themeTokens.elevatedSurface,
-        borderWidth: 1,
-        borderColor: 'transparent',
-      },
-      tagChipActive: {
-        borderColor: themeTokens.purple,
-        backgroundColor: themeTokens.purpleSoft,
       },
       chipText: {
         fontFamily: Fonts.sans,
@@ -133,10 +117,15 @@ export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
     }),
   );
 
-  const toggleTag = (tag: SkywriteTag) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
+  const handleSubmit = () => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    onSubmit({
+      text: trimmed,
+      visibility: privacy,
+      mood,
+      userHashtags: parseUserHashtags(trimmed),
+    });
   };
 
   return (
@@ -150,7 +139,6 @@ export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
         value={text}
         onChangeText={setText}
       />
-
       <Text style={styles.sectionLabel}>Mood</Text>
       <View style={styles.row}>
         {moods.map((m) => (
@@ -160,20 +148,6 @@ export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
             style={[styles.moodChip, mood === m.id && styles.moodChipActive]}>
             <Text style={styles.moodEmoji}>{m.emoji}</Text>
             <Text style={[styles.chipText, mood === m.id && styles.chipTextActive]}>{m.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <Text style={styles.sectionLabel}>Tags</Text>
-      <View style={styles.wrap}>
-        {skywriteTags.map((tag) => (
-          <Pressable
-            key={tag}
-            onPress={() => toggleTag(tag)}
-            style={[styles.tagChip, selectedTags.includes(tag) && styles.tagChipActive]}>
-            <Text style={[styles.chipText, selectedTags.includes(tag) && styles.chipTextActive]}>
-              {tag}
-            </Text>
           </Pressable>
         ))}
       </View>
@@ -193,7 +167,12 @@ export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
         ))}
       </View>
 
-      <GlowButton label="Release Skywrite" onPress={onSubmit} style={styles.submit} />
+      <GlowButton
+        label="Release Skywrite"
+        onPress={handleSubmit}
+        disabled={!text.trim()}
+        style={styles.submit}
+      />
     </View>
   );
 }
