@@ -15,6 +15,7 @@ import { HomeTodayFocusIcon } from '@/components/home/HomeTodayFocusIcon';
 import { HomeCopy } from '@/constants/homeCopy';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
+import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
 
 interface HomeTodayFocusSectionProps {
@@ -31,6 +32,8 @@ const FOCUS = {
 
 function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSectionProps) {
   const router = useRouter();
+  const { todayFocusDisplayPrompt } = useOnboarding();
+  const promptText = todayFocusDisplayPrompt ?? HomeCopy.todayFocusPrompt;
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       wrap: {
@@ -165,9 +168,11 @@ function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSection
             </View>
             <View style={styles.center}>
               <Text style={styles.title}>{HomeCopy.todayFocusTitle}</Text>
-              <Text style={styles.prompt}>{HomeCopy.todayFocusPrompt}</Text>
+              <Text style={styles.prompt}>{promptText}</Text>
             </View>
-            <Pressable hitSlop={8}>
+            <Pressable
+              hitSlop={8}
+              onPress={() => router.push('/today-focus-edit' as never)}>
               <Text style={styles.edit}>{HomeCopy.todayFocusEdit}</Text>
             </Pressable>
           </View>
@@ -175,7 +180,7 @@ function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSection
           <Pressable
             hitSlop={6}
             style={styles.actionRow}
-            onPress={() => router.push('/skywrite' as never)}>
+            onPress={() => router.push('/today-focus-reflection' as never)}>
             <Text style={styles.action}>{HomeCopy.todayFocusAction}</Text>
           </Pressable>
         </View>

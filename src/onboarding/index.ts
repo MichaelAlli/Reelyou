@@ -9,12 +9,18 @@ export {
   normalizeOnboardingProfile,
   EMPTY_HUMAN_POTENTIAL_PROFILE,
   EMPTY_PERSONALIZATION_PROFILE,
+  EMPTY_TODAY_FOCUS,
+  MAX_TODAY_FOCUS_LENGTH,
+  MAX_TODAY_FOCUS_REFLECTION_LENGTH,
 } from './personalization';
 export type {
   AiCompanionContext,
   AiContextSection,
   HumanPotentialProfile,
+  TodayFocusRecord,
+  TodayFocusSource,
   UserPersonalizationProfile,
+  UserTodayFocus,
 } from './personalization';
 export type {
   OnboardingChallengeId,

@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import {
   EMPTY_ONBOARDING_STATE,
@@ -10,9 +18,17 @@ import {
 import {
   buildAiCompanionContext,
   buildHumanPotentialProfile,
-  normalizeOnboardingProfile,
+  buildTodayFocusSuggestions,
+  EMPTY_TODAY_FOCUS,
+  getLocalDateKey,
+  loadTodayFocus,
+  mergePersonalizationProfile,
+  reconcileTodayFocusForToday,
+  saveTodayFocus,
   type AiCompanionContext,
   type HumanPotentialProfile,
+  type TodayFocusRecord,
+  type TodayFocusSource,
   type UserPersonalizationProfile,
 } from '@/onboarding/personalization';
 import { MAX_NORTH_STAR_VISION_LENGTH } from '@/onboarding/northStar';
@@ -66,19 +82,57 @@ interface OnboardingContextValue {
   clearPersonalizationData: () => void;
   /** Mark onboarding flow complete (Process Screen) — preserves all collected data */
   completeOnboarding: () => void;
+  /** Active daily intention record (local-first, AI-ready) */
+  todayFocus: TodayFocusRecord;
+  /** Calm suggestions derived from onboarding profile — user can override */
+  todayFocusSuggestions: string[];
+  /** Selected intention for Home — null until user chooses one today */
+  todayFocusDisplayPrompt: string | null;
+  /** Whether the user has chosen a focus for today */
+  hasTodayFocus: boolean;
+  /** Whether a reflection is saved for the current focus today */
+  hasTodayFocusReflection: boolean;
+  setTodayFocus: (value: string, source: TodayFocusSource) => void;
+  setTodayFocusReflection: (reflection: string) => void;
+  clearTodayFocus: () => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
+  const [todayFocus, setTodayFocusState] = useState<TodayFocusRecord>(() =>
+    reconcileTodayFocusForToday({ ...EMPTY_TODAY_FOCUS, dateKey: getLocalDateKey() }),
+  );
+  useEffect(() => {
+    let live = true;
+    loadTodayFocus().then((record) => {
+      if (live) {
+        setTodayFocusState(record);
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
-  const personalizationProfile = useMemo(() => normalizeOnboardingProfile(state), [state]);
+  const personalizationProfile = useMemo(
+    () => mergePersonalizationProfile(state, todayFocus),
+    [state, todayFocus],
+  );
   const humanPotentialProfile = useMemo(() => buildHumanPotentialProfile(state), [state]);
   const aiContext = useMemo(
     () => buildAiCompanionContext(personalizationProfile),
     [personalizationProfile],
   );
+
+  const todayFocusSuggestions = useMemo(
+    () => buildTodayFocusSuggestions(personalizationProfile),
+    [personalizationProfile],
+  );
+
+  const hasTodayFocus = Boolean(todayFocus.value && todayFocus.source);
+  const hasTodayFocusReflection = Boolean(todayFocus.reflection?.trim());
 
   const profile = useMemo(() => toLegacyProfileData(state), [state.interests]);
   const goals = state.goals;
@@ -205,12 +259,67 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const setTodayFocus = useCallback((value: string, source: TodayFocusSource) => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    setTodayFocusState((current) => {
+      const focusChanged = current.value !== trimmed;
+      const next: TodayFocusRecord = {
+        value: trimmed,
+        source,
+        dateKey: getLocalDateKey(),
+        selectedAt: new Date().toISOString(),
+        reflection: focusChanged ? null : current.reflection,
+        reflectionUpdatedAt: focusChanged ? null : current.reflectionUpdatedAt,
+      };
+      void saveTodayFocus(next);
+      return next;
+    });
+  }, []);
+
+  const setTodayFocusReflection = useCallback((reflection: string) => {
+    const trimmed = reflection.trim();
+    if (!trimmed) return;
+    setTodayFocusState((current) => {
+      const next: TodayFocusRecord = {
+        ...current,
+        dateKey: current.dateKey ?? getLocalDateKey(),
+        reflection: trimmed,
+        reflectionUpdatedAt: new Date().toISOString(),
+      };
+      void saveTodayFocus(next);
+      return next;
+    });
+  }, []);
+
+  const clearTodayFocus = useCallback(() => {
+    const next = reconcileTodayFocusForToday({
+      ...EMPTY_TODAY_FOCUS,
+      dateKey: getLocalDateKey(),
+    });
+    setTodayFocusState(next);
+    void saveTodayFocus(next);
+  }, []);
+
+  const todayFocusDisplayPrompt = useMemo(() => {
+    if (todayFocus.value) return todayFocus.value;
+    return null;
+  }, [todayFocus.value]);
+
   const value = useMemo(
     () => ({
       state,
       personalizationProfile,
       humanPotentialProfile,
       aiContext,
+      todayFocus,
+      todayFocusSuggestions,
+      todayFocusDisplayPrompt,
+      hasTodayFocus,
+      hasTodayFocusReflection,
+      setTodayFocus,
+      setTodayFocusReflection,
+      clearTodayFocus,
       profile,
       goals,
       challenges,
@@ -240,6 +349,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       personalizationProfile,
       humanPotentialProfile,
       aiContext,
+      todayFocus,
+      todayFocusSuggestions,
+      todayFocusDisplayPrompt,
+      hasTodayFocus,
+      hasTodayFocusReflection,
+      setTodayFocus,
+      setTodayFocusReflection,
+      clearTodayFocus,
       profile,
       goals,
       challenges,

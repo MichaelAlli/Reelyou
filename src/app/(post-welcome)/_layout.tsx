@@ -33,6 +33,8 @@ function PostWelcomeStack() {
           animationDuration: ReelyouMotion.screenTransition,
         }}>
         <Stack.Screen name="skywrite" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="today-focus-edit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="today-focus-reflection" options={{ presentation: 'modal' }} />
         <Stack.Screen name="process" options={{ animation: 'fade', gestureEnabled: false }} />
       </Stack>
     </>

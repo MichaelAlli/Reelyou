@@ -57,6 +57,17 @@ export function buildAiCompanionContext(
       items: [profile.northStar.originalVision],
     });
   }
+  if (profile.todayFocus?.value) {
+    const focusItems = [profile.todayFocus.value];
+    if (profile.todayFocus.reflection) {
+      focusItems.push(profile.todayFocus.reflection);
+    }
+    sections.push({
+      id: 'today-focus',
+      title: "Today's Focus",
+      items: focusItems,
+    });
+  }
 
   return {
     enabled: sections.length > 0,

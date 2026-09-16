@@ -1,3 +1,15 @@
+import type { TodayFocusSource } from '@/onboarding/personalization/todayFocus/types';
+
+/** Active daily intention + reflection — optional slice on the personalization profile. */
+export interface UserTodayFocus {
+  value: string;
+  source: TodayFocusSource;
+  dateKey: string | null;
+  selectedAt: string | null;
+  reflection: string | null;
+  reflectionUpdatedAt: string | null;
+}
+
 /**
  * Centralized User Personalization Profile — populated ONLY from explicit user input
  * across all onboarding screens. Never invent fields.
@@ -28,6 +40,8 @@ export interface UserPersonalizationProfile {
   };
   /** ISO timestamp of last normalization — null until first merge */
   lastUpdatedAt: string | null;
+  /** Calm daily intention chosen on Home — null until user selects one today */
+  todayFocus: UserTodayFocus | null;
 }
 
 export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
@@ -45,4 +59,5 @@ export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
   },
   aiPersonalizationEnabled: true,
   lastUpdatedAt: null,
+  todayFocus: null,
 };
