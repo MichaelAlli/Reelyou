@@ -29,6 +29,12 @@ export type {
 } from './personalization';
 export type { MySkyConstellation, MySkyItem, MySkyState, MySkyView } from '@/mySky';
 export type {
+  GuidingLightDismissRecord,
+  GuidingLightHomeView,
+  GuidingLightRecord,
+  GuidingLightSource,
+} from '@/guidingLight';
+export type {
   OnboardingChallengeId,
   OnboardingGoalId,
   OnboardingInterestId,

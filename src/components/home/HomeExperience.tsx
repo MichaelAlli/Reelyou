@@ -11,6 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { HomeAroundYourSkySection } from '@/components/home/HomeAroundYourSkySection';
 import { HomeArrivalHeader } from '@/components/home/HomeArrivalHeader';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
+import { HomeGuidingLightSection } from '@/components/home/HomeGuidingLightSection';
 import { HomeGrowingInSection } from '@/components/home/HomeGrowingInSection';
 import { HomeMySkyCard } from '@/components/home/HomeMySkyCard';
 import { HomeSkywriteBar } from '@/components/home/HomeSkywriteBar';
@@ -144,6 +145,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
             />
             <HomeSkywriteBar animatedStyle={zone0Style} />
             <HomeAroundYourSkySection animatedStyle={zone1Style} />
+            <HomeGuidingLightSection animatedStyle={zone2Style} />
             <HomeStarpathCard animatedStyle={zone2Style} />
             <HomeMySkyCard animatedStyle={zone3Style} />
             <HomeGrowingInSection animatedStyle={zone4Style} />

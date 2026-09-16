@@ -37,6 +37,14 @@ import {
   type UserPersonalizationProfile,
 } from '@/onboarding/personalization';
 import { MAX_NORTH_STAR_VISION_LENGTH } from '@/onboarding/northStar';
+import {
+  buildGuidingLightView,
+  EMPTY_GUIDING_LIGHT_DISMISS,
+  loadGuidingLightDismiss,
+  saveGuidingLightDismiss,
+  type GuidingLightDismissRecord,
+  type GuidingLightHomeView,
+} from '@/guidingLight';
 import { buildMySkyView, type MySkyView } from '@/mySky';
 import {
   buildAroundYourSkyHomeFeed,
@@ -115,6 +123,10 @@ interface OnboardingContextValue {
   aroundYourSkyFeed: AroundYourSkyHomeFeed;
   /** Full My Sky view — North Star, stars, personal constellations */
   mySkyView: MySkyView;
+  /** Home StarPath Guiding Light — one calm possibility or peace state */
+  guidingLightView: GuidingLightHomeView;
+  /** Dismiss the active Guiding Light — user choice is authoritative */
+  dismissGuidingLight: () => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -125,6 +137,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     reconcileTodayFocusForToday({ ...EMPTY_TODAY_FOCUS, dateKey: getLocalDateKey() }),
   );
   const [communities, setCommunitiesState] = useState<CommunitiesRecord>(EMPTY_COMMUNITIES);
+  const [guidingLightDismiss, setGuidingLightDismissState] =
+    useState<GuidingLightDismissRecord>(EMPTY_GUIDING_LIGHT_DISMISS);
   useEffect(() => {
     let live = true;
     loadTodayFocus().then((record) => {
@@ -135,6 +149,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     loadCommunities().then((record) => {
       if (live) {
         setCommunitiesState(record);
+      }
+    });
+    loadGuidingLightDismiss().then((record) => {
+      if (live) {
+        setGuidingLightDismissState(record);
       }
     });
     return () => {
@@ -162,6 +181,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [basePersonalizationProfile],
   );
 
+  const guidingLightView = useMemo(
+    () => buildGuidingLightView(basePersonalizationProfile, guidingLightDismiss),
+    [basePersonalizationProfile, guidingLightDismiss],
+  );
+
   const personalizationProfile = useMemo(
     () => ({
       ...basePersonalizationProfile,
@@ -172,8 +196,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         connections: mySkyView.connections,
         contributions: mySkyView.contributions,
       },
+      guidingLight: guidingLightView.light,
     }),
-    [basePersonalizationProfile, mySkyView],
+    [basePersonalizationProfile, mySkyView, guidingLightView],
   );
   const humanPotentialProfile = useMemo(() => buildHumanPotentialProfile(state), [state]);
   const aiContext = useMemo(
@@ -396,6 +421,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const dismissGuidingLight = useCallback(() => {
+    const activeId = guidingLightView.light?.id;
+    if (!activeId) return;
+    const next: GuidingLightDismissRecord = {
+      dismissedLightId: activeId,
+      dismissedAt: new Date().toISOString(),
+    };
+    setGuidingLightDismissState(next);
+    void saveGuidingLightDismiss(next);
+  }, [guidingLightView.light?.id]);
+
   const value = useMemo(
     () => ({
       state,
@@ -416,6 +452,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       leaveCommunity,
       aroundYourSkyFeed,
       mySkyView,
+      guidingLightView,
+      dismissGuidingLight,
       profile,
       goals,
       challenges,
@@ -459,6 +497,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       leaveCommunity,
       aroundYourSkyFeed,
       mySkyView,
+      guidingLightView,
+      dismissGuidingLight,
       profile,
       goals,
       challenges,

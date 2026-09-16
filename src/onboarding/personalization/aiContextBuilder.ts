@@ -89,6 +89,13 @@ export function buildAiCompanionContext(
       items: profile.mySky.constellations.map((pattern) => pattern.label),
     });
   }
+  if (profile.guidingLight?.title) {
+    sections.push({
+      id: 'guiding-light',
+      title: 'Guiding Light',
+      items: [profile.guidingLight.title],
+    });
+  }
 
   return {
     enabled: sections.length > 0,

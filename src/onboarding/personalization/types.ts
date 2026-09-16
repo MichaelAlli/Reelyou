@@ -1,5 +1,6 @@
 import type { CommunityId, JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { TodayFocusSource } from '@/onboarding/personalization/todayFocus/types';
+import type { GuidingLightRecord } from '@/guidingLight/types';
 import type { MySkyState } from '@/mySky/types';
 import type { AroundYourSkyState } from '@/social/aroundYourSky/types';
 
@@ -57,6 +58,8 @@ export interface UserPersonalizationProfile {
   aroundYourSky: AroundYourSkyState;
   /** Personal sky universe — stars, patterns, North Star orientation */
   mySky: MySkyState;
+  /** Home StarPath signal — at most one active Guiding Light, or peace state */
+  guidingLight: GuidingLightRecord | null;
 }
 
 export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
@@ -89,4 +92,5 @@ export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
     connections: [],
     contributions: [],
   },
+  guidingLight: null,
 };
