@@ -82,6 +82,13 @@ export function buildAiCompanionContext(
       items: profile.aroundYourSky.items.map((item) => item.id),
     });
   }
+  if (profile.mySky.constellations.length > 0) {
+    sections.push({
+      id: 'my-sky-patterns',
+      title: 'Personal Sky Patterns',
+      items: profile.mySky.constellations.map((pattern) => pattern.label),
+    });
+  }
 
   return {
     enabled: sections.length > 0,

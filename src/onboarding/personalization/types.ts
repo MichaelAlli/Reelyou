@@ -1,5 +1,6 @@
 import type { CommunityId, JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { TodayFocusSource } from '@/onboarding/personalization/todayFocus/types';
+import type { MySkyState } from '@/mySky/types';
 import type { AroundYourSkyState } from '@/social/aroundYourSky/types';
 
 /** Explicit community membership — user join/leave actions are authoritative. */
@@ -54,6 +55,8 @@ export interface UserPersonalizationProfile {
   communities: UserCommunities;
   /** Finite Home social activity slice — derived, backend-replaceable */
   aroundYourSky: AroundYourSkyState;
+  /** Personal sky universe — stars, patterns, North Star orientation */
+  mySky: MySkyState;
 }
 
 export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
@@ -78,5 +81,12 @@ export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
   },
   aroundYourSky: {
     items: [],
+  },
+  mySky: {
+    northStar: { originalVision: '' },
+    skyItems: [],
+    constellations: [],
+    connections: [],
+    contributions: [],
   },
 };

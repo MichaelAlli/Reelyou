@@ -27,6 +27,7 @@ export type {
   UserPersonalizationProfile,
   UserTodayFocus,
 } from './personalization';
+export type { MySkyConstellation, MySkyItem, MySkyState, MySkyView } from '@/mySky';
 export type {
   OnboardingChallengeId,
   OnboardingGoalId,

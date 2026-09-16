@@ -1,3 +1,3 @@
-import { HumanPotentialMapScreen } from '@/screens';
+import { MySkyScreen } from '@/screens/MySkyScreen';
 
-export default HumanPotentialMapScreen;
+export default MySkyScreen;

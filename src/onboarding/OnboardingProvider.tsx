@@ -37,6 +37,7 @@ import {
   type UserPersonalizationProfile,
 } from '@/onboarding/personalization';
 import { MAX_NORTH_STAR_VISION_LENGTH } from '@/onboarding/northStar';
+import { buildMySkyView, type MySkyView } from '@/mySky';
 import {
   buildAroundYourSkyHomeFeed,
   toAroundYourSkyState,
@@ -112,6 +113,8 @@ interface OnboardingContextValue {
   leaveCommunity: (communityId: CommunityId) => void;
   /** Finite Home social activity — derived from relevance, not engagement scoring */
   aroundYourSkyFeed: AroundYourSkyHomeFeed;
+  /** Full My Sky view — North Star, stars, personal constellations */
+  mySkyView: MySkyView;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -149,9 +152,28 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [aroundYourSkyFeed],
   );
 
-  const personalizationProfile = useMemo(
+  const basePersonalizationProfile = useMemo(
     () => mergePersonalizationProfile(state, todayFocus, communities, aroundYourSkyState),
     [state, todayFocus, communities, aroundYourSkyState],
+  );
+
+  const mySkyView = useMemo(
+    () => buildMySkyView(basePersonalizationProfile),
+    [basePersonalizationProfile],
+  );
+
+  const personalizationProfile = useMemo(
+    () => ({
+      ...basePersonalizationProfile,
+      mySky: {
+        northStar: mySkyView.northStar,
+        skyItems: mySkyView.skyItems,
+        constellations: mySkyView.constellations,
+        connections: mySkyView.connections,
+        contributions: mySkyView.contributions,
+      },
+    }),
+    [basePersonalizationProfile, mySkyView],
   );
   const humanPotentialProfile = useMemo(() => buildHumanPotentialProfile(state), [state]);
   const aiContext = useMemo(
@@ -393,6 +415,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       joinCommunity,
       leaveCommunity,
       aroundYourSkyFeed,
+      mySkyView,
       profile,
       goals,
       challenges,
@@ -435,6 +458,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       joinCommunity,
       leaveCommunity,
       aroundYourSkyFeed,
+      mySkyView,
       profile,
       goals,
       challenges,
