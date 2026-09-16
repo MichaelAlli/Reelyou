@@ -68,10 +68,11 @@ export const HomeArrivalHeader = memo(HomeArrivalHeaderComponent);
 
 const styles = StyleSheet.create({
   row: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 14,
+    gap: 12,
     paddingTop: HomeLayout.profileOffsetTop,
     marginBottom: HomeLayout.heroBottomGap,
   },
@@ -147,8 +148,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: 'rgba(235, 228, 248, 0.86)',
-    maxWidth: 255,
     letterSpacing: 0.05,
+    flexShrink: 1,
   },
   avatarWrap: {
     alignItems: 'center',

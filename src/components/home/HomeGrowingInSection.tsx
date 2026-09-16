@@ -65,6 +65,7 @@ function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionPr
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       shell: {
+        width: '100%',
         gap: 8,
         minHeight: HomeLayout.growingInMinHeight,
       },
@@ -170,6 +171,7 @@ function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionPr
 
       <ScrollView
         horizontal
+        nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
         style={styles.pillScroll}
         contentContainerStyle={styles.pillRow}>

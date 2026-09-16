@@ -339,9 +339,9 @@ export function HomeStarpathGraphic() {
             </MilestoneNode>
             <Text
               x={node.x}
-              y={114}
+              y={115}
               fill="rgba(252,251,248,0.94)"
-              fontSize={7.2}
+              fontSize={11.5}
               fontWeight="600"
               textAnchor="middle"
             >

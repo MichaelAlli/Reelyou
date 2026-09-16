@@ -8,13 +8,20 @@ interface HomeGlassCardProps {
   children: ReactNode;
   style?: ViewStyle;
   height?: number;
+  minHeight?: number;
   noPad?: boolean;
   vibrant?: boolean;
 }
 
-function HomeGlassCardComponent({ children, style, height, noPad, vibrant }: HomeGlassCardProps) {
+function HomeGlassCardComponent({ children, style, height, minHeight, noPad, vibrant }: HomeGlassCardProps) {
   return (
-    <View style={[styles.shell, height ? { height } : null, style]}>
+    <View
+      style={[
+        styles.shell,
+        height != null ? { height } : null,
+        minHeight != null ? { minHeight } : null,
+        style,
+      ]}>
       <LinearGradient
         colors={
           vibrant
@@ -51,6 +58,7 @@ export const HomeGlassCard = memo(HomeGlassCardComponent);
 
 const styles = StyleSheet.create({
   shell: {
+    width: '100%',
     borderRadius: HomeLayout.cardRadius,
     overflow: 'hidden',
     borderWidth: HomeLayout.cardBorder,

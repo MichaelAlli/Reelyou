@@ -1,5 +1,6 @@
+import { useRouter } from 'expo-router';
 import { memo } from 'react';
-import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 
 import { HomeGlassCard } from '@/components/home/HomeGlassCard';
@@ -14,8 +15,12 @@ interface HomeMySkyCardProps {
 }
 
 function HomeMySkyCardComponent({ animatedStyle }: HomeMySkyCardProps) {
+  const router = useRouter();
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
+      cardWrap: {
+        width: '100%',
+      },
       header: {
         flexDirection: 'row',
         alignItems: 'flex-start',
@@ -64,7 +69,8 @@ function HomeMySkyCardComponent({ animatedStyle }: HomeMySkyCardProps) {
         flexShrink: 0,
       },
       canvas: {
-        flex: 1,
+        width: '100%',
+        aspectRatio: HomeLayout.mySkyAspect,
         minHeight: HomeLayout.mySkyVisual,
         marginHorizontal: -8,
         marginBottom: -6,
@@ -77,8 +83,8 @@ function HomeMySkyCardComponent({ animatedStyle }: HomeMySkyCardProps) {
   );
 
   return (
-    <Animated.View style={animatedStyle}>
-      <HomeGlassCard height={HomeLayout.mySkyHeight} vibrant>
+    <Animated.View style={[styles.cardWrap, animatedStyle]}>
+      <HomeGlassCard minHeight={HomeLayout.mySkyHeight} vibrant>
         <View style={styles.header}>
           <View style={styles.titleBlock}>
             <View style={styles.titleRow}>
@@ -87,7 +93,9 @@ function HomeMySkyCardComponent({ animatedStyle }: HomeMySkyCardProps) {
             </View>
             <Text style={styles.support}>{HomeCopy.mySkySupport}</Text>
           </View>
-          <Text style={styles.cta}>{HomeCopy.mySkyCta}</Text>
+          <Pressable hitSlop={8} onPress={() => router.push('/(tabs)/sky' as never)}>
+            <Text style={styles.cta}>{HomeCopy.mySkyCta}</Text>
+          </Pressable>
         </View>
         <View style={styles.canvas}>
           <HomeMySkyGraphic />

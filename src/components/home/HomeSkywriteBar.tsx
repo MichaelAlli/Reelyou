@@ -35,7 +35,7 @@ function HomeSkywriteBarComponent({ animatedStyle }: HomeSkywriteBarProps) {
   const router = useRouter();
 
   return (
-    <Animated.View style={animatedStyle}>
+    <Animated.View style={[styles.wrap, animatedStyle]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Open Skywrite"
@@ -84,6 +84,9 @@ function HomeSkywriteBarComponent({ animatedStyle }: HomeSkywriteBarProps) {
 export const HomeSkywriteBar = memo(HomeSkywriteBarComponent);
 
 const styles = StyleSheet.create({
+  wrap: {
+    width: '100%',
+  },
   pressable: {
     borderRadius: SKYWRITE.radius,
   },

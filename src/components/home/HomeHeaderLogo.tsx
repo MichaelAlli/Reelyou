@@ -1,8 +1,8 @@
-import { memo } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { memo, useMemo } from 'react';
+import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { BrandingAssets } from '@/constants/branding';
-import { HomeLayout } from '@/constants/homeLayout';
+import { HomeLayout, measureHomeContentWidth } from '@/constants/homeLayout';
 
 /** Native aspect of reelyou-welcome-logo-white-tagline-cropped.png (1116 × 594 RGBA PNG). */
 const TRANSPARENT_WORDMARK_ASPECT = 594 / 1116;
@@ -19,13 +19,27 @@ function measureLogoSize(boxWidth: number, boxHeight: number): { width: number; 
 }
 
 function HomeHeaderLogoComponent() {
-  const { width: logoWidth, height: logoHeight } = measureLogoSize(
-    HomeLayout.logoWidth,
-    HomeLayout.logoHeight,
-  );
+  const { width: screenWidth } = useWindowDimensions();
+
+  const { boxWidth, boxHeight, logoWidth, logoHeight } = useMemo(() => {
+    const slot = HomeLayout.iconCircleSm;
+    const availableLogoWidth = Math.max(
+      120,
+      measureHomeContentWidth(screenWidth) - slot * 2 - 20,
+    );
+    const width = Math.min(HomeLayout.logoWidth, availableLogoWidth);
+    const height = HomeLayout.logoHeight;
+    const sized = measureLogoSize(width, height);
+    return {
+      boxWidth: width,
+      boxHeight: height,
+      logoWidth: sized.width,
+      logoHeight: sized.height,
+    };
+  }, [screenWidth]);
 
   return (
-    <View style={styles.box}>
+    <View style={[styles.box, { width: boxWidth, height: boxHeight }]}>
       <Image
         source={BrandingAssets.homeHeaderWordmark}
         style={{ width: logoWidth, height: logoHeight, backgroundColor: 'transparent' }}
@@ -40,8 +54,6 @@ export const HomeHeaderLogo = memo(HomeHeaderLogoComponent);
 
 const styles = StyleSheet.create({
   box: {
-    width: HomeLayout.logoWidth,
-    height: HomeLayout.logoHeight,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',

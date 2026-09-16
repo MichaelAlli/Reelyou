@@ -1,5 +1,6 @@
 export const HomeLayout = {
   padH: 20,
+  padHCompact: 16,
   sectionGap: 14,
   cardRadius: 18,
   cardPad: 14,
@@ -13,19 +14,42 @@ export const HomeLayout = {
   heroBottomGap: 4,
   logoWidth: 172,
   logoHeight: 48,
+  /** Reference heights — cards grow from content + aspect ratio on narrow devices. */
   starpathHeight: 192,
   starpathVisual: 128,
+  starpathAspect: 320 / 128,
   mySkyHeight: 168,
   mySkyVisual: 108,
+  mySkyAspect: 320 / 108,
   skywriteHeight: 62,
   focusMinHeight: 72,
   growingInMinHeight: 88,
   navIconSize: 21,
+  scrollBottomExtra: 28,
 } as const;
 
-/** Portrait diameter — reference scale (~105–120px on 430px viewport). */
+/** Horizontal page inset — 16px on narrow phones, 20px otherwise. */
+export function measureHomePadH(screenWidth: number): number {
+  return screenWidth <= 375 ? HomeLayout.padHCompact : HomeLayout.padH;
+}
+
+/** Usable content width inside Home horizontal padding. */
+export function measureHomeContentWidth(screenWidth: number): number {
+  const pad = measureHomePadH(screenWidth);
+  return Math.max(0, screenWidth - pad * 2);
+}
+
+/** Portrait diameter — scales with content width; stays legible on narrow phones. */
 export function measureHomeAvatarSize(screenWidth: number): number {
-  const base = Math.round(screenWidth * 0.279);
+  const contentWidth = measureHomeContentWidth(screenWidth);
+  const ratio = screenWidth <= 375 ? 0.24 : 0.26;
+  const base = Math.round(contentWidth * ratio);
+  if (screenWidth <= 360) {
+    return Math.min(108, Math.max(88, base));
+  }
+  if (screenWidth <= 390) {
+    return Math.min(112, Math.max(96, base));
+  }
   return Math.min(120, Math.max(105, base));
 }
 

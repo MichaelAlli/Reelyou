@@ -1,5 +1,6 @@
+import { useRouter } from 'expo-router';
 import { memo } from 'react';
-import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 
 import { HomeGlassCard } from '@/components/home/HomeGlassCard';
@@ -14,8 +15,12 @@ interface HomeStarpathCardProps {
 }
 
 function HomeStarpathCardComponent({ animatedStyle }: HomeStarpathCardProps) {
+  const router = useRouter();
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
+      cardWrap: {
+        width: '100%',
+      },
       header: {
         flexDirection: 'row',
         alignItems: 'flex-start',
@@ -53,7 +58,8 @@ function HomeStarpathCardComponent({ animatedStyle }: HomeStarpathCardProps) {
         flexShrink: 0,
       },
       visual: {
-        flex: 1,
+        width: '100%',
+        aspectRatio: HomeLayout.starpathAspect,
         minHeight: HomeLayout.starpathVisual,
         marginHorizontal: -8,
         marginBottom: -6,
@@ -66,8 +72,8 @@ function HomeStarpathCardComponent({ animatedStyle }: HomeStarpathCardProps) {
   );
 
   return (
-    <Animated.View style={animatedStyle}>
-      <HomeGlassCard height={HomeLayout.starpathHeight} vibrant>
+    <Animated.View style={[styles.cardWrap, animatedStyle]}>
+      <HomeGlassCard minHeight={HomeLayout.starpathHeight} vibrant>
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <Text style={styles.title}>
@@ -76,7 +82,9 @@ function HomeStarpathCardComponent({ animatedStyle }: HomeStarpathCardProps) {
             </Text>
             <Text style={styles.subtitle}>{HomeCopy.starpathSubtitle}</Text>
           </View>
-          <Text style={styles.cta}>{HomeCopy.starpathCta}</Text>
+          <Pressable hitSlop={8} onPress={() => router.push('/starpath' as never)}>
+            <Text style={styles.cta}>{HomeCopy.starpathCta}</Text>
+          </Pressable>
         </View>
         <View style={styles.visual}>
           <HomeStarpathGraphic />

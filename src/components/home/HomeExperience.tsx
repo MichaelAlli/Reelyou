@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, ScrollView, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -19,7 +19,7 @@ import { HomeTopNav } from '@/components/home/HomeTopNav';
 import { ReelyouEasing } from '@/constants/animation';
 import { HomeCopy } from '@/constants/homeCopy';
 import { TabBarHeight } from '@/constants/theme';
-import { HomeLayout, HomeMotion } from '@/constants/homeLayout';
+import { HomeLayout, HomeMotion, measureHomePadH } from '@/constants/homeLayout';
 import { consumeHomeArrivalPending } from '@/home';
 
 interface HomeExperienceProps {
@@ -27,8 +27,11 @@ interface HomeExperienceProps {
 }
 
 function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
+  const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const padH = measureHomePadH(screenWidth);
   const tabContentInset = TabBarHeight + Math.max(insets.bottom, 8);
+  const scrollBottomInset = HomeLayout.scrollBottomExtra + tabContentInset;
   const [reduceMotion, setReduceMotion] = useState(false);
 
   const isArrival = useMemo(() => {
@@ -120,9 +123,14 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
       <Animated.View style={[styles.foreground, screenStyle]}>
         <SafeAreaView style={styles.safe} edges={['top']}>
           <ScrollView
-            contentContainerStyle={[styles.scroll, { paddingBottom: 24 + tabContentInset }]}
+            style={styles.scrollView}
+            contentContainerStyle={[
+              styles.scroll,
+              { paddingHorizontal: padH, paddingBottom: scrollBottomInset },
+            ]}
             showsVerticalScrollIndicator={false}
-            bounces={false}>
+            bounces
+            nestedScrollEnabled>
             <HomeTopNav />
             <HomeArrivalHeader
               greetingStyle={greetingStyle}
@@ -147,19 +155,24 @@ export const HomeExperience = memo(HomeExperienceComponent);
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    width: '100%',
     backgroundColor: '#05070A',
   },
   foreground: {
     flex: 1,
+    width: '100%',
   },
   safe: {
     flex: 1,
+    width: '100%',
+  },
+  scrollView: {
+    flex: 1,
+    width: '100%',
   },
   scroll: {
-    flexGrow: 1,
-    paddingHorizontal: HomeLayout.padH,
+    width: '100%',
     paddingTop: 0,
-    paddingBottom: 0,
     gap: HomeLayout.sectionGap,
   },
 });

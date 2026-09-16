@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { memo } from 'react';
 import {
   Platform,
@@ -29,9 +30,11 @@ const FOCUS = {
 } as const;
 
 function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSectionProps) {
+  const router = useRouter();
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       wrap: {
+        width: '100%',
         minHeight: HomeLayout.focusMinHeight,
       },
       shell: {
@@ -169,7 +172,10 @@ function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSection
             </Pressable>
           </View>
 
-          <Pressable hitSlop={6} style={styles.actionRow}>
+          <Pressable
+            hitSlop={6}
+            style={styles.actionRow}
+            onPress={() => router.push('/skywrite' as never)}>
             <Text style={styles.action}>{HomeCopy.todayFocusAction}</Text>
           </Pressable>
         </View>

@@ -44,6 +44,7 @@ export function BottomNav() {
         bottom: 0,
         left: 0,
         right: 0,
+        width: '100%',
         paddingHorizontal: Spacing.sm,
         backgroundColor: '#05070A',
       },
@@ -117,7 +118,13 @@ export function BottomNav() {
         {tabs.map((tab) => {
           const active = isActive(tab);
           return (
-            <Pressable key={tab.name} style={styles.tab} onPress={() => router.push(tab.href as never)}>
+            <Pressable
+              key={tab.name}
+              style={styles.tab}
+              onPress={() => {
+                if (active) return;
+                router.push(tab.href as never);
+              }}>
               {tab.renderIcon ? (
                 tab.renderIcon({ size: HomeLayout.navIconSize, active })
               ) : (
