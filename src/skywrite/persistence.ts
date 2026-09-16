@@ -1,8 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { SkywriteRecord, SkywritesState } from '@/skywrite/types';
-import { EMPTY_SKYWRITES } from '@/skywrite/types';
+import { SKYWRITE_SHOWING_UP_OPTIONS } from '@/constants/skywriteCopy';
+import { deriveMediaMode } from '@/skywrite/draft';
+import type {
+  SkywriteAudioMedia,
+  SkywriteMedia,
+  SkywriteMediaMode,
+  SkywritePhotoMedia,
+  SkywriteRecord,
+  SkywritesState,
+} from '@/skywrite/types';
+import { EMPTY_SKYWRITE_MEDIA, EMPTY_SKYWRITES } from '@/skywrite/types';
 import type { Mood, Privacy } from '@/types';
+
+const SHOWING_UP_IDS = new Set(SKYWRITE_SHOWING_UP_OPTIONS.map((option) => option.id));
+const MEDIA_MODES = new Set<SkywriteMediaMode>(['text', 'photo', 'voice', 'photo_voiceover']);
 
 const STORAGE_KEY = '@reellyou/skywrites';
 
@@ -20,21 +32,67 @@ function isMood(value: unknown): value is Mood {
   );
 }
 
+function parsePhoto(raw: unknown): SkywritePhotoMedia | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const entry = raw as Partial<SkywritePhotoMedia>;
+  if (typeof entry.uri !== 'string') return null;
+  return {
+    uri: entry.uri,
+    width: typeof entry.width === 'number' ? entry.width : undefined,
+    height: typeof entry.height === 'number' ? entry.height : undefined,
+  };
+}
+
+function parseAudio(raw: unknown): SkywriteAudioMedia | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const entry = raw as Partial<SkywriteAudioMedia>;
+  if (typeof entry.uri !== 'string') return null;
+  return {
+    uri: entry.uri,
+    durationMs: typeof entry.durationMs === 'number' ? entry.durationMs : undefined,
+  };
+}
+
+function parseMedia(raw: unknown): SkywriteMedia {
+  if (!raw || typeof raw !== 'object') return { ...EMPTY_SKYWRITE_MEDIA };
+  const entry = raw as { photo?: unknown; audio?: unknown };
+  return {
+    photo: parsePhoto(entry.photo),
+    audio: parseAudio(entry.audio),
+  };
+}
+
 function parsePost(raw: unknown): SkywriteRecord | null {
   if (!raw || typeof raw !== 'object') return null;
   const entry = raw as Partial<SkywriteRecord>;
-  if (typeof entry.id !== 'string' || typeof entry.text !== 'string') return null;
+  if (typeof entry.id !== 'string') return null;
+  if (typeof entry.text !== 'string') return null;
   if (!isPrivacy(entry.visibility)) return null;
+
   const userHashtags = Array.isArray(entry.userHashtags)
     ? entry.userHashtags.filter((tag): tag is string => typeof tag === 'string')
     : [];
+  const showingUp =
+    typeof entry.showingUp === 'string' && SHOWING_UP_IDS.has(entry.showingUp as never)
+      ? entry.showingUp
+      : null;
+  const media = parseMedia(entry.media);
+  const mediaMode =
+    typeof entry.mediaMode === 'string' && MEDIA_MODES.has(entry.mediaMode as SkywriteMediaMode)
+      ? (entry.mediaMode as SkywriteMediaMode)
+      : deriveMediaMode(media, entry.text);
+
   return {
     id: entry.id,
     text: entry.text,
-    media: null,
+    media,
+    mediaMode,
     visibility: entry.visibility,
     mood: isMood(entry.mood) ? entry.mood : null,
+    showingUp,
     userHashtags,
+    animateToSky: entry.animateToSky !== false,
+    allowAIContext: entry.allowAIContext !== false,
     createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),
   };
 }

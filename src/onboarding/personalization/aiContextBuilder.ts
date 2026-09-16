@@ -96,7 +96,9 @@ export function buildAiCompanionContext(
       items: [profile.guidingLight.title],
     });
   }
-  const aiEligibleSkywrites = profile.skywrites.filter((post) => post.visibility !== 'private');
+  const aiEligibleSkywrites = profile.skywrites.filter(
+    (post) => post.visibility !== 'private' && post.allowAIContext,
+  );
   if (aiEligibleSkywrites.length > 0) {
     const explicitHashtags = [
       ...new Set(aiEligibleSkywrites.flatMap((post) => post.userHashtags)),
@@ -111,7 +113,10 @@ export function buildAiCompanionContext(
     sections.push({
       id: 'skywrites',
       title: 'Skywrites',
-      items: aiEligibleSkywrites.map((post) => post.text),
+      items: aiEligibleSkywrites.map((post) => {
+        const parts = [post.text.trim(), post.showingUp, post.mediaMode].filter(Boolean);
+        return parts.join(' · ') || post.mediaMode;
+      }),
     });
   }
 

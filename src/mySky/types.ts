@@ -1,3 +1,5 @@
+import type { SkywriteMediaMode } from '@/skywrite/types';
+
 /** Sky item categories — backend-replaceable star/moment types. */
 export type MySkyItemType = 'skywrite' | 'moment' | 'connection' | 'contribution';
 
@@ -8,6 +10,9 @@ export interface MySkyItem {
   timestamp?: string;
   visibility?: string;
   constellationId?: string | null;
+  /** Source Skywrite id when this star represents a Skywrite moment. */
+  sourceId?: string;
+  mediaMode?: SkywriteMediaMode;
 }
 
 /** Personal pattern grouping within one user's journey — not a community. */

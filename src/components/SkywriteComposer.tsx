@@ -5,7 +5,7 @@ import { GlowButton } from '@/components/GlowButton';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { moods, privacyOptions } from '@/data/mockData';
 import { parseUserHashtags } from '@/skywrite';
-import type { SkywriteDraft } from '@/skywrite/types';
+import { EMPTY_SKYWRITE_MEDIA, type SkywriteDraft } from '@/skywrite/types';
 import { useTheme, useThemedStyles } from '@/theme/useTheme';
 import type { Mood, Privacy } from '@/types';
 
@@ -122,6 +122,7 @@ export function SkywriteComposer({ onSubmit }: SkywriteComposerProps) {
     if (!trimmed) return;
     onSubmit({
       text: trimmed,
+      media: { ...EMPTY_SKYWRITE_MEDIA },
       visibility: privacy,
       mood,
       userHashtags: parseUserHashtags(trimmed),

@@ -10,7 +10,6 @@ import { ProfileHeader } from '@/components/ProfileHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { SectionHeader } from '@/components/SectionHeader';
 import { SkyPreviewCard } from '@/components/SkyPreviewCard';
-import { SkywriteComposer } from '@/components/SkywriteComposer';
 import { TabPill } from '@/components/TabPill';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useThemedStyles } from '@/theme/useTheme';
@@ -31,7 +30,7 @@ import { useOnboarding } from '@/onboarding';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { SkywriteDraft } from '@/skywrite/types';
+export { SkywriteScreen } from '@/screens/SkywriteScreen';
 
 export function OnboardingScreen() {
   const styles = useScreenStyles();
@@ -52,41 +51,6 @@ export function OnboardingScreen() {
         label="Start My Sky"
         onPress={() => router.replace('/(tabs)/home' as never)}
         style={styles.cta}
-      />
-    </ScreenLayout>
-  );
-}
-
-export function SkywriteScreen() {
-  const styles = useScreenStyles();
-  const router = useRouter();
-  const { createSkywrite } = useOnboarding();
-  const [submitted, setSubmitted] = useState(false);
-
-  if (submitted) {
-    return (
-      <ScreenLayout scroll={false}>
-        <View style={styles.success}>
-          <Text style={styles.successStar}>✦</Text>
-          <Text style={styles.successTitle}>Your reflection became a star in your sky.</Text>
-          <GlowButton label="Return Home" onPress={() => router.back()} />
-        </View>
-      </ScreenLayout>
-    );
-  }
-
-  return (
-    <ScreenLayout>
-      <Pressable onPress={() => router.back()} style={styles.back}>
-        <Text style={styles.backText}>← Back</Text>
-      </Pressable>
-      <Text style={styles.screenTitle}>Skywrite</Text>
-      <Text style={styles.screenSubtitle}>Release what&apos;s on your heart into your sky.</Text>
-      <SkywriteComposer
-        onSubmit={(draft: SkywriteDraft) => {
-          createSkywrite(draft);
-          setSubmitted(true);
-        }}
       />
     </ScreenLayout>
   );

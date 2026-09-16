@@ -47,6 +47,7 @@ import {
 } from '@/guidingLight';
 import { buildMySkyView, type MySkyView } from '@/mySky';
 import {
+  buildSkywriteRecord,
   EMPTY_SKYWRITES,
   loadSkywrites,
   saveSkywrites,
@@ -451,15 +452,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   }, [guidingLightView.light?.id]);
 
   const createSkywrite = useCallback((draft: SkywriteDraft): SkywriteRecord => {
-    const record: SkywriteRecord = {
-      id: `skywrite-${Date.now()}`,
-      text: draft.text,
-      media: null,
-      visibility: draft.visibility,
-      mood: draft.mood,
-      userHashtags: draft.userHashtags,
-      createdAt: new Date().toISOString(),
-    };
+    const record = buildSkywriteRecord(
+      draft,
+      `skywrite-${Date.now()}`,
+      new Date().toISOString(),
+    );
     setSkywritesState((current) => {
       const next: SkywritesState = { posts: [record, ...current.posts] };
       void saveSkywrites(next);
