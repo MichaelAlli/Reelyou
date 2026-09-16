@@ -154,7 +154,7 @@ export function MySkyScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{MySkyCopy.starsTitle}</Text>
-        <MySkyStarCanvas stars={mySkyView.stars} />
+        <MySkyStarCanvas view={mySkyView} />
         <Text style={styles.hint}>{MySkyCopy.exploreHint}</Text>
       </View>
 

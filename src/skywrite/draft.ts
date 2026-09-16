@@ -73,6 +73,7 @@ export function createEmptySkywriteDraft(
     visibility: defaults?.visibility ?? 'public',
     mood: null,
     showingUp: null,
+    textStyle: 'plain',
     userHashtags: [],
     animateToSky: defaults?.animateToSky ?? true,
     allowAIContext: defaults?.allowAIContext ?? true,
@@ -88,6 +89,7 @@ export function buildSkywriteRecord(
   return {
     id,
     text,
+    textStyle: draft.textStyle ?? 'plain',
     media: {
       photo: draft.media.photo,
       audio: draft.media.audio,

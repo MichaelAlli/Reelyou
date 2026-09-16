@@ -8,7 +8,7 @@ export const HomeCopy = {
   starpathMilestones: ['Build Discipline', 'Level Up Skills', 'Create Impact'] as const,
   mySkyTitle: 'My Sky',
   mySkySupport: 'See how your journey is taking shape.',
-  mySkyCta: 'View Full Sky →',
+  mySkyCta: 'View My Sky →',
   growingInTitle: 'Growing In',
   growingInSubtitle: 'Communities shaping my growth and journey.',
   growingInCta: 'See All →',

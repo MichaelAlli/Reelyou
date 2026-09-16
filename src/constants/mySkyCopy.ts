@@ -1,6 +1,8 @@
+export const MY_SKY_TAGLINE = 'A living reflection of who you are becoming.' as const;
+
 export const MySkyCopy = {
-  title: 'My Sky',
-  subtitle: 'Your living universe — moments, patterns, and direction.',
+  title: 'My Sky ✨',
+  subtitle: MY_SKY_TAGLINE,
   homeLink: '← Home',
   northStarTitle: 'North Star',
   northStarEmpty: 'Your North Star can guide what you’re moving toward.',

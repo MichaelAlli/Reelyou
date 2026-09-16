@@ -1,31 +1,32 @@
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Defs, Line, RadialGradient, Stop } from 'react-native-svg';
 
+import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
+import { MySkyLivingSkyLayer } from '@/components/my-sky/MySkyLivingSkyLayer';
 import { Fonts, Radius } from '@/constants/theme';
-import type { MySkyStarDisplay } from '@/mySky/types';
+import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
 import { useThemedStyles } from '@/theme/useTheme';
 
 interface MySkyStarCanvasProps {
-  stars: MySkyStarDisplay[];
+  view: Pick<MySkyView, 'stars' | 'vitality' | 'relationships' | 'nodes' | 'viewState'>;
 }
 
-function MySkyStarCanvasComponent({ stars }: MySkyStarCanvasProps) {
+function MySkyStarCanvasComponent({ view }: MySkyStarCanvasProps) {
+  const { stars, vitality, relationships, nodes, viewState } = view;
   const router = useRouter();
-  const [size, setSize] = useState({ w: 320, h: 200 });
+  const [size, setSize] = useState({ w: 320, h: 360 });
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       wrap: {
         width: '100%',
-        aspectRatio: 1.6,
-        minHeight: 180,
+        aspectRatio: 0.72,
+        minHeight: 320,
         borderRadius: Radius.lg,
         overflow: 'hidden',
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: 'rgba(167, 139, 250, 0.22)',
-        backgroundColor: 'rgba(5, 7, 20, 0.85)',
       },
       starHit: {
         position: 'absolute',
@@ -36,10 +37,11 @@ function MySkyStarCanvasComponent({ stars }: MySkyStarCanvasProps) {
         alignItems: 'center',
         justifyContent: 'center',
       },
-      starDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
+      hitGlow: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        opacity: 0.01,
       },
       tooltip: {
         position: 'absolute',
@@ -86,37 +88,18 @@ function MySkyStarCanvasComponent({ stars }: MySkyStarCanvasProps) {
     [router],
   );
 
-  const linkPairs: Array<[number, number, number, number]> = [];
-  for (let i = 0; i < stars.length - 1; i += 1) {
-    const a = stars[i];
-    const b = stars[i + 1];
-    if (a.constellationId && a.constellationId === b.constellationId) {
-      linkPairs.push([a.x * size.w, a.y * size.h, b.x * size.w, b.y * size.h]);
-    }
-  }
-
   return (
     <View style={styles.wrap} onLayout={onLayout}>
-      <Svg width="100%" height="100%" viewBox={`0 0 ${size.w} ${size.h}`}>
-        <Defs>
-          <RadialGradient id="horizonGlow" cx="50%" cy="100%" rx="60%" ry="40%">
-            <Stop offset="0%" stopColor="#482838" stopOpacity={0.45} />
-            <Stop offset="100%" stopColor="#040610" stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Circle cx={size.w / 2} cy={size.h * 0.92} r={size.w * 0.55} fill="url(#horizonGlow)" />
-        {linkPairs.map(([x1, y1, x2, y2], index) => (
-          <Line
-            key={`link-${index}`}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="rgba(167, 139, 250, 0.28)"
-            strokeWidth={1}
-          />
-        ))}
-      </Svg>
+      <MySkyBackdrop dim />
+      <MySkyLivingSkyLayer
+        width={size.w}
+        height={size.h}
+        userStars={stars}
+        vitality={vitality}
+        patternRelationships={relationships}
+        patternNodes={nodes}
+        visibleLayers={viewState.visibleLayers}
+      />
 
       {stars.map((star) => (
         <Pressable
@@ -124,11 +107,8 @@ function MySkyStarCanvasComponent({ stars }: MySkyStarCanvasProps) {
           accessibilityRole="button"
           accessibilityLabel={star.title ?? 'Sky moment'}
           onPress={() => handleStarPress(star)}
-          style={[
-            styles.starHit,
-            { left: `${star.x * 100}%`, top: `${star.y * 100}%` },
-          ]}>
-          <View style={[styles.starDot, { backgroundColor: star.color }]} />
+          style={[styles.starHit, { left: `${star.x * 100}%`, top: `${star.y * 100}%` }]}>
+          <View style={styles.hitGlow} />
         </Pressable>
       ))}
 

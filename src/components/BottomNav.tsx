@@ -102,7 +102,12 @@ export function BottomNav() {
       return pathname === '/home' || pathname.endsWith('/home');
     }
     if (tab.name === 'sky') {
-      return pathname === '/sky' || pathname.endsWith('/sky');
+      return (
+        pathname === '/sky' ||
+        pathname.endsWith('/sky') ||
+        pathname === '/my-sky-arrival' ||
+        pathname.endsWith('/my-sky-arrival')
+      );
     }
     if (tab.name === 'starpath') {
       return pathname === '/starpath' || pathname.endsWith('/starpath');

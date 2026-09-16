@@ -19,6 +19,7 @@ import { HomeBellIcon } from '@/components/home/HomeIcons';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
 import { HomeProfilePortrait } from '@/components/home/HomeProfilePortrait';
 import { SkywriteAccordionRow } from '@/components/skywrite/SkywriteAccordionRow';
+import { SkywriteTextStylePicker } from '@/components/skywrite/SkywriteTextStylePicker';
 import { SkywriteMediaAttachments } from '@/components/skywrite/SkywriteMediaAttachments';
 import { SkywriteMediaRow } from '@/components/skywrite/SkywriteMediaRow';
 import { SkywritePhotoSourceSheet } from '@/components/skywrite/SkywritePhotoSourceSheet';
@@ -30,9 +31,14 @@ import {
   SKYWRITE_SHOWING_UP_OPTIONS,
   SkywriteCopy,
 } from '@/constants/skywriteCopy';
+import {
+  getSkywriteTextStyleLabel,
+  getSkywriteWriteInputStyle,
+} from '@/constants/skywriteTextStyles';
 import { HomeLayout, HomePalette, measureHomeAvatarSize, measureHomePadH } from '@/constants/homeLayout';
 import { Fonts, Radius } from '@/constants/theme';
 import { useOnboarding } from '@/onboarding';
+import { buildSkyNodeId } from '@/mySky/skyArrival';
 import {
   createEmptySkywriteDraft,
   getSkywriteMediaActionLabels,
@@ -42,13 +48,12 @@ import {
   takeSkywritePhoto,
   useSkywriteVoice,
   type PhotoPickResult,
-  type SkywriteCreateHandoff,
   type SkywriteDraft,
 } from '@/skywrite';
 import type { SkywritePhotoMedia } from '@/skywrite/types';
 import type { Privacy } from '@/types';
 
-type AccordionKey = 'showingUp' | 'hashtags' | 'more';
+type AccordionKey = 'showingUp' | 'textStyle' | 'hashtags' | 'more';
 
 const MAX_HASHTAGS = 5;
 
@@ -72,7 +77,7 @@ export function SkywriteScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const padH = measureHomePadH(screenWidth);
   const avatarSize = Math.min(measureHomeAvatarSize(screenWidth), 88);
-  const { createSkywrite, state } = useOnboarding();
+  const { createSkywrite, setSkyArrivalHandoff, state } = useOnboarding();
 
   const [draft, setDraft] = useState<SkywriteDraft>(() =>
     createEmptySkywriteDraft({
@@ -86,7 +91,6 @@ export function SkywriteScreen() {
   const [openAccordion, setOpenAccordion] = useState<AccordionKey | null>(null);
   const [visibilityExpanded, setVisibilityExpanded] = useState(false);
   const [validationHint, setValidationHint] = useState<string | null>(null);
-  const [handoff, setHandoff] = useState<SkywriteCreateHandoff | null>(null);
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const [voiceCaptureOpen, setVoiceCaptureOpen] = useState(false);
   const [mediaFeedback, setMediaFeedback] = useState<string | null>(null);
@@ -103,6 +107,8 @@ export function SkywriteScreen() {
     [hasPhoto, hasVoice],
   );
 
+  const textStyle = draft.textStyle ?? 'plain';
+  const writeInputStyle = useMemo(() => getSkywriteWriteInputStyle(textStyle), [textStyle]);
   const charCount = draft.text.length;
   const hashtagCount = useMemo(
     () => mergeHashtags(draft.text, manualHashtags).length,
@@ -269,37 +275,19 @@ export function SkywriteScreen() {
       userHashtags: mergeHashtags(trimmed, manualHashtags),
     });
 
-    setHandoff({
-      skywriteCreated: true,
-      createdSkywriteId: record.id,
-      animateToSky: record.animateToSky,
-      mediaMode: record.mediaMode,
-    });
-  }, [createSkywrite, draft, manualHashtags]);
+    if (record.animateToSky) {
+      setSkyArrivalHandoff({
+        skywriteId: record.id,
+        skyNodeId: buildSkyNodeId(record.id),
+        justAddedToSky: true,
+        skywriteStatus: 'animating',
+      });
+      router.replace('/skywrite-to-sky' as never);
+      return;
+    }
 
-  if (handoff) {
-    return (
-      <View style={styles.root}>
-        <HomeBackdrop />
-        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-          <View style={[styles.success, { paddingHorizontal: padH }]}>
-            <Text style={styles.successStar}>✦</Text>
-            <Text style={styles.successTitle}>{SkywriteCopy.successTitle}</Text>
-            {handoff.animateToSky ? (
-              <Text style={styles.successHint}>{SkywriteCopy.successAnimateHint}</Text>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={SkywriteCopy.successReturn}
-              onPress={() => router.back()}
-              style={styles.successBtn}>
-              <Text style={styles.successBtnText}>{SkywriteCopy.successReturn}</Text>
-            </Pressable>
-          </View>
-        </SafeAreaView>
-      </View>
-    );
-  }
+    router.replace('/(tabs)/sky' as never);
+  }, [createSkywrite, draft, manualHashtags, router, setSkyArrivalHandoff]);
 
   return (
     <View style={styles.root}>
@@ -396,51 +384,55 @@ export function SkywriteScreen() {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
+                pointerEvents="none"
               />
-              <TextInput
-                style={styles.writeInput}
-                placeholder={SkywriteCopy.writePlaceholder}
-                placeholderTextColor="rgba(235, 228, 248, 0.38)"
-                multiline
-                value={draft.text}
-                onChangeText={(value) => updateDraft({ text: value.slice(0, SkywriteCopy.charLimit) })}
-                textAlignVertical="top"
-              />
+              <View style={styles.writeCardContent}>
+                <TextInput
+                  style={[styles.writeInput, writeInputStyle]}
+                  placeholder={SkywriteCopy.writePlaceholder}
+                  placeholderTextColor="rgba(235, 228, 248, 0.38)"
+                  multiline
+                  editable
+                  value={draft.text}
+                  onChangeText={(value) => updateDraft({ text: value.slice(0, SkywriteCopy.charLimit) })}
+                  textAlignVertical="top"
+                />
 
-              <SkywriteMediaAttachments
-                photo={draft.media.photo}
-                audio={draft.media.audio}
-                voiceCaptureOpen={voiceCaptureOpen}
-                isRecording={voice.isRecording}
-                elapsedMs={voice.elapsedMs}
-                elapsedLabel={voice.elapsedLabel}
-                isPlaying={voice.isPlaying}
-                onReplacePhoto={handlePhotoPress}
-                onRemovePhoto={handleRemovePhoto}
-                onRecord={handleStartRecord}
-                onStopRecording={handleVoiceStop}
-                onCancelRecording={handleVoiceCancel}
-                onTogglePlayback={handleTogglePlayback}
-                onReRecord={handleReRecord}
-                onRemoveAudio={handleRemoveAudio}
-              />
+                <SkywriteMediaAttachments
+                  photo={draft.media.photo}
+                  audio={draft.media.audio}
+                  voiceCaptureOpen={voiceCaptureOpen}
+                  isRecording={voice.isRecording}
+                  elapsedMs={voice.elapsedMs}
+                  elapsedLabel={voice.elapsedLabel}
+                  isPlaying={voice.isPlaying}
+                  onReplacePhoto={handlePhotoPress}
+                  onRemovePhoto={handleRemovePhoto}
+                  onRecord={handleStartRecord}
+                  onStopRecording={handleVoiceStop}
+                  onCancelRecording={handleVoiceCancel}
+                  onTogglePlayback={handleTogglePlayback}
+                  onReRecord={handleReRecord}
+                  onRemoveAudio={handleRemoveAudio}
+                />
 
-              <SkywriteMediaRow
-                photoLabel={mediaActions.photoLabel}
-                voiceLabel={mediaActions.voiceLabel}
-                photoA11y={mediaActions.photoA11y}
-                voiceA11y={mediaActions.voiceA11y}
-                photoActive={hasPhoto}
-                voiceActive={hasVoice}
-                onPhotoPress={handlePhotoPress}
-                onVoicePress={handleVoicePress}
-              />
+                <SkywriteMediaRow
+                  photoLabel={mediaActions.photoLabel}
+                  voiceLabel={mediaActions.voiceLabel}
+                  photoA11y={mediaActions.photoA11y}
+                  voiceA11y={mediaActions.voiceA11y}
+                  photoActive={hasPhoto}
+                  voiceActive={hasVoice}
+                  onPhotoPress={handlePhotoPress}
+                  onVoicePress={handleVoicePress}
+                />
 
-              {mediaFeedback ? <Text style={styles.mediaFeedback}>{mediaFeedback}</Text> : null}
+                {mediaFeedback ? <Text style={styles.mediaFeedback}>{mediaFeedback}</Text> : null}
 
-              <Text style={styles.charCount}>
-                {charCount}/{SkywriteCopy.charLimit}
-              </Text>
+                <Text style={styles.charCount}>
+                  {charCount}/{SkywriteCopy.charLimit}
+                </Text>
+              </View>
             </View>
 
             <View style={styles.accordionStack}>
@@ -489,6 +481,26 @@ export function SkywriteScreen() {
                     <Text style={styles.clearExpressionText}>{SkywriteCopy.clearExpression}</Text>
                   </Pressable>
                 ) : null}
+              </SkywriteAccordionRow>
+
+              <SkywriteAccordionRow
+                icon="Aa"
+                title={SkywriteCopy.textStyleTitle}
+                badge={SkywriteCopy.textStyleOptional}
+                expanded={openAccordion === 'textStyle'}
+                onToggle={() => toggleAccordion('textStyle')}
+                accessibilityLabel="Text style optional"
+                selectedChip={
+                  textStyle !== 'plain' && openAccordion !== 'textStyle' ? (
+                    <View style={styles.typeChip}>
+                      <Text style={styles.typeChipText}>{getSkywriteTextStyleLabel(textStyle)}</Text>
+                    </View>
+                  ) : undefined
+                }>
+                <SkywriteTextStylePicker
+                  value={textStyle}
+                  onSelect={(next) => updateDraft({ textStyle: next })}
+                />
               </SkywriteAccordionRow>
 
               <SkywriteAccordionRow
@@ -734,7 +746,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(167, 139, 250, 0.32)',
     minHeight: 260,
-    padding: 16,
     overflow: 'hidden',
     ...Platform.select({
       ios: {
@@ -747,13 +758,20 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
+  writeCardContent: {
+    position: 'relative',
+    zIndex: 1,
+    padding: 16,
+    gap: 0,
+  },
   writeInput: {
+    width: '100%',
     minHeight: 180,
+    padding: 0,
     fontFamily: Fonts.sans,
     fontSize: 16,
     lineHeight: 24,
     color: HomePalette.textPrimary,
-    padding: 0,
   },
   charCount: {
     alignSelf: 'flex-end',

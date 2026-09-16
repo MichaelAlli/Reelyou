@@ -8,6 +8,8 @@ export const SkywriteCopy = {
   charLimit: 1500,
   showingUpTitle: 'How are you showing up?',
   clearExpression: 'Clear selection',
+  textStyleTitle: 'Text style',
+  textStyleOptional: 'Optional',
   hashtagsTitle: 'Add hashtags',
   hashtagsOptional: 'Optional',
   hashtagsPlaceholder: 'Add up to 5 hashtags…',

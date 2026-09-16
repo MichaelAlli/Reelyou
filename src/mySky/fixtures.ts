@@ -1,3 +1,4 @@
+import { SKY_NODE_LAYOUT_REGISTRY } from '@/mySky/skyLayout';
 import type { MySkyConstellation, MySkyItem } from '@/mySky/types';
 
 /** Beta placeholder stars — replace with backend sky items later. */
@@ -65,14 +66,14 @@ export const MY_SKY_CONSTELLATION_FIXTURES: MySkyConstellation[] = [
   },
 ];
 
-/** Canvas positions + colors keyed by star id. */
+/** @deprecated Use SKY_NODE_LAYOUT_REGISTRY — retained for legacy imports. */
 export const MY_SKY_STAR_LAYOUT: Record<
   string,
   { x: number; y: number; color: string; destination: 'skywrite' | 'public-sky' | null; destinationParam: string | null }
 > = {
-  'star-1': { x: 0.22, y: 0.28, color: '#C4A8FF', destination: 'skywrite', destinationParam: null },
-  'star-2': { x: 0.48, y: 0.18, color: '#8FD4FF', destination: 'skywrite', destinationParam: null },
-  'star-3': { x: 0.72, y: 0.32, color: '#F5D76E', destination: 'public-sky', destinationParam: 'orbit-3' },
-  'star-4': { x: 0.58, y: 0.55, color: '#5EEAD4', destination: null, destinationParam: null },
-  'star-5': { x: 0.32, y: 0.62, color: '#E879A8', destination: 'skywrite', destinationParam: null },
+  'star-1': { ...SKY_NODE_LAYOUT_REGISTRY['star-1'], destination: 'skywrite', destinationParam: null },
+  'star-2': { ...SKY_NODE_LAYOUT_REGISTRY['star-2'], destination: 'skywrite', destinationParam: null },
+  'star-3': { ...SKY_NODE_LAYOUT_REGISTRY['star-3'], destination: 'public-sky', destinationParam: 'orbit-3' },
+  'star-4': { ...SKY_NODE_LAYOUT_REGISTRY['star-4'], destination: null, destinationParam: null },
+  'star-5': { ...SKY_NODE_LAYOUT_REGISTRY['star-5'], destination: 'skywrite', destinationParam: null },
 };

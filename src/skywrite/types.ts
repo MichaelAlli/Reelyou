@@ -1,4 +1,5 @@
 import type { SkywriteShowingUpId } from '@/constants/skywriteCopy';
+import type { SkywriteTextStyleId } from '@/constants/skywriteTextStyles';
 import type { Mood, Privacy } from '@/types';
 
 export type SkywriteMediaMode = 'text' | 'photo' | 'voice' | 'photo_voiceover';
@@ -23,6 +24,7 @@ export interface SkywriteMedia {
 export interface SkywriteRecord {
   id: string;
   text: string;
+  textStyle: SkywriteTextStyleId;
   media: SkywriteMedia;
   mediaMode: SkywriteMediaMode;
   visibility: Privacy;
@@ -40,6 +42,7 @@ export interface SkywriteRecord {
 
 export interface SkywriteDraft {
   text: string;
+  textStyle?: SkywriteTextStyleId;
   media: SkywriteMedia;
   visibility: Privacy;
   mood: Mood | null;

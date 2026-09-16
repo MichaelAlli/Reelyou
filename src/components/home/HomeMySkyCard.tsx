@@ -102,7 +102,7 @@ function HomeMySkyCardComponent({ animatedStyle }: HomeMySkyCardProps) {
             hitSlop={12}
             style={styles.ctaPress}
             accessibilityRole="button"
-            accessibilityLabel="View full My Sky"
+            accessibilityLabel="View My Sky"
             onPress={() => router.push('/(tabs)/sky' as never)}>
             <Text style={styles.cta}>{HomeCopy.mySkyCta}</Text>
           </Pressable>

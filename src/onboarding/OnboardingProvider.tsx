@@ -46,6 +46,7 @@ import {
   type GuidingLightHomeView,
 } from '@/guidingLight';
 import { buildMySkyView, type MySkyView } from '@/mySky';
+import type { SkyArrivalHandoff } from '@/mySky/skyArrival';
 import {
   buildSkywriteRecord,
   EMPTY_SKYWRITES,
@@ -139,6 +140,10 @@ interface OnboardingContextValue {
   /** User-authored Skywrites — local-first, explicit hashtags parsed from text */
   skywrites: SkywriteRecord[];
   createSkywrite: (draft: SkywriteDraft) => SkywriteRecord;
+  /** Transient handoff for Skywrite → My Sky animation and arrival. */
+  skyArrivalHandoff: SkyArrivalHandoff | null;
+  setSkyArrivalHandoff: (handoff: SkyArrivalHandoff) => void;
+  clearSkyArrivalHandoff: () => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -152,6 +157,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [guidingLightDismiss, setGuidingLightDismissState] =
     useState<GuidingLightDismissRecord>(EMPTY_GUIDING_LIGHT_DISMISS);
   const [skywritesState, setSkywritesState] = useState<SkywritesState>(EMPTY_SKYWRITES);
+  const [skyArrivalHandoff, setSkyArrivalHandoffState] = useState<SkyArrivalHandoff | null>(null);
   useEffect(() => {
     let live = true;
     loadTodayFocus().then((record) => {
@@ -465,6 +471,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return record;
   }, []);
 
+  const setSkyArrivalHandoff = useCallback((handoff: SkyArrivalHandoff) => {
+    setSkyArrivalHandoffState(handoff);
+  }, []);
+
+  const clearSkyArrivalHandoff = useCallback(() => {
+    setSkyArrivalHandoffState(null);
+  }, []);
+
   const value = useMemo(
     () => ({
       state,
@@ -489,6 +503,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       dismissGuidingLight,
       skywrites: skywritesState.posts,
       createSkywrite,
+      skyArrivalHandoff,
+      setSkyArrivalHandoff,
+      clearSkyArrivalHandoff,
       profile,
       goals,
       challenges,
@@ -536,6 +553,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       dismissGuidingLight,
       skywritesState.posts,
       createSkywrite,
+      skyArrivalHandoff,
+      setSkyArrivalHandoff,
+      clearSkyArrivalHandoff,
       profile,
       goals,
       challenges,

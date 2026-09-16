@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { SKYWRITE_SHOWING_UP_OPTIONS } from '@/constants/skywriteCopy';
+import { isSkywriteTextStyle } from '@/constants/skywriteTextStyles';
 import { deriveMediaMode } from '@/skywrite/draft';
 import type {
   SkywriteAudioMedia,
@@ -82,9 +83,12 @@ function parsePost(raw: unknown): SkywriteRecord | null {
       ? (entry.mediaMode as SkywriteMediaMode)
       : deriveMediaMode(media, entry.text);
 
+  const textStyle = isSkywriteTextStyle(entry.textStyle) ? entry.textStyle : 'plain';
+
   return {
     id: entry.id,
     text: entry.text,
+    textStyle,
     media,
     mediaMode,
     visibility: entry.visibility,

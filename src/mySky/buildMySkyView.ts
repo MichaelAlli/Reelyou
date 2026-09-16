@@ -1,33 +1,35 @@
+import { buildSkyNodes } from '@/mySky/buildSkyNodes';
+import { DEFAULT_MY_SKY_VISIBLE_LAYERS } from '@/mySky/skyLayers';
 import {
-  MY_SKY_CONSTELLATION_FIXTURES,
-  MY_SKY_ITEM_FIXTURES,
-  MY_SKY_STAR_LAYOUT,
-} from '@/mySky/fixtures';
+  filterVisibleStarNodes,
+  projectNodeToStarDisplay,
+} from '@/mySky/skyVisualRules';
 import type { MySkyState, MySkyView } from '@/mySky/types';
 import type { UserPersonalizationProfile } from '@/onboarding/personalization/types';
 
-function skywriteTitle(text: string, mediaMode: string): string {
-  const trimmed = text.trim();
-  if (trimmed) return trimmed.slice(0, 48);
-  if (mediaMode === 'photo_voiceover') return 'Photo with voiceover';
-  if (mediaMode === 'photo') return 'Photo moment';
-  if (mediaMode === 'voice') return 'Voice moment';
-  return 'Skywrite';
-}
-
-/** Build My Sky view from centralized profile — fixtures until backend connects. */
+/** Build full My Sky view — normalized graph + derived display + calm default layers. */
 export function buildMySkyView(profile: UserPersonalizationProfile): MySkyView {
-  const skywriteItems = profile.skywrites.map((post) => ({
-    id: `star-${post.id}`,
-    type: 'skywrite' as const,
-    title: skywriteTitle(post.text, post.mediaMode),
-    timestamp: post.createdAt,
-    visibility: post.visibility,
-    sourceId: post.id,
-    mediaMode: post.mediaMode,
+  const { nodes, patterns, relationships, vitality } = buildSkyNodes(profile);
+
+  const visibleNodes = filterVisibleStarNodes(nodes, DEFAULT_MY_SKY_VISIBLE_LAYERS);
+  const stars = visibleNodes.map((node) => projectNodeToStarDisplay(node));
+
+  const skyItems = stars.map((star) => ({
+    id: star.id,
+    type: star.type,
+    title: star.title,
+    timestamp: star.timestamp,
+    visibility: star.visibility,
+    constellationId: star.constellationId,
+    sourceId: star.sourceId,
   }));
-  const skyItems = [...skywriteItems, ...MY_SKY_ITEM_FIXTURES];
-  const constellations = MY_SKY_CONSTELLATION_FIXTURES;
+
+  const constellations = patterns.map((pattern) => ({
+    id: pattern.id,
+    label: pattern.label ?? 'Pattern',
+    note: pattern.note ?? '',
+    itemIds: pattern.nodeIds,
+  }));
 
   const connections = profile.communities.joined.map((c) => c.name);
   const contributions = skyItems
@@ -43,16 +45,17 @@ export function buildMySkyView(profile: UserPersonalizationProfile): MySkyView {
     contributions,
   };
 
-  const stars = skyItems.map((item) => {
-    const layout = MY_SKY_STAR_LAYOUT[item.id] ?? {
-      x: 0.5,
-      y: 0.5,
-      color: '#E8C872',
-      destination: null,
-      destinationParam: null,
-    };
-    return { ...item, ...layout };
-  });
-
-  return { ...state, stars };
+  return {
+    ...state,
+    nodes,
+    relationships,
+    patterns,
+    viewState: {
+      visibleLayers: { ...DEFAULT_MY_SKY_VISIBLE_LAYERS },
+      revealPatternId: null,
+    },
+    lastUpdatedAt: profile.lastUpdatedAt ?? new Date().toISOString(),
+    vitality,
+    stars,
+  };
 }
