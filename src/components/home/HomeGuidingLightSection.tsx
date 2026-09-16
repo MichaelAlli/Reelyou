@@ -226,7 +226,7 @@ function HomeGuidingLightSectionComponent({ animatedStyle }: HomeGuidingLightSec
               <Pressable
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel={GuidingLightCopy.whyThis}
+                accessibilityLabel={GuidingLightCopy.whyThisA11y}
                 onPress={() => setWhyVisible(true)}>
                 <Text style={styles.action}>{GuidingLightCopy.whyThis}</Text>
               </Pressable>
@@ -243,7 +243,7 @@ function HomeGuidingLightSectionComponent({ animatedStyle }: HomeGuidingLightSec
             <Pressable
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel={GuidingLightCopy.companionLink}
+              accessibilityLabel={GuidingLightCopy.companionA11y}
               onPress={() => router.push('/companion' as never)}>
               <Text style={styles.companionLink}>{GuidingLightCopy.companionLink}</Text>
             </Pressable>
@@ -256,12 +256,13 @@ function HomeGuidingLightSectionComponent({ animatedStyle }: HomeGuidingLightSec
         transparent
         visible={whyVisible}
         onRequestClose={() => setWhyVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalPanel}>
+        <View style={styles.modalBackdrop} accessibilityViewIsModal>
+          <View style={styles.modalPanel} accessibilityViewIsModal>
             <Text style={styles.modalTitle}>{GuidingLightCopy.whyTitle}</Text>
             <Text style={styles.modalBody}>{whyExplanation}</Text>
             <Pressable
               accessibilityRole="button"
+              accessibilityLabel={GuidingLightCopy.closeA11y}
               onPress={() => setWhyVisible(false)}
               style={styles.modalClose}>
               <Text style={styles.modalCloseText}>Close</Text>

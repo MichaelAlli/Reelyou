@@ -112,17 +112,22 @@ function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSection
         lineHeight: 15,
         color: 'rgba(235, 228, 248, 0.72)',
       },
+      editPress: {
+        minHeight: 44,
+        justifyContent: 'center',
+        flexShrink: 0,
+      },
       edit: {
         fontFamily: Fonts.sans,
         fontSize: 11,
         fontWeight: '600',
         color: tokens.gold,
-        paddingTop: 2,
-        flexShrink: 0,
       },
       actionRow: {
         paddingLeft: FOCUS.iconCircle + FOCUS.gap,
         marginTop: -1,
+        minHeight: 44,
+        justifyContent: 'center',
       },
       action: {
         fontFamily: Fonts.sans,
@@ -163,7 +168,7 @@ function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSection
 
         <View style={styles.inner}>
           <View style={styles.mainRow}>
-            <View style={styles.iconCircle}>
+            <View style={styles.iconCircle} importantForAccessibility="no-hide-descendants">
               <HomeTodayFocusIcon size={18} />
             </View>
             <View style={styles.center}>
@@ -172,14 +177,19 @@ function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSection
             </View>
             <Pressable
               hitSlop={8}
+              style={styles.editPress}
+              accessibilityRole="button"
+              accessibilityLabel="Edit Today's Focus"
               onPress={() => router.push('/today-focus-edit' as never)}>
               <Text style={styles.edit}>{HomeCopy.todayFocusEdit}</Text>
             </Pressable>
           </View>
 
           <Pressable
-            hitSlop={6}
+            hitSlop={8}
             style={styles.actionRow}
+            accessibilityRole="button"
+            accessibilityLabel="Answer your reflection prompt"
             onPress={() => router.push('/today-focus-reflection' as never)}>
             <Text style={styles.action}>{HomeCopy.todayFocusAction}</Text>
           </Pressable>

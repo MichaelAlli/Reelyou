@@ -34,7 +34,7 @@ function HomeArrivalHeaderComponent({
           <Text style={styles.greetingLine}>{getTimeGreeting()}</Text>
           <View style={styles.nameRow}>
             <Text style={styles.nameLine}>{firstName}</Text>
-            <View style={styles.sparkleGroup}>
+            <View style={styles.sparkleGroup} importantForAccessibility="no-hide-descendants">
               <View style={styles.sparklePrimary}>
                 <HomeSparkleIcon size={12} color={HomePalette.goldBright} />
               </View>
@@ -55,7 +55,9 @@ function HomeArrivalHeaderComponent({
             style={[
               styles.avatar,
               { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
-            ]}>
+            ]}
+            accessibilityLabel={`${firstName}'s profile photo`}
+            accessibilityRole="image">
             <HomeProfilePortrait size={avatarSize} />
           </View>
         </View>

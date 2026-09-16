@@ -12,7 +12,7 @@ export function HomeTodayFocusIcon({ size = 18 }: { size?: number }) {
   const core = HomePalette.goldBright;
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel="Focus">
+    <Svg width={size} height={size} viewBox="0 0 24 24">
       <Circle
         cx={12}
         cy={12}

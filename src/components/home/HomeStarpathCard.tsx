@@ -48,14 +48,17 @@ function HomeStarpathCardComponent({ animatedStyle }: HomeStarpathCardProps) {
         lineHeight: 15,
         color: 'rgba(235, 228, 248, 0.72)',
       },
+      ctaPress: {
+        minHeight: 44,
+        justifyContent: 'center',
+        flexShrink: 0,
+      },
       cta: {
         fontFamily: Fonts.sans,
         fontSize: 11.5,
         fontWeight: '600',
         color: tokens.gold,
-        paddingTop: 2,
         letterSpacing: 0.02,
-        flexShrink: 0,
       },
       visual: {
         width: '100%',
@@ -82,11 +85,16 @@ function HomeStarpathCardComponent({ animatedStyle }: HomeStarpathCardProps) {
             </Text>
             <Text style={styles.subtitle}>{HomeCopy.starpathSubtitle}</Text>
           </View>
-          <Pressable hitSlop={8} onPress={() => router.push('/starpath' as never)}>
+          <Pressable
+            hitSlop={8}
+            style={styles.ctaPress}
+            accessibilityRole="button"
+            accessibilityLabel="View StarPath"
+            onPress={() => router.push('/starpath' as never)}>
             <Text style={styles.cta}>{HomeCopy.starpathCta}</Text>
           </Pressable>
         </View>
-        <View style={styles.visual}>
+        <View style={styles.visual} importantForAccessibility="no-hide-descendants">
           <HomeStarpathGraphic />
         </View>
       </HomeGlassCard>

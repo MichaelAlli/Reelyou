@@ -9,7 +9,13 @@ function HomeTopNavComponent() {
   return (
     <View style={styles.row}>
       <View style={styles.sideSlot}>
-        <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Menu">
+        <Pressable
+          style={styles.iconBtn}
+          hitSlop={6}
+          disabled
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+          accessibilityState={{ disabled: true }}>
           <HomeMenuIcon size={16} />
         </Pressable>
       </View>
@@ -19,9 +25,15 @@ function HomeTopNavComponent() {
       </View>
 
       <View style={styles.sideSlot}>
-        <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Notifications">
+        <Pressable
+          style={styles.iconBtn}
+          hitSlop={6}
+          disabled
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
+          accessibilityState={{ disabled: true }}>
           <HomeBellIcon size={16} />
-          <View style={styles.badge} />
+          <View style={styles.badge} importantForAccessibility="no-hide-descendants" />
         </Pressable>
       </View>
     </View>

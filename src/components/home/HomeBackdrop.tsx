@@ -11,7 +11,7 @@ interface HomeBackdropProps {
 /** Full-bleed approved Home background — cover fit, no zoom, no stretch. */
 function HomeBackdropComponent(_props: HomeBackdropProps) {
   return (
-    <View style={styles.root} pointerEvents="none">
+    <View style={styles.root} pointerEvents="none" importantForAccessibility="no-hide-descendants">
       <Image
         source={HomeAssets.background}
         style={styles.image}

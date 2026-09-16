@@ -11,7 +11,7 @@ export function HomeSkywriteSendIcon({ size = 16 }: { size?: number }) {
   const stroke = HomePalette.gold;
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel="Send">
+    <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d="M 22 2 L 11 13"
         fill="none"

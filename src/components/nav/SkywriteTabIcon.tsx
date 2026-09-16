@@ -20,12 +20,7 @@ export function SkywriteTabIcon({
   const tailSpark = active ? HomePalette.goldBright : 'rgba(228, 220, 245, 0.8)';
 
   return (
-    <Svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      accessibilityLabel="Skywrite"
-    >
+    <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path
         d="M 1.8 22.2 Q 7.5 17.5 11.5 13.5 Q 14 11 16.8 8.6"
         fill="none"

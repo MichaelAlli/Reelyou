@@ -58,7 +58,7 @@ function HomeSkywriteBarComponent({ animatedStyle }: HomeSkywriteBarProps) {
           <View style={styles.topAccent} pointerEvents="none" />
 
           <View style={styles.row}>
-            <View style={styles.iconCircle}>
+            <View style={styles.iconCircle} importantForAccessibility="no-hide-descendants">
               <SkywriteTabIcon size={22} active />
             </View>
 
@@ -71,7 +71,7 @@ function HomeSkywriteBarComponent({ animatedStyle }: HomeSkywriteBarProps) {
               </Text>
             </View>
 
-            <View style={styles.iconCircle}>
+            <View style={styles.iconCircle} importantForAccessibility="no-hide-descendants">
               <HomeSkywriteSendIcon size={16} />
             </View>
           </View>

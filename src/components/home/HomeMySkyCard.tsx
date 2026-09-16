@@ -59,14 +59,17 @@ function HomeMySkyCardComponent({ animatedStyle }: HomeMySkyCardProps) {
         lineHeight: 15,
         color: 'rgba(235, 228, 248, 0.72)',
       },
+      ctaPress: {
+        minHeight: 44,
+        justifyContent: 'center',
+        flexShrink: 0,
+      },
       cta: {
         fontFamily: Fonts.sans,
         fontSize: 11.5,
         fontWeight: '600',
         color: tokens.gold,
-        paddingTop: 2,
         letterSpacing: 0.02,
-        flexShrink: 0,
       },
       canvas: {
         width: '100%',
@@ -89,19 +92,22 @@ function HomeMySkyCardComponent({ animatedStyle }: HomeMySkyCardProps) {
           <View style={styles.titleBlock}>
             <View style={styles.titleRow}>
               <Text style={styles.title}>{HomeCopy.mySkyTitle}</Text>
-              <Text style={styles.info}>i</Text>
+              <Text style={styles.info} importantForAccessibility="no-hide-descendants">
+                i
+              </Text>
             </View>
             <Text style={styles.support}>{HomeCopy.mySkySupport}</Text>
           </View>
           <Pressable
-            hitSlop={8}
+            hitSlop={12}
+            style={styles.ctaPress}
             accessibilityRole="button"
-            accessibilityLabel={HomeCopy.mySkyCta}
+            accessibilityLabel="View full My Sky"
             onPress={() => router.push('/(tabs)/sky' as never)}>
             <Text style={styles.cta}>{HomeCopy.mySkyCta}</Text>
           </Pressable>
         </View>
-        <View style={styles.canvas}>
+        <View style={styles.canvas} importantForAccessibility="no-hide-descendants">
           <HomeMySkyGraphic />
         </View>
       </HomeGlassCard>

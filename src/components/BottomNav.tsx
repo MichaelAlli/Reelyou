@@ -67,6 +67,7 @@ export function BottomNav() {
         justifyContent: 'center',
         gap: 2,
         paddingVertical: 2,
+        minHeight: 44,
       },
       icon: {
         fontSize: HomeLayout.navIconSize,
@@ -121,17 +122,24 @@ export function BottomNav() {
             <Pressable
               key={tab.name}
               style={styles.tab}
+              accessibilityRole="tab"
+              accessibilityLabel={tab.label}
+              accessibilityState={{ selected: active }}
               onPress={() => {
                 if (active) return;
                 router.push(tab.href as never);
               }}>
-              {tab.renderIcon ? (
-                tab.renderIcon({ size: HomeLayout.navIconSize, active })
-              ) : (
-                <Text style={[styles.icon, active && styles.activeIcon]}>{tab.icon}</Text>
-              )}
+              <View importantForAccessibility="no-hide-descendants">
+                {tab.renderIcon ? (
+                  tab.renderIcon({ size: HomeLayout.navIconSize, active })
+                ) : (
+                  <Text style={[styles.icon, active && styles.activeIcon]}>{tab.icon}</Text>
+                )}
+              </View>
               <Text style={[styles.label, active && styles.activeLabel]}>{tab.label}</Text>
-              {active ? <View style={styles.activeDot} /> : null}
+              {active ? (
+                <View style={styles.activeDot} importantForAccessibility="no-hide-descendants" />
+              ) : null}
             </Pressable>
           );
         })}

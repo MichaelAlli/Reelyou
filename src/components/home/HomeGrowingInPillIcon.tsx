@@ -19,7 +19,7 @@ export function HomeGrowingInPillIcon({
 
   if (type === 'briefcase') {
     return (
-      <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel="Entrepreneurship">
+      <Svg width={size} height={size} viewBox="0 0 24 24" >
         <Rect
           x={4}
           y={8}
@@ -45,7 +45,7 @@ export function HomeGrowingInPillIcon({
 
   if (type === 'leaf') {
     return (
-      <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel="Personal Growth">
+      <Svg width={size} height={size} viewBox="0 0 24 24" >
         <Path
           d="M 12 20 C 12 20 5 16 5 10 C 5 6 8 4 12 4 C 16 4 19 6 19 10 C 19 16 12 20 12 20 Z"
           fill="none"
@@ -74,7 +74,7 @@ export function HomeGrowingInPillIcon({
 
   if (type === 'creative') {
     return (
-      <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel="Creativity">
+      <Svg width={size} height={size} viewBox="0 0 24 24" >
         <Path
           d="M 14 4 L 20 10 L 10 20 L 4 20 L 4 14 Z"
           fill="none"
@@ -95,7 +95,7 @@ export function HomeGrowingInPillIcon({
   }
 
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel="Purpose Seekers">
+    <Svg width={size} height={size} viewBox="0 0 24 24" >
       <Circle cx={9} cy={8.5} r={2.4} fill="none" stroke={stroke} strokeWidth={sw} />
       <Circle cx={15.5} cy={8.5} r={2.4} fill="none" stroke={stroke} strokeWidth={sw} />
       <Path

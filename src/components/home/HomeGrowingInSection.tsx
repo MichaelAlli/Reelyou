@@ -88,6 +88,11 @@ function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionPr
         color: HomePalette.textPrimary,
         letterSpacing: -0.15,
       },
+      ctaPress: {
+        minHeight: 44,
+        justifyContent: 'center',
+        flexShrink: 0,
+      },
       cta: {
         fontFamily: Fonts.sans,
         fontSize: 11.5,
@@ -168,6 +173,7 @@ function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionPr
         <Text style={styles.title}>{HomeCopy.growingInTitle}</Text>
         <Pressable
           hitSlop={8}
+          style={styles.ctaPress}
           accessibilityRole="button"
           accessibilityLabel={HomeCopy.growingInCta}
           onPress={() => router.push('/communities' as never)}>
@@ -189,8 +195,9 @@ function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionPr
           return (
             <Pressable
               key={pill.label}
+              hitSlop={{ top: 5, bottom: 5 }}
               accessibilityRole="button"
-              accessibilityLabel={pill.label}
+              accessibilityLabel={`Open ${pill.label} community`}
               onPress={() => router.push(`/community?id=${communityId}` as never)}
               style={styles.pillOuter}>
               <LinearGradient
@@ -199,7 +206,7 @@ function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionPr
                 end={{ x: 1, y: 1 }}
                 style={[styles.pillGradient, { borderColor: theme.border }]}>
                 <View style={[styles.pillSheen, { backgroundColor: theme.sheen }]} pointerEvents="none" />
-                <View style={styles.pillIconWrap}>
+                <View style={styles.pillIconWrap} importantForAccessibility="no-hide-descendants">
                   <HomeGrowingInPillIcon type={theme.icon} color={theme.iconColor} size={14} />
                 </View>
                 <Text style={styles.pillLabel}>{pill.label}</Text>
