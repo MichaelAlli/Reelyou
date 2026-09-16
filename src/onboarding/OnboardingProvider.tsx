@@ -38,6 +38,11 @@ import {
 } from '@/onboarding/personalization';
 import { MAX_NORTH_STAR_VISION_LENGTH } from '@/onboarding/northStar';
 import {
+  buildAroundYourSkyHomeFeed,
+  toAroundYourSkyState,
+  type AroundYourSkyHomeFeed,
+} from '@/social/aroundYourSky';
+import {
   MAX_ONBOARDING_CHALLENGES,
   MAX_ONBOARDING_GOALS,
   MAX_ONBOARDING_INTERESTS,
@@ -105,6 +110,8 @@ interface OnboardingContextValue {
   isCommunityJoined: (communityId: CommunityId) => boolean;
   joinCommunity: (communityId: CommunityId, name: string) => void;
   leaveCommunity: (communityId: CommunityId) => void;
+  /** Finite Home social activity — derived from relevance, not engagement scoring */
+  aroundYourSkyFeed: AroundYourSkyHomeFeed;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -132,9 +139,19 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const aroundYourSkyFeed = useMemo(
+    () => buildAroundYourSkyHomeFeed(communities),
+    [communities],
+  );
+
+  const aroundYourSkyState = useMemo(
+    () => toAroundYourSkyState(aroundYourSkyFeed),
+    [aroundYourSkyFeed],
+  );
+
   const personalizationProfile = useMemo(
-    () => mergePersonalizationProfile(state, todayFocus, communities),
-    [state, todayFocus, communities],
+    () => mergePersonalizationProfile(state, todayFocus, communities, aroundYourSkyState),
+    [state, todayFocus, communities, aroundYourSkyState],
   );
   const humanPotentialProfile = useMemo(() => buildHumanPotentialProfile(state), [state]);
   const aiContext = useMemo(
@@ -375,6 +392,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       isCommunityJoined,
       joinCommunity,
       leaveCommunity,
+      aroundYourSkyFeed,
       profile,
       goals,
       challenges,
@@ -416,6 +434,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       isCommunityJoined,
       joinCommunity,
       leaveCommunity,
+      aroundYourSkyFeed,
       profile,
       goals,
       challenges,

@@ -1,5 +1,6 @@
 import type { CommunityId, JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { TodayFocusSource } from '@/onboarding/personalization/todayFocus/types';
+import type { AroundYourSkyState } from '@/social/aroundYourSky/types';
 
 /** Explicit community membership — user join/leave actions are authoritative. */
 export interface UserCommunities {
@@ -51,6 +52,8 @@ export interface UserPersonalizationProfile {
   todayFocus: UserTodayFocus | null;
   /** Communities the user has explicitly joined or shown interest in */
   communities: UserCommunities;
+  /** Finite Home social activity slice — derived, backend-replaceable */
+  aroundYourSky: AroundYourSkyState;
 }
 
 export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
@@ -72,5 +75,8 @@ export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
   communities: {
     joined: [],
     explicitInterests: [],
+  },
+  aroundYourSky: {
+    items: [],
   },
 };

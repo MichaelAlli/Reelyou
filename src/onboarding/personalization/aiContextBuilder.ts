@@ -75,6 +75,13 @@ export function buildAiCompanionContext(
       items: profile.communities.joined.map((community) => community.name),
     });
   }
+  if (profile.aroundYourSky.items.length > 0) {
+    sections.push({
+      id: 'around-your-sky',
+      title: 'Recent Sky Activity',
+      items: profile.aroundYourSky.items.map((item) => item.id),
+    });
+  }
 
   return {
     enabled: sections.length > 0,

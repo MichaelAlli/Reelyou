@@ -2,6 +2,7 @@ export { HomeArrivalHeader } from '@/components/home/HomeArrivalHeader';
 export { HomeBackdrop } from '@/components/home/HomeBackdrop';
 export { HomeExperience } from '@/components/home/HomeExperience';
 export { HomeGlassCard } from '@/components/home/HomeGlassCard';
+export { HomeAroundYourSkySection } from '@/components/home/HomeAroundYourSkySection';
 export { HomeGrowingInSection } from '@/components/home/HomeGrowingInSection';
 export { HomeMySkyCard } from '@/components/home/HomeMySkyCard';
 export { HomeSkywriteBar } from '@/components/home/HomeSkywriteBar';

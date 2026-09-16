@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HomeAroundYourSkySection } from '@/components/home/HomeAroundYourSkySection';
 import { HomeArrivalHeader } from '@/components/home/HomeArrivalHeader';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { HomeGrowingInSection } from '@/components/home/HomeGrowingInSection';
@@ -49,6 +50,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
   const zone2 = useSharedValue(isArrival ? 0 : 1);
   const zone3 = useSharedValue(isArrival ? 0 : 1);
   const zone4 = useSharedValue(isArrival ? 0 : 1);
+  const zone5 = useSharedValue(isArrival ? 0 : 1);
 
   useEffect(() => {
     let live = true;
@@ -67,7 +69,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
       supportOp.value = 1;
       profileOp.value = 1;
       greetingY.value = 0;
-      zone0.value = zone1.value = zone2.value = zone3.value = zone4.value = 1;
+      zone0.value = zone1.value = zone2.value = zone3.value = zone4.value = zone5.value = 1;
       return;
     }
 
@@ -82,7 +84,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
     supportOp.value = withDelay(200, withTiming(1, { duration: fadeMs, easing: ReelyouEasing.out }));
     profileOp.value = withDelay(160, withTiming(1, { duration: fadeMs, easing: ReelyouEasing.out }));
 
-    [zone0, zone1, zone2, zone3, zone4].forEach((zone, i) => {
+    [zone0, zone1, zone2, zone3, zone4, zone5].forEach((zone, i) => {
       zone.value = withDelay(
         260 + i * stagger,
         withTiming(1, { duration: contentMs, easing: ReelyouEasing.out }),
@@ -101,6 +103,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
     zone2,
     zone3,
     zone4,
+    zone5,
   ]);
 
   const screenStyle = useAnimatedStyle(() => ({ opacity: screenOp.value }));
@@ -115,6 +118,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
   const zone2Style = useAnimatedStyle(() => ({ opacity: zone2.value }));
   const zone3Style = useAnimatedStyle(() => ({ opacity: zone3.value }));
   const zone4Style = useAnimatedStyle(() => ({ opacity: zone4.value }));
+  const zone5Style = useAnimatedStyle(() => ({ opacity: zone5.value }));
 
   return (
     <View style={[styles.root, { marginBottom: -tabContentInset }]}>
@@ -139,10 +143,11 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
               supportLine={HomeCopy.arrivalSupport}
             />
             <HomeSkywriteBar animatedStyle={zone0Style} />
-            <HomeStarpathCard animatedStyle={zone1Style} />
-            <HomeMySkyCard animatedStyle={zone2Style} />
-            <HomeGrowingInSection animatedStyle={zone3Style} />
-            <HomeTodayFocusSection animatedStyle={zone4Style} />
+            <HomeAroundYourSkySection animatedStyle={zone1Style} />
+            <HomeStarpathCard animatedStyle={zone2Style} />
+            <HomeMySkyCard animatedStyle={zone3Style} />
+            <HomeGrowingInSection animatedStyle={zone4Style} />
+            <HomeTodayFocusSection animatedStyle={zone5Style} />
           </ScrollView>
         </SafeAreaView>
       </Animated.View>
