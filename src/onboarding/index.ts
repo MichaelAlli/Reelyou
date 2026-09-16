@@ -9,6 +9,7 @@ export {
   normalizeOnboardingProfile,
   EMPTY_HUMAN_POTENTIAL_PROFILE,
   EMPTY_PERSONALIZATION_PROFILE,
+  EMPTY_COMMUNITIES,
   EMPTY_TODAY_FOCUS,
   MAX_TODAY_FOCUS_LENGTH,
   MAX_TODAY_FOCUS_REFLECTION_LENGTH,
@@ -16,9 +17,13 @@ export {
 export type {
   AiCompanionContext,
   AiContextSection,
+  CommunitiesRecord,
+  CommunityId,
   HumanPotentialProfile,
+  JoinedCommunity,
   TodayFocusRecord,
   TodayFocusSource,
+  UserCommunities,
   UserPersonalizationProfile,
   UserTodayFocus,
 } from './personalization';

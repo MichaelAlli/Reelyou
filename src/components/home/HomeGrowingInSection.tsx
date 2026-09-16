@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { memo } from 'react';
 import {
   Platform,
@@ -15,6 +16,7 @@ import {
   HomeGrowingInPillIcon,
   type GrowingInPillIconType,
 } from '@/components/home/HomeGrowingInPillIcon';
+import { GROWING_IN_COMMUNITY_IDS } from '@/constants/communitiesData';
 import { HomeCopy } from '@/constants/homeCopy';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
@@ -62,6 +64,8 @@ const PILL_THEMES: Array<{
 ];
 
 function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionProps) {
+  const router = useRouter();
+
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       shell: {
@@ -162,7 +166,11 @@ function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionPr
     <Animated.View style={[styles.shell, animatedStyle]}>
       <View style={styles.topRow}>
         <Text style={styles.title}>{HomeCopy.growingInTitle}</Text>
-        <Pressable hitSlop={8}>
+        <Pressable
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={HomeCopy.growingInCta}
+          onPress={() => router.push('/communities' as never)}>
           <Text style={styles.cta}>{HomeCopy.growingInCta}</Text>
         </Pressable>
       </View>
@@ -177,8 +185,14 @@ function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionPr
         contentContainerStyle={styles.pillRow}>
         {HomeCopy.growingInPills.map((pill, index) => {
           const theme = PILL_THEMES[index] ?? PILL_THEMES[0];
+          const communityId = GROWING_IN_COMMUNITY_IDS[index];
           return (
-            <View key={pill.label} style={styles.pillOuter}>
+            <Pressable
+              key={pill.label}
+              accessibilityRole="button"
+              accessibilityLabel={pill.label}
+              onPress={() => router.push(`/community?id=${communityId}` as never)}
+              style={styles.pillOuter}>
               <LinearGradient
                 colors={theme.gradient}
                 start={{ x: 0, y: 0 }}
@@ -190,7 +204,7 @@ function HomeGrowingInSectionComponent({ animatedStyle }: HomeGrowingInSectionPr
                 </View>
                 <Text style={styles.pillLabel}>{pill.label}</Text>
               </LinearGradient>
-            </View>
+            </Pressable>
           );
         })}
       </ScrollView>

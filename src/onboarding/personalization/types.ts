@@ -1,4 +1,11 @@
+import type { CommunityId, JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { TodayFocusSource } from '@/onboarding/personalization/todayFocus/types';
+
+/** Explicit community membership — user join/leave actions are authoritative. */
+export interface UserCommunities {
+  joined: JoinedCommunity[];
+  explicitInterests: CommunityId[];
+}
 
 /** Active daily intention + reflection — optional slice on the personalization profile. */
 export interface UserTodayFocus {
@@ -42,6 +49,8 @@ export interface UserPersonalizationProfile {
   lastUpdatedAt: string | null;
   /** Calm daily intention chosen on Home — null until user selects one today */
   todayFocus: UserTodayFocus | null;
+  /** Communities the user has explicitly joined or shown interest in */
+  communities: UserCommunities;
 }
 
 export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
@@ -60,4 +69,8 @@ export const EMPTY_PERSONALIZATION_PROFILE: UserPersonalizationProfile = {
   aiPersonalizationEnabled: true,
   lastUpdatedAt: null,
   todayFocus: null,
+  communities: {
+    joined: [],
+    explicitInterests: [],
+  },
 };

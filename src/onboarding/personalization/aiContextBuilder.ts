@@ -68,6 +68,13 @@ export function buildAiCompanionContext(
       items: focusItems,
     });
   }
+  if (profile.communities.joined.length > 0) {
+    sections.push({
+      id: 'communities',
+      title: 'Communities',
+      items: profile.communities.joined.map((community) => community.name),
+    });
+  }
 
   return {
     enabled: sections.length > 0,

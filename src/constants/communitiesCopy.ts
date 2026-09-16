@@ -1,0 +1,16 @@
+export const CommunitiesCopy = {
+  back: '← Back',
+  listTitle: 'Communities',
+  listSubtitle: 'Spaces helping shape your growth and journey.',
+  growingInSection: 'Growing In',
+  exploreSection: 'Explore',
+  joinedLabel: 'Joined',
+  detailAboutTitle: 'About this community',
+  detailMomentsTitle: 'From this community',
+  joinCta: 'Join community',
+  joinedCta: 'Joined',
+  leaveCta: 'Leave community',
+  joinedNote: 'You’re part of this community.',
+  notFoundTitle: 'Community not found',
+  notFoundBody: 'This community isn’t available right now.',
+} as const;

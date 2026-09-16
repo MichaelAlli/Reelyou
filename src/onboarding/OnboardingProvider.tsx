@@ -19,13 +19,18 @@ import {
   buildAiCompanionContext,
   buildHumanPotentialProfile,
   buildTodayFocusSuggestions,
+  EMPTY_COMMUNITIES,
   EMPTY_TODAY_FOCUS,
   getLocalDateKey,
+  loadCommunities,
   loadTodayFocus,
   mergePersonalizationProfile,
   reconcileTodayFocusForToday,
+  saveCommunities,
   saveTodayFocus,
   type AiCompanionContext,
+  type CommunitiesRecord,
+  type CommunityId,
   type HumanPotentialProfile,
   type TodayFocusRecord,
   type TodayFocusSource,
@@ -95,6 +100,11 @@ interface OnboardingContextValue {
   setTodayFocus: (value: string, source: TodayFocusSource) => void;
   setTodayFocusReflection: (reflection: string) => void;
   clearTodayFocus: () => void;
+  /** Local-first community membership — explicit join/leave only */
+  communities: CommunitiesRecord;
+  isCommunityJoined: (communityId: CommunityId) => boolean;
+  joinCommunity: (communityId: CommunityId, name: string) => void;
+  leaveCommunity: (communityId: CommunityId) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -104,11 +114,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [todayFocus, setTodayFocusState] = useState<TodayFocusRecord>(() =>
     reconcileTodayFocusForToday({ ...EMPTY_TODAY_FOCUS, dateKey: getLocalDateKey() }),
   );
+  const [communities, setCommunitiesState] = useState<CommunitiesRecord>(EMPTY_COMMUNITIES);
   useEffect(() => {
     let live = true;
     loadTodayFocus().then((record) => {
       if (live) {
         setTodayFocusState(record);
+      }
+    });
+    loadCommunities().then((record) => {
+      if (live) {
+        setCommunitiesState(record);
       }
     });
     return () => {
@@ -117,8 +133,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const personalizationProfile = useMemo(
-    () => mergePersonalizationProfile(state, todayFocus),
-    [state, todayFocus],
+    () => mergePersonalizationProfile(state, todayFocus, communities),
+    [state, todayFocus, communities],
   );
   const humanPotentialProfile = useMemo(() => buildHumanPotentialProfile(state), [state]);
   const aiContext = useMemo(
@@ -306,6 +322,41 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return null;
   }, [todayFocus.value]);
 
+  const isCommunityJoined = useCallback(
+    (communityId: CommunityId) => communities.joined.some((entry) => entry.id === communityId),
+    [communities.joined],
+  );
+
+  const joinCommunity = useCallback((communityId: CommunityId, name: string) => {
+    setCommunitiesState((current) => {
+      if (current.joined.some((entry) => entry.id === communityId)) {
+        return current;
+      }
+      const next: CommunitiesRecord = {
+        joined: [
+          ...current.joined,
+          { id: communityId, name: name.trim(), joinedAt: new Date().toISOString() },
+        ],
+        explicitInterests: current.explicitInterests.includes(communityId)
+          ? current.explicitInterests
+          : [...current.explicitInterests, communityId],
+      };
+      void saveCommunities(next);
+      return next;
+    });
+  }, []);
+
+  const leaveCommunity = useCallback((communityId: CommunityId) => {
+    setCommunitiesState((current) => {
+      const next: CommunitiesRecord = {
+        joined: current.joined.filter((entry) => entry.id !== communityId),
+        explicitInterests: current.explicitInterests.filter((id) => id !== communityId),
+      };
+      void saveCommunities(next);
+      return next;
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       state,
@@ -320,6 +371,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setTodayFocus,
       setTodayFocusReflection,
       clearTodayFocus,
+      communities,
+      isCommunityJoined,
+      joinCommunity,
+      leaveCommunity,
       profile,
       goals,
       challenges,
@@ -357,6 +412,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setTodayFocus,
       setTodayFocusReflection,
       clearTodayFocus,
+      communities,
+      isCommunityJoined,
+      joinCommunity,
+      leaveCommunity,
       profile,
       goals,
       challenges,
