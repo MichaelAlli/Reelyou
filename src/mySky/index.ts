@@ -1,5 +1,11 @@
 export { buildMySkyView } from './buildMySkyView';
 export {
+  buildStarDetailView,
+  findPatternForNode,
+  findSkyNodeById,
+  type StarDetailViewModel,
+} from './buildStarDetailView';
+export {
   findSkywriteById,
   resolveStarNavigation,
   type StarNavigationTarget,

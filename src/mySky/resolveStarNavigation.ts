@@ -5,6 +5,7 @@ export type StarNavigationTarget =
   | { kind: 'skywrite-detail'; skywriteId: string }
   | { kind: 'skywrite-compose' }
   | { kind: 'public-sky'; param: string }
+  | { kind: 'star-detail'; nodeId: string }
   | { kind: 'none'; reason?: 'missing-skywrite' };
 
 /** Resolve star tap → route using stable sourceId linkage from MY SKY 01. */
@@ -25,6 +26,10 @@ export function resolveStarNavigation(
 
   if (star.destination === 'skywrite') {
     return { kind: 'skywrite-compose' };
+  }
+
+  if (star.type !== 'skywrite') {
+    return { kind: 'star-detail', nodeId: star.id };
   }
 
   return { kind: 'none' };

@@ -17,4 +17,11 @@ export const MySkyCopy = {
   skywriteMissingTitle: 'Moment unavailable',
   skywriteMissingBody: 'This reflection is no longer in your sky.',
   starMissingToast: 'This moment is no longer available.',
+  starDetailBack: '← My Sky',
+  starDetailEyebrow: 'In your sky',
+  starDetailPatternLabel: 'Pattern',
+  starDetailContextLabel: 'About this star',
+  starDetailSparseBody: 'This star holds a quiet place in your sky.',
+  starDetailMissingTitle: 'Star unavailable',
+  starDetailMissingBody: 'This moment is no longer visible in your sky.',
 } as const;

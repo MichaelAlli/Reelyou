@@ -109,6 +109,9 @@ function MySkyStarCanvasComponent({
         case 'public-sky':
           router.push(`/public-sky?id=${target.param}` as never);
           return;
+        case 'star-detail':
+          router.push(`/my-sky-star/${target.nodeId}` as never);
+          return;
         case 'none':
           if (target.reason === 'missing-skywrite') {
             setMissingHint(MySkyCopy.starMissingToast);
@@ -144,7 +147,9 @@ function MySkyStarCanvasComponent({
             accessibilityLabel={
               star.type === 'skywrite' && star.sourceId
                 ? `Open skywrite: ${star.title ?? 'moment'}`
-                : star.title ?? 'Sky moment'
+                : star.title
+                  ? `View star: ${star.title}`
+                  : 'View star'
             }
             onPress={() => handleStarPress(star)}
             style={[styles.starHit, { left: `${star.x * 100}%`, top: `${star.y * 100}%` }]}>
