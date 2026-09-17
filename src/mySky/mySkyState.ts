@@ -1,5 +1,6 @@
 import { buildSkyNodes } from '@/mySky/buildSkyNodes';
-import { DEFAULT_MY_SKY_VISIBLE_LAYERS } from '@/mySky/skyLayers';
+import { DEFAULT_MY_SKY_VISIBLE_LAYERS, type MySkyVisibleLayers } from '@/mySky/skyLayers';
+import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { SkyNode, SkyPattern, SkyRelationship } from '@/mySky/skyNodeTypes';
 import {
   filterVisibleStarNodes,
@@ -16,7 +17,12 @@ export const MY_SKY_STATE_VERSION = 1 as const;
 export interface MySkySources {
   northStarVision: string;
   skywrites: SkywriteRecord[];
-  joinedCommunityNames: string[];
+  joinedCommunities: JoinedCommunity[];
+  /** Explicit user goals — growth layer nodes only. */
+  growthGoals: string[];
+  /** Whether an active guiding light exists (explicit, not inferred). */
+  guidanceActive: boolean;
+  guidanceLabel?: string;
   lastUpdatedAt: string | null;
 }
 
@@ -42,7 +48,10 @@ export function resolveMySkySources(profile: UserPersonalizationProfile): MySkyS
   return {
     northStarVision: profile.northStar.originalVision,
     skywrites: profile.skywrites ?? [],
-    joinedCommunityNames: profile.communities.joined.map((c) => c.name),
+    joinedCommunities: profile.communities.joined,
+    growthGoals: profile.goals ?? [],
+    guidanceActive: Boolean(profile.guidingLight?.title?.trim()),
+    guidanceLabel: profile.guidingLight?.title ?? undefined,
     lastUpdatedAt: profile.lastUpdatedAt,
   };
 }
@@ -96,13 +105,17 @@ function projectLegacyState(
   };
 }
 
-/** Build full My Sky view — graph + display projection + calm default layers. */
-export function buildMySkyViewFromSources(sources: MySkySources): MySkyView {
+/** Build full My Sky view — graph + display projection + session layer visibility. */
+export function buildMySkyViewFromSources(
+  sources: MySkySources,
+  visibleLayers: MySkyVisibleLayers = DEFAULT_MY_SKY_VISIBLE_LAYERS,
+): MySkyView {
   const graph = buildMySkyGraph(sources);
-  const visibleNodes = filterVisibleStarNodes(graph.nodes, DEFAULT_MY_SKY_VISIBLE_LAYERS);
+  const visibleNodes = filterVisibleStarNodes(graph.nodes, visibleLayers);
   const stars = visibleNodes.map((node) => projectNodeToStarDisplay(node));
 
-  const legacy = projectLegacyState(stars, graph.patterns, sources.joinedCommunityNames);
+  const joinedCommunityNames = sources.joinedCommunities.map((c) => c.name);
+  const legacy = projectLegacyState(stars, graph.patterns, joinedCommunityNames);
 
   return {
     northStar: { originalVision: sources.northStarVision },
@@ -114,7 +127,7 @@ export function buildMySkyViewFromSources(sources: MySkySources): MySkyView {
     relationships: graph.relationships,
     patterns: graph.patterns,
     viewState: {
-      visibleLayers: { ...DEFAULT_MY_SKY_VISIBLE_LAYERS },
+      visibleLayers: { ...visibleLayers },
       revealPatternId: null,
     },
     lastUpdatedAt: sources.lastUpdatedAt ?? graph.builtAt,
@@ -140,7 +153,7 @@ export function serializeMySkySnapshot(sources: MySkySources): MySkyPersistedSna
     version: MY_SKY_STATE_VERSION,
     northStarVision: sources.northStarVision,
     skywriteIds: sources.skywrites.map((post) => post.id),
-    joinedCommunityNames: sources.joinedCommunityNames,
+    joinedCommunityNames: sources.joinedCommunities.map((c) => c.name),
     lastUpdatedAt: sources.lastUpdatedAt ?? new Date().toISOString(),
   };
 }

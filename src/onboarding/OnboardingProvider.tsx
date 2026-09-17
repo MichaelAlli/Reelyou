@@ -45,7 +45,14 @@ import {
   type GuidingLightDismissRecord,
   type GuidingLightHomeView,
 } from '@/guidingLight';
-import { buildMySkyView, type MySkyView } from '@/mySky';
+import {
+  buildMySkyView,
+  DEFAULT_MY_SKY_VISIBLE_LAYERS,
+  type MySkyLayerId,
+  type MySkyView,
+  type MySkyVisibleLayers,
+} from '@/mySky';
+import { CelestialConstellationRevealMotion } from '@/constants/celestialMotion';
 import type { SkyArrivalHandoff } from '@/mySky/skyArrival';
 import {
   buildSkywriteRecord,
@@ -133,6 +140,15 @@ interface OnboardingContextValue {
   aroundYourSkyFeed: AroundYourSkyHomeFeed;
   /** Full My Sky view — North Star, stars, personal constellations */
   mySkyView: MySkyView;
+  /** Session-persisted My Sky layer visibility — defaults to calm star-only. */
+  mySkyVisibleLayers: MySkyVisibleLayers;
+  toggleMySkyLayer: (layer: MySkyLayerId) => void;
+  setMySkyLayerVisible: (layer: MySkyLayerId, visible: boolean) => void;
+  resetMySkyLayers: () => void;
+  /** Temporary constellation line reveal — animates in then fades out. */
+  triggerConstellationReveal: () => void;
+  constellationRevealCount: number;
+  constellationRevealActive: boolean;
   /** Home StarPath Guiding Light — one calm possibility or peace state */
   guidingLightView: GuidingLightHomeView;
   /** Dismiss the active Guiding Light — user choice is authoritative */
@@ -158,6 +174,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     useState<GuidingLightDismissRecord>(EMPTY_GUIDING_LIGHT_DISMISS);
   const [skywritesState, setSkywritesState] = useState<SkywritesState>(EMPTY_SKYWRITES);
   const [skyArrivalHandoff, setSkyArrivalHandoffState] = useState<SkyArrivalHandoff | null>(null);
+  const [mySkyVisibleLayers, setMySkyVisibleLayers] = useState<MySkyVisibleLayers>(
+    () => ({ ...DEFAULT_MY_SKY_VISIBLE_LAYERS }),
+  );
+  const [constellationRevealCount, setConstellationRevealCount] = useState(0);
+  const [constellationRevealActive, setConstellationRevealActive] = useState(false);
   useEffect(() => {
     let live = true;
     loadTodayFocus().then((record) => {
@@ -200,18 +221,27 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [state, todayFocus, communities, aroundYourSkyState],
   );
 
-  const mySkyView = useMemo(
-    () =>
-      buildMySkyView({
-        ...basePersonalizationProfile,
-        skywrites: skywritesState.posts,
-      }),
-    [basePersonalizationProfile, skywritesState.posts],
-  );
-
   const guidingLightView = useMemo(
     () => buildGuidingLightView(basePersonalizationProfile, guidingLightDismiss),
     [basePersonalizationProfile, guidingLightDismiss],
+  );
+
+  const mySkyView = useMemo(
+    () =>
+      buildMySkyView(
+        {
+          ...basePersonalizationProfile,
+          skywrites: skywritesState.posts,
+          guidingLight: guidingLightView.light,
+        },
+        mySkyVisibleLayers,
+      ),
+    [
+      basePersonalizationProfile,
+      skywritesState.posts,
+      guidingLightView.light,
+      mySkyVisibleLayers,
+    ],
   );
 
   const personalizationProfile = useMemo(
@@ -483,6 +513,33 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setSkyArrivalHandoffState(null);
   }, []);
 
+  const toggleMySkyLayer = useCallback((layer: MySkyLayerId) => {
+    setMySkyVisibleLayers((current) => ({
+      ...current,
+      [layer]: !current[layer],
+    }));
+  }, []);
+
+  const setMySkyLayerVisible = useCallback((layer: MySkyLayerId, visible: boolean) => {
+    setMySkyVisibleLayers((current) => ({
+      ...current,
+      [layer]: visible,
+    }));
+  }, []);
+
+  const resetMySkyLayers = useCallback(() => {
+    setMySkyVisibleLayers({ ...DEFAULT_MY_SKY_VISIBLE_LAYERS });
+  }, []);
+
+  const triggerConstellationReveal = useCallback(() => {
+    setConstellationRevealCount((count) => count + 1);
+    setConstellationRevealActive(true);
+    const totalMs =
+      CelestialConstellationRevealMotion.revealDurationMs +
+      CelestialConstellationRevealMotion.fadeDurationMs;
+    setTimeout(() => setConstellationRevealActive(false), totalMs);
+  }, []);
+
   const value = useMemo(
     () => ({
       state,
@@ -503,6 +560,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       leaveCommunity,
       aroundYourSkyFeed,
       mySkyView,
+      mySkyVisibleLayers,
+      toggleMySkyLayer,
+      setMySkyLayerVisible,
+      resetMySkyLayers,
+      triggerConstellationReveal,
+      constellationRevealCount,
+      constellationRevealActive,
       guidingLightView,
       dismissGuidingLight,
       skywrites: skywritesState.posts,
@@ -553,6 +617,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       leaveCommunity,
       aroundYourSkyFeed,
       mySkyView,
+      mySkyVisibleLayers,
+      toggleMySkyLayer,
+      setMySkyLayerVisible,
+      resetMySkyLayers,
+      triggerConstellationReveal,
+      constellationRevealCount,
+      constellationRevealActive,
       guidingLightView,
       dismissGuidingLight,
       skywritesState.posts,

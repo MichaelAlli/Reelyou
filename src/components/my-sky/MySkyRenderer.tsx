@@ -14,8 +14,8 @@ interface MySkyRendererProps {
   highlightStarId?: string | null;
   /** Arrival trail / link reveal — false once settled. */
   animateArrival?: boolean;
-  /** Brief ambient link reveal on mount (resting tab preview). */
-  revealLinks?: boolean;
+  /** User-triggered temporary constellation reveal count. */
+  constellationRevealCount?: number;
 }
 
 /**
@@ -27,7 +27,7 @@ function MySkyRendererComponent({
   mode = 'resting',
   highlightStarId = null,
   animateArrival = false,
-  revealLinks = true,
+  constellationRevealCount = 0,
 }: MySkyRendererProps) {
   const { stars, vitality, relationships, nodes, viewState } = view;
   const [size, setSize] = useState({ w: 320, h: 360 });
@@ -60,7 +60,7 @@ function MySkyRendererComponent({
           patternRelationships={relationships}
           patternNodes={nodes}
           visibleLayers={viewState.visibleLayers}
-          revealLinks={revealLinks}
+          constellationRevealCount={constellationRevealCount}
         />
       )}
     </View>

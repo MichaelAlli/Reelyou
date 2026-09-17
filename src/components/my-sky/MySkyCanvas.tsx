@@ -24,7 +24,6 @@ function MySkyCanvasComponent({
       mode="arrival"
       highlightStarId={highlightStarId}
       animateArrival={animateArrival}
-      revealLinks={false}
     />
   );
 }

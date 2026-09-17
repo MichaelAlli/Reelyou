@@ -10,7 +10,14 @@ import { useThemedStyles } from '@/theme/useTheme';
 
 export function MySkyScreen() {
   const router = useRouter();
-  const { mySkyView } = useOnboarding();
+  const {
+    mySkyView,
+    toggleMySkyLayer,
+    triggerConstellationReveal,
+    constellationRevealCount,
+    constellationRevealActive,
+  } = useOnboarding();
+  const { visibleLayers } = mySkyView.viewState;
   const northStarText = mySkyView.northStar.originalVision.trim();
 
   const styles = useThemedStyles((tokens) =>
@@ -154,21 +161,29 @@ export function MySkyScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{MySkyCopy.starsTitle}</Text>
-        <MySkyStarCanvas view={mySkyView} />
+        <MySkyStarCanvas
+          view={mySkyView}
+          onToggleLayer={toggleMySkyLayer}
+          onRevealConstellations={triggerConstellationReveal}
+          constellationRevealCount={constellationRevealCount}
+          constellationRevealActive={constellationRevealActive}
+        />
         <Text style={styles.hint}>{MySkyCopy.exploreHint}</Text>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{MySkyCopy.constellationsTitle}</Text>
-        {mySkyView.constellations.map((pattern) => (
-          <View key={pattern.id} style={styles.patternCard} accessibilityRole="text">
-            <Text style={styles.patternLabel}>{pattern.label}</Text>
-            <Text style={styles.patternNote}>{pattern.note}</Text>
-          </View>
-        ))}
-      </View>
+      {mySkyView.constellations.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{MySkyCopy.constellationsTitle}</Text>
+          {mySkyView.constellations.map((pattern) => (
+            <View key={pattern.id} style={styles.patternCard} accessibilityRole="text">
+              <Text style={styles.patternLabel}>{pattern.label}</Text>
+              <Text style={styles.patternNote}>{pattern.note}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
-      {mySkyView.connections.length > 0 ? (
+      {visibleLayers.connections && mySkyView.connections.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{MySkyCopy.connectionsTitle}</Text>
           <View style={styles.chipRow}>
@@ -181,7 +196,7 @@ export function MySkyScreen() {
         </View>
       ) : null}
 
-      {mySkyView.contributions.length > 0 ? (
+      {visibleLayers.impact && mySkyView.contributions.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{MySkyCopy.contributionsTitle}</Text>
           {mySkyView.contributions.map((title) => (

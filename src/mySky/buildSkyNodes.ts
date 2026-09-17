@@ -15,6 +15,7 @@ import type {
   SkySourceType,
 } from '@/mySky/skyNodeTypes';
 import { computeSkyNodeVisual, computeSkyVitality } from '@/mySky/skyVisualRules';
+import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 function skywriteTitle(text: string, mediaMode: string): string {
@@ -82,6 +83,100 @@ function buildSkywriteNode(post: SkywriteRecord, vitality: number): SkyNode {
   };
 }
 
+function buildCommunityNode(community: JoinedCommunity, vitality: number): SkyNode {
+  const id = `community-${community.id}`;
+  const layout = resolveStableNodePosition(id);
+
+  return {
+    id,
+    type: 'community',
+    sourceType: 'community',
+    sourceId: community.id,
+    layer: 'communities',
+    createdAt: community.joinedAt,
+    position: { x: layout.x, y: layout.y },
+    visual: computeSkyNodeVisual('community', layout.color, { vitality, emphasisBoost: 0.05 }),
+    userGenerated: true,
+    inferred: false,
+    userDefined: true,
+    provenance: { source: 'explicit', reason: 'user_community_join' },
+    destination: null,
+    destinationParam: null,
+    title: community.name,
+    patternId: null,
+  };
+}
+
+function buildConnectionNode(community: JoinedCommunity, vitality: number): SkyNode {
+  const id = `connection-${community.id}`;
+  const layout = resolveStableNodePosition(id);
+
+  return {
+    id,
+    type: 'relationship',
+    sourceType: 'relationship',
+    sourceId: community.id,
+    layer: 'connections',
+    createdAt: community.joinedAt,
+    position: { x: layout.x, y: layout.y },
+    visual: computeSkyNodeVisual('relationship', layout.color, { vitality }),
+    userGenerated: true,
+    inferred: false,
+    userDefined: true,
+    provenance: { source: 'explicit', reason: 'user_community_join' },
+    destination: null,
+    destinationParam: null,
+    title: community.name,
+    patternId: null,
+  };
+}
+
+function buildGrowthNode(goal: string, index: number, vitality: number): SkyNode {
+  const id = `growth-${index}-${goal.slice(0, 12).replace(/\s+/g, '-').toLowerCase()}`;
+  const layout = resolveStableNodePosition(id);
+
+  return {
+    id,
+    type: 'growth',
+    sourceType: 'growth',
+    layer: 'growth',
+    createdAt: new Date().toISOString(),
+    position: { x: layout.x, y: layout.y },
+    visual: computeSkyNodeVisual('growth', layout.color, { vitality }),
+    userGenerated: true,
+    inferred: false,
+    userDefined: true,
+    provenance: { source: 'explicit', reason: 'user_goal' },
+    destination: null,
+    destinationParam: null,
+    title: goal,
+    patternId: null,
+  };
+}
+
+function buildGuidanceNode(label: string, vitality: number): SkyNode {
+  const id = 'guidance-active';
+  const layout = resolveStableNodePosition(id);
+
+  return {
+    id,
+    type: 'guidance',
+    sourceType: 'guidance',
+    layer: 'guidance',
+    createdAt: new Date().toISOString(),
+    position: { x: layout.x, y: layout.y },
+    visual: computeSkyNodeVisual('guidance', layout.color, { vitality, emphasisBoost: 0.08 }),
+    userGenerated: false,
+    inferred: false,
+    userDefined: true,
+    provenance: { source: 'explicit', reason: 'guiding_light' },
+    destination: null,
+    destinationParam: null,
+    title: label.slice(0, 48),
+    patternId: null,
+  };
+}
+
 function buildFixtureNode(
   item: (typeof MY_SKY_ITEM_FIXTURES)[number],
   vitality: number,
@@ -128,7 +223,24 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
     ? MY_SKY_ITEM_FIXTURES.map((item) => buildFixtureNode(item, vitality))
     : [];
 
-  const nodes = [...skywriteNodes, ...fixtureNodes].map((node) => ({
+  const communityNodes = sources.joinedCommunities.map((c) => buildCommunityNode(c, vitality));
+  const connectionNodes = sources.joinedCommunities.map((c) => buildConnectionNode(c, vitality));
+  const growthNodes = sources.growthGoals
+    .slice(0, 4)
+    .map((goal, index) => buildGrowthNode(goal, index, vitality));
+  const guidanceNodes =
+    sources.guidanceActive && sources.guidanceLabel
+      ? [buildGuidanceNode(sources.guidanceLabel, vitality)]
+      : [];
+
+  const nodes = [
+    ...skywriteNodes,
+    ...fixtureNodes,
+    ...communityNodes,
+    ...connectionNodes,
+    ...growthNodes,
+    ...guidanceNodes,
+  ].map((node) => ({
     ...node,
     visual: computeSkyNodeVisual(node.type, node.visual.color, { vitality }),
   }));

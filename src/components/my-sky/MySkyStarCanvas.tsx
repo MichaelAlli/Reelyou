@@ -3,21 +3,36 @@ import { memo, useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
+import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
-import { Fonts, Radius } from '@/constants/theme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
+import type { MySkyLayerId } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
 import { useThemedStyles } from '@/theme/useTheme';
 
 interface MySkyStarCanvasProps {
   view: Pick<MySkyView, 'stars' | 'vitality' | 'relationships' | 'nodes' | 'viewState'>;
+  onToggleLayer: (layer: MySkyLayerId) => void;
+  onRevealConstellations: () => void;
+  constellationRevealCount: number;
+  constellationRevealActive?: boolean;
 }
 
-function MySkyStarCanvasComponent({ view }: MySkyStarCanvasProps) {
-  const { stars } = view;
+function MySkyStarCanvasComponent({
+  view,
+  onToggleLayer,
+  onRevealConstellations,
+  constellationRevealCount,
+  constellationRevealActive = false,
+}: MySkyStarCanvasProps) {
+  const { stars, viewState } = view;
   const router = useRouter();
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
+      outer: {
+        gap: Spacing.sm,
+      },
       wrap: {
         width: '100%',
         aspectRatio: 0.72,
@@ -81,26 +96,38 @@ function MySkyStarCanvasComponent({ view }: MySkyStarCanvasProps) {
   );
 
   return (
-    <View style={styles.wrap}>
-      <MySkyBackdrop dim />
-      <MySkyRenderer view={view} mode="resting" revealLinks />
+    <View style={styles.outer}>
+      <MySkyLayerControls
+        visibleLayers={viewState.visibleLayers}
+        onToggleLayer={onToggleLayer}
+        onRevealConstellations={onRevealConstellations}
+        constellationRevealActive={constellationRevealActive}
+      />
+      <View style={styles.wrap}>
+        <MySkyBackdrop dim />
+        <MySkyRenderer
+          view={view}
+          mode="resting"
+          constellationRevealCount={constellationRevealCount}
+        />
 
-      {stars.map((star) => (
-        <Pressable
-          key={star.id}
-          accessibilityRole="button"
-          accessibilityLabel={star.title ?? 'Sky moment'}
-          onPress={() => handleStarPress(star)}
-          style={[styles.starHit, { left: `${star.x * 100}%`, top: `${star.y * 100}%` }]}>
-          <View style={styles.hitGlow} />
-        </Pressable>
-      ))}
+        {stars.map((star) => (
+          <Pressable
+            key={star.id}
+            accessibilityRole="button"
+            accessibilityLabel={star.title ?? 'Sky moment'}
+            onPress={() => handleStarPress(star)}
+            style={[styles.starHit, { left: `${star.x * 100}%`, top: `${star.y * 100}%` }]}>
+            <View style={styles.hitGlow} />
+          </Pressable>
+        ))}
 
-      {active?.title ? (
-        <View style={styles.tooltip} pointerEvents="none">
-          <Text style={styles.tooltipText}>{active.title}</Text>
-        </View>
-      ) : null}
+        {active?.title ? (
+          <View style={styles.tooltip} pointerEvents="none">
+            <Text style={styles.tooltipText}>{active.title}</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
