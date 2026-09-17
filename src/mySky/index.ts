@@ -1,4 +1,9 @@
 export { buildMySkyView } from './buildMySkyView';
+export {
+  findSkywriteById,
+  resolveStarNavigation,
+  type StarNavigationTarget,
+} from './resolveStarNavigation';
 export { buildSkyNodes } from './buildSkyNodes';
 export { buildSkyNodeId, EMPTY_SKY_ARRIVAL } from './skyArrival';
 export type { SkyArrivalHandoff, SkywriteStatus } from './skyArrival';

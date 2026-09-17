@@ -12,4 +12,9 @@ export const MySkyCopy = {
   connectionsTitle: 'Communities in your sky',
   contributionsTitle: 'Moments of contribution',
   exploreHint: 'Tap a star to revisit a moment where a destination exists.',
+  skywriteDetailBack: '← My Sky',
+  skywriteDetailTitle: 'Your Skywrite',
+  skywriteMissingTitle: 'Moment unavailable',
+  skywriteMissingBody: 'This reflection is no longer in your sky.',
+  starMissingToast: 'This moment is no longer available.',
 } as const;

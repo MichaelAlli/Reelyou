@@ -5,9 +5,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
 import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
+import { MySkyCopy } from '@/constants/mySkyCopy';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { resolveStarNavigation } from '@/mySky/resolveStarNavigation';
 import type { MySkyLayerId } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
+import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
 
 interface MySkyStarCanvasProps {
@@ -27,6 +30,7 @@ function MySkyStarCanvasComponent({
 }: MySkyStarCanvasProps) {
   const { stars, viewState } = view;
   const router = useRouter();
+  const { skywrites } = useOnboarding();
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -74,25 +78,47 @@ function MySkyStarCanvasComponent({
         lineHeight: 16,
         color: tokens.primaryText,
       },
+      missingHint: {
+        fontFamily: Fonts.sans,
+        fontSize: 11,
+        lineHeight: 15,
+        color: tokens.mutedText,
+        paddingHorizontal: 2,
+      },
     }),
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [missingHint, setMissingHint] = useState<string | null>(null);
   const active = stars.find((s) => s.id === activeId);
 
   const handleStarPress = useCallback(
     (star: MySkyStarDisplay) => {
       setActiveId(star.id);
-      if (!star.destination) return;
-      if (star.destination === 'skywrite') {
-        router.push('/skywrite' as never);
-        return;
-      }
-      if (star.destination === 'public-sky' && star.destinationParam) {
-        router.push(`/public-sky?id=${star.destinationParam}` as never);
+      setMissingHint(null);
+
+      const target = resolveStarNavigation(star, skywrites);
+
+      switch (target.kind) {
+        case 'skywrite-detail':
+          router.push(`/skywrite/${target.skywriteId}` as never);
+          return;
+        case 'skywrite-compose':
+          router.push('/skywrite' as never);
+          return;
+        case 'public-sky':
+          router.push(`/public-sky?id=${target.param}` as never);
+          return;
+        case 'none':
+          if (target.reason === 'missing-skywrite') {
+            setMissingHint(MySkyCopy.starMissingToast);
+          }
+          return;
+        default:
+          return;
       }
     },
-    [router],
+    [router, skywrites],
   );
 
   return (
@@ -115,19 +141,24 @@ function MySkyStarCanvasComponent({
           <Pressable
             key={star.id}
             accessibilityRole="button"
-            accessibilityLabel={star.title ?? 'Sky moment'}
+            accessibilityLabel={
+              star.type === 'skywrite' && star.sourceId
+                ? `Open skywrite: ${star.title ?? 'moment'}`
+                : star.title ?? 'Sky moment'
+            }
             onPress={() => handleStarPress(star)}
             style={[styles.starHit, { left: `${star.x * 100}%`, top: `${star.y * 100}%` }]}>
             <View style={styles.hitGlow} />
           </Pressable>
         ))}
 
-        {active?.title ? (
+        {active?.title && !missingHint ? (
           <View style={styles.tooltip} pointerEvents="none">
             <Text style={styles.tooltipText}>{active.title}</Text>
           </View>
         ) : null}
       </View>
+      {missingHint ? <Text style={styles.missingHint}>{missingHint}</Text> : null}
     </View>
   );
 }
