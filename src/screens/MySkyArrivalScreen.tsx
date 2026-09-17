@@ -17,7 +17,7 @@ import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
 import { SkyArrivalCopy } from '@/constants/skyArrivalCopy';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
-import type { MySkyStarDisplay } from '@/mySky/types';
+import { applyArrivalHighlight } from '@/mySky/mySkyState';
 import { useOnboarding } from '@/onboarding';
 
 const TOAST_SHOW_DELAY_MS = 500;
@@ -75,13 +75,10 @@ export function MySkyArrivalScreen() {
     transform: [{ translateY: toastY.value }],
   }));
 
-  const stars: MySkyStarDisplay[] = useMemo(() => {
-    const highlightId = landedStarIdRef.current;
-    return mySkyView.stars.map((star) => ({
-      ...star,
-      isNewlyAdded: star.id === highlightId,
-    }));
-  }, [mySkyView.stars]);
+  const stars = useMemo(
+    () => applyArrivalHighlight(mySkyView.stars, landedStarIdRef.current),
+    [mySkyView.stars],
+  );
 
   const highlightStarId = landedStarIdRef.current;
 

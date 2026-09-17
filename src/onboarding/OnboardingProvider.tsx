@@ -201,8 +201,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   );
 
   const mySkyView = useMemo(
-    () => buildMySkyView(basePersonalizationProfile),
-    [basePersonalizationProfile],
+    () =>
+      buildMySkyView({
+        ...basePersonalizationProfile,
+        skywrites: skywritesState.posts,
+      }),
+    [basePersonalizationProfile, skywritesState.posts],
   );
 
   const guidingLightView = useMemo(

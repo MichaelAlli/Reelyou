@@ -3,6 +3,29 @@ import type { MySkyVisibleLayers } from '@/mySky/skyLayers';
 /** Provenance — explicit user data outranks inferred patterns. */
 export type SkyProvenanceSource = 'explicit' | 'inferred' | 'system';
 
+/** Origin entity for a node — distinct from display category (`SkyNodeType`). */
+export type SkySourceType =
+  | 'skywrite'
+  | 'reflection'
+  | 'community'
+  | 'relationship'
+  | 'growth'
+  | 'impact'
+  | 'guidance'
+  | 'preference'
+  | 'system';
+
+/** Internal-only metadata — never surfaced as AI/diagnosis copy in UI. */
+export interface SkyNodeMetadata {
+  mediaMode?: string;
+  textStyle?: string;
+  mood?: string;
+  showingUp?: string;
+  allowAIContext?: boolean;
+  fixtureSeed?: boolean;
+  [key: string]: string | boolean | number | undefined;
+}
+
 export interface SkyProvenance {
   source: SkyProvenanceSource;
   /** Internal note — never shown as confidence/diagnosis in UI. */
@@ -37,6 +60,7 @@ export interface SkyNodePosition {
 export interface SkyNodeVisual {
   size: number;
   brightness: number;
+  /** Glow intensity — alias conceptually as glowIntensity in API contracts. */
   glow: number;
   opacity: number;
   emphasis: number;
@@ -47,11 +71,17 @@ export interface SkyNodeVisual {
 export interface SkyNode {
   id: string;
   type: SkyNodeType;
-  layer: SkyNodeLayer;
+  /** Origin entity — e.g. skywrite post id lives in sourceId when sourceType is skywrite. */
+  sourceType: SkySourceType;
   sourceId?: string;
+  layer: SkyNodeLayer;
   createdAt: string;
   position: SkyNodePosition;
   visual: SkyNodeVisual;
+  /** True when authored directly by the user (Skywrite, explicit join, etc.). */
+  userGenerated: boolean;
+  /** True when derived from future inference — explicit user data always wins. */
+  inferred: boolean;
   userDefined?: boolean;
   provenance: SkyProvenance;
   destination?: 'skywrite' | 'public-sky' | null;
@@ -59,6 +89,20 @@ export interface SkyNode {
   title?: string;
   visibility?: string;
   patternId?: string | null;
+  /** Internal metadata only — not shown in UI. */
+  metadata?: SkyNodeMetadata;
+}
+
+export function nodeGlowIntensity(node: SkyNode): number {
+  return node.visual.glow;
+}
+
+export function isExplicitSkyNode(node: SkyNode): boolean {
+  return node.provenance.source === 'explicit' && !node.inferred;
+}
+
+export function isInferredSkyNode(node: SkyNode): boolean {
+  return node.inferred || node.provenance.source === 'inferred';
 }
 
 export type SkyPatternStatus = 'possible' | 'emerging' | 'established';

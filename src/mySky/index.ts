@@ -3,11 +3,30 @@ export { buildSkyNodes } from './buildSkyNodes';
 export { buildSkyNodeId, EMPTY_SKY_ARRIVAL } from './skyArrival';
 export type { SkyArrivalHandoff, SkywriteStatus } from './skyArrival';
 export {
+  applyArrivalHighlight,
+  buildMySkyGraph,
+  buildMySkyViewFromSources,
+  MY_SKY_STATE_VERSION,
+  resolveMySkySources,
+  serializeMySkySnapshot,
+} from './mySkyState';
+export type {
+  MySkyGraph,
+  MySkyPersistedSnapshot,
+  MySkySources,
+} from './mySkyState';
+export {
   DEFAULT_MY_SKY_VISIBLE_LAYERS,
   isLayerVisible,
 } from './skyLayers';
 export type { MySkyLayerId, MySkyVisibleLayers } from './skyLayers';
-export { resolveSkyNodePosition, SKY_NODE_LAYOUT_REGISTRY, SKYWRITE_POSITION_SLOTS } from './skyLayout';
+export {
+  resolveSkyNodePosition,
+  resolveStableNodePosition,
+  SKY_NODE_LAYOUT_REGISTRY,
+  SKYWRITE_POSITION_SLOTS,
+  stableSlotIndexForId,
+} from './skyLayout';
 export {
   computeSkyNodeVisual,
   computeSkyVitality,
@@ -16,6 +35,9 @@ export {
 } from './skyVisualRules';
 export {
   SKY_GROWTH_EVENT_TYPES,
+  isExplicitSkyNode,
+  isInferredSkyNode,
+  nodeGlowIntensity,
 } from './skyNodeTypes';
 export type {
   MySkyViewState,
@@ -23,6 +45,7 @@ export type {
   SkyGrowthEventType,
   SkyNode,
   SkyNodeLayer,
+  SkyNodeMetadata,
   SkyNodeType,
   SkyNodeVisual,
   SkyPattern,
@@ -30,6 +53,7 @@ export type {
   SkyProvenance,
   SkyProvenanceSource,
   SkyRelationship,
+  SkySourceType,
 } from './skyNodeTypes';
 export { EMPTY_MY_SKY } from './types';
 export type {

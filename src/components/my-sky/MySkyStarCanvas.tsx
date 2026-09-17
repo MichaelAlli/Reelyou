@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useState } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
-import { MySkyLivingSkyLayer } from '@/components/my-sky/MySkyLivingSkyLayer';
+import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
 import { Fonts, Radius } from '@/constants/theme';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
 import { useThemedStyles } from '@/theme/useTheme';
@@ -13,9 +13,8 @@ interface MySkyStarCanvasProps {
 }
 
 function MySkyStarCanvasComponent({ view }: MySkyStarCanvasProps) {
-  const { stars, vitality, relationships, nodes, viewState } = view;
+  const { stars } = view;
   const router = useRouter();
-  const [size, setSize] = useState({ w: 320, h: 360 });
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -66,13 +65,6 @@ function MySkyStarCanvasComponent({ view }: MySkyStarCanvasProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const active = stars.find((s) => s.id === activeId);
 
-  const onLayout = useCallback((e: LayoutChangeEvent) => {
-    const { width, height } = e.nativeEvent.layout;
-    if (width > 0 && height > 0) {
-      setSize({ w: width, h: height });
-    }
-  }, []);
-
   const handleStarPress = useCallback(
     (star: MySkyStarDisplay) => {
       setActiveId(star.id);
@@ -89,17 +81,9 @@ function MySkyStarCanvasComponent({ view }: MySkyStarCanvasProps) {
   );
 
   return (
-    <View style={styles.wrap} onLayout={onLayout}>
+    <View style={styles.wrap}>
       <MySkyBackdrop dim />
-      <MySkyLivingSkyLayer
-        width={size.w}
-        height={size.h}
-        userStars={stars}
-        vitality={vitality}
-        patternRelationships={relationships}
-        patternNodes={nodes}
-        visibleLayers={viewState.visibleLayers}
-      />
+      <MySkyRenderer view={view} mode="resting" revealLinks />
 
       {stars.map((star) => (
         <Pressable

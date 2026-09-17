@@ -18,6 +18,15 @@ export const SKYWRITE_POSITION_SLOTS: ReadonlyArray<SkyNodePosition & { color: s
   { x: 0.5, y: 0.46, color: '#FFD57A' },
 ];
 
+/** Deterministic slot from stable node id — survives list reordering. */
+export function stableSlotIndexForId(nodeId: string, modulo = SKYWRITE_POSITION_SLOTS.length): number {
+  let hash = 0;
+  for (let i = 0; i < nodeId.length; i += 1) {
+    hash = (hash * 31 + nodeId.charCodeAt(i)) >>> 0;
+  }
+  return hash % modulo;
+}
+
 /** Resolve stable position for a node id — registry first, then deterministic slot. */
 export function resolveSkyNodePosition(
   nodeId: string,
@@ -27,4 +36,9 @@ export function resolveSkyNodePosition(
   if (fixed) return fixed;
   const slot = SKYWRITE_POSITION_SLOTS[slotIndex % SKYWRITE_POSITION_SLOTS.length];
   return slot;
+}
+
+/** Resolve position for a dynamic node — always keyed by stable id, not array index. */
+export function resolveStableNodePosition(nodeId: string): SkyNodePosition & { color: string } {
+  return resolveSkyNodePosition(nodeId, stableSlotIndexForId(nodeId));
 }

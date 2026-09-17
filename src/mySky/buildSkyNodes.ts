@@ -3,17 +3,19 @@ import {
   MY_SKY_ITEM_FIXTURES,
 } from '@/mySky/fixtures';
 import { buildSkyNodeId } from '@/mySky/skyArrival';
-import { resolveSkyNodePosition } from '@/mySky/skyLayout';
+import type { MySkySources } from '@/mySky/mySkyState';
+import { resolveStableNodePosition } from '@/mySky/skyLayout';
 import type {
   SkyNode,
   SkyNodeLayer,
+  SkyNodeMetadata,
   SkyNodeType,
   SkyPattern,
   SkyRelationship,
+  SkySourceType,
 } from '@/mySky/skyNodeTypes';
 import { computeSkyNodeVisual, computeSkyVitality } from '@/mySky/skyVisualRules';
 import type { SkywriteRecord } from '@/skywrite/types';
-import type { UserPersonalizationProfile } from '@/onboarding/personalization/types';
 
 function skywriteTitle(text: string, mediaMode: string): string {
   const trimmed = text.trim();
@@ -37,18 +39,38 @@ function mapFixtureLayer(type: string): SkyNodeLayer {
   return 'stars';
 }
 
-function buildSkywriteNode(post: SkywriteRecord, slotIndex: number, vitality: number): SkyNode {
+function mapFixtureSourceType(type: string): SkySourceType {
+  if (type === 'skywrite') return 'skywrite';
+  if (type === 'connection') return 'relationship';
+  if (type === 'contribution') return 'impact';
+  return 'reflection';
+}
+
+function buildSkywriteMetadata(post: SkywriteRecord): SkyNodeMetadata {
+  return {
+    mediaMode: post.mediaMode,
+    textStyle: post.textStyle,
+    mood: post.mood ?? undefined,
+    showingUp: post.showingUp ?? undefined,
+    allowAIContext: post.allowAIContext,
+  };
+}
+
+function buildSkywriteNode(post: SkywriteRecord, vitality: number): SkyNode {
   const id = buildSkyNodeId(post.id);
-  const layout = resolveSkyNodePosition(id, slotIndex);
+  const layout = resolveStableNodePosition(id);
 
   return {
     id,
     type: 'skywrite',
-    layer: 'stars',
+    sourceType: 'skywrite',
     sourceId: post.id,
+    layer: 'stars',
     createdAt: post.createdAt,
     position: { x: layout.x, y: layout.y },
     visual: computeSkyNodeVisual('skywrite', layout.color, { vitality }),
+    userGenerated: true,
+    inferred: false,
     userDefined: true,
     provenance: { source: 'explicit', reason: 'user_skywrite' },
     destination: 'skywrite',
@@ -56,6 +78,7 @@ function buildSkywriteNode(post: SkywriteRecord, slotIndex: number, vitality: nu
     title: skywriteTitle(post.text, post.mediaMode),
     visibility: post.visibility,
     patternId: null,
+    metadata: buildSkywriteMetadata(post),
   };
 }
 
@@ -63,24 +86,28 @@ function buildFixtureNode(
   item: (typeof MY_SKY_ITEM_FIXTURES)[number],
   vitality: number,
 ): SkyNode {
-  const layout = resolveSkyNodePosition(item.id, 0);
+  const layout = resolveStableNodePosition(item.id);
   const nodeType = mapFixtureType(item.type);
 
   return {
     id: item.id,
     type: nodeType,
+    sourceType: mapFixtureSourceType(item.type),
     layer: mapFixtureLayer(item.type),
     createdAt: item.timestamp ?? new Date().toISOString(),
     position: { x: layout.x, y: layout.y },
     visual: computeSkyNodeVisual(nodeType, layout.color, { vitality }),
+    userGenerated: false,
+    inferred: false,
     userDefined: true,
-    provenance: { source: 'explicit', reason: 'fixture_seed' },
+    provenance: { source: 'system', reason: 'fixture_seed' },
     destination:
       item.id === 'star-3' ? 'public-sky' : item.type === 'skywrite' ? 'skywrite' : null,
     destinationParam: item.id === 'star-3' ? 'orbit-3' : null,
     title: item.title,
     visibility: item.visibility,
     patternId: item.constellationId ?? null,
+    metadata: { fixtureSeed: true },
   };
 }
 
@@ -91,17 +118,15 @@ export interface BuiltSkyGraph {
   vitality: number;
 }
 
-/** Build normalized sky graph from profile — stable ids, explicit provenance. */
-export function buildSkyNodes(profile: UserPersonalizationProfile): BuiltSkyGraph {
-  const skywriteNodes = profile.skywrites.map((post, index) =>
-    buildSkywriteNode(post, index, 1),
-  );
+/** Build normalized sky graph from centralized sources — stable ids, explicit provenance. */
+export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
+  const skywriteNodes = sources.skywrites.map((post) => buildSkywriteNode(post, 1));
   const vitality = computeSkyVitality(skywriteNodes.length);
 
-  const skywriteIds = new Set(skywriteNodes.map((n) => n.id));
-  const fixtureNodes = MY_SKY_ITEM_FIXTURES.filter((item) => !skywriteIds.has(item.id)).map(
-    (item) => buildFixtureNode(item, vitality),
-  );
+  const useFixtures = sources.skywrites.length === 0;
+  const fixtureNodes = useFixtures
+    ? MY_SKY_ITEM_FIXTURES.map((item) => buildFixtureNode(item, vitality))
+    : [];
 
   const nodes = [...skywriteNodes, ...fixtureNodes].map((node) => ({
     ...node,
@@ -109,16 +134,18 @@ export function buildSkyNodes(profile: UserPersonalizationProfile): BuiltSkyGrap
   }));
 
   const now = new Date().toISOString();
-  const patterns: SkyPattern[] = MY_SKY_CONSTELLATION_FIXTURES.map((pattern) => ({
-    id: pattern.id,
-    nodeIds: pattern.itemIds.filter((id) => nodes.some((n) => n.id === id)),
-    label: pattern.label,
-    note: pattern.note,
-    source: 'explicit' as const,
-    status: 'emerging' as const,
-    createdAt: now,
-    updatedAt: now,
-  }));
+  const patterns: SkyPattern[] = useFixtures
+    ? MY_SKY_CONSTELLATION_FIXTURES.map((pattern) => ({
+        id: pattern.id,
+        nodeIds: pattern.itemIds.filter((id) => nodes.some((n) => n.id === id)),
+        label: pattern.label,
+        note: pattern.note,
+        source: 'explicit' as const,
+        status: 'emerging' as const,
+        createdAt: now,
+        updatedAt: now,
+      }))
+    : [];
 
   const relationships: SkyRelationship[] = [];
   for (const pattern of patterns) {

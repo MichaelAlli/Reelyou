@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { MySkyArrivalCanvas } from '@/components/my-sky/MySkyArrivalCanvas';
+import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
 import type { MySkyView } from '@/mySky/types';
 
 interface MySkyCanvasProps {
@@ -19,14 +19,12 @@ function MySkyCanvasComponent({
   animateArrival = false,
 }: MySkyCanvasProps) {
   return (
-    <MySkyArrivalCanvas
-      stars={view.stars}
+    <MySkyRenderer
+      view={view}
+      mode="arrival"
       highlightStarId={highlightStarId}
-      vitality={view.vitality}
-      patternRelationships={view.relationships}
-      patternNodes={view.nodes}
-      visibleLayers={view.viewState.visibleLayers}
       animateArrival={animateArrival}
+      revealLinks={false}
     />
   );
 }
