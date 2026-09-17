@@ -10,8 +10,18 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { Defs, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg from 'react-native-svg';
 
+import {
+  CelestialSkyAtmosphere,
+  CelestialStarBloom,
+  CompactFourPointStar,
+  ShootingStarTrail,
+  SkyAtmosphereTint,
+  SkyGlow,
+  sampleQuadraticPath,
+} from '@/components/celestial';
+import { CelestialShootingStarFlightMotion } from '@/constants/celestialMotion';
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
 import { ReelyouEasing } from '@/constants/animation';
 import { MY_SKY_SHOOTING_STAR_PATH } from '@/mySky/constellationLayout';
@@ -20,16 +30,10 @@ interface SkywriteToSkyTransitionProps {
   onComplete: () => void;
 }
 
-const DURATION_MS = 3000;
-const FLIGHT_MS = 2400;
-
-function FourPointStar({ size, color }: { size: number; color: string }) {
-  const half = size / 2;
-  const inner = size * 0.22;
-  const d = `M ${half} 0 L ${half + inner} ${half - inner} L ${size} ${half} L ${half + inner} ${half + inner} L ${half} ${size} L ${half - inner} ${half + inner} L 0 ${half} L ${half - inner} ${half - inner} Z`;
+function CompactStarSvg({ size, color }: { size: number; color: string }) {
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <Path d={d} fill={color} />
+      <CompactFourPointStar size={size} color={color} />
     </Svg>
   );
 }
@@ -66,7 +70,7 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
   const sceneFade = useSharedValue(0);
   const raySpin = useSharedValue(0);
 
-  const { startX, startY, controlX, controlY, endX, endY, trailPath } = useMemo(() => {
+  const { startX, startY, controlX, controlY, endX, endY } = useMemo(() => {
     const s = MY_SKY_SHOOTING_STAR_PATH;
     return {
       startX: width * s.start.x,
@@ -75,11 +79,13 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
       controlY: height * s.control.y,
       endX: width * s.end.x,
       endY: height * s.end.y,
-      trailPath: `M ${width * s.start.x} ${height * s.start.y} Q ${width * s.control.x} ${height * s.control.y} ${width * s.end.x} ${height * s.end.y}`,
     };
   }, [width, height]);
 
   useEffect(() => {
+    const { flightDelayMs, flightDurationMs, destGlowDelayMs, sceneFadeDelayMs, totalDurationMs } =
+      CelestialShootingStarFlightMotion;
+
     emerge.value = withSequence(
       withTiming(1, { duration: 280, easing: ReelyouEasing.out }),
       withTiming(0.35, { duration: 320 }),
@@ -89,20 +95,20 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
       withTiming(0.7, { duration: 500 }),
     );
     progress.value = withDelay(
-      220,
-      withTiming(1, { duration: FLIGHT_MS, easing: Easing.bezier(0.18, 0.58, 0.32, 1) }),
+      flightDelayMs,
+      withTiming(1, { duration: flightDurationMs, easing: Easing.bezier(0.18, 0.58, 0.32, 1) }),
     );
     destGlow.value = withDelay(
-      2200,
+      destGlowDelayMs,
       withSequence(
         withTiming(1, { duration: 500, easing: ReelyouEasing.out }),
         withTiming(0.85, { duration: 300 }),
       ),
     );
-    sceneFade.value = withDelay(2400, withTiming(1, { duration: 550, easing: ReelyouEasing.out }));
-    raySpin.value = withDelay(180, withTiming(1, { duration: FLIGHT_MS + 400, easing: Easing.linear }));
+    sceneFade.value = withDelay(sceneFadeDelayMs, withTiming(1, { duration: 550, easing: ReelyouEasing.out }));
+    raySpin.value = withDelay(180, withTiming(1, { duration: flightDurationMs + 400, easing: Easing.linear }));
 
-    const timer = setTimeout(onComplete, DURATION_MS);
+    const timer = setTimeout(onComplete, totalDurationMs);
     return () => clearTimeout(timer);
   }, [bloom, destGlow, emerge, onComplete, progress, raySpin, sceneFade]);
 
@@ -113,16 +119,14 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
 
   const starStyle = useAnimatedStyle(() => {
     const t = progress.value;
-    const inv = 1 - t;
-    const x = inv * inv * startX + 2 * inv * t * controlX + t * t * endX;
-    const y = inv * inv * startY + 2 * inv * t * controlY + t * t * endY;
+    const point = sampleQuadraticPath(t, MY_SKY_SHOOTING_STAR_PATH, width, height);
     const scale =
       interpolate(bloom.value, [0, 1], [0.35, 1]) * interpolate(t, [0, 0.88, 1], [1, 1, 0.88]);
     const spin = interpolate(raySpin.value, [0, 1], [0, 45]);
     return {
       transform: [
-        { translateX: x - 14 },
-        { translateY: y - 14 },
+        { translateX: point.x - 14 },
+        { translateY: point.y - 14 },
         { scale },
         { rotate: `${spin}deg` },
       ],
@@ -175,26 +179,18 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
   const p7 = useParticleStyle(progress, 7, startX, startY, controlX, controlY, endX, endY);
   const particles = [p0, p1, p2, p3, p4, p5, p6, p7];
 
+  const flying = CelestialStarBloom.flying;
+  const destination = CelestialStarBloom.destination;
+  const landingPulse = CelestialStarBloom.landingPulse;
+
   return (
     <View style={styles.root}>
       <MySkyBackdrop />
-      <View style={styles.skyTint} accessibilityElementsHidden />
+      <SkyAtmosphereTint />
 
-      <Svg width={width} height={height} style={styles.nebulaLayer} accessibilityElementsHidden>
-        <Defs>
-          <RadialGradient id="nebulaTop" cx="50%" cy="12%" rx="60%" ry="40%">
-            <Stop offset="0%" stopColor="#7B4FD4" stopOpacity={0.45} />
-            <Stop offset="55%" stopColor="#3D2A6B" stopOpacity={0.18} />
-            <Stop offset="100%" stopColor="#05070A" stopOpacity={0} />
-          </RadialGradient>
-          <RadialGradient id="horizonGlow" cx="50%" cy="100%" rx="70%" ry="35%">
-            <Stop offset="0%" stopColor="#FFB347" stopOpacity={0.12} />
-            <Stop offset="100%" stopColor="#05070A" stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Path d={`M 0 0 H ${width} V ${height * 0.55} H 0 Z`} fill="url(#nebulaTop)" />
-        <Path d={`M 0 ${height * 0.65} H ${width} V ${height} H 0 Z`} fill="url(#horizonGlow)" />
-      </Svg>
+      <View style={styles.nebulaLayer} accessibilityElementsHidden>
+        <SkyGlow width={width} height={height} variant="nebula" />
+      </View>
 
       <Animated.View
         style={[styles.emergenceFlash, emergenceStyle, { left: startX - 60, top: startY - 60 }]}
@@ -204,34 +200,13 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
 
       <Animated.View style={[styles.trailLayer, purpleTrailStyle]} accessibilityElementsHidden>
         <Svg width={width} height={height}>
-          <Path
-            d={trailPath}
-            fill="none"
-            stroke="rgba(196, 168, 255, 0.35)"
-            strokeWidth={14}
-            strokeLinecap="round"
-          />
+          <ShootingStarTrail width={width} height={height} variant="flight" layer="underglow" />
         </Svg>
       </Animated.View>
 
       <Animated.View style={[styles.trailLayer, trailStyle]} accessibilityElementsHidden>
         <Svg width={width} height={height}>
-          <Defs>
-            <LinearGradient id="shootTrail" x1="0" y1="1" x2="1" y2="0">
-              <Stop offset="0%" stopColor="#FF9F43" stopOpacity={0.08} />
-              <Stop offset="35%" stopColor="#FFD57A" stopOpacity={0.85} />
-              <Stop offset="75%" stopColor="#FFF8E7" stopOpacity={0.95} />
-              <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.7} />
-            </LinearGradient>
-          </Defs>
-          <Path d={trailPath} fill="none" stroke="url(#shootTrail)" strokeWidth={3.5} strokeLinecap="round" />
-          <Path
-            d={trailPath}
-            fill="none"
-            stroke="rgba(255, 230, 160, 0.32)"
-            strokeWidth={9}
-            strokeLinecap="round"
-          />
+          <ShootingStarTrail width={width} height={height} variant="flight" layer="core" gradientId="shootTrail" />
         </Svg>
       </Animated.View>
 
@@ -248,30 +223,22 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
       ))}
 
       <Animated.View style={[styles.destPulse, destPulseStyle]} accessibilityElementsHidden>
-        <View style={styles.destPulseRing} />
+        <View style={[styles.destPulseRing, { borderColor: landingPulse.border, backgroundColor: landingPulse.fill }]} />
       </Animated.View>
 
       <Animated.View style={[styles.destStar, destStarStyle]} accessibilityLabel="New star in your sky">
-        <View style={styles.destHalo} />
-        <FourPointStar size={20} color="#FFD57A" />
+        <View style={[styles.destHalo, { backgroundColor: destination.halo, borderColor: destination.haloBorder }]} />
+        <CompactStarSvg size={destination.size} color={destination.color} />
       </Animated.View>
 
       <Animated.View style={[styles.flyingStar, starStyle]} accessibilityLabel="Shooting star">
-        <Animated.View style={[styles.starBloom, starGlowStyle]} />
-        <View style={styles.starHalo} />
-        <FourPointStar size={28} color="#FFF4D6" />
+        <Animated.View style={[styles.starBloom, starGlowStyle, { backgroundColor: flying.bloom }]} />
+        <View style={[styles.starHalo, { backgroundColor: flying.halo, borderColor: flying.haloBorder }]} />
+        <CompactStarSvg size={flying.size} color={flying.color} />
       </Animated.View>
 
       <Animated.View style={[styles.skyHandoff, skyHandoffStyle]} accessibilityElementsHidden>
-        <Svg width={width} height={height}>
-          <Defs>
-            <RadialGradient id="skyArrival" cx="50%" cy="30%" rx="55%" ry="45%">
-              <Stop offset="0%" stopColor="#1A1538" stopOpacity={0.85} />
-              <Stop offset="100%" stopColor="#05070A" stopOpacity={0.95} />
-            </RadialGradient>
-          </Defs>
-          <Path d={`M 0 0 H ${width} V ${height} H 0 Z`} fill="url(#skyArrival)" />
-        </Svg>
+        <SkyGlow width={width} height={height} variant="arrivalVeil" />
       </Animated.View>
     </View>
   );
@@ -280,11 +247,7 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#05070A',
-  },
-  skyTint: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(6, 8, 28, 0.42)',
+    backgroundColor: CelestialSkyAtmosphere.base,
   },
   nebulaLayer: {
     ...StyleSheet.absoluteFill,
@@ -319,16 +282,13 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 213, 122, 0.28)',
   },
   starHalo: {
     position: 'absolute',
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 213, 122, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 213, 122, 0.28)',
   },
   destStar: {
     position: 'absolute',
@@ -342,9 +302,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 213, 122, 0.2)',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 213, 122, 0.45)',
   },
   destPulse: {
     position: 'absolute',
@@ -356,8 +314,6 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     borderWidth: 2,
-    borderColor: 'rgba(255, 213, 122, 0.35)',
-    backgroundColor: 'rgba(255, 213, 122, 0.06)',
   },
   particle: {
     position: 'absolute',

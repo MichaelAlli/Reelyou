@@ -1,15 +1,8 @@
+import { CelestialNodeColors } from '@/constants/celestialTokens';
 import type { SkyNode, SkyNodeType, SkyNodeVisual } from '@/mySky/skyNodeTypes';
 import type { MySkyStarDisplay } from '@/mySky/types';
 
-const TYPE_COLOR: Record<SkyNodeType, string> = {
-  skywrite: '#FFD57A',
-  reflection: '#C4A8FF',
-  community: '#5EEAD4',
-  relationship: '#E879A8',
-  growth: '#8FD4FF',
-  impact: '#FFB347',
-  guidance: '#FFF4D6',
-};
+const TYPE_COLOR: Record<SkyNodeType, string> = CelestialNodeColors;
 
 const BASE_SIZE: Record<SkyNodeType, number> = {
   skywrite: 5.8,

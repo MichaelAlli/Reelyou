@@ -1,6 +1,7 @@
 import { memo, useEffect } from 'react';
 import { useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 
+import { CelestialConstellationRevealMotion, CelestialStarBreathMotion } from '@/constants/celestialMotion';
 import { MySkyConstellationLayer } from '@/components/my-sky/MySkyConstellationLayer';
 import type { SkyNode, SkyRelationship } from '@/mySky/skyNodeTypes';
 import type { MySkyVisibleLayers } from '@/mySky/skyLayers';
@@ -38,12 +39,17 @@ function MySkyLivingSkyLayerComponent({
   useEffect(() => {
     if (revealLinks) {
       linksOpacity.value = withSequence(
-        withTiming(0.55, { duration: 600 }),
-        withTiming(0, { duration: 1800 }),
+        withTiming(CelestialConstellationRevealMotion.revealOpacity, {
+          duration: CelestialConstellationRevealMotion.revealDurationMs,
+        }),
+        withTiming(0, { duration: CelestialConstellationRevealMotion.fadeDurationMs }),
       );
     }
     starBreath.value = withRepeat(
-      withSequence(withTiming(1, { duration: 3200 }), withTiming(0, { duration: 3200 })),
+      withSequence(
+        withTiming(1, { duration: CelestialStarBreathMotion.durationMs }),
+        withTiming(0, { duration: CelestialStarBreathMotion.durationMs }),
+      ),
       -1,
       false,
     );

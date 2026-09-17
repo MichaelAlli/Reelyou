@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { CelestialSkyAtmosphere } from '@/constants/celestialTokens';
 import { MySkyAssets } from '@/constants/mySkyAssets';
 
 interface MySkyBackdropProps {
@@ -30,7 +31,7 @@ export const MySkyBackdrop = memo(MySkyBackdropComponent);
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#05070A',
+    backgroundColor: CelestialSkyAtmosphere.base,
   },
   image: {
     width: '100%',
@@ -38,6 +39,6 @@ const styles = StyleSheet.create({
   },
   dim: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(4, 6, 18, 0.18)',
+    backgroundColor: CelestialSkyAtmosphere.dimOverlay,
   },
 });

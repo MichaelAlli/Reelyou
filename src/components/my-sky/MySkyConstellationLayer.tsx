@@ -1,11 +1,20 @@
 import { memo, useMemo } from 'react';
 import Animated, { useAnimatedProps, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle, Defs, G, Line, LinearGradient, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, G, Line } from 'react-native-svg';
 
-import { FourPointStar, PinpointStar, PremiumStar } from '@/components/home/graphics/homeGraphicPrimitives';
+import {
+  CelestialConstellationStroke,
+  CelestialPalette,
+  CelestialStarBloom,
+  CelestialStarGeometry,
+  FourPointStar,
+  PinpointStar,
+  PremiumStar,
+  ShootingStarTrail,
+} from '@/components/celestial';
+import { CelestialStarBreathMotion } from '@/constants/celestialMotion';
 import {
   MY_SKY_DISPLAY_CONSTELLATIONS,
-  MY_SKY_SHOOTING_STAR_PATH,
 } from '@/mySky/constellationLayout';
 import type { SkyNode, SkyRelationship } from '@/mySky/skyNodeTypes';
 import { isLayerVisible } from '@/mySky/skyLayers';
@@ -55,10 +64,6 @@ function MySkyConstellationLayerComponent({
     () => new Map(patternNodes.map((node) => [node.id, node])),
     [patternNodes],
   );
-  const shootingPath = useMemo(() => {
-    const s = MY_SKY_SHOOTING_STAR_PATH;
-    return `M ${s.start.x * width} ${s.start.y * height} Q ${s.control.x * width} ${s.control.y * height} ${s.end.x * width} ${s.end.y * height}`;
-  }, [width, height]);
 
   const highlight = userStars.find((s) => s.id === highlightStarId) ?? null;
 
@@ -71,28 +76,19 @@ function MySkyConstellationLayerComponent({
   }));
 
   const starsAnimatedProps = useAnimatedProps(() => ({
-    opacity: 0.9 + starBreath.value * 0.1,
+    opacity: CelestialStarBreathMotion.opacityBase + starBreath.value * CelestialStarBreathMotion.opacityRange,
   }));
 
   const baseIntensity = Math.min(1.45, 1.05 + (vitality - 1) * 0.35);
 
   return (
     <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <Defs>
-        <LinearGradient id="shootTrailGold" x1="0" y1="1" x2="1" y2="0">
-          <Stop offset="0%" stopColor="#FF9F43" stopOpacity={0.15} />
-          <Stop offset="35%" stopColor="#FFD57A" stopOpacity={0.85} />
-          <Stop offset="70%" stopColor="#FFF8E7" stopOpacity={0.95} />
-          <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.75} />
-        </LinearGradient>
-      </Defs>
-
       {Array.from({ length: 64 }).map((_, i) => (
         <PinpointStar
           key={`dust-${i}`}
           cx={(i * 53) % width}
           cy={(i * 97) % (height * 0.88)}
-          color="#FFFEF8"
+          color={CelestialPalette.warmWhite}
           opacity={0.35 + (i % 5) * 0.08}
           size={i % 4 === 0 ? 0.5 : 0.35}
         />
@@ -111,8 +107,8 @@ function MySkyConstellationLayerComponent({
                 x2={p2.cx}
                 y2={p2.cy}
                 stroke={group.color}
-                strokeWidth={1.4}
-                strokeOpacity={0.62}
+                strokeWidth={CelestialConstellationStroke.display.strokeWidth}
+                strokeOpacity={CelestialConstellationStroke.display.strokeOpacity}
                 strokeLinecap="round"
               />
             );
@@ -130,8 +126,8 @@ function MySkyConstellationLayerComponent({
                   y1={from.position.y * height}
                   x2={to.position.x * width}
                   y2={to.position.y * height}
-                  stroke="rgba(245, 230, 184, 0.45)"
-                  strokeWidth={1.2}
+                  stroke={CelestialConstellationStroke.pattern.stroke}
+                  strokeWidth={CelestialConstellationStroke.pattern.strokeWidth}
                   strokeLinecap="round"
                 />
               );
@@ -173,9 +169,9 @@ function MySkyConstellationLayerComponent({
         {userStars.map((star) => {
           if (star.id === highlightStarId) return null;
           const { cx, cy } = toPx(star, { w: width, h: height });
-          const size = star.visualSize ?? 5.2 + (vitality - 1) * 1.2;
+          const size = star.visualSize ?? CelestialStarGeometry.defaultUserStarSize + (vitality - 1) * 1.2;
           const intensity = star.visualBrightness ?? 0.88 + (vitality - 1) * 0.15;
-          return size >= 6.5 ? (
+          return size >= CelestialStarGeometry.userStarPremiumThreshold ? (
             <PremiumStar
               key={star.id}
               id={star.id}
@@ -200,36 +196,7 @@ function MySkyConstellationLayerComponent({
       </AnimatedG>
 
       <AnimatedG animatedProps={trailAnimatedProps}>
-        <Path
-          d={shootingPath}
-          fill="none"
-          stroke="rgba(255, 180, 80, 0.22)"
-          strokeWidth={14}
-          strokeLinecap="round"
-        />
-        <Path d={shootingPath} fill="none" stroke="url(#shootTrailGold)" strokeWidth={3.5} strokeLinecap="round" />
-        {Array.from({ length: 12 }).map((_, i) => {
-          const t = i / 11;
-          const inv = 1 - t;
-          const sx = MY_SKY_SHOOTING_STAR_PATH.start.x * width;
-          const sy = MY_SKY_SHOOTING_STAR_PATH.start.y * height;
-          const cx = MY_SKY_SHOOTING_STAR_PATH.control.x * width;
-          const cy = MY_SKY_SHOOTING_STAR_PATH.control.y * height;
-          const ex = MY_SKY_SHOOTING_STAR_PATH.end.x * width;
-          const ey = MY_SKY_SHOOTING_STAR_PATH.end.y * height;
-          const px = inv * inv * sx + 2 * inv * t * cx + t * t * ex;
-          const py = inv * inv * sy + 2 * inv * t * cy + t * t * ey;
-          return (
-            <Circle
-              key={`spark-${i}`}
-              cx={px}
-              cy={py}
-              r={i % 3 === 0 ? 2.2 : 1.2}
-              fill={i % 2 === 0 ? '#FFD57A' : '#FFF8E7'}
-              opacity={0.55 + t * 0.35}
-            />
-          );
-        })}
+        <ShootingStarTrail width={width} height={height} variant="settled" gradientId="shootTrailGold" />
       </AnimatedG>
 
       {highlight ? (
@@ -237,16 +204,16 @@ function MySkyConstellationLayerComponent({
           <Circle
             cx={highlight.x * width}
             cy={highlight.y * height}
-            r={28}
+            r={CelestialStarBloom.highlightGlow.radius}
             fill={highlight.color}
-            opacity={0.18}
+            opacity={CelestialStarBloom.highlightGlow.opacity}
           />
           <PremiumStar
             id="highlight-star"
             cx={highlight.x * width}
             cy={highlight.y * height}
             size={highlight.visualSize ?? 9 + (vitality - 1) * 1.5}
-            color={highlight.color || '#FFD57A'}
+            color={highlight.color || CelestialPalette.skywriteGold}
             intensity={highlight.visualBrightness ?? 1.45}
           />
         </G>
