@@ -12,6 +12,7 @@ const BASE_SIZE: Record<SkyNodeType, number> = {
   growth: 5.2,
   impact: 5.6,
   guidance: 5,
+  identity: 7.2,
 };
 
 /** Compute visual properties from node metadata + sky vitality — single source for renderer. */
@@ -50,6 +51,7 @@ export function computeSkyVitality(skywriteNodeCount: number): number {
 function mapNodeTypeToItemType(
   type: SkyNode['type'],
 ): MySkyStarDisplay['type'] {
+  if (type === 'identity') return 'identity';
   if (type === 'skywrite') return 'skywrite';
   if (type === 'community') return 'community';
   if (type === 'relationship') return 'connection';
@@ -62,6 +64,7 @@ export function projectNodeToStarDisplay(node: SkyNode): MySkyStarDisplay {
   return {
     id: node.id,
     type: mapNodeTypeToItemType(node.type),
+    isIdentityStar: node.type === 'identity',
     title: node.title,
     timestamp: node.createdAt,
     visibility: node.visibility,
@@ -83,6 +86,7 @@ export function filterVisibleStarNodes(
   visibleLayers: import('@/mySky/skyLayers').MySkyVisibleLayers,
 ): SkyNode[] {
   return nodes.filter((node) => {
+    if (node.type === 'identity' || node.layer === 'identity') return false;
     if (node.layer === 'stars') return visibleLayers.stars;
     if (node.layer === 'communities') return visibleLayers.communities;
     if (node.layer === 'connections') return visibleLayers.connections;

@@ -11,6 +11,11 @@ import {
   refreshNodeVisual,
   type SkyGrowthProfile,
 } from '@/mySky/skyEvolution';
+import {
+  buildSkyIdentityNodeId,
+  resolveSkyIdentityPosition,
+  type SkyOwnerProfile,
+} from '@/mySky/skyIdentity';
 import { resolveStableNodePosition } from '@/mySky/skyLayout';
 import type {
   SkyNode,
@@ -269,6 +274,39 @@ function buildImpactNode(activity: SkyImpactActivity, vitality: number): SkyNode
   return refreshNodeVisual(base, vitality, 0.06);
 }
 
+function buildIdentityNode(owner: SkyOwnerProfile, vitality: number): SkyNode {
+  const id = buildSkyIdentityNodeId(owner.id);
+  const layout = resolveSkyIdentityPosition(owner.id);
+
+  const base: SkyNode = {
+    id,
+    type: 'identity',
+    sourceType: 'system',
+    sourceId: owner.id,
+    layer: 'identity',
+    createdAt: new Date().toISOString(),
+    position: { x: layout.x, y: layout.y },
+    visual: {
+      size: 7.2,
+      brightness: 1.12,
+      glow: 1.05,
+      opacity: 1,
+      emphasis: 1.08,
+      color: layout.color,
+    },
+    userGenerated: false,
+    inferred: false,
+    userDefined: true,
+    provenance: { source: 'system', reason: 'sky_owner_identity' },
+    destination: null,
+    destinationParam: null,
+    title: owner.name,
+    metadata: { identityStar: true },
+  };
+
+  return refreshNodeVisual(base, vitality, 0.04);
+}
+
 function buildFixtureNode(
   item: (typeof MY_SKY_ITEM_FIXTURES)[number],
   vitality: number,
@@ -371,6 +409,11 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
   ];
 
   nodes = applyVisualPrioritization(nodes, growthProfile);
+
+  const owner = sources.skyOwner;
+  if (owner) {
+    nodes = [buildIdentityNode(owner, vitality), ...nodes];
+  }
 
   const now = new Date().toISOString();
   const patterns: SkyPattern[] = useFixtures

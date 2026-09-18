@@ -10,29 +10,50 @@ import {
   View,
 } from 'react-native';
 
+import { MySkyExplorableViewport } from '@/components/my-sky/MySkyExplorableViewport';
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
+import { MySkyIdentityProfileBubble } from '@/components/my-sky/MySkyIdentityProfileBubble';
+import { MySkyIdentityStar } from '@/components/my-sky/MySkyIdentityStar';
 import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
+import { MySkyNearbySkiesLayer } from '@/components/my-sky/MySkyNearbySkiesLayer';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
 import { MySkyCopy } from '@/constants/mySkyCopy';
-import { Fonts, Radius, Spacing } from '@/constants/theme';
+import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
+import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
+import type { SkyProximityPhase } from '@/mySky/skyProximity';
+import type { SkyOwnerProfile } from '@/mySky/skyIdentity';
 import { resolveStarNavigation } from '@/mySky/resolveStarNavigation';
 import type { MySkyLayerId } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
 import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
+import { Fonts, Radius, Spacing } from '@/constants/theme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 interface MySkyStarCanvasProps {
-  view: Pick<MySkyView, 'stars' | 'vitality' | 'relationships' | 'nodes' | 'viewState'>;
+  view: Pick<
+    MySkyView,
+    'stars' | 'vitality' | 'relationships' | 'nodes' | 'viewState' | 'skyOwner' | 'identityStar'
+  >;
   onToggleLayer: (layer: MySkyLayerId) => void;
   onRevealConstellations: () => void;
   constellationRevealCount: number;
   constellationRevealActive?: boolean;
-  /** Full-tab immersive canvas — backdrop lives on the screen shell. */
   immersive?: boolean;
+  showLayerControls?: boolean;
+  cleanSky?: boolean;
+  showNearbySkies?: boolean;
+  nearbyAnchors?: NearbySkyAnchor[];
+  proximityOwnerId?: string | null;
+  proximityPhase?: SkyProximityPhase;
+  viewportSnapshot?: MySkyViewportSnapshot;
+  jumpSnapshot?: MySkyViewportSnapshot | null;
+  onViewportChange?: (snapshot: MySkyViewportSnapshot) => void;
+  onViewportLiveChange?: (snapshot: MySkyViewportSnapshot) => void;
+  onWorldSizeChange?: (worldSize: { width: number; height: number }) => void;
 }
 
 function MySkyStarCanvasComponent({
@@ -42,8 +63,19 @@ function MySkyStarCanvasComponent({
   constellationRevealCount,
   constellationRevealActive = false,
   immersive = false,
+  showLayerControls = true,
+  cleanSky = false,
+  showNearbySkies = false,
+  nearbyAnchors = [],
+  proximityOwnerId = null,
+  proximityPhase = 'none',
+  viewportSnapshot,
+  jumpSnapshot = null,
+  onViewportChange,
+  onViewportLiveChange,
+  onWorldSizeChange,
 }: MySkyStarCanvasProps) {
-  const { stars, viewState } = view;
+  const { stars, viewState, skyOwner, identityStar } = view;
   const router = useRouter();
   const { skywrites, communities, guidingLightView } = useOnboarding();
   const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
@@ -52,19 +84,13 @@ function MySkyStarCanvasComponent({
     [communities.joined],
   );
   const starSignature = useMemo(() => stars.map((star) => star.id).join('|'), [stars]);
+  const [worldSize, setWorldSize] = useState({ width: 0, height: 0 });
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
-      outer: {
-        gap: Spacing.sm,
-      },
+      outer: immersive ? { flex: 1 } : { gap: Spacing.sm },
       wrap: immersive
-        ? {
-            width: '100%',
-            minHeight: 420,
-            flexGrow: 1,
-            overflow: 'hidden',
-          }
+        ? { flex: 1, width: '100%', overflow: 'hidden' }
         : {
             width: '100%',
             aspectRatio: 0.72,
@@ -74,6 +100,11 @@ function MySkyStarCanvasComponent({
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: 'rgba(167, 139, 250, 0.22)',
           },
+      world: {
+        flex: 1,
+        width: '100%',
+        height: '100%',
+      },
       starHit: {
         position: 'absolute',
         width: 44,
@@ -106,6 +137,20 @@ function MySkyStarCanvasComponent({
         lineHeight: 16,
         color: tokens.primaryText,
       },
+      exploreHint: {
+        position: 'absolute',
+        top: 8,
+        alignSelf: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: Radius.full,
+        backgroundColor: 'rgba(8, 8, 24, 0.55)',
+      },
+      exploreHintText: {
+        fontFamily: Fonts.sans,
+        fontSize: 10,
+        color: tokens.mutedText,
+      },
       missingHint: {
         fontFamily: Fonts.sans,
         fontSize: 11,
@@ -117,14 +162,39 @@ function MySkyStarCanvasComponent({
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [bubbleOpen, setBubbleOpen] = useState(false);
+  const [bubbleOwner, setBubbleOwner] = useState<SkyOwnerProfile | null>(null);
+  const [bubbleStar, setBubbleStar] = useState<MySkyStarDisplay | null>(null);
   const [missingHint, setMissingHint] = useState<string | null>(null);
   const active = stars.find((s) => s.id === activeId);
+
+  const activeBubbleOwner = bubbleOwner ?? skyOwner;
+  const activeBubbleStar = bubbleStar ?? identityStar;
+  const ownBubbleActive = bubbleOpen && activeBubbleOwner.id === skyOwner.id;
 
   useEffect(() => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
   }, [starSignature]);
 
-  const handleStarPress = useCallback(
+  const handleWorldSizeChange = useCallback(
+    (size: { width: number; height: number }) => {
+      setWorldSize(size);
+      onWorldSizeChange?.(size);
+    },
+    [onWorldSizeChange],
+  );
+
+  const openProfileBubble = useCallback((owner: SkyOwnerProfile, star: MySkyStarDisplay) => {
+    setBubbleOwner(owner);
+    setBubbleStar(star);
+    setBubbleOpen(true);
+  }, []);
+
+  const closeProfileBubble = useCallback(() => {
+    setBubbleOpen(false);
+  }, []);
+
+  const navigateStar = useCallback(
     (star: MySkyStarDisplay) => {
       setActiveId(star.id);
       setMissingHint(null);
@@ -169,6 +239,44 @@ function MySkyStarCanvasComponent({
     [router, skywrites, joinedCommunityIds, guidanceActive],
   );
 
+  const handleStarPress = useCallback(
+    (star: MySkyStarDisplay) => {
+      navigateStar(star);
+    },
+    [navigateStar],
+  );
+
+  const handleOwnIdentityPress = useCallback(() => {
+    openProfileBubble(skyOwner, identityStar);
+  }, [identityStar, openProfileBubble, skyOwner]);
+
+  const handleNearbyIdentityPress = useCallback(
+    (anchor: NearbySkyAnchor) => {
+      openProfileBubble(anchor.owner, anchor.identityStar);
+    },
+    [openProfileBubble],
+  );
+
+  const handleViewProfile = useCallback(() => {
+    setBubbleOpen(false);
+    if (activeBubbleOwner.isSelf) {
+      router.push('/(tabs)/profile' as never);
+      return;
+    }
+    router.push(`/public-sky?id=${activeBubbleOwner.id}` as never);
+  }, [activeBubbleOwner.id, activeBubbleOwner.isSelf, router]);
+
+  const handleViewFullSky = useCallback(() => {
+    setBubbleOpen(false);
+    if (!activeBubbleOwner.isSelf) {
+      router.push(`/public-sky?id=${activeBubbleOwner.id}` as never);
+    }
+  }, [activeBubbleOwner.id, activeBubbleOwner.isSelf, router]);
+
+  const handleConnect = useCallback(() => {
+    setBubbleOpen(false);
+  }, []);
+
   const accessibilityLabel = useCallback((star: MySkyStarDisplay) => {
     if (star.type === 'skywrite' && star.sourceId) {
       return `Open skywrite: ${star.title ?? 'moment'}`;
@@ -188,38 +296,106 @@ function MySkyStarCanvasComponent({
     return star.title ? `View star: ${star.title}` : 'View star';
   }, []);
 
+  const renderSkyForeground = (foregroundWorldSize: { width: number; height: number }) => (
+    <>
+      <MySkyRenderer
+        view={view}
+        mode="resting"
+        constellationRevealCount={constellationRevealCount}
+      />
+
+      {showNearbySkies && nearbyAnchors.length > 0 ? (
+        <MySkyNearbySkiesLayer
+          anchors={nearbyAnchors}
+          worldWidth={foregroundWorldSize.width}
+          worldHeight={foregroundWorldSize.height}
+          activeOwnerId={bubbleOpen ? activeBubbleOwner.id : null}
+          proximityOwnerId={proximityOwnerId}
+          proximityPhase={proximityPhase}
+          onIdentityPress={handleNearbyIdentityPress}
+        />
+      ) : null}
+
+      <MySkyIdentityStar
+        star={identityStar}
+        worldWidth={foregroundWorldSize.width}
+        worldHeight={foregroundWorldSize.height}
+        active={ownBubbleActive}
+        prominence={1.06}
+        onPress={handleOwnIdentityPress}
+      />
+
+      {stars.map((star) => (
+        <Pressable
+          key={star.id}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel(star)}
+          onPress={() => handleStarPress(star)}
+          style={[
+            styles.starHit,
+            {
+              left: `${star.x * 100}%`,
+              top: `${star.y * 100}%`,
+            },
+          ]}>
+          <View style={styles.hitGlow} />
+        </Pressable>
+      ))}
+
+      <MySkyIdentityProfileBubble
+        owner={activeBubbleOwner}
+        anchorStar={activeBubbleStar}
+        visible={bubbleOpen}
+        onClose={closeProfileBubble}
+        onViewProfile={handleViewProfile}
+        onViewFullSky={activeBubbleOwner.isSelf ? undefined : handleViewFullSky}
+        onConnect={activeBubbleOwner.isSelf ? undefined : handleConnect}
+      />
+
+      {active?.title && !missingHint ? (
+        <View style={styles.tooltip} pointerEvents="none">
+          <Text style={styles.tooltipText}>{active.title}</Text>
+        </View>
+      ) : null}
+
+      {immersive && !cleanSky ? (
+        <View style={styles.exploreHint} pointerEvents="none">
+          <Text style={styles.exploreHintText}>{MySkyCopy.exploreGestureHint}</Text>
+        </View>
+      ) : null}
+    </>
+  );
+
+  const renderWorldBackground = () => <MySkyBackdrop dim fillScale={1.42} />;
+
   return (
     <View style={styles.outer}>
-      <MySkyLayerControls
-        visibleLayers={viewState.visibleLayers}
-        onToggleLayer={onToggleLayer}
-        onRevealConstellations={onRevealConstellations}
-        constellationRevealActive={constellationRevealActive}
-      />
-      <View style={styles.wrap}>
-        {immersive ? null : <MySkyBackdrop dim />}
-        <MySkyRenderer
-          view={view}
-          mode="resting"
-          constellationRevealCount={constellationRevealCount}
+      {showLayerControls ? (
+        <MySkyLayerControls
+          compact={immersive}
+          visibleLayers={viewState.visibleLayers}
+          onToggleLayer={onToggleLayer}
+          onRevealConstellations={onRevealConstellations}
+          constellationRevealActive={constellationRevealActive}
         />
-
-        {stars.map((star) => (
-          <Pressable
-            key={star.id}
-            accessibilityRole="button"
-            accessibilityLabel={accessibilityLabel(star)}
-            onPress={() => handleStarPress(star)}
-            style={[styles.starHit, { left: `${star.x * 100}%`, top: `${star.y * 100}%` }]}>
-            <View style={styles.hitGlow} />
-          </Pressable>
-        ))}
-
-        {active?.title && !missingHint ? (
-          <View style={styles.tooltip} pointerEvents="none">
-            <Text style={styles.tooltipText}>{active.title}</Text>
-          </View>
-        ) : null}
+      ) : null}
+      <View style={styles.wrap}>
+        {immersive ? (
+          <MySkyExplorableViewport
+            initialSnapshot={viewportSnapshot}
+            jumpSnapshot={jumpSnapshot}
+            onSnapshotChange={onViewportChange}
+            onViewportLiveChange={onViewportLiveChange}
+            onWorldSizeChange={handleWorldSizeChange}
+            renderBackground={renderWorldBackground}
+            renderForeground={renderSkyForeground}
+          />
+        ) : (
+          <>
+            <MySkyBackdrop dim />
+            {renderSkyForeground(worldSize.width > 0 ? worldSize : { width: 320, height: 400 })}
+          </>
+        )}
       </View>
       {missingHint ? <Text style={styles.missingHint}>{missingHint}</Text> : null}
     </View>

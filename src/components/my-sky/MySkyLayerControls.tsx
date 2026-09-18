@@ -16,6 +16,8 @@ interface MySkyLayerControlsProps {
   onToggleLayer: (layer: MySkyLayerId) => void;
   onRevealConstellations: () => void;
   constellationRevealActive?: boolean;
+  compact?: boolean;
+  minimal?: boolean;
 }
 
 function MySkyLayerControlsComponent({
@@ -23,11 +25,13 @@ function MySkyLayerControlsComponent({
   onToggleLayer,
   onRevealConstellations,
   constellationRevealActive = false,
+  compact = false,
+  minimal = false,
 }: MySkyLayerControlsProps) {
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       wrap: {
-        gap: Spacing.xs,
+        gap: compact ? 0 : Spacing.xs,
       },
       hint: {
         fontFamily: Fonts.sans,
@@ -41,17 +45,18 @@ function MySkyLayerControlsComponent({
       },
       row: {
         flexDirection: 'row',
-        gap: 8,
-        paddingVertical: 2,
+        gap: compact ? 6 : 8,
+        paddingVertical: compact ? 0 : 2,
+        paddingRight: Spacing.sm,
       },
       chip: {
-        minHeight: 36,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
+        minHeight: minimal ? 28 : compact ? 32 : 36,
+        paddingHorizontal: minimal ? 9 : compact ? 11 : 14,
+        paddingVertical: minimal ? 4 : compact ? 6 : 8,
         borderRadius: Radius.full,
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(167, 139, 250, 0.22)',
-        backgroundColor: 'rgba(8, 10, 26, 0.45)',
+        borderColor: minimal ? 'rgba(167, 139, 250, 0.16)' : 'rgba(167, 139, 250, 0.22)',
+        backgroundColor: minimal ? 'rgba(8, 10, 26, 0.38)' : compact ? 'rgba(8, 10, 26, 0.55)' : 'rgba(8, 10, 26, 0.45)',
         justifyContent: 'center',
       },
       chipActive: {
@@ -64,7 +69,7 @@ function MySkyLayerControlsComponent({
       },
       chipText: {
         fontFamily: Fonts.sans,
-        fontSize: 12,
+        fontSize: minimal ? 10 : compact ? 11 : 12,
         fontWeight: '600',
         color: tokens.secondaryText,
       },
@@ -76,7 +81,7 @@ function MySkyLayerControlsComponent({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.hint}>{MySkyLayerCopy.controlsHint}</Text>
+      {compact ? null : <Text style={styles.hint}>{MySkyLayerCopy.controlsHint}</Text>}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}

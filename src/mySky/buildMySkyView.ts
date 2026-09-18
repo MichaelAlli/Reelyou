@@ -1,3 +1,4 @@
+import { resolveCurrentSkyOwnerProfile } from '@/mySky/skyIdentity';
 import { buildMySkyViewFromSources, resolveMySkySources } from '@/mySky/mySkyState';
 import type { SkyConnectionActivity } from '@/mySky/skyConnectionSources';
 import { EMPTY_SKY_EVOLUTION, type SkyEvolutionRecord } from '@/mySky/skyEvolution';
@@ -13,13 +14,13 @@ export function buildMySkyView(
   connectionActivities: SkyConnectionActivity[] = [],
   participatingCommunityIds: string[] = [],
 ): MySkyView {
-  return buildMySkyViewFromSources(
-    resolveMySkySources(
-      profile,
-      evolution,
-      connectionActivities,
-      participatingCommunityIds,
-    ),
-    visibleLayers,
+  const sources = resolveMySkySources(
+    profile,
+    evolution,
+    connectionActivities,
+    participatingCommunityIds,
   );
+  sources.skyOwner = resolveCurrentSkyOwnerProfile(profile.northStar.originalVision);
+
+  return buildMySkyViewFromSources(sources, visibleLayers);
 }

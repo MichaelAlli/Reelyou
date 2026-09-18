@@ -39,7 +39,8 @@ export type SkyNodeType =
   | 'relationship'
   | 'growth'
   | 'impact'
-  | 'guidance';
+  | 'guidance'
+  | 'identity';
 
 /** Which conceptual layer this node belongs to for future toggles. */
 export type SkyNodeLayer =
@@ -49,7 +50,8 @@ export type SkyNodeLayer =
   | 'connections'
   | 'growth'
   | 'impact'
-  | 'guidance';
+  | 'guidance'
+  | 'identity';
 
 export interface SkyNodePosition {
   x: number;

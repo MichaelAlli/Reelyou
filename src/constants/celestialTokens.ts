@@ -43,6 +43,7 @@ export const CelestialNodeColors = {
   growth: CelestialPalette.growth,
   impact: CelestialPalette.impactGold,
   guidance: CelestialPalette.guidance,
+  identity: CelestialPalette.skywriteGold,
 } as const;
 
 export type CelestialColorFamily = keyof typeof CelestialNodeColors;

@@ -14,6 +14,7 @@ import {
   filterVisibleStarNodes,
   projectNodeToStarDisplay,
 } from '@/mySky/skyVisualRules';
+import { resolveCurrentSkyOwnerProfile, type SkyOwnerProfile } from '@/mySky/skyIdentity';
 import type { MySkyStarDisplay, MySkyState, MySkyView } from '@/mySky/types';
 import { resolveSkyGuidanceSource } from '@/mySky/skyGuidanceSources';
 import { resolveSkyImpactActivities } from '@/mySky/skyImpactSources';
@@ -46,6 +47,8 @@ export interface MySkySources {
   /** Local evolution history — backend-handoff ready. */
   evolution: SkyEvolutionRecord;
   lastUpdatedAt: string | null;
+  /** Owner of this sky — required for identity star projection. */
+  skyOwner?: SkyOwnerProfile;
 }
 
 /** Normalized graph output — single internal representation before display projection. */
@@ -151,6 +154,13 @@ export function buildMySkyViewFromSources(
 ): MySkyView {
   const graph = buildMySkyGraph(sources);
   const { growthProfile } = graph;
+  const skyOwner =
+    sources.skyOwner ?? resolveCurrentSkyOwnerProfile(sources.northStarVision);
+  const identityNode = graph.nodes.find((node) => node.type === 'identity');
+  if (!identityNode) {
+    throw new Error('My Sky graph must include exactly one identity node.');
+  }
+  const identityStar = projectNodeToStarDisplay(identityNode);
   const visibleNodes = filterVisibleStarNodes(graph.nodes, visibleLayers);
   const stars = visibleNodes.map((node) => projectNodeToStarDisplay(node));
 
@@ -159,6 +169,8 @@ export function buildMySkyViewFromSources(
 
   return {
     northStar: { originalVision: sources.northStarVision },
+    skyOwner,
+    identityStar,
     skyItems: legacy.skyItems,
     constellations: legacy.constellations,
     connections: legacy.connections,

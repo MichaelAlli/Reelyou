@@ -7,6 +7,7 @@ import type {
   SkyPattern,
   SkyRelationship,
 } from '@/mySky/skyNodeTypes';
+import type { SkyOwnerProfile } from '@/mySky/skyIdentity';
 import type { SkywriteMediaMode } from '@/skywrite/types';
 
 /** @deprecated Prefer SkyNode — retained for list/card UI compatibility. */
@@ -16,7 +17,8 @@ export type MySkyItemType =
   | 'connection'
   | 'contribution'
   | 'community'
-  | 'guidance';
+  | 'guidance'
+  | 'identity';
 
 /** @deprecated Prefer SkyNode — retained for section lists on My Sky tab. */
 export interface MySkyItem {
@@ -60,6 +62,7 @@ export interface MySkyStarDisplay extends MySkyItem {
   visualBrightness?: number;
   visualGlow?: number;
   isNewlyAdded?: boolean;
+  isIdentityStar?: boolean;
 }
 
 /** Full My Sky projection — data + render-ready display + view controls. */
@@ -77,6 +80,10 @@ export interface MySkyView extends MySkyState {
   evolution: SkyEvolutionRecord;
   /** Derived display stars for canvas — do not mutate independently. */
   stars: MySkyStarDisplay[];
+  /** Sky owner — current user in My Sky, viewed person in Public Sky. */
+  skyOwner: SkyOwnerProfile;
+  /** Exactly one identity anchor star per sky — rendered separately from content stars. */
+  identityStar: MySkyStarDisplay;
 }
 
 export const EMPTY_MY_SKY: MySkyState = {

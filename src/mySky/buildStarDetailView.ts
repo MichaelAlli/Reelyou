@@ -22,6 +22,7 @@ const NODE_TYPE_LABELS: Record<SkyNodeType, string> = {
   growth: 'Growth',
   impact: 'Contribution',
   guidance: 'Guidance',
+  identity: 'Identity',
 };
 
 const TYPE_CONTEXT: Partial<Record<SkyNodeType, string>> = {
@@ -74,7 +75,10 @@ export function buildStarDetailView(
 ): StarDetailViewModel {
   const title = node.title?.trim() || 'A light in your sky';
   const typeLabel = NODE_TYPE_LABELS[node.type] ?? 'Moment';
-  const categoryLabel = MY_SKY_LAYER_LABELS[node.layer] ?? 'Stars';
+  const categoryLabel =
+    node.layer === 'identity'
+      ? 'Anchor'
+      : MY_SKY_LAYER_LABELS[node.layer as keyof typeof MY_SKY_LAYER_LABELS] ?? 'Stars';
   const dateLabel = formatStarDate(node.createdAt);
   const patternLabel = pattern?.label?.trim() || null;
 

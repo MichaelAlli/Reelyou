@@ -264,48 +264,7 @@ export function OrbitScreen() {
   );
 }
 
-export function PublicSkyScreen({ userId }: { userId?: string }) {
-  const styles = useScreenStyles();
-  const router = useRouter();
-  const user = orbitUsers.find((u) => u.id === userId) ?? orbitUsers[0];
-
-  return (
-    <ScreenLayout>
-      <Pressable onPress={() => router.back()} style={styles.back}>
-        <Text style={styles.backText}>← Back</Text>
-      </Pressable>
-      <ProfileHeader
-        user={{
-          id: user.id,
-          name: user.name,
-          subtitle: user.label,
-          bio: `Walking a path of ${user.themes.join(' and ')}.`,
-          location: 'Connected Sky',
-          avatarInitials: user.avatarInitials,
-          avatarColor: user.avatarColor,
-          themes: user.themes,
-        }}
-      />
-      <View style={styles.actionRow}>
-        <GlowButton label="Follow Sky" onPress={() => {}} style={styles.actionBtn} />
-        <GlowButton label="Encourage" onPress={() => {}} variant="secondary" style={styles.actionBtn} />
-      </View>
-
-      <View style={styles.metricsRow}>
-        <MetricPill label="Lives Encouraged" value={23} />
-        <MetricPill label="Contributions Made" value={56} accent="purple" />
-      </View>
-
-      <LegacyCard
-        heroLine="The people whose lives became different because they existed."
-        showButton={false}
-      />
-
-      <SectionHeader title="My Sky" />
-      <SkyPreviewCard description="A living map of their growth and the communities shaping their journey." />
-    </ScreenLayout>
-  );
-}
+export { PublicSkyScreen } from '@/screens/PublicSkyScreen';
 
 export function HumanPotentialMapScreen() {
   const styles = useScreenStyles();

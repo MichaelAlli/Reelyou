@@ -54,6 +54,10 @@ import {
   type MySkyView,
   type MySkyVisibleLayers,
 } from '@/mySky';
+import {
+  DEFAULT_MY_SKY_VIEWPORT,
+  type MySkyViewportSnapshot,
+} from '@/mySky/mySkyViewportSession';
 import { CelestialConstellationRevealMotion } from '@/constants/celestialMotion';
 import { buildSkyNodeId, type SkyArrivalHandoff } from '@/mySky/skyArrival';
 import {
@@ -172,6 +176,12 @@ interface OnboardingContextValue {
   skyArrivalHandoff: SkyArrivalHandoff | null;
   setSkyArrivalHandoff: (handoff: SkyArrivalHandoff) => void;
   clearSkyArrivalHandoff: () => void;
+  /** Session pan/zoom for My Sky — preserved across UI toggles. */
+  mySkyViewport: MySkyViewportSnapshot;
+  setMySkyViewport: (snapshot: MySkyViewportSnapshot) => void;
+  /** Optional wider-universe public skies in My Sky exploration. */
+  mySkyExploreEnabled: boolean;
+  setMySkyExploreEnabled: (enabled: boolean) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -191,7 +201,19 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   );
   const [constellationRevealCount, setConstellationRevealCount] = useState(0);
   const [constellationRevealActive, setConstellationRevealActive] = useState(false);
+  const [mySkyViewport, setMySkyViewportState] = useState<MySkyViewportSnapshot>(() => ({
+    ...DEFAULT_MY_SKY_VIEWPORT,
+  }));
+  const [mySkyExploreEnabled, setMySkyExploreEnabledState] = useState(false);
   const [skyEvolution, setSkyEvolution] = useState<SkyEvolutionRecord>(EMPTY_SKY_EVOLUTION);
+
+  const setMySkyViewport = useCallback((snapshot: MySkyViewportSnapshot) => {
+    setMySkyViewportState(snapshot);
+  }, []);
+
+  const setMySkyExploreEnabled = useCallback((enabled: boolean) => {
+    setMySkyExploreEnabledState(enabled);
+  }, []);
   useEffect(() => {
     let live = true;
     loadTodayFocus().then((record) => {
@@ -648,6 +670,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       skyArrivalHandoff,
       setSkyArrivalHandoff,
       clearSkyArrivalHandoff,
+      mySkyViewport,
+      setMySkyViewport,
+      mySkyExploreEnabled,
+      setMySkyExploreEnabled,
       profile,
       goals,
       challenges,
@@ -705,6 +731,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       skyArrivalHandoff,
       setSkyArrivalHandoff,
       clearSkyArrivalHandoff,
+      mySkyViewport,
+      setMySkyViewport,
+      mySkyExploreEnabled,
+      setMySkyExploreEnabled,
       profile,
       goals,
       challenges,
