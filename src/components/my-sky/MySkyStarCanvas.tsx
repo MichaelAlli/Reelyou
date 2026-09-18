@@ -59,6 +59,8 @@ interface MySkyStarCanvasProps {
   nearbyAnchors?: NearbySkyAnchor[];
   proximityOwnerId?: string | null;
   proximityPhase?: SkyProximityPhase;
+  onJumpToSky?: (anchor: NearbySkyAnchor) => void;
+  resolveAnchorForOwner?: (ownerId: string) => NearbySkyAnchor | null;
   viewportSnapshot?: MySkyViewportSnapshot;
   jumpSnapshot?: MySkyViewportSnapshot | null;
   onViewportChange?: (snapshot: MySkyViewportSnapshot) => void;
@@ -82,6 +84,8 @@ function MySkyStarCanvasComponent({
   nearbyAnchors = [],
   proximityOwnerId = null,
   proximityPhase = 'none',
+  onJumpToSky,
+  resolveAnchorForOwner,
   viewportSnapshot,
   jumpSnapshot = null,
   onViewportChange,
@@ -178,6 +182,7 @@ function MySkyStarCanvasComponent({
   const [bubbleOpen, setBubbleOpen] = useState(false);
   const [bubbleOwner, setBubbleOwner] = useState<SkyOwnerProfile | null>(null);
   const [bubbleStar, setBubbleStar] = useState<MySkyStarDisplay | null>(null);
+  const [bubbleAnchor, setBubbleAnchor] = useState<NearbySkyAnchor | null>(null);
   const [missingHint, setMissingHint] = useState<string | null>(null);
   const active = stars.find((s) => s.id === activeId);
 
@@ -197,14 +202,19 @@ function MySkyStarCanvasComponent({
     [onWorldSizeChange],
   );
 
-  const openProfileBubble = useCallback((owner: SkyOwnerProfile, star: MySkyStarDisplay) => {
-    setBubbleOwner(owner);
-    setBubbleStar(star);
-    setBubbleOpen(true);
-  }, []);
+  const openProfileBubble = useCallback(
+    (owner: SkyOwnerProfile, star: MySkyStarDisplay, anchor: NearbySkyAnchor | null = null) => {
+      setBubbleOwner(owner);
+      setBubbleStar(star);
+      setBubbleAnchor(anchor);
+      setBubbleOpen(true);
+    },
+    [],
+  );
 
   const closeProfileBubble = useCallback(() => {
     setBubbleOpen(false);
+    setBubbleAnchor(null);
   }, []);
 
   const navigateStar = useCallback(
@@ -264,12 +274,12 @@ function MySkyStarCanvasComponent({
   );
 
   const handleOwnIdentityPress = useCallback(() => {
-    openProfileBubble(skyOwner, identityStar);
+    openProfileBubble(skyOwner, identityStar, null);
   }, [identityStar, openProfileBubble, skyOwner]);
 
   const handleNearbyIdentityPress = useCallback(
     (anchor: NearbySkyAnchor) => {
-      openProfileBubble(anchor.owner, anchor.identityStar);
+      openProfileBubble(anchor.owner, anchor.identityStar, anchor);
     },
     [openProfileBubble],
   );
@@ -285,14 +295,44 @@ function MySkyStarCanvasComponent({
 
   const handleViewFullSky = useCallback(() => {
     setBubbleOpen(false);
-    if (!activeBubbleOwner.isSelf) {
+    if (!activeBubbleOwner.isSelf && bubbleAnchor?.canViewFullSky !== false) {
       router.push(`/public-sky?id=${activeBubbleOwner.id}` as never);
     }
-  }, [activeBubbleOwner.id, activeBubbleOwner.isSelf, router]);
+  }, [activeBubbleOwner.id, activeBubbleOwner.isSelf, bubbleAnchor?.canViewFullSky, router]);
+
+  const handleJumpToSkyFromBubble = useCallback(() => {
+    if (!onJumpToSky || activeBubbleOwner.isSelf) return;
+    const anchor =
+      bubbleAnchor ??
+      resolveAnchorForOwner?.(activeBubbleOwner.id) ??
+      nearbyAnchors.find((entry) => entry.ownerId === activeBubbleOwner.id) ??
+      null;
+    if (!anchor) return;
+    setBubbleOpen(false);
+    onJumpToSky(anchor);
+  }, [
+    activeBubbleOwner.id,
+    activeBubbleOwner.isSelf,
+    bubbleAnchor,
+    nearbyAnchors,
+    onJumpToSky,
+    resolveAnchorForOwner,
+  ]);
 
   const handleConnect = useCallback(() => {
     setBubbleOpen(false);
   }, []);
+
+  const bubbleCanViewFullSky = activeBubbleOwner.isSelf
+    ? false
+    : bubbleAnchor?.canViewFullSky ?? true;
+  const bubbleCanJumpToSky =
+    !activeBubbleOwner.isSelf &&
+    Boolean(
+      bubbleAnchor ??
+        resolveAnchorForOwner?.(activeBubbleOwner.id) ??
+        nearbyAnchors.find((entry) => entry.ownerId === activeBubbleOwner.id),
+    );
 
   const accessibilityLabel = useCallback((star: MySkyStarDisplay) => {
     if (star.type === 'skywrite' && star.sourceId) {
@@ -366,8 +406,10 @@ function MySkyStarCanvasComponent({
         owner={activeBubbleOwner}
         anchorStar={activeBubbleStar}
         visible={bubbleOpen}
+        canViewFullSky={bubbleCanViewFullSky}
         onClose={closeProfileBubble}
         onViewProfile={handleViewProfile}
+        onJumpToSky={bubbleCanJumpToSky ? handleJumpToSkyFromBubble : undefined}
         onViewFullSky={activeBubbleOwner.isSelf ? undefined : handleViewFullSky}
         onConnect={activeBubbleOwner.isSelf ? undefined : handleConnect}
       />

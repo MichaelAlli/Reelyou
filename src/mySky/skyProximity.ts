@@ -1,7 +1,7 @@
 import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
 import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
 
-export type SkyProximityPhase = 'none' | 'nearby' | 'entering';
+export type SkyProximityPhase = 'none' | 'nearby' | 'entering' | 'entered';
 
 export interface SkyProximityState {
   anchor: NearbySkyAnchor | null;
@@ -11,6 +11,7 @@ export interface SkyProximityState {
 
 const NEARBY_THRESHOLD = 0.13;
 const ENTERING_THRESHOLD = 0.065;
+const ENTERED_THRESHOLD = 0.045;
 
 /** Viewport center in normalized world coordinates (0–1). */
 export function viewportCenterInWorld(
@@ -57,9 +58,16 @@ export function computeSkyProximity(
     return { anchor: null, phase: 'none', distance: closestDistance };
   }
 
+  let phase: SkyProximityPhase = 'nearby';
+  if (closestDistance <= ENTERED_THRESHOLD) {
+    phase = 'entered';
+  } else if (closestDistance <= ENTERING_THRESHOLD) {
+    phase = 'entering';
+  }
+
   return {
     anchor: closest,
-    phase: closestDistance <= ENTERING_THRESHOLD ? 'entering' : 'nearby',
+    phase,
     distance: closestDistance,
   };
 }

@@ -3,8 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { MySkyIdentityStar } from '@/components/my-sky/MySkyIdentityStar';
-import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
-import type { MySkyStarDisplay } from '@/mySky/types';
+import { MySkyOwnerNameCue } from '@/components/my-sky/MySkyOwnerNameCue';
+import { prominenceForTier, type NearbySkyAnchor } from '@/mySky/buildNearbySkies';
+import type { SkyProximityPhase } from '@/mySky/skyProximity';
 
 interface MySkyNearbySkiesLayerProps {
   anchors: NearbySkyAnchor[];
@@ -12,8 +13,16 @@ interface MySkyNearbySkiesLayerProps {
   worldHeight: number;
   activeOwnerId?: string | null;
   proximityOwnerId?: string | null;
-  proximityPhase?: 'none' | 'nearby' | 'entering';
+  proximityPhase?: SkyProximityPhase;
   onIdentityPress: (anchor: NearbySkyAnchor) => void;
+}
+
+function prominenceBoost(phase: SkyProximityPhase, isProximity: boolean): number {
+  if (!isProximity) return 1;
+  if (phase === 'entered') return 1.12;
+  if (phase === 'entering') return 1.06;
+  if (phase === 'nearby') return 1.02;
+  return 1;
 }
 
 function MySkyNearbySkiesLayerComponent({
@@ -32,26 +41,30 @@ function MySkyNearbySkiesLayerComponent({
       <Svg width={worldWidth} height={worldHeight} pointerEvents="none">
         {anchors.map((anchor) => {
           const isExplore = anchor.tier === 'explore';
+          const isSharedCommunity = anchor.tier === 'shared-community';
           const isProximity =
             proximityOwnerId === anchor.ownerId && proximityPhase !== 'none';
           const cx = anchor.x * worldWidth;
           const cy = anchor.y * worldHeight;
-          const radius = isExplore ? 34 : 42;
-          const opacity = isExplore ? 0.14 : 0.22;
+          const baseRadius = isExplore ? 30 : isSharedCommunity ? 38 : 42;
+          const radius = baseRadius + (isProximity ? (proximityPhase === 'entered' ? 10 : 6) : 0);
+          const opacity = isExplore ? 0.12 : isSharedCommunity ? 0.18 : 0.22;
 
           return (
             <Circle
               key={`region-${anchor.id}`}
               cx={cx}
               cy={cy}
-              r={radius + (isProximity ? 8 : 0)}
+              r={radius}
               fill={
                 isProximity
-                  ? `rgba(255, 213, 122, ${proximityPhase === 'entering' ? 0.16 : 0.1})`
+                  ? `rgba(255, 213, 122, ${
+                      proximityPhase === 'entered' ? 0.18 : proximityPhase === 'entering' ? 0.14 : 0.1
+                    })`
                   : `rgba(167, 139, 250, ${opacity})`
               }
               stroke={
-                isProximity ? 'rgba(255, 213, 122, 0.35)' : 'rgba(167, 139, 250, 0.18)'
+                isProximity ? 'rgba(255, 213, 122, 0.38)' : 'rgba(167, 139, 250, 0.18)'
               }
               strokeWidth={isProximity ? 1.2 : 0.8}
             />
@@ -59,17 +72,42 @@ function MySkyNearbySkiesLayerComponent({
         })}
       </Svg>
 
-      {anchors.map((anchor) => (
-        <MySkyIdentityStar
-          key={anchor.identityStar.id}
-          star={anchor.identityStar}
-          worldWidth={worldWidth}
-          worldHeight={worldHeight}
-          active={activeOwnerId === anchor.ownerId}
-          prominence={anchor.tier === 'explore' ? 0.92 : 1.04}
-          onPress={() => onIdentityPress(anchor)}
-        />
-      ))}
+      {anchors.map((anchor) => {
+        const isProximity =
+          proximityOwnerId === anchor.ownerId && proximityPhase !== 'none';
+        const prominence =
+          prominenceForTier(anchor.tier) * prominenceBoost(proximityPhase, isProximity);
+
+        return (
+          <MySkyIdentityStar
+            key={anchor.identityStar.id}
+            star={anchor.identityStar}
+            worldWidth={worldWidth}
+            worldHeight={worldHeight}
+            active={activeOwnerId === anchor.ownerId || (isProximity && proximityPhase === 'entered')}
+            prominence={prominence}
+            onPress={() => onIdentityPress(anchor)}
+          />
+        );
+      })}
+
+      {anchors.map((anchor) => {
+        const isProximity =
+          proximityOwnerId === anchor.ownerId && proximityPhase !== 'none';
+
+        return (
+          <MySkyOwnerNameCue
+            key={`owner-cue-${anchor.id}`}
+            ownerName={anchor.owner.name}
+            x={anchor.x}
+            y={anchor.y}
+            worldWidth={worldWidth}
+            worldHeight={worldHeight}
+            phase={proximityPhase}
+            visible={isProximity}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -81,5 +119,3 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
 });
-
-export type { MySkyStarDisplay };

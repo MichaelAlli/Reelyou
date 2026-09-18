@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
-import { findNearbySkyAnchor, type NearbySkyAnchor } from '@/mySky/buildNearbySkies';
+import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
 import { buildSkySearchResults } from '@/mySky/skySearchSources';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { useOnboarding } from '@/onboarding';
@@ -24,6 +24,7 @@ interface MySkySearchSheetProps {
   onClose: () => void;
   nearbyAnchors?: NearbySkyAnchor[];
   onJumpToSky?: (ownerId: string) => void;
+  resolveAnchorForOwner?: (ownerId: string) => NearbySkyAnchor | null;
 }
 
 function MySkySearchSheetComponent({
@@ -31,6 +32,7 @@ function MySkySearchSheetComponent({
   onClose,
   nearbyAnchors = [],
   onJumpToSky,
+  resolveAnchorForOwner,
 }: MySkySearchSheetProps) {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -225,8 +227,15 @@ function MySkySearchSheetComponent({
     router.push(`/public-sky?id=${id}` as never);
   };
 
+  const canJumpToSky = (id: string) => {
+    if (resolveAnchorForOwner) {
+      return Boolean(resolveAnchorForOwner(id));
+    }
+    return nearbyAnchors.some((anchor) => anchor.ownerId === id);
+  };
+
   const handleJumpToSky = (id: string) => {
-    if (findNearbySkyAnchor(nearbyAnchors, id) && onJumpToSky) {
+    if (canJumpToSky(id) && onJumpToSky) {
       onJumpToSky(id);
       onClose();
     }
@@ -276,7 +285,7 @@ function MySkySearchSheetComponent({
                         <Text style={styles.context}>{result.contextLabel}</Text>
                       </View>
                       <View style={styles.actions}>
-                        {findNearbySkyAnchor(nearbyAnchors, result.id) && onJumpToSky ? (
+                        {canJumpToSky(result.id) && onJumpToSky ? (
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={`${MySkyCopy.searchJumpToSky}: ${result.name}`}

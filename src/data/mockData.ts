@@ -61,6 +61,14 @@ export const privacyOptions = [
 
 export const orbitUsers: OrbitUser[] = [
   {
+    id: 'orbit-jordan',
+    name: 'Jordan',
+    label: 'Friend • Growth',
+    themes: ['Growth', 'Purpose'],
+    avatarInitials: 'JO',
+    avatarColor: '#9B7EDE',
+  },
+  {
     id: 'orbit-1',
     name: 'Sarah Chen',
     label: 'Entrepreneur • Healing',

@@ -17,9 +17,11 @@ interface MySkyIdentityProfileBubbleProps {
   owner: SkyOwnerProfile;
   anchorStar: MySkyStarDisplay;
   visible: boolean;
+  canViewFullSky?: boolean;
   onClose: () => void;
   onViewProfile: () => void;
   onViewFullSky?: () => void;
+  onJumpToSky?: () => void;
   onConnect?: () => void;
 }
 
@@ -29,7 +31,9 @@ function MySkyIdentityProfileBubbleComponent({
   visible,
   onClose,
   onViewProfile,
+  canViewFullSky = true,
   onViewFullSky,
+  onJumpToSky,
   onConnect,
 }: MySkyIdentityProfileBubbleProps) {
   const opacity = useSharedValue(0);
@@ -246,7 +250,14 @@ function MySkyIdentityProfileBubbleComponent({
             <Pressable style={styles.action} onPress={onViewProfile}>
               <Text style={styles.actionText}>{MySkyCopy.identityViewProfile}</Text>
             </Pressable>
-            {!owner.isSelf && onViewFullSky ? (
+            {!owner.isSelf && onJumpToSky ? (
+              <Pressable style={[styles.action, styles.actionSecondary]} onPress={onJumpToSky}>
+                <Text style={[styles.actionText, styles.actionTextSecondary]}>
+                  {MySkyCopy.searchJumpToSky}
+                </Text>
+              </Pressable>
+            ) : null}
+            {!owner.isSelf && canViewFullSky && onViewFullSky ? (
               <Pressable style={[styles.action, styles.actionSecondary]} onPress={onViewFullSky}>
                 <Text style={[styles.actionText, styles.actionTextSecondary]}>
                   {MySkyCopy.identityViewFullSky}

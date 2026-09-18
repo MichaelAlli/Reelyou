@@ -1,5 +1,5 @@
 import { memo, useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -10,20 +10,31 @@ import { MySkyCopy } from '@/constants/mySkyCopy';
 import { Fonts, Radius } from '@/constants/theme';
 import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
 import type { SkyProximityPhase } from '@/mySky/skyProximity';
+import type { SkyRegionMode } from '@/mySky/skyRegionContext';
 import { useThemedStyles } from '@/theme/useTheme';
 
 interface MySkyProximityCueProps {
   anchor: NearbySkyAnchor | null;
   phase: SkyProximityPhase;
+  regionMode?: SkyRegionMode;
   onPress?: (anchor: NearbySkyAnchor) => void;
 }
 
-function MySkyProximityCueComponent({ anchor, phase, onPress }: MySkyProximityCueProps) {
+function MySkyProximityCueComponent({
+  anchor,
+  phase,
+  regionMode = 'own',
+  onPress,
+}: MySkyProximityCueProps) {
   const opacity = useSharedValue(0);
 
+  const showCue =
+    regionMode === 'returning' ||
+    (anchor && phase !== 'none' && regionMode !== 'own');
+
   useEffect(() => {
-    opacity.value = withTiming(anchor && phase !== 'none' ? 1 : 0, { duration: 280 });
-  }, [anchor, opacity, phase]);
+    opacity.value = withTiming(showCue ? 1 : 0, { duration: 280 });
+  }, [opacity, showCue]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -55,24 +66,33 @@ function MySkyProximityCueComponent({ anchor, phase, onPress }: MySkyProximityCu
     }),
   );
 
-  if (!anchor || phase === 'none') return null;
+  if (!showCue) return null;
 
-  const message =
-    phase === 'entering'
-      ? MySkyCopy.proximityEntering.replace('{name}', anchor.owner.name)
-      : MySkyCopy.proximityNearby.replace('{name}', anchor.owner.name);
+  let message: string = MySkyCopy.proximityReturning;
+  if (anchor && regionMode !== 'returning') {
+    if (phase === 'entered') {
+      message = MySkyCopy.proximityEntered.replace('{name}', anchor.owner.name);
+    } else if (phase === 'entering') {
+      message = MySkyCopy.proximityEntering.replace('{name}', anchor.owner.name);
+    } else {
+      message = MySkyCopy.proximityNearby.replace('{name}', anchor.owner.name);
+    }
+  }
 
-  return (
+  const content = (
     <Animated.View style={[styles.wrap, animatedStyle]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={message}
-        onPress={() => onPress?.(anchor)}
+        onPress={() => anchor && onPress?.(anchor)}
+        disabled={!anchor || !onPress}
         style={styles.pill}>
         <Text style={styles.text}>{message}</Text>
       </Pressable>
     </Animated.View>
   );
+
+  return content;
 }
 
 export const MySkyProximityCue = memo(MySkyProximityCueComponent);

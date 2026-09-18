@@ -25,7 +25,7 @@ function MySkyIdentityStarComponent({
   onPress,
 }: MySkyIdentityStarProps) {
   const baseSize = (star.visualSize ?? CelestialStarGeometry.defaultUserStarSize + 1.4) * prominence;
-  const intensity = (star.visualBrightness ?? 1.05) * (active ? 1.08 : 1);
+  const intensity = (star.visualBrightness ?? 1.05) * (active ? 1.1 : prominence > 1.05 ? 1.04 : 1);
   const svgSize = baseSize * 5.2;
 
   return (

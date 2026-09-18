@@ -32,6 +32,7 @@ export interface NearbySkyAnchor {
 }
 
 const CONNECTED_RING = 0.34;
+const SHARED_COMMUNITY_RING = 0.42;
 const EXPLORE_RING = 0.58;
 const MAX_CONNECTED = 8;
 const MAX_EXPLORE = 6;
@@ -40,6 +41,18 @@ function mapTier(context: SkySearchConnectionContext): NearbySkyTier {
   if (context === 'shared-community') return 'shared-community';
   if (context === 'discoverable') return 'explore';
   return 'connected';
+}
+
+function ringForTier(tier: NearbySkyTier): number {
+  if (tier === 'explore') return EXPLORE_RING;
+  if (tier === 'shared-community') return SHARED_COMMUNITY_RING;
+  return CONNECTED_RING;
+}
+
+function prominenceForTier(tier: NearbySkyTier): number {
+  if (tier === 'explore') return 0.9;
+  if (tier === 'shared-community') return 0.98;
+  return 1.06;
 }
 
 function layoutNearbyPosition(
@@ -85,7 +98,7 @@ function buildIdentityDisplay(
 
 function toAnchor(result: SkySearchResult, index: number, total: number): NearbySkyAnchor | null {
   const tier = mapTier(result.connectionContext);
-  const ring = tier === 'explore' ? EXPLORE_RING : CONNECTED_RING;
+  const ring = ringForTier(tier);
   const position = layoutNearbyPosition(result.id, index, total, ring);
   const owner = resolvePublicSkyOwnerProfile(
     result.id,
@@ -148,3 +161,39 @@ export function findNearbySkyAnchor(
 ): NearbySkyAnchor | null {
   return anchors.find((anchor) => anchor.ownerId === ownerId) ?? null;
 }
+
+/** Resolve jump target — reuse nearby anchor or build a spatial ephemeral anchor. */
+export function resolveJumpAnchor(
+  ownerId: string,
+  anchors: NearbySkyAnchor[],
+  searchResult: SkySearchResult | null,
+  exploreEnabled: boolean,
+): NearbySkyAnchor | null {
+  const existing = findNearbySkyAnchor(anchors, ownerId);
+  if (existing) return existing;
+  if (!searchResult || searchResult.id !== ownerId) return null;
+
+  const tier = mapTier(searchResult.connectionContext);
+  if (tier === 'explore' && !exploreEnabled) return null;
+
+  const position = layoutNearbyPosition(searchResult.id, 0, 1, ringForTier(tier));
+  const owner = resolvePublicSkyOwnerProfile(
+    searchResult.id,
+    connectionStatusFor(searchResult.connectionContext),
+  );
+  if (!owner) return null;
+
+  return {
+    id: `nearby-sky-ephemeral-${searchResult.id}`,
+    ownerId: searchResult.id,
+    owner,
+    tier,
+    connectionContext: searchResult.connectionContext,
+    x: position.x,
+    y: position.y,
+    identityStar: buildIdentityDisplay(owner, position, tier),
+    canViewFullSky: searchResult.canViewSky,
+  };
+}
+
+export { prominenceForTier };

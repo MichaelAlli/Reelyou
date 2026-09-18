@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -22,9 +22,11 @@ import {
 import { findPatternForNodeId } from '@/mySky/buildConstellationIntelligence';
 import {
   buildNearbySkies,
-  findNearbySkyAnchor,
+  resolveJumpAnchor,
   type NearbySkyAnchor,
 } from '@/mySky/buildNearbySkies';
+import { buildSkySearchResults } from '@/mySky/skySearchSources';
+import { computeSkyRegionContext } from '@/mySky/skyRegionContext';
 import { resolveStarNavigation } from '@/mySky/resolveStarNavigation';
 import type { MySkyStarDisplay } from '@/mySky/types';
 import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
@@ -63,6 +65,9 @@ export function MySkyScreen() {
   const [constellationDetail, setConstellationDetail] = useState<ConstellationDetailView | null>(
     null,
   );
+  const [previousNearbyOwnerId, setPreviousNearbyOwnerId] = useState<string | null>(null);
+  const [ephemeralAnchor, setEphemeralAnchor] = useState<NearbySkyAnchor | null>(null);
+  const returningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const joinedCommunityIds = useMemo(
     () => communities.joined.map((entry) => entry.id),
@@ -93,10 +98,75 @@ export function MySkyScreen() {
     ],
   );
 
-  const proximity = useMemo(
-    () => computeSkyProximity(liveViewport, worldSize.width, worldSize.height, nearbyAnchors),
-    [liveViewport, nearbyAnchors, worldSize.height, worldSize.width],
+  const searchCatalog = useMemo(
+    () => buildSkySearchResults('', aroundYourSkyFeed, connectionActivities, communities),
+    [aroundYourSkyFeed, communities, connectionActivities],
   );
+
+  const displayAnchors = useMemo(() => {
+    if (!ephemeralAnchor) return nearbyAnchors;
+    if (nearbyAnchors.some((anchor) => anchor.ownerId === ephemeralAnchor.ownerId)) {
+      return nearbyAnchors;
+    }
+    return [...nearbyAnchors, ephemeralAnchor];
+  }, [ephemeralAnchor, nearbyAnchors]);
+
+  const proximity = useMemo(
+    () => computeSkyProximity(liveViewport, worldSize.width, worldSize.height, displayAnchors),
+    [displayAnchors, liveViewport, worldSize.height, worldSize.width],
+  );
+
+  const regionContext = useMemo(
+    () =>
+      computeSkyRegionContext(
+        proximity,
+        mySkyView.skyOwner.id,
+        { x: mySkyView.identityStar.x, y: mySkyView.identityStar.y },
+        liveViewport,
+        worldSize.width,
+        worldSize.height,
+        previousNearbyOwnerId,
+      ),
+    [
+      liveViewport,
+      mySkyView.identityStar.x,
+      mySkyView.identityStar.y,
+      mySkyView.skyOwner.id,
+      previousNearbyOwnerId,
+      proximity,
+      worldSize.height,
+      worldSize.width,
+    ],
+  );
+
+  useEffect(() => {
+    if (
+      (proximity.phase === 'entered' || proximity.phase === 'entering') &&
+      proximity.anchor
+    ) {
+      setPreviousNearbyOwnerId(proximity.anchor.ownerId);
+    }
+  }, [proximity.anchor, proximity.phase]);
+
+  useEffect(() => {
+    if (returningTimerRef.current) {
+      clearTimeout(returningTimerRef.current);
+      returningTimerRef.current = null;
+    }
+
+    if (regionContext.mode !== 'returning') return;
+
+    returningTimerRef.current = setTimeout(() => {
+      setPreviousNearbyOwnerId(null);
+    }, 1400);
+
+    return () => {
+      if (returningTimerRef.current) {
+        clearTimeout(returningTimerRef.current);
+        returningTimerRef.current = null;
+      }
+    };
+  }, [regionContext.mode]);
 
   useEffect(() => {
     setLiveViewport(mySkyViewport);
@@ -125,21 +195,37 @@ export function MySkyScreen() {
         worldSize.height,
         anchor.tier === 'explore' ? 1.05 : 1.12,
       );
+      if (anchor.id.startsWith('nearby-sky-ephemeral-')) {
+        setEphemeralAnchor(anchor);
+      }
       setJumpSnapshot(snapshot);
       setLiveViewport(snapshot);
     },
     [worldSize.height, worldSize.width],
   );
 
+  const resolveAnchorForOwner = useCallback(
+    (ownerId: string) => {
+      const searchResult = searchCatalog.find((entry) => entry.id === ownerId) ?? null;
+      return resolveJumpAnchor(
+        ownerId,
+        nearbyAnchors,
+        searchResult,
+        mySkyExploreEnabled,
+      );
+    },
+    [mySkyExploreEnabled, nearbyAnchors, searchCatalog],
+  );
+
   const handleJumpFromSearch = useCallback(
     (ownerId: string) => {
-      const anchor = findNearbySkyAnchor(nearbyAnchors, ownerId);
+      const anchor = resolveAnchorForOwner(ownerId);
       if (anchor) {
         jumpToAnchor(anchor);
       }
       setSearchVisible(false);
     },
-    [jumpToAnchor, nearbyAnchors],
+    [jumpToAnchor, resolveAnchorForOwner],
   );
 
   const toggleCleanSky = useCallback(() => {
@@ -262,6 +348,7 @@ export function MySkyScreen() {
             <MySkyProximityCue
               anchor={proximity.anchor}
               phase={proximity.phase}
+              regionMode={regionContext.mode}
               onPress={jumpToAnchor}
             />
           ) : null}
@@ -270,9 +357,11 @@ export function MySkyScreen() {
             cleanSky={cleanSkyActive}
             showLayerControls={false}
             showNearbySkies
-            nearbyAnchors={nearbyAnchors}
+            nearbyAnchors={displayAnchors}
             proximityOwnerId={proximity.anchor?.ownerId ?? null}
             proximityPhase={proximity.phase}
+            onJumpToSky={jumpToAnchor}
+            resolveAnchorForOwner={resolveAnchorForOwner}
             view={mySkyView}
             onToggleLayer={toggleMySkyLayer}
             onRevealConstellations={() => triggerConstellationReveal(null)}
@@ -309,6 +398,7 @@ export function MySkyScreen() {
         onClose={() => setSearchVisible(false)}
         nearbyAnchors={nearbyAnchors}
         onJumpToSky={handleJumpFromSearch}
+        resolveAnchorForOwner={resolveAnchorForOwner}
       />
 
       <MySkyConstellationDetailSheet
