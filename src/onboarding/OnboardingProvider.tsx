@@ -48,6 +48,8 @@ import {
 import {
   buildMySkyView,
   DEFAULT_MY_SKY_VISIBLE_LAYERS,
+  resolveParticipatingCommunityIds,
+  resolveSkyConnectionActivities,
   type MySkyLayerId,
   type MySkyView,
   type MySkyVisibleLayers,
@@ -243,6 +245,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [aroundYourSkyFeed],
   );
 
+  const skyConnectionActivities = useMemo(
+    () => resolveSkyConnectionActivities(aroundYourSkyFeed),
+    [aroundYourSkyFeed],
+  );
+
+  const participatingCommunityIds = useMemo(
+    () => resolveParticipatingCommunityIds(aroundYourSkyFeed),
+    [aroundYourSkyFeed],
+  );
+
   const basePersonalizationProfile = useMemo(
     () => mergePersonalizationProfile(state, todayFocus, communities, aroundYourSkyState),
     [state, todayFocus, communities, aroundYourSkyState],
@@ -263,6 +275,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         },
         mySkyVisibleLayers,
         skyEvolution,
+        skyConnectionActivities,
+        participatingCommunityIds,
       ),
     [
       basePersonalizationProfile,
@@ -270,6 +284,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       guidingLightView.light,
       mySkyVisibleLayers,
       skyEvolution,
+      skyConnectionActivities,
+      participatingCommunityIds,
     ],
   );
 

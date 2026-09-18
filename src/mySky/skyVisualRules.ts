@@ -51,6 +51,7 @@ function mapNodeTypeToItemType(
   type: SkyNode['type'],
 ): MySkyStarDisplay['type'] {
   if (type === 'skywrite') return 'skywrite';
+  if (type === 'community') return 'community';
   if (type === 'relationship') return 'connection';
   if (type === 'impact') return 'contribution';
   return 'moment';

@@ -5,6 +5,7 @@ import {
   type SkyEvolutionRecord,
   type SkyGrowthProfile,
 } from '@/mySky/skyEvolution';
+import type { SkyConnectionActivity } from '@/mySky/skyConnectionSources';
 import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { SkyNode, SkyPattern, SkyRelationship } from '@/mySky/skyNodeTypes';
 import {
@@ -23,6 +24,10 @@ export interface MySkySources {
   northStarVision: string;
   skywrites: SkywriteRecord[];
   joinedCommunities: JoinedCommunity[];
+  /** Explicit human connections — from Around Your Sky, not inferred. */
+  connectionActivities: SkyConnectionActivity[];
+  /** Communities with recent explicit participation signals. */
+  participatingCommunityIds: string[];
   /** Explicit user goals — growth layer nodes only. */
   growthGoals: string[];
   /** Whether an active guiding light exists (explicit, not inferred). */
@@ -62,11 +67,15 @@ export interface MySkyPersistedSnapshot {
 export function resolveMySkySources(
   profile: UserPersonalizationProfile,
   evolution: SkyEvolutionRecord = EMPTY_SKY_EVOLUTION,
+  connectionActivities: SkyConnectionActivity[] = [],
+  participatingCommunityIds: string[] = [],
 ): MySkySources {
   return {
     northStarVision: profile.northStar.originalVision,
     skywrites: profile.skywrites ?? [],
     joinedCommunities: profile.communities.joined,
+    connectionActivities,
+    participatingCommunityIds,
     growthGoals: profile.goals ?? [],
     guidanceActive: Boolean(profile.guidingLight?.title?.trim()),
     guidanceLabel: profile.guidingLight?.title ?? undefined,

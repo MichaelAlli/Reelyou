@@ -27,8 +27,14 @@ export {
   type StarDetailViewModel,
 } from './buildStarDetailView';
 export {
+  resolveParticipatingCommunityIds,
+  resolveSkyConnectionActivities,
+  type SkyConnectionActivity,
+} from './skyConnectionSources';
+export {
   findSkywriteById,
   resolveStarNavigation,
+  type StarNavigationContext,
   type StarNavigationTarget,
 } from './resolveStarNavigation';
 export { buildSkyNodes } from './buildSkyNodes';

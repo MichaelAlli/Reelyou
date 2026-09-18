@@ -21,6 +21,7 @@ import type {
   SkyRelationship,
   SkySourceType,
 } from '@/mySky/skyNodeTypes';
+import type { SkyConnectionActivity } from '@/mySky/skyConnectionSources';
 import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { SkywriteRecord } from '@/skywrite/types';
 
@@ -132,7 +133,11 @@ function buildFocusReflectionNode(sources: MySkySources, vitality: number): SkyN
   return refreshNodeVisual(base, vitality, 0.06);
 }
 
-function buildCommunityNode(community: JoinedCommunity, vitality: number): SkyNode {
+function buildCommunityNode(
+  community: JoinedCommunity,
+  vitality: number,
+  hasParticipation: boolean,
+): SkyNode {
   const id = `community-${community.id}`;
   const layout = resolveStableNodePosition(id);
 
@@ -149,39 +154,39 @@ function buildCommunityNode(community: JoinedCommunity, vitality: number): SkyNo
     inferred: false,
     userDefined: true,
     provenance: { source: 'explicit', reason: 'user_community_join' },
-    destination: null,
-    destinationParam: null,
+    destination: 'community',
+    destinationParam: community.id,
     title: community.name,
     patternId: null,
+    metadata: hasParticipation ? { communityParticipation: true } : undefined,
   };
 
-  return refreshNodeVisual(base, vitality, 0.05);
+  return refreshNodeVisual(base, vitality, hasParticipation ? 0.08 : 0.05);
 }
 
-function buildConnectionNode(community: JoinedCommunity, vitality: number): SkyNode {
-  const id = `connection-${community.id}`;
-  const layout = resolveStableNodePosition(id);
+function buildConnectionNode(activity: SkyConnectionActivity, vitality: number): SkyNode {
+  const layout = resolveStableNodePosition(activity.id);
 
   const base: SkyNode = {
-    id,
+    id: activity.id,
     type: 'relationship',
     sourceType: 'relationship',
-    sourceId: community.id,
+    sourceId: activity.actorId,
     layer: 'connections',
-    createdAt: community.joinedAt,
+    createdAt: activity.createdAt,
     position: { x: layout.x, y: layout.y },
     visual: { size: 5.4, brightness: 1, glow: 0.8, opacity: 1, emphasis: 1, color: layout.color },
     userGenerated: true,
     inferred: false,
     userDefined: true,
-    provenance: { source: 'explicit', reason: 'user_community_join' },
-    destination: null,
-    destinationParam: null,
-    title: community.name,
+    provenance: { source: 'explicit', reason: 'explicit_connection_activity' },
+    destination: activity.destination,
+    destinationParam: activity.destinationParam,
+    title: activity.title,
     patternId: null,
   };
 
-  return refreshNodeVisual(base, vitality);
+  return refreshNodeVisual(base, vitality, 0.04);
 }
 
 function buildGrowthNode(goal: string, index: number, vitality: number): SkyNode {
@@ -309,8 +314,13 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
     ? MY_SKY_ITEM_FIXTURES.map((item) => buildFixtureNode(item, vitality))
     : [];
 
-  const communityNodes = sources.joinedCommunities.map((c) => buildCommunityNode(c, vitality));
-  const connectionNodes = sources.joinedCommunities.map((c) => buildConnectionNode(c, vitality));
+  const participationSet = new Set(sources.participatingCommunityIds);
+  const communityNodes = sources.joinedCommunities.map((c) =>
+    buildCommunityNode(c, vitality, participationSet.has(c.id)),
+  );
+  const connectionNodes = sources.connectionActivities.map((activity) =>
+    buildConnectionNode(activity, vitality),
+  );
   const growthNodes = sources.growthGoals
     .slice(0, 4)
     .map((goal, index) => buildGrowthNode(goal, index, vitality));

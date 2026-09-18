@@ -1,6 +1,14 @@
 import { useRouter } from 'expo-router';
-import { memo, useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  UIManager,
+  View,
+} from 'react-native';
 
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
 import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
@@ -12,6 +20,10 @@ import type { MySkyLayerId } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
 import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface MySkyStarCanvasProps {
   view: Pick<MySkyView, 'stars' | 'vitality' | 'relationships' | 'nodes' | 'viewState'>;
@@ -30,7 +42,12 @@ function MySkyStarCanvasComponent({
 }: MySkyStarCanvasProps) {
   const { stars, viewState } = view;
   const router = useRouter();
-  const { skywrites } = useOnboarding();
+  const { skywrites, communities } = useOnboarding();
+  const joinedCommunityIds = useMemo(
+    () => communities.joined.map((entry) => entry.id),
+    [communities.joined],
+  );
+  const starSignature = useMemo(() => stars.map((star) => star.id).join('|'), [stars]);
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -92,12 +109,16 @@ function MySkyStarCanvasComponent({
   const [missingHint, setMissingHint] = useState<string | null>(null);
   const active = stars.find((s) => s.id === activeId);
 
+  useEffect(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  }, [starSignature]);
+
   const handleStarPress = useCallback(
     (star: MySkyStarDisplay) => {
       setActiveId(star.id);
       setMissingHint(null);
 
-      const target = resolveStarNavigation(star, skywrites);
+      const target = resolveStarNavigation(star, { skywrites, joinedCommunityIds });
 
       switch (target.kind) {
         case 'skywrite-detail':
@@ -108,6 +129,9 @@ function MySkyStarCanvasComponent({
           return;
         case 'public-sky':
           router.push(`/public-sky?id=${target.param}` as never);
+          return;
+        case 'community-detail':
+          router.push(`/community?id=${target.communityId}` as never);
           return;
         case 'star-detail':
           router.push(`/my-sky-star/${target.nodeId}` as never);
@@ -121,8 +145,21 @@ function MySkyStarCanvasComponent({
           return;
       }
     },
-    [router, skywrites],
+    [router, skywrites, joinedCommunityIds],
   );
+
+  const accessibilityLabel = useCallback((star: MySkyStarDisplay) => {
+    if (star.type === 'skywrite' && star.sourceId) {
+      return `Open skywrite: ${star.title ?? 'moment'}`;
+    }
+    if (star.type === 'community') {
+      return `Open community: ${star.title ?? 'community'}`;
+    }
+    if (star.type === 'connection') {
+      return `Open connection: ${star.title ?? 'connection'}`;
+    }
+    return star.title ? `View star: ${star.title}` : 'View star';
+  }, []);
 
   return (
     <View style={styles.outer}>
@@ -144,13 +181,7 @@ function MySkyStarCanvasComponent({
           <Pressable
             key={star.id}
             accessibilityRole="button"
-            accessibilityLabel={
-              star.type === 'skywrite' && star.sourceId
-                ? `Open skywrite: ${star.title ?? 'moment'}`
-                : star.title
-                  ? `View star: ${star.title}`
-                  : 'View star'
-            }
+            accessibilityLabel={accessibilityLabel(star)}
             onPress={() => handleStarPress(star)}
             style={[styles.starHit, { left: `${star.x * 100}%`, top: `${star.y * 100}%` }]}>
             <View style={styles.hitGlow} />
