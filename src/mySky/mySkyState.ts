@@ -6,6 +6,8 @@ import {
   type SkyGrowthProfile,
 } from '@/mySky/skyEvolution';
 import type { SkyConnectionActivity } from '@/mySky/skyConnectionSources';
+import type { SkyGuidanceSource } from '@/mySky/skyGuidanceSources';
+import type { SkyImpactActivity } from '@/mySky/skyImpactSources';
 import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { SkyNode, SkyPattern, SkyRelationship } from '@/mySky/skyNodeTypes';
 import {
@@ -13,6 +15,8 @@ import {
   projectNodeToStarDisplay,
 } from '@/mySky/skyVisualRules';
 import type { MySkyStarDisplay, MySkyState, MySkyView } from '@/mySky/types';
+import { resolveSkyGuidanceSource } from '@/mySky/skyGuidanceSources';
+import { resolveSkyImpactActivities } from '@/mySky/skyImpactSources';
 import type { UserPersonalizationProfile } from '@/onboarding/personalization/types';
 import type { SkywriteRecord } from '@/skywrite/types';
 
@@ -30,9 +34,10 @@ export interface MySkySources {
   participatingCommunityIds: string[];
   /** Explicit user goals — growth layer nodes only. */
   growthGoals: string[];
-  /** Whether an active guiding light exists (explicit, not inferred). */
-  guidanceActive: boolean;
-  guidanceLabel?: string;
+  /** Active guiding light — explicit, not inferred. */
+  guidance: SkyGuidanceSource | null;
+  /** Credible contribution markers from explicit Skywrite activity. */
+  impactActivities: SkyImpactActivity[];
   /** Today's Focus — explicit user activity feeding growth layers. */
   todayFocusValue?: string | null;
   todayFocusReflection?: string | null;
@@ -77,8 +82,8 @@ export function resolveMySkySources(
     connectionActivities,
     participatingCommunityIds,
     growthGoals: profile.goals ?? [],
-    guidanceActive: Boolean(profile.guidingLight?.title?.trim()),
-    guidanceLabel: profile.guidingLight?.title ?? undefined,
+    guidance: resolveSkyGuidanceSource(profile.guidingLight),
+    impactActivities: resolveSkyImpactActivities(profile.skywrites ?? []),
     todayFocusValue: profile.todayFocus?.value ?? null,
     todayFocusReflection: profile.todayFocus?.reflection ?? null,
     todayFocusDateKey: profile.todayFocus?.dateKey ?? null,

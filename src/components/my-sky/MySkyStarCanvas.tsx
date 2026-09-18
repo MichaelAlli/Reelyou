@@ -42,7 +42,8 @@ function MySkyStarCanvasComponent({
 }: MySkyStarCanvasProps) {
   const { stars, viewState } = view;
   const router = useRouter();
-  const { skywrites, communities } = useOnboarding();
+  const { skywrites, communities, guidingLightView } = useOnboarding();
+  const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
   const joinedCommunityIds = useMemo(
     () => communities.joined.map((entry) => entry.id),
     [communities.joined],
@@ -118,7 +119,11 @@ function MySkyStarCanvasComponent({
       setActiveId(star.id);
       setMissingHint(null);
 
-      const target = resolveStarNavigation(star, { skywrites, joinedCommunityIds });
+      const target = resolveStarNavigation(star, {
+        skywrites,
+        joinedCommunityIds,
+        guidanceActive,
+      });
 
       switch (target.kind) {
         case 'skywrite-detail':
@@ -133,6 +138,12 @@ function MySkyStarCanvasComponent({
         case 'community-detail':
           router.push(`/community?id=${target.communityId}` as never);
           return;
+        case 'starpath':
+          router.push('/starpath' as never);
+          return;
+        case 'impact-tab':
+          router.push('/(tabs)/impact' as never);
+          return;
         case 'star-detail':
           router.push(`/my-sky-star/${target.nodeId}` as never);
           return;
@@ -145,7 +156,7 @@ function MySkyStarCanvasComponent({
           return;
       }
     },
-    [router, skywrites, joinedCommunityIds],
+    [router, skywrites, joinedCommunityIds, guidanceActive],
   );
 
   const accessibilityLabel = useCallback((star: MySkyStarDisplay) => {
@@ -157,6 +168,12 @@ function MySkyStarCanvasComponent({
     }
     if (star.type === 'connection') {
       return `Open connection: ${star.title ?? 'connection'}`;
+    }
+    if (star.type === 'guidance') {
+      return `Open guidance: ${star.title ?? 'guidance'}`;
+    }
+    if (star.type === 'contribution') {
+      return `Open contribution: ${star.title ?? 'impact'}`;
     }
     return star.title ? `View star: ${star.title}` : 'View star';
   }, []);

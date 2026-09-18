@@ -10,7 +10,13 @@ import type {
 import type { SkywriteMediaMode } from '@/skywrite/types';
 
 /** @deprecated Prefer SkyNode — retained for list/card UI compatibility. */
-export type MySkyItemType = 'skywrite' | 'moment' | 'connection' | 'contribution' | 'community';
+export type MySkyItemType =
+  | 'skywrite'
+  | 'moment'
+  | 'connection'
+  | 'contribution'
+  | 'community'
+  | 'guidance';
 
 /** @deprecated Prefer SkyNode — retained for section lists on My Sky tab. */
 export interface MySkyItem {
@@ -47,7 +53,7 @@ export interface MySkyStarDisplay extends MySkyItem {
   x: number;
   y: number;
   color: string;
-  destination: 'skywrite' | 'public-sky' | 'community' | null;
+  destination: 'skywrite' | 'public-sky' | 'community' | 'starpath' | 'impact' | null;
   destinationParam: string | null;
   /** Data-driven visual emphasis from SkyNode.visual */
   visualSize?: number;

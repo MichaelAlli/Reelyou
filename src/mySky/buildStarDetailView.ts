@@ -78,7 +78,13 @@ export function buildStarDetailView(
   const dateLabel = formatStarDate(node.createdAt);
   const patternLabel = pattern?.label?.trim() || null;
 
+  const supportingText =
+    typeof node.metadata?.supportingText === 'string'
+      ? node.metadata.supportingText.trim()
+      : null;
+
   const context =
+    supportingText ||
     pattern?.note?.trim() ||
     TYPE_CONTEXT[node.type] ||
     (title === 'A light in your sky' ? 'This star is part of your living sky.' : null);

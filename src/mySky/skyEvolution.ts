@@ -69,7 +69,7 @@ export function computeSkyGrowthProfile(sources: MySkySources): SkyGrowthProfile
     growthCount * 0.35 +
     (hasFocus ? 0.4 : 0) +
     (hasReflection ? 0.8 : 0) +
-    (sources.guidanceActive ? 0.3 : 0);
+    (sources.guidance ? 0.3 : 0);
 
   const vitality = sublinearVitality(activityUnits);
 
@@ -79,8 +79,10 @@ export function computeSkyGrowthProfile(sources: MySkySources): SkyGrowthProfile
     communities: clamp01(communityCount > 0 ? 0.45 + communityCount * 0.12 : 0.15),
     connections: clamp01(communityCount > 0 ? 0.4 + communityCount * 0.1 : 0.12),
     growth: clamp01(growthCount > 0 ? 0.5 + growthCount * 0.1 : 0.1),
-    impact: clamp01(skywriteCount >= 3 ? 0.35 : 0.08),
-    guidance: sources.guidanceActive ? 0.85 : 0.1,
+    impact: clamp01(
+      sources.impactActivities.length > 0 ? 0.45 + sources.impactActivities.length * 0.08 : 0.08,
+    ),
+    guidance: sources.guidance ? 0.85 : 0.1,
     temporal: clamp01(evolutionCount > 0 ? 0.25 + Math.min(evolutionCount, 12) * 0.04 : 0.05),
   };
 

@@ -7,12 +7,15 @@ export type StarNavigationTarget =
   | { kind: 'skywrite-compose' }
   | { kind: 'public-sky'; param: string }
   | { kind: 'community-detail'; communityId: string }
+  | { kind: 'starpath' }
+  | { kind: 'impact-tab' }
   | { kind: 'star-detail'; nodeId: string }
   | { kind: 'none'; reason?: 'missing-skywrite' };
 
 export interface StarNavigationContext {
   skywrites: SkywriteRecord[];
   joinedCommunityIds?: string[];
+  guidanceActive?: boolean;
 }
 
 /** Resolve star tap → route using stable sourceId linkage from MY SKY 01. */
@@ -24,12 +27,30 @@ export function resolveStarNavigation(
   const joinedCommunityIds = Array.isArray(context)
     ? undefined
     : context.joinedCommunityIds;
+  const guidanceActive = Array.isArray(context) ? undefined : context.guidanceActive;
 
   if (star.type === 'skywrite' && star.sourceId) {
     if (skywrites.some((post) => post.id === star.sourceId)) {
       return { kind: 'skywrite-detail', skywriteId: star.sourceId };
     }
     return { kind: 'none', reason: 'missing-skywrite' };
+  }
+
+  if (star.type === 'guidance' || star.destination === 'starpath') {
+    if (guidanceActive ?? true) {
+      return { kind: 'starpath' };
+    }
+    return { kind: 'star-detail', nodeId: star.id };
+  }
+
+  if (star.type === 'contribution' || star.destination === 'impact') {
+    if (star.sourceId && skywrites.some((post) => post.id === star.sourceId)) {
+      return { kind: 'impact-tab' };
+    }
+    if (star.destination === 'impact') {
+      return { kind: 'impact-tab' };
+    }
+    return { kind: 'star-detail', nodeId: star.id };
   }
 
   if (star.destination === 'community' && star.destinationParam) {

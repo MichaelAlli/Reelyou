@@ -22,6 +22,8 @@ import type {
   SkySourceType,
 } from '@/mySky/skyNodeTypes';
 import type { SkyConnectionActivity } from '@/mySky/skyConnectionSources';
+import type { SkyGuidanceSource } from '@/mySky/skyGuidanceSources';
+import type { SkyImpactActivity } from '@/mySky/skyImpactSources';
 import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { SkywriteRecord } from '@/skywrite/types';
 
@@ -214,29 +216,57 @@ function buildGrowthNode(goal: string, index: number, vitality: number): SkyNode
   return refreshNodeVisual(base, vitality);
 }
 
-function buildGuidanceNode(label: string, vitality: number): SkyNode {
-  const id = 'guidance-active';
-  const layout = resolveStableNodePosition(id);
+function buildGuidanceNode(source: SkyGuidanceSource, vitality: number): SkyNode {
+  const id = `guidance-${source.id}`;
+  const layout = resolveStableNodePosition('guidance-active');
 
   const base: SkyNode = {
     id,
     type: 'guidance',
     sourceType: 'guidance',
+    sourceId: source.id,
     layer: 'guidance',
-    createdAt: new Date().toISOString(),
+    createdAt: source.createdAt,
     position: { x: layout.x, y: layout.y },
     visual: { size: 5, brightness: 1, glow: 0.8, opacity: 1, emphasis: 1, color: layout.color },
     userGenerated: false,
     inferred: false,
     userDefined: true,
     provenance: { source: 'explicit', reason: 'guiding_light' },
-    destination: null,
-    destinationParam: null,
-    title: label.slice(0, 48),
+    destination: 'starpath',
+    destinationParam: source.id,
+    title: source.title,
     patternId: null,
+    metadata: source.supportingText ? { supportingText: source.supportingText } : undefined,
   };
 
   return refreshNodeVisual(base, vitality, 0.08);
+}
+
+function buildImpactNode(activity: SkyImpactActivity, vitality: number): SkyNode {
+  const layout = resolveStableNodePosition(activity.id);
+
+  const base: SkyNode = {
+    id: activity.id,
+    type: 'impact',
+    sourceType: 'impact',
+    sourceId: activity.sourceId,
+    layer: 'impact',
+    createdAt: activity.createdAt,
+    position: { x: layout.x, y: layout.y },
+    visual: { size: 5.6, brightness: 1, glow: 0.8, opacity: 1, emphasis: 1, color: layout.color },
+    userGenerated: true,
+    inferred: false,
+    userDefined: true,
+    provenance: { source: 'explicit', reason: 'user_contribution_marker' },
+    destination: 'impact',
+    destinationParam: activity.sourceId,
+    title: activity.title,
+    patternId: null,
+    metadata: { showingUp: activity.showingUp },
+  };
+
+  return refreshNodeVisual(base, vitality, 0.06);
 }
 
 function buildFixtureNode(
@@ -324,10 +354,10 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
   const growthNodes = sources.growthGoals
     .slice(0, 4)
     .map((goal, index) => buildGrowthNode(goal, index, vitality));
-  const guidanceNodes =
-    sources.guidanceActive && sources.guidanceLabel
-      ? [buildGuidanceNode(sources.guidanceLabel, vitality)]
-      : [];
+  const guidanceNodes = sources.guidance ? [buildGuidanceNode(sources.guidance, vitality)] : [];
+  const impactNodes = sources.impactActivities.map((activity) =>
+    buildImpactNode(activity, vitality),
+  );
 
   let nodes: SkyNode[] = [
     ...skywriteNodes,
@@ -337,6 +367,7 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
     ...connectionNodes,
     ...growthNodes,
     ...guidanceNodes,
+    ...impactNodes,
   ];
 
   nodes = applyVisualPrioritization(nodes, growthProfile);

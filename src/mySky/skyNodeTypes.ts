@@ -84,7 +84,7 @@ export interface SkyNode {
   inferred: boolean;
   userDefined?: boolean;
   provenance: SkyProvenance;
-  destination?: 'skywrite' | 'public-sky' | 'community' | null;
+  destination?: 'skywrite' | 'public-sky' | 'community' | 'starpath' | 'impact' | null;
   destinationParam?: string | null;
   title?: string;
   visibility?: string;

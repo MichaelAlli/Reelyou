@@ -32,6 +32,14 @@ export {
   type SkyConnectionActivity,
 } from './skyConnectionSources';
 export {
+  resolveSkyGuidanceSource,
+  type SkyGuidanceSource,
+} from './skyGuidanceSources';
+export {
+  resolveSkyImpactActivities,
+  type SkyImpactActivity,
+} from './skyImpactSources';
+export {
   findSkywriteById,
   resolveStarNavigation,
   type StarNavigationContext,

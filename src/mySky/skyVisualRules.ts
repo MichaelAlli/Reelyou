@@ -54,6 +54,7 @@ function mapNodeTypeToItemType(
   if (type === 'community') return 'community';
   if (type === 'relationship') return 'connection';
   if (type === 'impact') return 'contribution';
+  if (type === 'guidance') return 'guidance';
   return 'moment';
 }
 
