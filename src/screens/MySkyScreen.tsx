@@ -58,6 +58,9 @@ export function MySkyScreen() {
 
   const [cleanSkyActive, setCleanSkyActive] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [highlightOwnerId, setHighlightOwnerId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [worldSize, setWorldSize] = useState({ width: 0, height: 0 });
   const [liveViewport, setLiveViewport] = useState<MySkyViewportSnapshot>(mySkyViewport);
   const [jumpSnapshot, setJumpSnapshot] = useState<MySkyViewportSnapshot | null>(null);
@@ -99,8 +102,15 @@ export function MySkyScreen() {
   );
 
   const searchCatalog = useMemo(
-    () => buildSkySearchResults('', aroundYourSkyFeed, connectionActivities, communities),
-    [aroundYourSkyFeed, communities, connectionActivities],
+    () =>
+      buildSkySearchResults(
+        '',
+        aroundYourSkyFeed,
+        connectionActivities,
+        communities,
+        mySkyExploreEnabled,
+      ),
+    [aroundYourSkyFeed, communities, connectionActivities, mySkyExploreEnabled],
   );
 
   const displayAnchors = useMemo(() => {
@@ -222,11 +232,35 @@ export function MySkyScreen() {
       const anchor = resolveAnchorForOwner(ownerId);
       if (anchor) {
         jumpToAnchor(anchor);
+        setHighlightOwnerId(ownerId);
+        if (highlightTimerRef.current) {
+          clearTimeout(highlightTimerRef.current);
+        }
+        highlightTimerRef.current = setTimeout(() => {
+          setHighlightOwnerId(null);
+          highlightTimerRef.current = null;
+        }, 2600);
       }
       setSearchVisible(false);
     },
     [jumpToAnchor, resolveAnchorForOwner],
   );
+
+  const handleViewSkyFromSearch = useCallback(
+    (publicSkyId: string) => {
+      setSearchVisible(false);
+      router.push(`/public-sky?id=${publicSkyId}` as never);
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, []);
 
   const toggleCleanSky = useCallback(() => {
     setCleanSkyActive((active) => !active);
@@ -360,6 +394,7 @@ export function MySkyScreen() {
             nearbyAnchors={displayAnchors}
             proximityOwnerId={proximity.anchor?.ownerId ?? null}
             proximityPhase={proximity.phase}
+            highlightOwnerId={highlightOwnerId}
             onJumpToSky={jumpToAnchor}
             resolveAnchorForOwner={resolveAnchorForOwner}
             view={mySkyView}
@@ -395,9 +430,13 @@ export function MySkyScreen() {
 
       <MySkySearchSheet
         visible={searchVisible}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
         onClose={() => setSearchVisible(false)}
+        exploreEnabled={mySkyExploreEnabled}
         nearbyAnchors={nearbyAnchors}
         onJumpToSky={handleJumpFromSearch}
+        onViewSky={handleViewSkyFromSearch}
         resolveAnchorForOwner={resolveAnchorForOwner}
       />
 

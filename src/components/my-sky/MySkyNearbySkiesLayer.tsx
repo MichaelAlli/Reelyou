@@ -14,6 +14,7 @@ interface MySkyNearbySkiesLayerProps {
   activeOwnerId?: string | null;
   proximityOwnerId?: string | null;
   proximityPhase?: SkyProximityPhase;
+  highlightOwnerId?: string | null;
   onIdentityPress: (anchor: NearbySkyAnchor) => void;
 }
 
@@ -32,6 +33,7 @@ function MySkyNearbySkiesLayerComponent({
   activeOwnerId = null,
   proximityOwnerId = null,
   proximityPhase = 'none',
+  highlightOwnerId = null,
   onIdentityPress,
 }: MySkyNearbySkiesLayerProps) {
   if (worldWidth <= 0 || worldHeight <= 0) return null;
@@ -42,12 +44,15 @@ function MySkyNearbySkiesLayerComponent({
         {anchors.map((anchor) => {
           const isExplore = anchor.tier === 'explore';
           const isSharedCommunity = anchor.tier === 'shared-community';
+          const isHighlighted = highlightOwnerId === anchor.ownerId;
           const isProximity =
-            proximityOwnerId === anchor.ownerId && proximityPhase !== 'none';
+            (proximityOwnerId === anchor.ownerId && proximityPhase !== 'none') || isHighlighted;
           const cx = anchor.x * worldWidth;
           const cy = anchor.y * worldHeight;
           const baseRadius = isExplore ? 30 : isSharedCommunity ? 38 : 42;
-          const radius = baseRadius + (isProximity ? (proximityPhase === 'entered' ? 10 : 6) : 0);
+          const radius =
+            baseRadius +
+            (isHighlighted ? 8 : isProximity ? (proximityPhase === 'entered' ? 10 : 6) : 0);
           const opacity = isExplore ? 0.12 : isSharedCommunity ? 0.18 : 0.22;
 
           return (
@@ -73,10 +78,13 @@ function MySkyNearbySkiesLayerComponent({
       </Svg>
 
       {anchors.map((anchor) => {
+        const isHighlighted = highlightOwnerId === anchor.ownerId;
         const isProximity =
-          proximityOwnerId === anchor.ownerId && proximityPhase !== 'none';
+          (proximityOwnerId === anchor.ownerId && proximityPhase !== 'none') || isHighlighted;
         const prominence =
-          prominenceForTier(anchor.tier) * prominenceBoost(proximityPhase, isProximity);
+          prominenceForTier(anchor.tier) *
+          prominenceBoost(proximityPhase, isProximity) *
+          (isHighlighted ? 1.08 : 1);
 
         return (
           <MySkyIdentityStar
@@ -84,7 +92,11 @@ function MySkyNearbySkiesLayerComponent({
             star={anchor.identityStar}
             worldWidth={worldWidth}
             worldHeight={worldHeight}
-            active={activeOwnerId === anchor.ownerId || (isProximity && proximityPhase === 'entered')}
+            active={
+              activeOwnerId === anchor.ownerId ||
+              isHighlighted ||
+              (isProximity && proximityPhase === 'entered')
+            }
             prominence={prominence}
             onPress={() => onIdentityPress(anchor)}
           />

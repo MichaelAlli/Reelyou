@@ -2,6 +2,7 @@ import { orbitUsers } from '@/data/mockData';
 import type { CommunitiesRecord } from '@/onboarding/personalization/communities/types';
 import type { AroundYourSkyHomeFeed } from '@/social/aroundYourSky/types';
 
+import { resolvePublicSkyOwnerProfile } from './skyIdentity';
 import type { SkyConnectionActivity } from './skyConnectionSources';
 
 export type SkySearchConnectionContext =
@@ -14,10 +15,14 @@ export interface SkySearchResult {
   id: string;
   name: string;
   subtitle: string;
+  bioLine: string;
   avatarInitials: string;
   avatarColor: string;
+  avatarUri?: string | null;
   contextLabel: string;
   connectionContext: SkySearchConnectionContext;
+  sharedCommunityName?: string;
+  isConnected: boolean;
   publicSkyId: string | null;
   canViewSky: boolean;
 }
@@ -62,12 +67,56 @@ function resolveConnectionContext(
   return 'discoverable';
 }
 
+function resolveSharedCommunityName(
+  actorId: string,
+  feed: AroundYourSkyHomeFeed,
+  communities: CommunitiesRecord,
+): string | undefined {
+  for (const item of feed.items) {
+    if (item.actorId !== actorId || !item.communityId) continue;
+    const joined = communities.joined.find((entry) => entry.id === item.communityId);
+    if (joined) return joined.name;
+  }
+  return undefined;
+}
+
+function connectionStatusFor(context: SkySearchConnectionContext): boolean {
+  return context !== 'discoverable';
+}
+
+function enrichResult(
+  base: Omit<
+    SkySearchResult,
+    'bioLine' | 'avatarUri' | 'sharedCommunityName' | 'isConnected'
+  >,
+  feed: AroundYourSkyHomeFeed,
+  communities: CommunitiesRecord,
+): SkySearchResult {
+  const profile = resolvePublicSkyOwnerProfile(
+    base.id,
+    connectionStatusFor(base.connectionContext) ? 'connected' : 'none',
+  );
+  const sharedCommunityName =
+    base.connectionContext === 'shared-community'
+      ? resolveSharedCommunityName(base.id, feed, communities)
+      : undefined;
+
+  return {
+    ...base,
+    bioLine: profile?.bio ?? profile?.subtitle ?? base.subtitle,
+    avatarUri: profile?.avatarUri ?? null,
+    sharedCommunityName,
+    isConnected: connectionStatusFor(base.connectionContext),
+  };
+}
+
 /** My Sky discovery search — friends, connections, and public skies only. */
 export function buildSkySearchResults(
   query: string,
   feed: AroundYourSkyHomeFeed,
   connectionActivities: SkyConnectionActivity[],
   communities: CommunitiesRecord,
+  exploreEnabled = true,
 ): SkySearchResult[] {
   const catalog = new Map<string, SkySearchResult>();
 
@@ -79,17 +128,24 @@ export function buildSkySearchResults(
       communities,
     );
 
-    catalog.set(user.id, {
-      id: user.id,
-      name: user.name,
-      subtitle: user.label,
-      avatarInitials: user.avatarInitials,
-      avatarColor: user.avatarColor,
-      connectionContext,
-      contextLabel: CONTEXT_LABELS[connectionContext],
-      publicSkyId: user.id,
-      canViewSky: true,
-    });
+    catalog.set(
+      user.id,
+      enrichResult(
+        {
+          id: user.id,
+          name: user.name,
+          subtitle: user.label,
+          avatarInitials: user.avatarInitials,
+          avatarColor: user.avatarColor,
+          connectionContext,
+          contextLabel: CONTEXT_LABELS[connectionContext],
+          publicSkyId: user.id,
+          canViewSky: true,
+        },
+        feed,
+        communities,
+      ),
+    );
   }
 
   for (const item of feed.items) {
@@ -103,18 +159,25 @@ export function buildSkySearchResults(
     );
     const orbitMatch = orbitUsers.find((user) => user.id === item.actorId);
 
-    catalog.set(item.actorId, {
-      id: item.actorId,
-      name: item.actorName,
-      subtitle: item.preview ?? item.message,
-      avatarInitials: item.actorInitials,
-      avatarColor: item.actorColor,
-      connectionContext,
-      contextLabel: CONTEXT_LABELS[connectionContext],
-      publicSkyId:
-        item.destination === 'public-sky' ? item.destinationParam : orbitMatch?.id ?? null,
-      canViewSky: Boolean(orbitMatch ?? item.destination === 'public-sky'),
-    });
+    catalog.set(
+      item.actorId,
+      enrichResult(
+        {
+          id: item.actorId,
+          name: item.actorName,
+          subtitle: item.preview ?? item.message,
+          avatarInitials: item.actorInitials,
+          avatarColor: item.actorColor,
+          connectionContext,
+          contextLabel: CONTEXT_LABELS[connectionContext],
+          publicSkyId:
+            item.destination === 'public-sky' ? item.destinationParam : orbitMatch?.id ?? null,
+          canViewSky: Boolean(orbitMatch ?? item.destination === 'public-sky'),
+        },
+        feed,
+        communities,
+      ),
+    );
   }
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -125,11 +188,17 @@ export function buildSkySearchResults(
         (entry) =>
           entry.name.toLowerCase().includes(normalizedQuery) ||
           entry.subtitle.toLowerCase().includes(normalizedQuery) ||
-          entry.contextLabel.toLowerCase().includes(normalizedQuery),
+          entry.bioLine.toLowerCase().includes(normalizedQuery) ||
+          entry.contextLabel.toLowerCase().includes(normalizedQuery) ||
+          entry.sharedCommunityName?.toLowerCase().includes(normalizedQuery),
       )
     : all;
 
-  return filtered
+  const scoped = exploreEnabled
+    ? filtered
+    : filtered.filter((entry) => entry.connectionContext !== 'discoverable');
+
+  return scoped
     .sort((a, b) => {
       const rank = (context: SkySearchConnectionContext) => {
         if (context === 'connected') return 0;

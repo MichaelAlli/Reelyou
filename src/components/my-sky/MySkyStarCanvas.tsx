@@ -59,6 +59,7 @@ interface MySkyStarCanvasProps {
   nearbyAnchors?: NearbySkyAnchor[];
   proximityOwnerId?: string | null;
   proximityPhase?: SkyProximityPhase;
+  highlightOwnerId?: string | null;
   onJumpToSky?: (anchor: NearbySkyAnchor) => void;
   resolveAnchorForOwner?: (ownerId: string) => NearbySkyAnchor | null;
   viewportSnapshot?: MySkyViewportSnapshot;
@@ -84,6 +85,7 @@ function MySkyStarCanvasComponent({
   nearbyAnchors = [],
   proximityOwnerId = null,
   proximityPhase = 'none',
+  highlightOwnerId = null,
   onJumpToSky,
   resolveAnchorForOwner,
   viewportSnapshot,
@@ -372,6 +374,7 @@ function MySkyStarCanvasComponent({
           activeOwnerId={bubbleOpen ? activeBubbleOwner.id : null}
           proximityOwnerId={proximityOwnerId}
           proximityPhase={proximityPhase}
+          highlightOwnerId={highlightOwnerId}
           onIdentityPress={handleNearbyIdentityPress}
         />
       ) : null}
