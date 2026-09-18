@@ -1,17 +1,24 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MySkyConstellationDetailSheet } from '@/components/my-sky/MySkyConstellationDetailSheet';
+import { MySkyPublicSkyHeader } from '@/components/my-sky/MySkyPublicSkyHeader';
 import { MySkyStarCanvas } from '@/components/my-sky/MySkyStarCanvas';
-import { Fonts, Spacing } from '@/constants/theme';
+import {
+  buildConstellationDetailView,
+  type ConstellationDetailView,
+} from '@/mySky/buildConstellationDetailView';
+import { findPatternForNodeId } from '@/mySky/buildConstellationIntelligence';
 import {
   buildPublicSkyView,
   resolvePublicSkyConnectionStatus,
 } from '@/mySky/buildPublicSkyView';
 import { DEFAULT_MY_SKY_VIEWPORT, type MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
+import { resolvePublicSkyVisitorContext } from '@/mySky/resolvePublicSkyContext';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
-import { DEFAULT_MY_SKY_VISIBLE_LAYERS } from '@/mySky/skyLayers';
+import type { MySkyStarDisplay } from '@/mySky/types';
 import { useOnboarding } from '@/onboarding';
 
 interface PublicSkyScreenProps {
@@ -20,8 +27,13 @@ interface PublicSkyScreenProps {
 
 export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
   const router = useRouter();
-  const { aroundYourSkyFeed } = useOnboarding();
+  const { aroundYourSkyFeed, communities } = useOnboarding();
   const [viewport, setViewport] = useState<MySkyViewportSnapshot>({ ...DEFAULT_MY_SKY_VIEWPORT });
+  const [constellationDetailVisible, setConstellationDetailVisible] = useState(false);
+  const [constellationDetail, setConstellationDetail] = useState<ConstellationDetailView | null>(
+    null,
+  );
+  const [constellationRevealCount, setConstellationRevealCount] = useState(0);
 
   const connectionActivities = useMemo(
     () => resolveSkyConnectionActivities(aroundYourSkyFeed),
@@ -33,11 +45,28 @@ export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
     [connectionActivities],
   );
 
+  const connectionStatus = useMemo(
+    () => (userId ? resolvePublicSkyConnectionStatus(userId, connectedActorIds) : 'none'),
+    [connectedActorIds, userId],
+  );
+
   const publicSkyView = useMemo(() => {
     if (!userId) return null;
-    const connectionStatus = resolvePublicSkyConnectionStatus(userId, connectedActorIds);
     return buildPublicSkyView(userId, connectionStatus);
-  }, [connectedActorIds, userId]);
+  }, [connectionStatus, userId]);
+
+  const visitorContext = useMemo(() => {
+    if (!userId) {
+      return { connectionStatus: 'none' as const };
+    }
+    return resolvePublicSkyVisitorContext(
+      userId,
+      connectionStatus,
+      aroundYourSkyFeed,
+      communities,
+      connectionActivities,
+    );
+  }, [aroundYourSkyFeed, communities, connectionActivities, connectionStatus, userId]);
 
   const handleViewportChange = useCallback((snapshot: MySkyViewportSnapshot) => {
     setViewport(snapshot);
@@ -45,55 +74,105 @@ export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
 
   const noopToggleLayer = useCallback(() => {}, []);
 
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const handleConnect = useCallback(() => {
+    // Stub — existing connection infrastructure hook point.
+  }, []);
+
+  const openConstellationDetail = useCallback(
+    (patternId: string) => {
+      if (!publicSkyView) return;
+      const pattern = publicSkyView.patterns.find((entry) => entry.id === patternId);
+      if (!pattern) return;
+      setConstellationRevealCount((count) => count + 1);
+      setConstellationDetail(
+        buildConstellationDetailView(pattern, publicSkyView.nodes, publicSkyView.stars),
+      );
+      setConstellationDetailVisible(true);
+    },
+    [publicSkyView],
+  );
+
+  const handlePatternStarPress = useCallback(
+    (star: MySkyStarDisplay) => {
+      if (!publicSkyView) return;
+      const pattern = findPatternForNodeId(publicSkyView.patterns, star.id);
+      if (!pattern) return;
+      openConstellationDetail(pattern.id);
+    },
+    [openConstellationDetail, publicSkyView],
+  );
+
+  const handleConstellationStarSelect = useCallback(
+    (nodeId: string) => {
+      if (!userId) return;
+      setConstellationDetailVisible(false);
+      router.push(`/my-sky-star/${nodeId}?ownerId=${userId}` as never);
+    },
+    [router, userId],
+  );
+
   if (!publicSkyView) {
     return (
       <View style={styles.root}>
         <SafeAreaView style={styles.safe} edges={['top']}>
-          <Pressable onPress={() => router.back()} style={styles.back}>
-            <Text style={styles.backText}>← Back</Text>
-          </Pressable>
-          <Text style={styles.unavailableTitle}>Sky unavailable</Text>
-          <Text style={styles.unavailableBody}>This person’s Public Sky is not available yet.</Text>
+          <MySkyPublicSkyHeader
+            owner={{
+              id: userId ?? 'unknown',
+              name: 'Sky unavailable',
+              avatarInitials: '?',
+              avatarColor: '#6B7280',
+              isSelf: false,
+            }}
+            visitorContext={{ connectionStatus: 'none' }}
+            onBack={handleBack}
+          />
         </SafeAreaView>
       </View>
     );
   }
 
-  const readOnlyView = {
-    ...publicSkyView,
-    viewState: {
-      ...publicSkyView.viewState,
-      visibleLayers: { ...DEFAULT_MY_SKY_VISIBLE_LAYERS, stars: true },
-    },
-  };
-
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.back}>
-            <Text style={styles.backText}>← Back</Text>
-          </Pressable>
-          <View style={styles.titleWrap}>
-            <Text style={styles.title}>{publicSkyView.skyOwner.name}</Text>
-            <Text style={styles.subtitle}>Public Sky</Text>
-          </View>
-        </View>
+        <MySkyPublicSkyHeader
+          owner={publicSkyView.skyOwner}
+          visitorContext={visitorContext}
+          onBack={handleBack}
+          onConnect={visitorContext.connectionStatus === 'connected' ? undefined : handleConnect}
+        />
 
         <View style={styles.skyArea}>
           <MySkyStarCanvas
             immersive
+            visitorMode
+            publicSkyOwnerId={publicSkyView.skyOwner.id}
+            publicSkyNodes={publicSkyView.nodes}
+            publicSkyConnectionStatus={connectionStatus}
             cleanSky
             showLayerControls={false}
-            view={readOnlyView}
+            view={publicSkyView}
             onToggleLayer={noopToggleLayer}
-            onRevealConstellations={() => {}}
-            constellationRevealCount={0}
+            onRevealConstellations={() => setConstellationRevealCount((count) => count + 1)}
+            constellationRevealCount={constellationRevealCount}
+            constellationRevealActive={constellationRevealCount > 0}
+            onPatternStarPress={handlePatternStarPress}
+            onConnect={handleConnect}
             viewportSnapshot={viewport}
             onViewportChange={handleViewportChange}
           />
         </View>
       </SafeAreaView>
+
+      <MySkyConstellationDetailSheet
+        visible={constellationDetailVisible}
+        detail={constellationDetail}
+        onClose={() => setConstellationDetailVisible(false)}
+        onSelectStar={handleConstellationStarSelect}
+      />
     </View>
   );
 }
@@ -106,55 +185,8 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.xs,
-    gap: Spacing.xs,
-    zIndex: 2,
-  },
-  back: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-  },
-  backText: {
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    color: 'rgba(235, 228, 248, 0.82)',
-  },
-  titleWrap: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  title: {
-    fontFamily: Fonts.serif,
-    fontSize: 22,
-    fontWeight: '600',
-    color: 'rgba(248, 244, 255, 0.96)',
-  },
-  subtitle: {
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    color: 'rgba(235, 228, 248, 0.62)',
-  },
   skyArea: {
     flex: 1,
     minHeight: 0,
-  },
-  unavailableTitle: {
-    fontFamily: Fonts.serif,
-    fontSize: 22,
-    fontWeight: '600',
-    color: 'rgba(248, 244, 255, 0.96)',
-    textAlign: 'center',
-    marginTop: Spacing.xl,
-  },
-  unavailableBody: {
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    lineHeight: 20,
-    color: 'rgba(235, 228, 248, 0.68)',
-    textAlign: 'center',
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
   },
 });

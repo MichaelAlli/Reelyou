@@ -73,4 +73,9 @@ export const MySkyCopy = {
   nearbyChip: 'Nearby',
   constellationConnectedStars: 'Connected stars',
   constellationDetailClose: 'Close',
+  publicSkyBack: '← My Sky',
+  publicSkyOwnerLabel: '{name}\u2019s Sky',
+  publicSkyVisitorLabel: 'Visiting',
+  publicSkyGestureHint: 'Drag to explore · Tap stars to view',
+  publicStarUnavailable: 'This moment is not public.',
 } as const;

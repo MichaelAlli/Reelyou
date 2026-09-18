@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -10,17 +11,47 @@ import {
   findPatternForNode,
   findSkyNodeById,
 } from '@/mySky/buildStarDetailView';
+import {
+  buildPublicSkyView,
+  resolvePublicSkyConnectionStatus,
+} from '@/mySky/buildPublicSkyView';
+import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
+import { isPublicSkyNodeVisible } from '@/mySky/skyPublicVisibility';
 import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
 
 export function StarDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
-  const { mySkyView } = useOnboarding();
+  const { id, ownerId } = useLocalSearchParams<{ id?: string; ownerId?: string }>();
+  const { mySkyView, aroundYourSkyFeed } = useOnboarding();
   const nodeId = typeof id === 'string' ? id : undefined;
-  const node = findSkyNodeById(mySkyView.nodes, nodeId);
-  const pattern = node ? findPatternForNode(mySkyView.patterns, node.id) : null;
-  const detail = node ? buildStarDetailView(node, pattern) : null;
+  const publicOwnerId = typeof ownerId === 'string' ? ownerId : undefined;
+
+  const connectionActivities = useMemo(
+    () => resolveSkyConnectionActivities(aroundYourSkyFeed),
+    [aroundYourSkyFeed],
+  );
+
+  const publicSkyView = useMemo(() => {
+    if (!publicOwnerId) return null;
+    const connectionStatus = resolvePublicSkyConnectionStatus(
+      publicOwnerId,
+      connectionActivities.map((entry) => entry.actorId),
+    );
+    return buildPublicSkyView(publicOwnerId, connectionStatus);
+  }, [connectionActivities, publicOwnerId]);
+
+  const sourceView = publicSkyView ?? mySkyView;
+  const node = findSkyNodeById(sourceView.nodes, nodeId);
+  const visibleNode =
+    node &&
+    (!publicSkyView ||
+      isPublicSkyNodeVisible(node, publicSkyView.skyOwner.connectionStatus ?? 'none'))
+      ? node
+      : null;
+  const pattern = visibleNode ? findPatternForNode(sourceView.patterns, visibleNode.id) : null;
+  const detail = visibleNode ? buildStarDetailView(visibleNode, pattern) : null;
+  const backLabel = publicOwnerId ? MySkyCopy.publicSkyBack : MySkyCopy.starDetailBack;
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -125,10 +156,10 @@ export function StarDetailScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={MySkyCopy.starDetailBack}
+            accessibilityLabel={backLabel}
             onPress={() => router.back()}
             style={styles.back}>
-            <Text style={styles.backText}>{MySkyCopy.starDetailBack}</Text>
+            <Text style={styles.backText}>{backLabel}</Text>
           </Pressable>
 
           {detail ? (

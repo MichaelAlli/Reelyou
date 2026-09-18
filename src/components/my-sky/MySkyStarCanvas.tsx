@@ -22,7 +22,10 @@ import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
 import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
 import type { SkyProximityPhase } from '@/mySky/skyProximity';
 import type { SkyOwnerProfile } from '@/mySky/skyIdentity';
+import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
+import type { SkyNode } from '@/mySky/skyNodeTypes';
 import { resolveStarNavigation } from '@/mySky/resolveStarNavigation';
+import { resolveVisitorStarNavigation } from '@/mySky/resolveVisitorStarNavigation';
 import type { MySkyLayerId } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
 import { useOnboarding } from '@/onboarding';
@@ -67,6 +70,11 @@ interface MySkyStarCanvasProps {
   onViewportChange?: (snapshot: MySkyViewportSnapshot) => void;
   onViewportLiveChange?: (snapshot: MySkyViewportSnapshot) => void;
   onWorldSizeChange?: (worldSize: { width: number; height: number }) => void;
+  visitorMode?: boolean;
+  publicSkyOwnerId?: string;
+  publicSkyNodes?: SkyNode[];
+  publicSkyConnectionStatus?: SkyConnectionStatus;
+  onConnect?: () => void;
 }
 
 function MySkyStarCanvasComponent({
@@ -93,6 +101,11 @@ function MySkyStarCanvasComponent({
   onViewportChange,
   onViewportLiveChange,
   onWorldSizeChange,
+  visitorMode = false,
+  publicSkyOwnerId,
+  publicSkyNodes = [],
+  publicSkyConnectionStatus = 'none',
+  onConnect,
 }: MySkyStarCanvasProps) {
   const { stars, viewState, skyOwner, identityStar } = view;
   const router = useRouter();
@@ -224,11 +237,18 @@ function MySkyStarCanvasComponent({
       setActiveId(star.id);
       setMissingHint(null);
 
-      const target = resolveStarNavigation(star, {
-        skywrites,
-        joinedCommunityIds,
-        guidanceActive,
-      });
+      const target = visitorMode
+        ? resolveVisitorStarNavigation(
+            star,
+            publicSkyNodes,
+            publicSkyConnectionStatus,
+            publicSkyOwnerId ?? skyOwner.id,
+          )
+        : resolveStarNavigation(star, {
+            skywrites,
+            joinedCommunityIds,
+            guidanceActive,
+          });
 
       switch (target.kind) {
         case 'skywrite-detail':
@@ -250,18 +270,30 @@ function MySkyStarCanvasComponent({
           router.push('/(tabs)/impact' as never);
           return;
         case 'star-detail':
-          router.push(`/my-sky-star/${target.nodeId}` as never);
+          router.push(
+            visitorMode
+              ? (`/my-sky-star/${target.nodeId}?ownerId=${publicSkyOwnerId ?? skyOwner.id}` as never)
+              : (`/my-sky-star/${target.nodeId}` as never),
+          );
           return;
         case 'none':
-          if (target.reason === 'missing-skywrite') {
-            setMissingHint(MySkyCopy.starMissingToast);
-          }
+          setMissingHint(visitorMode ? MySkyCopy.publicStarUnavailable : MySkyCopy.starMissingToast);
           return;
         default:
           return;
       }
     },
-    [router, skywrites, joinedCommunityIds, guidanceActive],
+    [
+      guidanceActive,
+      joinedCommunityIds,
+      publicSkyConnectionStatus,
+      publicSkyNodes,
+      publicSkyOwnerId,
+      router,
+      skyOwner.id,
+      skywrites,
+      visitorMode,
+    ],
   );
 
   const handleStarPress = useCallback(
@@ -292,8 +324,10 @@ function MySkyStarCanvasComponent({
       router.push('/(tabs)/profile' as never);
       return;
     }
-    router.push(`/public-sky?id=${activeBubbleOwner.id}` as never);
-  }, [activeBubbleOwner.id, activeBubbleOwner.isSelf, router]);
+    if (!visitorMode) {
+      router.push(`/public-sky?id=${activeBubbleOwner.id}` as never);
+    }
+  }, [activeBubbleOwner.isSelf, activeBubbleOwner.id, router, visitorMode]);
 
   const handleViewFullSky = useCallback(() => {
     setBubbleOpen(false);
@@ -323,7 +357,8 @@ function MySkyStarCanvasComponent({
 
   const handleConnect = useCallback(() => {
     setBubbleOpen(false);
-  }, []);
+    onConnect?.();
+  }, [onConnect]);
 
   const bubbleCanViewFullSky = activeBubbleOwner.isSelf
     ? false
@@ -413,8 +448,16 @@ function MySkyStarCanvasComponent({
         onClose={closeProfileBubble}
         onViewProfile={handleViewProfile}
         onJumpToSky={bubbleCanJumpToSky ? handleJumpToSkyFromBubble : undefined}
-        onViewFullSky={activeBubbleOwner.isSelf ? undefined : handleViewFullSky}
-        onConnect={activeBubbleOwner.isSelf ? undefined : handleConnect}
+        onViewFullSky={
+          activeBubbleOwner.isSelf || visitorMode ? undefined : handleViewFullSky
+        }
+        onConnect={
+          activeBubbleOwner.isSelf
+            ? undefined
+            : visitorMode
+              ? onConnect
+              : handleConnect
+        }
       />
 
       {active?.title && !missingHint ? (
@@ -426,6 +469,11 @@ function MySkyStarCanvasComponent({
       {immersive && !cleanSky ? (
         <View style={styles.exploreHint} pointerEvents="none">
           <Text style={styles.exploreHintText}>{MySkyCopy.exploreGestureHint}</Text>
+        </View>
+      ) : null}
+      {visitorMode && cleanSky ? (
+        <View style={styles.exploreHint} pointerEvents="none">
+          <Text style={styles.exploreHintText}>{MySkyCopy.publicSkyGestureHint}</Text>
         </View>
       ) : null}
     </>
