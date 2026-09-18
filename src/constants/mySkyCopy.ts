@@ -39,6 +39,8 @@ export const MySkyCopy = {
   cleanSkyOff: 'Show controls',
   cleanSkyCompactLabel: 'Clean',
   cleanSkyHint: 'Explore your sky without overlays',
+  immersiveModeEnter: 'Enter immersive full-sky mode',
+  immersiveModeExit: 'Exit immersive mode and restore controls',
   exploreGestureHint: 'Drag to explore · Pinch to zoom',
   identityNorthStarPrefix: 'North Star —',
   identityViewProfile: 'View Profile',

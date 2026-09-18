@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
-import { MySkyCleanSkyToggle } from '@/components/my-sky/MySkyCleanSkyToggle';
+import { MySkyImmersiveToggleButton } from '@/components/my-sky/MySkyImmersiveToggleButton';
 import { MySkyControlRow } from '@/components/my-sky/MySkyControlRow';
 import { MySkyInsightOverlay } from '@/components/my-sky/MySkyInsightOverlay';
 import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
@@ -155,10 +155,9 @@ export function MySkyScreen() {
                   constellationRevealActive={constellationRevealActive}
                 />
               </View>
-              <MySkyCleanSkyToggle
-                compact
-                active={cleanSkyActive}
-                onToggle={toggleCleanSky}
+              <MySkyImmersiveToggleButton
+                immersiveActive={cleanSkyActive}
+                onPress={toggleCleanSky}
               />
             </View>
           </>
@@ -194,7 +193,11 @@ export function MySkyScreen() {
           {!cleanSkyActive ? (
             <MySkyInsightOverlay view={mySkyView} visibleLayers={visibleLayers} />
           ) : (
-            <MySkyCleanSkyToggle active floating onToggle={toggleCleanSky} />
+            <MySkyImmersiveToggleButton
+              immersiveActive={cleanSkyActive}
+              onPress={toggleCleanSky}
+              floating
+            />
           )}
         </View>
       </SafeAreaView>
