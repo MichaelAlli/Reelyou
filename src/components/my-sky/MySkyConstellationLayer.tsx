@@ -17,7 +17,6 @@ import {
   MY_SKY_DISPLAY_CONSTELLATIONS,
 } from '@/mySky/constellationLayout';
 import type { SkyNode, SkyRelationship } from '@/mySky/skyNodeTypes';
-import { isLayerVisible } from '@/mySky/skyLayers';
 import type { MySkyVisibleLayers } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay } from '@/mySky/types';
 
@@ -40,6 +39,9 @@ interface MySkyConstellationLayerProps {
   patternRelationships?: SkyRelationship[];
   patternNodes?: SkyNode[];
   visibleLayers?: MySkyVisibleLayers;
+  showPatternLinks?: boolean;
+  emphasizedNodeIds?: Set<string>;
+  revealActive?: boolean;
 }
 
 function toPx(star: { x: number; y: number }, size: { w: number; h: number }) {
@@ -58,8 +60,12 @@ function MySkyConstellationLayerComponent({
   patternRelationships = [],
   patternNodes = [],
   visibleLayers,
+  showPatternLinks = false,
+  emphasizedNodeIds,
+  revealActive = false,
 }: MySkyConstellationLayerProps) {
-  const showPatternLinks = visibleLayers ? isLayerVisible(visibleLayers, 'constellations') : false;
+  const showDecorativeLinks =
+    !revealActive || patternRelationships.length === 0;
   const nodeById = useMemo(
     () => new Map(patternNodes.map((node) => [node.id, node])),
     [patternNodes],
@@ -95,25 +101,27 @@ function MySkyConstellationLayerComponent({
       ))}
 
       <AnimatedG animatedProps={linksAnimatedProps}>
-        {MY_SKY_DISPLAY_CONSTELLATIONS.map((group) =>
-          group.links.map(([a, b], linkIndex) => {
-            const p1 = toPx(group.stars[a], { w: width, h: height });
-            const p2 = toPx(group.stars[b], { w: width, h: height });
-            return (
-              <Line
-                key={`${group.id}-link-${linkIndex}`}
-                x1={p1.cx}
-                y1={p1.cy}
-                x2={p2.cx}
-                y2={p2.cy}
-                stroke={group.color}
-                strokeWidth={CelestialConstellationStroke.display.strokeWidth}
-                strokeOpacity={CelestialConstellationStroke.display.strokeOpacity}
-                strokeLinecap="round"
-              />
-            );
-          }),
-        )}
+        {showDecorativeLinks
+          ? MY_SKY_DISPLAY_CONSTELLATIONS.map((group) =>
+              group.links.map(([a, b], linkIndex) => {
+                const p1 = toPx(group.stars[a], { w: width, h: height });
+                const p2 = toPx(group.stars[b], { w: width, h: height });
+                return (
+                  <Line
+                    key={`${group.id}-link-${linkIndex}`}
+                    x1={p1.cx}
+                    y1={p1.cy}
+                    x2={p2.cx}
+                    y2={p2.cy}
+                    stroke={group.color}
+                    strokeWidth={CelestialConstellationStroke.display.strokeWidth}
+                    strokeOpacity={CelestialConstellationStroke.display.strokeOpacity * 0.45}
+                    strokeLinecap="round"
+                  />
+                );
+              }),
+            )
+          : null}
         {showPatternLinks
           ? patternRelationships.map((edge) => {
               const from = nodeById.get(edge.fromNodeId);
@@ -127,7 +135,7 @@ function MySkyConstellationLayerComponent({
                   x2={to.position.x * width}
                   y2={to.position.y * height}
                   stroke={CelestialConstellationStroke.pattern.stroke}
-                  strokeWidth={CelestialConstellationStroke.pattern.strokeWidth}
+                  strokeWidth={CelestialConstellationStroke.pattern.strokeWidth + 0.35}
                   strokeLinecap="round"
                 />
               );
@@ -169,8 +177,12 @@ function MySkyConstellationLayerComponent({
         {userStars.map((star) => {
           if (star.id === highlightStarId) return null;
           const { cx, cy } = toPx(star, { w: width, h: height });
-          const size = star.visualSize ?? CelestialStarGeometry.defaultUserStarSize + (vitality - 1) * 1.2;
-          const intensity = star.visualBrightness ?? 0.88 + (vitality - 1) * 0.15;
+          const emphasized = emphasizedNodeIds?.has(star.id) ?? false;
+          const size =
+            (star.visualSize ?? CelestialStarGeometry.defaultUserStarSize + (vitality - 1) * 1.2) *
+            (emphasized ? 1.18 : 1);
+          const intensity =
+            (star.visualBrightness ?? 0.88 + (vitality - 1) * 0.15) * (emphasized ? 1.22 : 1);
           return size >= CelestialStarGeometry.userStarPremiumThreshold ? (
             <PremiumStar
               key={star.id}

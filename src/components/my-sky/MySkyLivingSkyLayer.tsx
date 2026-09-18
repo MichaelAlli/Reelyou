@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import {
   runOnJS,
   useSharedValue,
@@ -9,7 +9,11 @@ import {
 
 import { CelestialConstellationRevealMotion, CelestialStarBreathMotion } from '@/constants/celestialMotion';
 import { MySkyConstellationLayer } from '@/components/my-sky/MySkyConstellationLayer';
-import type { SkyNode, SkyRelationship } from '@/mySky/skyNodeTypes';
+import {
+  emphasizedNodesForPattern,
+  filterRelationshipsForReveal,
+} from '@/mySky/buildConstellationIntelligence';
+import type { SkyNode, SkyPattern, SkyRelationship } from '@/mySky/skyNodeTypes';
 import type { MySkyVisibleLayers } from '@/mySky/skyLayers';
 import { DEFAULT_MY_SKY_VISIBLE_LAYERS } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay } from '@/mySky/types';
@@ -22,9 +26,13 @@ interface MySkyLivingSkyLayerProps {
   vitality?: number;
   patternRelationships?: SkyRelationship[];
   patternNodes?: SkyNode[];
+  patterns?: SkyPattern[];
   visibleLayers?: MySkyVisibleLayers;
   /** User-triggered temporary constellation reveal — lines fade back out. */
   constellationRevealCount?: number;
+  constellationRevealActive?: boolean;
+  revealPatternId?: string | null;
+  onRevealComplete?: () => void;
 }
 
 /** Tab / preview canvas — living stars with user-controlled layer behavior. */
@@ -36,13 +44,16 @@ function MySkyLivingSkyLayerComponent({
   vitality = 1,
   patternRelationships = [],
   patternNodes = [],
+  patterns = [],
   visibleLayers = DEFAULT_MY_SKY_VISIBLE_LAYERS,
   constellationRevealCount = 0,
+  constellationRevealActive = false,
+  revealPatternId = null,
+  onRevealComplete,
 }: MySkyLivingSkyLayerProps) {
   const trailOpacity = useSharedValue(0);
   const linksOpacity = useSharedValue(0);
   const starBreath = useSharedValue(0);
-  const [constellationRevealActive, setConstellationRevealActive] = useState(false);
 
   useEffect(() => {
     starBreath.value = withRepeat(
@@ -58,26 +69,29 @@ function MySkyLivingSkyLayerComponent({
   useEffect(() => {
     if (constellationRevealCount <= 0) return;
 
-    setConstellationRevealActive(true);
     linksOpacity.value = withSequence(
       withTiming(CelestialConstellationRevealMotion.revealOpacity, {
         duration: CelestialConstellationRevealMotion.revealDurationMs,
       }),
       withTiming(0, { duration: CelestialConstellationRevealMotion.fadeDurationMs }, (finished) => {
-        if (finished) {
-          runOnJS(setConstellationRevealActive)(false);
+        if (finished && onRevealComplete) {
+          runOnJS(onRevealComplete)();
         }
       }),
     );
-  }, [constellationRevealCount, linksOpacity]);
+  }, [constellationRevealCount, linksOpacity, onRevealComplete]);
 
-  const effectiveLayers = useMemo(
-    (): MySkyVisibleLayers => ({
-      ...visibleLayers,
-      constellations: constellationRevealActive || visibleLayers.constellations,
-    }),
-    [visibleLayers, constellationRevealActive],
+  const activeRelationships = useMemo(
+    () => filterRelationshipsForReveal(patternRelationships, revealPatternId),
+    [patternRelationships, revealPatternId],
   );
+
+  const emphasizedNodeIds = useMemo(
+    () => emphasizedNodesForPattern(patterns, revealPatternId),
+    [patterns, revealPatternId],
+  );
+
+  const showPatternLinks = constellationRevealActive || visibleLayers.constellations;
 
   return (
     <MySkyConstellationLayer
@@ -89,9 +103,12 @@ function MySkyLivingSkyLayerComponent({
       linksOpacity={linksOpacity}
       starBreath={starBreath}
       vitality={vitality}
-      patternRelationships={patternRelationships}
+      patternRelationships={activeRelationships}
       patternNodes={patternNodes}
-      visibleLayers={effectiveLayers}
+      visibleLayers={visibleLayers}
+      showPatternLinks={showPatternLinks}
+      emphasizedNodeIds={emphasizedNodeIds}
+      revealActive={constellationRevealActive}
     />
   );
 }

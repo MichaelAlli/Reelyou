@@ -1,8 +1,10 @@
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
+import { MySkyConstellationDetailSheet } from '@/components/my-sky/MySkyConstellationDetailSheet';
 import { MySkyImmersiveToggleButton } from '@/components/my-sky/MySkyImmersiveToggleButton';
 import { MySkyControlRow } from '@/components/my-sky/MySkyControlRow';
 import { MySkyInsightOverlay } from '@/components/my-sky/MySkyInsightOverlay';
@@ -14,28 +16,40 @@ import { HomePalette } from '@/constants/homeLayout';
 import { SkyArrivalCopy } from '@/constants/skyArrivalCopy';
 import { Fonts, Spacing } from '@/constants/theme';
 import {
+  buildConstellationDetailView,
+  type ConstellationDetailView,
+} from '@/mySky/buildConstellationDetailView';
+import { findPatternForNodeId } from '@/mySky/buildConstellationIntelligence';
+import {
   buildNearbySkies,
   findNearbySkyAnchor,
   type NearbySkyAnchor,
 } from '@/mySky/buildNearbySkies';
+import { resolveStarNavigation } from '@/mySky/resolveStarNavigation';
+import type { MySkyStarDisplay } from '@/mySky/types';
 import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
 import { computeSkyProximity, viewportSnapshotForWorldPoint } from '@/mySky/skyProximity';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { useOnboarding } from '@/onboarding';
 
 export function MySkyScreen() {
+  const router = useRouter();
   const {
     mySkyView,
     toggleMySkyLayer,
     triggerConstellationReveal,
     constellationRevealCount,
     constellationRevealActive,
+    constellationRevealPatternId,
+    completeConstellationReveal,
     mySkyViewport,
     setMySkyViewport,
     mySkyExploreEnabled,
     setMySkyExploreEnabled,
     aroundYourSkyFeed,
     communities,
+    skywrites,
+    guidingLightView,
   } = useOnboarding();
   const { visibleLayers } = mySkyView.viewState;
   const northStarText = mySkyView.northStar.originalVision.trim();
@@ -45,6 +59,16 @@ export function MySkyScreen() {
   const [worldSize, setWorldSize] = useState({ width: 0, height: 0 });
   const [liveViewport, setLiveViewport] = useState<MySkyViewportSnapshot>(mySkyViewport);
   const [jumpSnapshot, setJumpSnapshot] = useState<MySkyViewportSnapshot | null>(null);
+  const [constellationDetailVisible, setConstellationDetailVisible] = useState(false);
+  const [constellationDetail, setConstellationDetail] = useState<ConstellationDetailView | null>(
+    null,
+  );
+
+  const joinedCommunityIds = useMemo(
+    () => communities.joined.map((entry) => entry.id),
+    [communities.joined],
+  );
+  const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
 
   const connectionActivities = useMemo(
     () => resolveSkyConnectionActivities(aroundYourSkyFeed),
@@ -122,6 +146,76 @@ export function MySkyScreen() {
     setCleanSkyActive((active) => !active);
   }, []);
 
+  const openConstellationDetail = useCallback(
+    (patternId: string) => {
+      const pattern = mySkyView.patterns.find((entry) => entry.id === patternId);
+      if (!pattern) return;
+      triggerConstellationReveal(pattern.id);
+      setConstellationDetail(
+        buildConstellationDetailView(pattern, mySkyView.nodes, mySkyView.stars),
+      );
+      setConstellationDetailVisible(true);
+    },
+    [mySkyView.nodes, mySkyView.patterns, mySkyView.stars, triggerConstellationReveal],
+  );
+
+  const handlePatternStarPress = useCallback(
+    (star: MySkyStarDisplay) => {
+      const pattern = findPatternForNodeId(mySkyView.patterns, star.id);
+      if (!pattern) return;
+      openConstellationDetail(pattern.id);
+    },
+    [mySkyView.patterns, openConstellationDetail],
+  );
+
+  const navigateStarById = useCallback(
+    (nodeId: string) => {
+      const star = mySkyView.stars.find((entry) => entry.id === nodeId);
+      if (!star) return;
+
+      const target = resolveStarNavigation(star, {
+        skywrites,
+        joinedCommunityIds,
+        guidanceActive,
+      });
+
+      switch (target.kind) {
+        case 'skywrite-detail':
+          router.push(`/skywrite/${target.skywriteId}` as never);
+          return;
+        case 'skywrite-compose':
+          router.push('/skywrite' as never);
+          return;
+        case 'public-sky':
+          router.push(`/public-sky?id=${target.param}` as never);
+          return;
+        case 'community-detail':
+          router.push(`/community?id=${target.communityId}` as never);
+          return;
+        case 'starpath':
+          router.push('/starpath' as never);
+          return;
+        case 'impact-tab':
+          router.push('/(tabs)/impact' as never);
+          return;
+        case 'star-detail':
+          router.push(`/my-sky-star/${target.nodeId}` as never);
+          return;
+        default:
+          return;
+      }
+    },
+    [guidanceActive, joinedCommunityIds, mySkyView.stars, router, skywrites],
+  );
+
+  const handleConstellationStarSelect = useCallback(
+    (nodeId: string) => {
+      setConstellationDetailVisible(false);
+      navigateStarById(nodeId);
+    },
+    [navigateStarById],
+  );
+
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={['top']}>
@@ -181,9 +275,12 @@ export function MySkyScreen() {
             proximityPhase={proximity.phase}
             view={mySkyView}
             onToggleLayer={toggleMySkyLayer}
-            onRevealConstellations={triggerConstellationReveal}
+            onRevealConstellations={() => triggerConstellationReveal(null)}
             constellationRevealCount={constellationRevealCount}
             constellationRevealActive={constellationRevealActive}
+            constellationRevealPatternId={constellationRevealPatternId}
+            onConstellationRevealComplete={completeConstellationReveal}
+            onPatternStarPress={handlePatternStarPress}
             viewportSnapshot={mySkyViewport}
             jumpSnapshot={jumpSnapshot}
             onViewportChange={handleViewportChange}
@@ -191,7 +288,12 @@ export function MySkyScreen() {
             onWorldSizeChange={setWorldSize}
           />
           {!cleanSkyActive ? (
-            <MySkyInsightOverlay view={mySkyView} visibleLayers={visibleLayers} />
+            <MySkyInsightOverlay
+              view={mySkyView}
+              visibleLayers={visibleLayers}
+              showConstellations={constellationRevealActive || constellationDetailVisible}
+              onPatternPress={openConstellationDetail}
+            />
           ) : (
             <MySkyImmersiveToggleButton
               immersiveActive={cleanSkyActive}
@@ -207,6 +309,13 @@ export function MySkyScreen() {
         onClose={() => setSearchVisible(false)}
         nearbyAnchors={nearbyAnchors}
         onJumpToSky={handleJumpFromSearch}
+      />
+
+      <MySkyConstellationDetailSheet
+        visible={constellationDetailVisible}
+        detail={constellationDetail}
+        onClose={() => setConstellationDetailVisible(false)}
+        onSelectStar={handleConstellationStarSelect}
       />
     </View>
   );

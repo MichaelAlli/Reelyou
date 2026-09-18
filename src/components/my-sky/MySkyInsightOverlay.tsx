@@ -16,9 +16,17 @@ interface MySkyInsightOverlayProps {
   view: Pick<MySkyView, 'constellations' | 'connections' | 'contributions' | 'evolution'>;
   visibleLayers: MySkyVisibleLayers;
   hidden?: boolean;
+  showConstellations?: boolean;
+  onPatternPress?: (patternId: string) => void;
 }
 
-function MySkyInsightOverlayComponent({ view, visibleLayers, hidden = false }: MySkyInsightOverlayProps) {
+function MySkyInsightOverlayComponent({
+  view,
+  visibleLayers,
+  hidden = false,
+  showConstellations = false,
+  onPatternPress,
+}: MySkyInsightOverlayProps) {
   const [open, setOpen] = useState(false);
 
   const styles = useThemedStyles((tokens) =>
@@ -127,7 +135,7 @@ function MySkyInsightOverlayComponent({ view, visibleLayers, hidden = false }: M
   const showConnections = visibleLayers.connections && view.connections.length > 0;
   const showImpact = visibleLayers.impact && view.contributions.length > 0;
   const showHistory = visibleLayers.temporal;
-  const showPatterns = view.constellations.length > 0;
+  const showPatterns = showConstellations && view.constellations.length > 0;
 
   const summaryLabel = useMemo(() => {
     const parts: string[] = [];
@@ -173,10 +181,15 @@ function MySkyInsightOverlayComponent({ view, visibleLayers, hidden = false }: M
                 <View style={styles.section}>
                   <Text style={styles.sectionLabel}>{MySkyCopy.constellationsTitle}</Text>
                   {view.constellations.map((pattern) => (
-                    <View key={pattern.id} style={styles.row}>
+                    <Pressable
+                      key={pattern.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Reveal constellation: ${pattern.label}`}
+                      onPress={() => onPatternPress?.(pattern.id)}
+                      style={styles.row}>
                       <Text style={styles.rowLabel}>{pattern.label}</Text>
                       <Text style={styles.rowNote}>{pattern.note}</Text>
-                    </View>
+                    </Pressable>
                   ))}
                 </View>
               ) : null}

@@ -36,12 +36,22 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 interface MySkyStarCanvasProps {
   view: Pick<
     MySkyView,
-    'stars' | 'vitality' | 'relationships' | 'nodes' | 'viewState' | 'skyOwner' | 'identityStar'
+    | 'stars'
+    | 'vitality'
+    | 'relationships'
+    | 'nodes'
+    | 'patterns'
+    | 'viewState'
+    | 'skyOwner'
+    | 'identityStar'
   >;
   onToggleLayer: (layer: MySkyLayerId) => void;
   onRevealConstellations: () => void;
   constellationRevealCount: number;
   constellationRevealActive?: boolean;
+  constellationRevealPatternId?: string | null;
+  onConstellationRevealComplete?: () => void;
+  onPatternStarPress?: (star: MySkyStarDisplay) => void;
   immersive?: boolean;
   showLayerControls?: boolean;
   cleanSky?: boolean;
@@ -62,6 +72,9 @@ function MySkyStarCanvasComponent({
   onRevealConstellations,
   constellationRevealCount,
   constellationRevealActive = false,
+  constellationRevealPatternId = null,
+  onConstellationRevealComplete,
+  onPatternStarPress,
   immersive = false,
   showLayerControls = true,
   cleanSky = false,
@@ -241,9 +254,13 @@ function MySkyStarCanvasComponent({
 
   const handleStarPress = useCallback(
     (star: MySkyStarDisplay) => {
+      if (star.constellationId && onPatternStarPress) {
+        onPatternStarPress(star);
+        return;
+      }
       navigateStar(star);
     },
-    [navigateStar],
+    [navigateStar, onPatternStarPress],
   );
 
   const handleOwnIdentityPress = useCallback(() => {
@@ -302,6 +319,9 @@ function MySkyStarCanvasComponent({
         view={view}
         mode="resting"
         constellationRevealCount={constellationRevealCount}
+        constellationRevealActive={constellationRevealActive}
+        revealPatternId={constellationRevealPatternId}
+        onConstellationRevealComplete={onConstellationRevealComplete}
       />
 
       {showNearbySkies && nearbyAnchors.length > 0 ? (

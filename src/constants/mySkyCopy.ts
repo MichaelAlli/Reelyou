@@ -62,4 +62,6 @@ export const MySkyCopy = {
   searchJumpToSky: 'Jump to Sky',
   searchViewProfile: 'View Profile',
   nearbyChip: 'Nearby',
+  constellationConnectedStars: 'Connected stars',
+  constellationDetailClose: 'Close',
 } as const;

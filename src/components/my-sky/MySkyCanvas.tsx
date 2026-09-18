@@ -6,7 +6,7 @@ import type { MySkyView } from '@/mySky/types';
 interface MySkyCanvasProps {
   view: Pick<
     MySkyView,
-    'stars' | 'vitality' | 'relationships' | 'nodes' | 'viewState'
+    'stars' | 'vitality' | 'relationships' | 'nodes' | 'patterns' | 'viewState'
   >;
   highlightStarId?: string | null;
   animateArrival?: boolean;

@@ -5,9 +5,12 @@ import {
 import { buildSkyNodeId } from '@/mySky/skyArrival';
 import type { MySkySources } from '@/mySky/mySkyState';
 import {
+  buildConstellationRelationships,
+  deriveConstellationPatterns,
+} from '@/mySky/buildConstellationIntelligence';
+import {
   applyVisualPrioritization,
   computeSkyGrowthProfile,
-  deriveActivityPatterns,
   refreshNodeVisual,
   type SkyGrowthProfile,
 } from '@/mySky/skyEvolution';
@@ -340,25 +343,10 @@ function buildFixtureNode(
 
 function attachPatternIds(nodes: SkyNode[], patterns: SkyPattern[]): void {
   nodes.forEach((node) => {
+    if (node.type === 'identity') return;
     const pattern = patterns.find((entry) => entry.nodeIds.includes(node.id));
     if (pattern) node.patternId = pattern.id;
   });
-}
-
-function buildPatternRelationships(patterns: SkyPattern[]): SkyRelationship[] {
-  const relationships: SkyRelationship[] = [];
-  for (const pattern of patterns) {
-    for (let i = 0; i < pattern.nodeIds.length - 1; i += 1) {
-      relationships.push({
-        id: `${pattern.id}-edge-${i}`,
-        fromNodeId: pattern.nodeIds[i],
-        toNodeId: pattern.nodeIds[i + 1],
-        patternId: pattern.id,
-        source: pattern.source,
-      });
-    }
-  }
-  return relationships;
 }
 
 export interface BuiltSkyGraph {
@@ -427,10 +415,10 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
         createdAt: now,
         updatedAt: now,
       }))
-    : deriveActivityPatterns(nodes, sources);
+    : deriveConstellationPatterns(nodes, sources);
 
   attachPatternIds(nodes, patterns);
-  const relationships = buildPatternRelationships(patterns);
+  const relationships = buildConstellationRelationships(patterns);
 
   return { nodes, patterns, relationships, vitality, growthProfile };
 }

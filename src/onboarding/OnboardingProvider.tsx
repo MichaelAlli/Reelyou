@@ -58,7 +58,6 @@ import {
   DEFAULT_MY_SKY_VIEWPORT,
   type MySkyViewportSnapshot,
 } from '@/mySky/mySkyViewportSession';
-import { CelestialConstellationRevealMotion } from '@/constants/celestialMotion';
 import { buildSkyNodeId, type SkyArrivalHandoff } from '@/mySky/skyArrival';
 import {
   createEvolutionEntry,
@@ -162,9 +161,11 @@ interface OnboardingContextValue {
   setMySkyLayerVisible: (layer: MySkyLayerId, visible: boolean) => void;
   resetMySkyLayers: () => void;
   /** Temporary constellation line reveal — animates in then fades out. */
-  triggerConstellationReveal: () => void;
+  triggerConstellationReveal: (patternId?: string | null) => void;
   constellationRevealCount: number;
   constellationRevealActive: boolean;
+  constellationRevealPatternId: string | null;
+  completeConstellationReveal: () => void;
   /** Home StarPath Guiding Light — one calm possibility or peace state */
   guidingLightView: GuidingLightHomeView;
   /** Dismiss the active Guiding Light — user choice is authoritative */
@@ -201,6 +202,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   );
   const [constellationRevealCount, setConstellationRevealCount] = useState(0);
   const [constellationRevealActive, setConstellationRevealActive] = useState(false);
+  const [constellationRevealPatternId, setConstellationRevealPatternId] = useState<string | null>(
+    null,
+  );
   const [mySkyViewport, setMySkyViewportState] = useState<MySkyViewportSnapshot>(() => ({
     ...DEFAULT_MY_SKY_VIEWPORT,
   }));
@@ -627,13 +631,15 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setMySkyVisibleLayers({ ...DEFAULT_MY_SKY_VISIBLE_LAYERS });
   }, []);
 
-  const triggerConstellationReveal = useCallback(() => {
+  const triggerConstellationReveal = useCallback((patternId: string | null = null) => {
+    setConstellationRevealPatternId(patternId);
     setConstellationRevealCount((count) => count + 1);
     setConstellationRevealActive(true);
-    const totalMs =
-      CelestialConstellationRevealMotion.revealDurationMs +
-      CelestialConstellationRevealMotion.fadeDurationMs;
-    setTimeout(() => setConstellationRevealActive(false), totalMs);
+  }, []);
+
+  const completeConstellationReveal = useCallback(() => {
+    setConstellationRevealActive(false);
+    setConstellationRevealPatternId(null);
   }, []);
 
   const value = useMemo(
@@ -663,6 +669,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       triggerConstellationReveal,
       constellationRevealCount,
       constellationRevealActive,
+      constellationRevealPatternId,
+      completeConstellationReveal,
       guidingLightView,
       dismissGuidingLight,
       skywrites: skywritesState.posts,
@@ -724,6 +732,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       triggerConstellationReveal,
       constellationRevealCount,
       constellationRevealActive,
+      constellationRevealPatternId,
+      completeConstellationReveal,
       guidingLightView,
       dismissGuidingLight,
       skywritesState.posts,

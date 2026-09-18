@@ -9,13 +9,16 @@ export type MySkyRenderMode = 'resting' | 'arrival';
 
 interface MySkyRendererProps {
   /** Centralized My Sky view projection — stars derived from nodes, not hard-coded JSX. */
-  view: Pick<MySkyView, 'stars' | 'vitality' | 'relationships' | 'nodes' | 'viewState'>;
+  view: Pick<MySkyView, 'stars' | 'vitality' | 'relationships' | 'nodes' | 'patterns' | 'viewState'>;
   mode?: MySkyRenderMode;
   highlightStarId?: string | null;
   /** Arrival trail / link reveal — false once settled. */
   animateArrival?: boolean;
   /** User-triggered temporary constellation reveal count. */
   constellationRevealCount?: number;
+  constellationRevealActive?: boolean;
+  revealPatternId?: string | null;
+  onConstellationRevealComplete?: () => void;
 }
 
 /**
@@ -28,8 +31,11 @@ function MySkyRendererComponent({
   highlightStarId = null,
   animateArrival = false,
   constellationRevealCount = 0,
+  constellationRevealActive = false,
+  revealPatternId = null,
+  onConstellationRevealComplete,
 }: MySkyRendererProps) {
-  const { stars, vitality, relationships, nodes, viewState } = view;
+  const { stars, vitality, relationships, nodes, patterns, viewState } = view;
   const [size, setSize] = useState({ w: 320, h: 360 });
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
@@ -59,8 +65,12 @@ function MySkyRendererComponent({
           vitality={vitality}
           patternRelationships={relationships}
           patternNodes={nodes}
+          patterns={patterns}
           visibleLayers={viewState.visibleLayers}
           constellationRevealCount={constellationRevealCount}
+          constellationRevealActive={constellationRevealActive}
+          revealPatternId={revealPatternId}
+          onRevealComplete={onConstellationRevealComplete}
         />
       )}
     </View>
