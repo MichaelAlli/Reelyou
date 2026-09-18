@@ -1,4 +1,5 @@
 import { buildMySkyViewFromSources, resolveMySkySources } from '@/mySky/mySkyState';
+import { EMPTY_SKY_EVOLUTION, type SkyEvolutionRecord } from '@/mySky/skyEvolution';
 import type { MySkyVisibleLayers } from '@/mySky/skyLayers';
 import type { MySkyView } from '@/mySky/types';
 import type { UserPersonalizationProfile } from '@/onboarding/personalization/types';
@@ -7,6 +8,7 @@ import type { UserPersonalizationProfile } from '@/onboarding/personalization/ty
 export function buildMySkyView(
   profile: UserPersonalizationProfile,
   visibleLayers?: MySkyVisibleLayers,
+  evolution: SkyEvolutionRecord = EMPTY_SKY_EVOLUTION,
 ): MySkyView {
-  return buildMySkyViewFromSources(resolveMySkySources(profile), visibleLayers);
+  return buildMySkyViewFromSources(resolveMySkySources(profile, evolution), visibleLayers);
 }

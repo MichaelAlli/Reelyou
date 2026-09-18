@@ -53,7 +53,17 @@ import {
   type MySkyVisibleLayers,
 } from '@/mySky';
 import { CelestialConstellationRevealMotion } from '@/constants/celestialMotion';
-import type { SkyArrivalHandoff } from '@/mySky/skyArrival';
+import { buildSkyNodeId, type SkyArrivalHandoff } from '@/mySky/skyArrival';
+import {
+  createEvolutionEntry,
+  EMPTY_SKY_EVOLUTION,
+  type SkyEvolutionRecord,
+} from '@/mySky/skyEvolution';
+import {
+  appendEvolutionEntryLocal,
+  loadSkyEvolution,
+  saveSkyEvolution,
+} from '@/mySky/skyEvolutionPersistence';
 import {
   buildSkywriteRecord,
   EMPTY_SKYWRITES,
@@ -179,6 +189,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   );
   const [constellationRevealCount, setConstellationRevealCount] = useState(0);
   const [constellationRevealActive, setConstellationRevealActive] = useState(false);
+  const [skyEvolution, setSkyEvolution] = useState<SkyEvolutionRecord>(EMPTY_SKY_EVOLUTION);
   useEffect(() => {
     let live = true;
     loadTodayFocus().then((record) => {
@@ -201,10 +212,26 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         setSkywritesState(record);
       }
     });
+    loadSkyEvolution().then((record) => {
+      if (live) {
+        setSkyEvolution(record);
+      }
+    });
     return () => {
       live = false;
     };
   }, []);
+
+  const recordSkyEvolution = useCallback(
+    (entry: ReturnType<typeof createEvolutionEntry>) => {
+      setSkyEvolution((current) => {
+        const next = appendEvolutionEntryLocal(current, entry);
+        void saveSkyEvolution(next);
+        return next;
+      });
+    },
+    [],
+  );
 
   const aroundYourSkyFeed = useMemo(
     () => buildAroundYourSkyHomeFeed(communities),
@@ -235,12 +262,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           guidingLight: guidingLightView.light,
         },
         mySkyVisibleLayers,
+        skyEvolution,
       ),
     [
       basePersonalizationProfile,
       skywritesState.posts,
       guidingLightView.light,
       mySkyVisibleLayers,
+      skyEvolution,
     ],
   );
 
@@ -412,9 +441,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         reflectionUpdatedAt: focusChanged ? null : current.reflectionUpdatedAt,
       };
       void saveTodayFocus(next);
+      recordSkyEvolution(
+        createEvolutionEntry('FOCUS_SELECTED', {
+          summary: 'Today’s Focus was chosen.',
+        }),
+      );
       return next;
     });
-  }, []);
+  }, [recordSkyEvolution]);
 
   const setTodayFocusReflection = useCallback((reflection: string) => {
     const trimmed = reflection.trim();
@@ -427,9 +461,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         reflectionUpdatedAt: new Date().toISOString(),
       };
       void saveTodayFocus(next);
+      const dateKey = next.dateKey ?? getLocalDateKey();
+      recordSkyEvolution(
+        createEvolutionEntry('REFLECTION_ADDED', {
+          nodeId: `focus-reflection-${dateKey}`,
+          summary: 'A Today’s Focus reflection joined your sky.',
+        }),
+      );
       return next;
     });
-  }, []);
+  }, [recordSkyEvolution]);
 
   const clearTodayFocus = useCallback(() => {
     const next = reconcileTodayFocusForToday({
@@ -465,9 +506,15 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           : [...current.explicitInterests, communityId],
       };
       void saveCommunities(next);
+      recordSkyEvolution(
+        createEvolutionEntry('COMMUNITY_JOINED', {
+          nodeId: `community-${communityId}`,
+          summary: 'A community joined your sky.',
+        }),
+      );
       return next;
     });
-  }, []);
+  }, [recordSkyEvolution]);
 
   const leaveCommunity = useCallback((communityId: CommunityId) => {
     setCommunitiesState((current) => {
@@ -476,9 +523,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         explicitInterests: current.explicitInterests.filter((id) => id !== communityId),
       };
       void saveCommunities(next);
+      recordSkyEvolution(
+        createEvolutionEntry('COMMUNITY_LEFT', {
+          summary: 'A community left your sky.',
+        }),
+      );
       return next;
     });
-  }, []);
+  }, [recordSkyEvolution]);
 
   const dismissGuidingLight = useCallback(() => {
     const activeId = guidingLightView.light?.id;
@@ -502,8 +554,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       void saveSkywrites(next);
       return next;
     });
+    recordSkyEvolution(
+      createEvolutionEntry('SKYWRITE_CREATED', {
+        nodeId: buildSkyNodeId(record.id),
+        summary: 'A new Skywrite became a star in your sky.',
+      }),
+    );
     return record;
-  }, []);
+  }, [recordSkyEvolution]);
 
   const setSkyArrivalHandoff = useCallback((handoff: SkyArrivalHandoff) => {
     setSkyArrivalHandoffState(handoff);

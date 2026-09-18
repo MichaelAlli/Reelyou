@@ -1,5 +1,22 @@
 export { buildMySkyView } from './buildMySkyView';
 export {
+  applyVisualPrioritization,
+  computeSkyGrowthProfile,
+  createEvolutionEntry,
+  deriveActivityPatterns,
+  EMPTY_SKY_EVOLUTION,
+  scoreNodeVisualPriority,
+  type SkyEvolutionEntry,
+  type SkyEvolutionRecord,
+  type SkyGrowthProfile,
+} from './skyEvolution';
+export {
+  appendEvolutionEntryLocal,
+  appendSkyEvolutionEntry,
+  loadSkyEvolution,
+  saveSkyEvolution,
+} from './skyEvolutionPersistence';
+export {
   buildStarDetailView,
   findPatternForNode,
   findSkyNodeById,

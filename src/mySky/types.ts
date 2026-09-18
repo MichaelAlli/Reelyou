@@ -1,4 +1,5 @@
 import type { SkywriteTextStyleId } from '@/constants/skywriteTextStyles';
+import type { SkyEvolutionRecord, SkyGrowthProfile } from '@/mySky/skyEvolution';
 import type { MySkyVisibleLayers } from '@/mySky/skyLayers';
 import type {
   MySkyViewState,
@@ -64,6 +65,10 @@ export interface MySkyView extends MySkyState {
   viewState: MySkyViewState;
   lastUpdatedAt: string;
   vitality: number;
+  /** Derived growth signals — data-driven, not shown as gamification UI. */
+  growthProfile: SkyGrowthProfile;
+  /** Local evolution history — backend-handoff ready. */
+  evolution: SkyEvolutionRecord;
   /** Derived display stars for canvas — do not mutate independently. */
   stars: MySkyStarDisplay[];
 }

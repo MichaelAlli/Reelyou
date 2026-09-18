@@ -1,5 +1,10 @@
 import { buildSkyNodes } from '@/mySky/buildSkyNodes';
 import { DEFAULT_MY_SKY_VISIBLE_LAYERS, type MySkyVisibleLayers } from '@/mySky/skyLayers';
+import {
+  EMPTY_SKY_EVOLUTION,
+  type SkyEvolutionRecord,
+  type SkyGrowthProfile,
+} from '@/mySky/skyEvolution';
 import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { SkyNode, SkyPattern, SkyRelationship } from '@/mySky/skyNodeTypes';
 import {
@@ -11,7 +16,7 @@ import type { UserPersonalizationProfile } from '@/onboarding/personalization/ty
 import type { SkywriteRecord } from '@/skywrite/types';
 
 /** Versioned snapshot — future backend sync without rewriting the screen. */
-export const MY_SKY_STATE_VERSION = 1 as const;
+export const MY_SKY_STATE_VERSION = 2 as const;
 
 /** Inputs that derive the My Sky graph — local-first, backend-replaceable. */
 export interface MySkySources {
@@ -23,6 +28,13 @@ export interface MySkySources {
   /** Whether an active guiding light exists (explicit, not inferred). */
   guidanceActive: boolean;
   guidanceLabel?: string;
+  /** Today's Focus — explicit user activity feeding growth layers. */
+  todayFocusValue?: string | null;
+  todayFocusReflection?: string | null;
+  todayFocusDateKey?: string | null;
+  todayFocusReflectionAt?: string | null;
+  /** Local evolution history — backend-handoff ready. */
+  evolution: SkyEvolutionRecord;
   lastUpdatedAt: string | null;
 }
 
@@ -32,6 +44,8 @@ export interface MySkyGraph {
   patterns: SkyPattern[];
   relationships: SkyRelationship[];
   vitality: number;
+  growthProfile: SkyGrowthProfile;
+  evolution: SkyEvolutionRecord;
   builtAt: string;
 }
 
@@ -42,9 +56,13 @@ export interface MySkyPersistedSnapshot {
   skywriteIds: string[];
   joinedCommunityNames: string[];
   lastUpdatedAt: string;
+  evolutionEntryCount: number;
 }
 
-export function resolveMySkySources(profile: UserPersonalizationProfile): MySkySources {
+export function resolveMySkySources(
+  profile: UserPersonalizationProfile,
+  evolution: SkyEvolutionRecord = EMPTY_SKY_EVOLUTION,
+): MySkySources {
   return {
     northStarVision: profile.northStar.originalVision,
     skywrites: profile.skywrites ?? [],
@@ -52,19 +70,26 @@ export function resolveMySkySources(profile: UserPersonalizationProfile): MySkyS
     growthGoals: profile.goals ?? [],
     guidanceActive: Boolean(profile.guidingLight?.title?.trim()),
     guidanceLabel: profile.guidingLight?.title ?? undefined,
+    todayFocusValue: profile.todayFocus?.value ?? null,
+    todayFocusReflection: profile.todayFocus?.reflection ?? null,
+    todayFocusDateKey: profile.todayFocus?.dateKey ?? null,
+    todayFocusReflectionAt: profile.todayFocus?.reflectionUpdatedAt ?? null,
+    evolution,
     lastUpdatedAt: profile.lastUpdatedAt,
   };
 }
 
 /** Build normalized graph from centralized sources — no UI concerns. */
 export function buildMySkyGraph(sources: MySkySources): MySkyGraph {
-  const { nodes, patterns, relationships, vitality } = buildSkyNodes(sources);
+  const { nodes, patterns, relationships, vitality, growthProfile } = buildSkyNodes(sources);
 
   return {
     nodes,
     patterns,
     relationships,
     vitality,
+    growthProfile,
+    evolution: sources.evolution,
     builtAt: new Date().toISOString(),
   };
 }
@@ -111,6 +136,7 @@ export function buildMySkyViewFromSources(
   visibleLayers: MySkyVisibleLayers = DEFAULT_MY_SKY_VISIBLE_LAYERS,
 ): MySkyView {
   const graph = buildMySkyGraph(sources);
+  const { growthProfile } = graph;
   const visibleNodes = filterVisibleStarNodes(graph.nodes, visibleLayers);
   const stars = visibleNodes.map((node) => projectNodeToStarDisplay(node));
 
@@ -132,6 +158,8 @@ export function buildMySkyViewFromSources(
     },
     lastUpdatedAt: sources.lastUpdatedAt ?? graph.builtAt,
     vitality: graph.vitality,
+    growthProfile,
+    evolution: graph.evolution,
     stars,
   };
 }
@@ -155,5 +183,6 @@ export function serializeMySkySnapshot(sources: MySkySources): MySkyPersistedSna
     skywriteIds: sources.skywrites.map((post) => post.id),
     joinedCommunityNames: sources.joinedCommunities.map((c) => c.name),
     lastUpdatedAt: sources.lastUpdatedAt ?? new Date().toISOString(),
+    evolutionEntryCount: sources.evolution.entries.length,
   };
 }

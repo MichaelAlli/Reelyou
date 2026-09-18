@@ -4,6 +4,13 @@ import {
 } from '@/mySky/fixtures';
 import { buildSkyNodeId } from '@/mySky/skyArrival';
 import type { MySkySources } from '@/mySky/mySkyState';
+import {
+  applyVisualPrioritization,
+  computeSkyGrowthProfile,
+  deriveActivityPatterns,
+  refreshNodeVisual,
+  type SkyGrowthProfile,
+} from '@/mySky/skyEvolution';
 import { resolveStableNodePosition } from '@/mySky/skyLayout';
 import type {
   SkyNode,
@@ -14,7 +21,6 @@ import type {
   SkyRelationship,
   SkySourceType,
 } from '@/mySky/skyNodeTypes';
-import { computeSkyNodeVisual, computeSkyVitality } from '@/mySky/skyVisualRules';
 import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import type { SkywriteRecord } from '@/skywrite/types';
 
@@ -61,33 +67,76 @@ function buildSkywriteNode(post: SkywriteRecord, vitality: number): SkyNode {
   const id = buildSkyNodeId(post.id);
   const layout = resolveStableNodePosition(id);
 
-  return {
+  return refreshNodeVisual(
+    {
+      id,
+      type: 'skywrite',
+      sourceType: 'skywrite',
+      sourceId: post.id,
+      layer: 'stars',
+      createdAt: post.createdAt,
+      position: { x: layout.x, y: layout.y },
+      visual: {
+        size: 5.8,
+        brightness: 1,
+        glow: 0.8,
+        opacity: 1,
+        emphasis: 1,
+        color: layout.color,
+      },
+      userGenerated: true,
+      inferred: false,
+      userDefined: true,
+      provenance: { source: 'explicit', reason: 'user_skywrite' },
+      destination: 'skywrite',
+      destinationParam: null,
+      title: skywriteTitle(post.text, post.mediaMode),
+      visibility: post.visibility,
+      patternId: null,
+      metadata: buildSkywriteMetadata(post),
+    },
+    vitality,
+  );
+}
+
+function buildFocusReflectionNode(sources: MySkySources, vitality: number): SkyNode | null {
+  const reflection = sources.todayFocusReflection?.trim();
+  if (!reflection) return null;
+
+  const dateKey = sources.todayFocusDateKey ?? 'today';
+  const id = `focus-reflection-${dateKey}`;
+  const layout = resolveStableNodePosition(id);
+  const focusTitle = sources.todayFocusValue?.trim();
+  const title = focusTitle ? focusTitle.slice(0, 48) : reflection.slice(0, 48);
+
+  const base: SkyNode = {
     id,
-    type: 'skywrite',
-    sourceType: 'skywrite',
-    sourceId: post.id,
+    type: 'reflection',
+    sourceType: 'reflection',
     layer: 'stars',
-    createdAt: post.createdAt,
+    createdAt: sources.todayFocusReflectionAt ?? new Date().toISOString(),
     position: { x: layout.x, y: layout.y },
-    visual: computeSkyNodeVisual('skywrite', layout.color, { vitality }),
+    visual: { size: 5.2, brightness: 1, glow: 0.8, opacity: 1, emphasis: 1, color: layout.color },
     userGenerated: true,
     inferred: false,
     userDefined: true,
-    provenance: { source: 'explicit', reason: 'user_skywrite' },
-    destination: 'skywrite',
+    provenance: { source: 'explicit', reason: 'today_focus_reflection' },
+    destination: null,
     destinationParam: null,
-    title: skywriteTitle(post.text, post.mediaMode),
-    visibility: post.visibility,
+    title,
+    visibility: 'private',
     patternId: null,
-    metadata: buildSkywriteMetadata(post),
+    metadata: { focusReflection: true },
   };
+
+  return refreshNodeVisual(base, vitality, 0.06);
 }
 
 function buildCommunityNode(community: JoinedCommunity, vitality: number): SkyNode {
   const id = `community-${community.id}`;
   const layout = resolveStableNodePosition(id);
 
-  return {
+  const base: SkyNode = {
     id,
     type: 'community',
     sourceType: 'community',
@@ -95,7 +144,7 @@ function buildCommunityNode(community: JoinedCommunity, vitality: number): SkyNo
     layer: 'communities',
     createdAt: community.joinedAt,
     position: { x: layout.x, y: layout.y },
-    visual: computeSkyNodeVisual('community', layout.color, { vitality, emphasisBoost: 0.05 }),
+    visual: { size: 5, brightness: 1, glow: 0.8, opacity: 1, emphasis: 1, color: layout.color },
     userGenerated: true,
     inferred: false,
     userDefined: true,
@@ -105,13 +154,15 @@ function buildCommunityNode(community: JoinedCommunity, vitality: number): SkyNo
     title: community.name,
     patternId: null,
   };
+
+  return refreshNodeVisual(base, vitality, 0.05);
 }
 
 function buildConnectionNode(community: JoinedCommunity, vitality: number): SkyNode {
   const id = `connection-${community.id}`;
   const layout = resolveStableNodePosition(id);
 
-  return {
+  const base: SkyNode = {
     id,
     type: 'relationship',
     sourceType: 'relationship',
@@ -119,7 +170,7 @@ function buildConnectionNode(community: JoinedCommunity, vitality: number): SkyN
     layer: 'connections',
     createdAt: community.joinedAt,
     position: { x: layout.x, y: layout.y },
-    visual: computeSkyNodeVisual('relationship', layout.color, { vitality }),
+    visual: { size: 5.4, brightness: 1, glow: 0.8, opacity: 1, emphasis: 1, color: layout.color },
     userGenerated: true,
     inferred: false,
     userDefined: true,
@@ -129,20 +180,22 @@ function buildConnectionNode(community: JoinedCommunity, vitality: number): SkyN
     title: community.name,
     patternId: null,
   };
+
+  return refreshNodeVisual(base, vitality);
 }
 
 function buildGrowthNode(goal: string, index: number, vitality: number): SkyNode {
   const id = `growth-${index}-${goal.slice(0, 12).replace(/\s+/g, '-').toLowerCase()}`;
   const layout = resolveStableNodePosition(id);
 
-  return {
+  const base: SkyNode = {
     id,
     type: 'growth',
     sourceType: 'growth',
     layer: 'growth',
     createdAt: new Date().toISOString(),
     position: { x: layout.x, y: layout.y },
-    visual: computeSkyNodeVisual('growth', layout.color, { vitality }),
+    visual: { size: 5.2, brightness: 1, glow: 0.8, opacity: 1, emphasis: 1, color: layout.color },
     userGenerated: true,
     inferred: false,
     userDefined: true,
@@ -152,20 +205,22 @@ function buildGrowthNode(goal: string, index: number, vitality: number): SkyNode
     title: goal,
     patternId: null,
   };
+
+  return refreshNodeVisual(base, vitality);
 }
 
 function buildGuidanceNode(label: string, vitality: number): SkyNode {
   const id = 'guidance-active';
   const layout = resolveStableNodePosition(id);
 
-  return {
+  const base: SkyNode = {
     id,
     type: 'guidance',
     sourceType: 'guidance',
     layer: 'guidance',
     createdAt: new Date().toISOString(),
     position: { x: layout.x, y: layout.y },
-    visual: computeSkyNodeVisual('guidance', layout.color, { vitality, emphasisBoost: 0.08 }),
+    visual: { size: 5, brightness: 1, glow: 0.8, opacity: 1, emphasis: 1, color: layout.color },
     userGenerated: false,
     inferred: false,
     userDefined: true,
@@ -175,6 +230,8 @@ function buildGuidanceNode(label: string, vitality: number): SkyNode {
     title: label.slice(0, 48),
     patternId: null,
   };
+
+  return refreshNodeVisual(base, vitality, 0.08);
 }
 
 function buildFixtureNode(
@@ -184,14 +241,14 @@ function buildFixtureNode(
   const layout = resolveStableNodePosition(item.id);
   const nodeType = mapFixtureType(item.type);
 
-  return {
+  const base: SkyNode = {
     id: item.id,
     type: nodeType,
     sourceType: mapFixtureSourceType(item.type),
     layer: mapFixtureLayer(item.type),
     createdAt: item.timestamp ?? new Date().toISOString(),
     position: { x: layout.x, y: layout.y },
-    visual: computeSkyNodeVisual(nodeType, layout.color, { vitality }),
+    visual: { size: 5.2, brightness: 1, glow: 0.8, opacity: 1, emphasis: 1, color: layout.color },
     userGenerated: false,
     inferred: false,
     userDefined: true,
@@ -204,6 +261,31 @@ function buildFixtureNode(
     patternId: item.constellationId ?? null,
     metadata: { fixtureSeed: true },
   };
+
+  return refreshNodeVisual(base, vitality);
+}
+
+function attachPatternIds(nodes: SkyNode[], patterns: SkyPattern[]): void {
+  nodes.forEach((node) => {
+    const pattern = patterns.find((entry) => entry.nodeIds.includes(node.id));
+    if (pattern) node.patternId = pattern.id;
+  });
+}
+
+function buildPatternRelationships(patterns: SkyPattern[]): SkyRelationship[] {
+  const relationships: SkyRelationship[] = [];
+  for (const pattern of patterns) {
+    for (let i = 0; i < pattern.nodeIds.length - 1; i += 1) {
+      relationships.push({
+        id: `${pattern.id}-edge-${i}`,
+        fromNodeId: pattern.nodeIds[i],
+        toNodeId: pattern.nodeIds[i + 1],
+        patternId: pattern.id,
+        source: pattern.source,
+      });
+    }
+  }
+  return relationships;
 }
 
 export interface BuiltSkyGraph {
@@ -211,12 +293,16 @@ export interface BuiltSkyGraph {
   patterns: SkyPattern[];
   relationships: SkyRelationship[];
   vitality: number;
+  growthProfile: SkyGrowthProfile;
 }
 
 /** Build normalized sky graph from centralized sources — stable ids, explicit provenance. */
 export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
-  const skywriteNodes = sources.skywrites.map((post) => buildSkywriteNode(post, 1));
-  const vitality = computeSkyVitality(skywriteNodes.length);
+  const growthProfile = computeSkyGrowthProfile(sources);
+  const { vitality } = growthProfile;
+
+  const skywriteNodes = sources.skywrites.map((post) => buildSkywriteNode(post, vitality));
+  const focusReflectionNode = buildFocusReflectionNode(sources, vitality);
 
   const useFixtures = sources.skywrites.length === 0;
   const fixtureNodes = useFixtures
@@ -233,17 +319,17 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
       ? [buildGuidanceNode(sources.guidanceLabel, vitality)]
       : [];
 
-  const nodes = [
+  let nodes: SkyNode[] = [
     ...skywriteNodes,
+    ...(focusReflectionNode ? [focusReflectionNode] : []),
     ...fixtureNodes,
     ...communityNodes,
     ...connectionNodes,
     ...growthNodes,
     ...guidanceNodes,
-  ].map((node) => ({
-    ...node,
-    visual: computeSkyNodeVisual(node.type, node.visual.color, { vitality }),
-  }));
+  ];
+
+  nodes = applyVisualPrioritization(nodes, growthProfile);
 
   const now = new Date().toISOString();
   const patterns: SkyPattern[] = useFixtures
@@ -257,25 +343,10 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
         createdAt: now,
         updatedAt: now,
       }))
-    : [];
+    : deriveActivityPatterns(nodes, sources);
 
-  const relationships: SkyRelationship[] = [];
-  for (const pattern of patterns) {
-    for (let i = 0; i < pattern.nodeIds.length - 1; i += 1) {
-      relationships.push({
-        id: `${pattern.id}-edge-${i}`,
-        fromNodeId: pattern.nodeIds[i],
-        toNodeId: pattern.nodeIds[i + 1],
-        patternId: pattern.id,
-        source: pattern.source,
-      });
-    }
-  }
+  attachPatternIds(nodes, patterns);
+  const relationships = buildPatternRelationships(patterns);
 
-  nodes.forEach((node) => {
-    const pattern = patterns.find((p) => p.nodeIds.includes(node.id));
-    if (pattern) node.patternId = pattern.id;
-  });
-
-  return { nodes, patterns, relationships, vitality };
+  return { nodes, patterns, relationships, vitality, growthProfile };
 }
