@@ -24,4 +24,8 @@ export const MySkyCopy = {
   starDetailSparseBody: 'This star holds a quiet place in your sky.',
   starDetailMissingTitle: 'Star unavailable',
   starDetailMissingBody: 'This moment is no longer visible in your sky.',
+  historyTitle: 'How your sky has changed',
+  historyHint: 'Meaningful moments from your journey — newest first.',
+  historyEmptyTitle: 'Your history is still unfolding',
+  historyEmptyBody: 'As you Skywrite, reflect, and connect, gentle changes will appear here.',
 } as const;

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { MySkyHistoryLayer } from '@/components/my-sky/MySkyHistoryLayer';
 import { MySkyStarCanvas } from '@/components/my-sky/MySkyStarCanvas';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { MySkyCopy } from '@/constants/mySkyCopy';
@@ -204,6 +205,13 @@ export function MySkyScreen() {
               <Text style={styles.patternNote}>{title}</Text>
             </View>
           ))}
+        </View>
+      ) : null}
+
+      {visibleLayers.temporal ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{MySkyCopy.historyTitle}</Text>
+          <MySkyHistoryLayer evolution={mySkyView.evolution} />
         </View>
       ) : null}
     </ScreenLayout>

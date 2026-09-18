@@ -17,6 +17,10 @@ export {
   saveSkyEvolution,
 } from './skyEvolutionPersistence';
 export {
+  buildSkyHistoryView,
+  type SkyHistoryItem,
+} from './buildSkyHistoryView';
+export {
   buildStarDetailView,
   findPatternForNode,
   findSkyNodeById,

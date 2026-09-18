@@ -30,4 +30,5 @@ export const MY_SKY_TEMPORARY_REVEAL_LAYERS: ReadonlySet<MySkyLayerId> = new Set
 export const MySkyLayerCopy = {
   controlsHint: 'Reveal deeper layers of your sky.',
   constellationRevealHint: 'Tap Constellations for a gentle glimpse — lines fade away.',
+  historyHint: 'Toggle History to see how your sky has shifted over time.',
 } as const;
