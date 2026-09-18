@@ -1,16 +1,18 @@
-import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
 import { MySkyHistoryLayer } from '@/components/my-sky/MySkyHistoryLayer';
+import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
 import { MySkyStarCanvas } from '@/components/my-sky/MySkyStarCanvas';
-import { ScreenLayout } from '@/components/ScreenLayout';
 import { MySkyCopy } from '@/constants/mySkyCopy';
+import { HomePalette } from '@/constants/homeLayout';
+import { SkyArrivalCopy } from '@/constants/skyArrivalCopy';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
 
 export function MySkyScreen() {
-  const router = useRouter();
   const {
     mySkyView,
     toggleMySkyLayer,
@@ -23,31 +25,47 @@ export function MySkyScreen() {
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
-      homeLink: {
-        marginTop: Spacing.sm,
-        marginBottom: Spacing.xs,
-        minHeight: 44,
-        justifyContent: 'center',
+      root: {
+        flex: 1,
+        backgroundColor: '#05070A',
       },
-      homeLinkText: {
-        fontFamily: Fonts.sans,
-        fontSize: 15,
-        color: tokens.gold,
-        fontWeight: '600',
+      safe: {
+        flex: 1,
       },
-      title: {
+      scrollContent: {
+        flexGrow: 1,
+        paddingHorizontal: Spacing.md,
+        paddingBottom: Spacing.lg,
+      },
+      header: {
+        paddingTop: 4,
+        paddingBottom: Spacing.sm,
+        alignItems: 'center',
+        gap: 4,
+        zIndex: 2,
+      },
+      logoWrap: {
+        marginBottom: 4,
+      },
+      headerTitle: {
         fontFamily: Fonts.serif,
-        fontSize: 28,
+        fontSize: 26,
         fontWeight: '600',
-        color: tokens.primaryText,
-        marginTop: Spacing.sm,
-        letterSpacing: -0.3,
+        color: HomePalette.textPrimary,
+        letterSpacing: -0.2,
       },
-      subtitle: {
+      headerSubtitle: {
         fontFamily: Fonts.sans,
-        fontSize: 15,
-        lineHeight: 22,
-        color: tokens.secondaryText,
+        fontSize: 13,
+        lineHeight: 18,
+        color: 'rgba(235, 228, 248, 0.68)',
+        textAlign: 'center',
+        maxWidth: 300,
+        marginBottom: Spacing.sm,
+      },
+      canvasSection: {
+        width: '100%',
+        minHeight: 460,
         marginBottom: Spacing.lg,
       },
       section: {
@@ -136,84 +154,88 @@ export function MySkyScreen() {
   );
 
   return (
-    <ScreenLayout showTabBar>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={MySkyCopy.homeLink}
-        onPress={() => router.push('/(tabs)/home' as never)}
-        style={styles.homeLink}>
-        <Text style={styles.homeLinkText}>{MySkyCopy.homeLink}</Text>
-      </Pressable>
-
-      <Text style={styles.title}>{MySkyCopy.title}</Text>
-      <Text style={styles.subtitle}>{MySkyCopy.subtitle}</Text>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{MySkyCopy.northStarTitle}</Text>
-        <View style={styles.northStarCard}>
-          <Text style={styles.northStarLabel}>{MySkyCopy.northStarHint}</Text>
-          {northStarText ? (
-            <Text style={styles.northStarBody}>{northStarText}</Text>
-          ) : (
-            <Text style={styles.northStarEmpty}>{MySkyCopy.northStarEmpty}</Text>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{MySkyCopy.starsTitle}</Text>
-        <MySkyStarCanvas
-          view={mySkyView}
-          onToggleLayer={toggleMySkyLayer}
-          onRevealConstellations={triggerConstellationReveal}
-          constellationRevealCount={constellationRevealCount}
-          constellationRevealActive={constellationRevealActive}
-        />
-        <Text style={styles.hint}>{MySkyCopy.exploreHint}</Text>
-      </View>
-
-      {mySkyView.constellations.length > 0 ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{MySkyCopy.constellationsTitle}</Text>
-          {mySkyView.constellations.map((pattern) => (
-            <View key={pattern.id} style={styles.patternCard} accessibilityRole="text">
-              <Text style={styles.patternLabel}>{pattern.label}</Text>
-              <Text style={styles.patternNote}>{pattern.note}</Text>
+    <View style={styles.root}>
+      <MySkyBackdrop dim />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <View style={styles.logoWrap}>
+              <HomeHeaderLogo />
             </View>
-          ))}
-        </View>
-      ) : null}
-
-      {visibleLayers.connections && mySkyView.connections.length > 0 ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{MySkyCopy.connectionsTitle}</Text>
-          <View style={styles.chipRow}>
-            {mySkyView.connections.map((name) => (
-              <View key={name} style={styles.chip}>
-                <Text style={styles.chipText}>{name}</Text>
-              </View>
-            ))}
+            <Text style={styles.headerTitle}>{SkyArrivalCopy.mySkyTitle}</Text>
+            <Text style={styles.headerSubtitle}>{SkyArrivalCopy.mySkySubtitle}</Text>
           </View>
-        </View>
-      ) : null}
 
-      {visibleLayers.impact && mySkyView.contributions.length > 0 ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{MySkyCopy.contributionsTitle}</Text>
-          {mySkyView.contributions.map((title) => (
-            <View key={title} style={styles.patternCard}>
-              <Text style={styles.patternNote}>{title}</Text>
+          <View style={styles.canvasSection}>
+            <MySkyStarCanvas
+              immersive
+              view={mySkyView}
+              onToggleLayer={toggleMySkyLayer}
+              onRevealConstellations={triggerConstellationReveal}
+              constellationRevealCount={constellationRevealCount}
+              constellationRevealActive={constellationRevealActive}
+            />
+            <Text style={styles.hint}>{MySkyCopy.exploreHint}</Text>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{MySkyCopy.northStarTitle}</Text>
+            <View style={styles.northStarCard}>
+              <Text style={styles.northStarLabel}>{MySkyCopy.northStarHint}</Text>
+              {northStarText ? (
+                <Text style={styles.northStarBody}>{northStarText}</Text>
+              ) : (
+                <Text style={styles.northStarEmpty}>{MySkyCopy.northStarEmpty}</Text>
+              )}
             </View>
-          ))}
-        </View>
-      ) : null}
+          </View>
 
-      {visibleLayers.temporal ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{MySkyCopy.historyTitle}</Text>
-          <MySkyHistoryLayer evolution={mySkyView.evolution} />
-        </View>
-      ) : null}
-    </ScreenLayout>
+          {mySkyView.constellations.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{MySkyCopy.constellationsTitle}</Text>
+              {mySkyView.constellations.map((pattern) => (
+                <View key={pattern.id} style={styles.patternCard} accessibilityRole="text">
+                  <Text style={styles.patternLabel}>{pattern.label}</Text>
+                  <Text style={styles.patternNote}>{pattern.note}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {visibleLayers.connections && mySkyView.connections.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{MySkyCopy.connectionsTitle}</Text>
+              <View style={styles.chipRow}>
+                {mySkyView.connections.map((name) => (
+                  <View key={name} style={styles.chip}>
+                    <Text style={styles.chipText}>{name}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {visibleLayers.impact && mySkyView.contributions.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{MySkyCopy.contributionsTitle}</Text>
+              {mySkyView.contributions.map((title) => (
+                <View key={title} style={styles.patternCard}>
+                  <Text style={styles.patternNote}>{title}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {visibleLayers.temporal ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{MySkyCopy.historyTitle}</Text>
+              <MySkyHistoryLayer evolution={mySkyView.evolution} />
+            </View>
+          ) : null}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }

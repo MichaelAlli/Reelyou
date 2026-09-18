@@ -31,6 +31,8 @@ interface MySkyStarCanvasProps {
   onRevealConstellations: () => void;
   constellationRevealCount: number;
   constellationRevealActive?: boolean;
+  /** Full-tab immersive canvas — backdrop lives on the screen shell. */
+  immersive?: boolean;
 }
 
 function MySkyStarCanvasComponent({
@@ -39,6 +41,7 @@ function MySkyStarCanvasComponent({
   onRevealConstellations,
   constellationRevealCount,
   constellationRevealActive = false,
+  immersive = false,
 }: MySkyStarCanvasProps) {
   const { stars, viewState } = view;
   const router = useRouter();
@@ -55,15 +58,22 @@ function MySkyStarCanvasComponent({
       outer: {
         gap: Spacing.sm,
       },
-      wrap: {
-        width: '100%',
-        aspectRatio: 0.72,
-        minHeight: 320,
-        borderRadius: Radius.lg,
-        overflow: 'hidden',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(167, 139, 250, 0.22)',
-      },
+      wrap: immersive
+        ? {
+            width: '100%',
+            minHeight: 420,
+            flexGrow: 1,
+            overflow: 'hidden',
+          }
+        : {
+            width: '100%',
+            aspectRatio: 0.72,
+            minHeight: 320,
+            borderRadius: Radius.lg,
+            overflow: 'hidden',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: 'rgba(167, 139, 250, 0.22)',
+          },
       starHit: {
         position: 'absolute',
         width: 44,
@@ -187,7 +197,7 @@ function MySkyStarCanvasComponent({
         constellationRevealActive={constellationRevealActive}
       />
       <View style={styles.wrap}>
-        <MySkyBackdrop dim />
+        {immersive ? null : <MySkyBackdrop dim />}
         <MySkyRenderer
           view={view}
           mode="resting"
