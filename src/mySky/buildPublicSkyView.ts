@@ -1,4 +1,5 @@
 import { orbitUsers } from '@/data/mockData';
+import { applyPatternVisibility, applyVisibilityToNodes } from '@/mySky/applySkyNodeVisibility';
 import { EMPTY_SKY_EVOLUTION } from '@/mySky/skyEvolution';
 import { buildMySkyViewFromSources, type MySkySources } from '@/mySky/mySkyState';
 import {
@@ -8,6 +9,12 @@ import {
 } from '@/mySky/skyIdentity';
 import { filterPublicSkyView } from '@/mySky/skyPublicVisibility';
 import { DEFAULT_MY_SKY_VISIBLE_LAYERS } from '@/mySky/skyLayers';
+import {
+  canViewPublicSky,
+  isSkyDiscoverable,
+  resolveSkyVisibilitySettingsForOwner,
+  type SkyVisibilitySettings,
+} from '@/mySky/skyVisibilitySettings';
 import type { MySkyView } from '@/mySky/types';
 
 /** Beta placeholder north stars — public-facing only. */
@@ -45,9 +52,17 @@ function resolveNorthStarVision(userId: string): string {
 export function buildPublicSkyView(
   userId: string,
   connectionStatus: SkyConnectionStatus = 'none',
+  ownerVisibilitySettings?: SkyVisibilitySettings | null,
 ): MySkyView | null {
   const owner = resolvePublicSkyOwnerProfile(userId, connectionStatus);
   if (!owner) return null;
+
+  const visibilitySettings = resolveSkyVisibilitySettingsForOwner(
+    userId,
+    ownerVisibilitySettings,
+  );
+  const isConnected = connectionStatus === 'connected';
+  if (!canViewPublicSky(visibilitySettings, isConnected)) return null;
 
   const sources: MySkySources = {
     northStarVision: resolveNorthStarVision(userId),
@@ -64,7 +79,18 @@ export function buildPublicSkyView(
   };
 
   const rawView = buildMySkyViewFromSources(sources, PUBLIC_VISITOR_LAYERS);
-  const filtered = filterPublicSkyView(rawView, connectionStatus);
+  const stampedNodes = applyVisibilityToNodes(rawView.nodes, visibilitySettings);
+  const stampedPatterns = applyPatternVisibility(rawView.patterns, visibilitySettings);
+  const stampedView = {
+    ...rawView,
+    nodes: stampedNodes,
+    patterns: stampedPatterns,
+    stars: rawView.stars.map((star) => {
+      const node = stampedNodes.find((entry) => entry.id === star.id);
+      return node?.visibility ? { ...star, visibility: node.visibility } : star;
+    }),
+  };
+  const filtered = filterPublicSkyView(stampedView, connectionStatus, visibilitySettings);
 
   return {
     ...filtered,
@@ -80,8 +106,22 @@ export function buildPublicSkyViewForOwner(owner: SkyOwnerProfile): MySkyView | 
   return buildPublicSkyView(owner.id, owner.connectionStatus ?? 'none');
 }
 
-export function isPublicSkyAvailable(userId: string): boolean {
-  return orbitUsers.some((user) => user.id === userId);
+export function isPublicSkyAvailable(
+  userId: string,
+  ownerVisibilitySettings?: SkyVisibilitySettings | null,
+): boolean {
+  if (!orbitUsers.some((user) => user.id === userId)) return false;
+  const settings = resolveSkyVisibilitySettingsForOwner(userId, ownerVisibilitySettings);
+  return settings.skyVisibility !== 'private';
+}
+
+export function isPublicSkyDiscoverable(
+  userId: string,
+  ownerVisibilitySettings?: SkyVisibilitySettings | null,
+): boolean {
+  if (!orbitUsers.some((user) => user.id === userId)) return false;
+  const settings = resolveSkyVisibilitySettingsForOwner(userId, ownerVisibilitySettings);
+  return isSkyDiscoverable(settings);
 }
 
 export type { SkyOwnerProfile };

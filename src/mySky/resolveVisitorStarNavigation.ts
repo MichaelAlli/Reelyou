@@ -4,6 +4,7 @@ import type { SkyNode } from '@/mySky/skyNodeTypes';
 import type { MySkyStarDisplay } from '@/mySky/types';
 
 import type { StarNavigationTarget } from './resolveStarNavigation';
+import type { SkyVisibilitySettings } from './skyVisibilitySettings';
 
 /** Visitor-safe star navigation — no compose, no private destinations. */
 export function resolveVisitorStarNavigation(
@@ -11,9 +12,13 @@ export function resolveVisitorStarNavigation(
   ownerNodes: SkyNode[],
   connectionStatus: SkyConnectionStatus,
   ownerId: string,
+  visibilitySettings?: SkyVisibilitySettings,
 ): StarNavigationTarget {
   const node = ownerNodes.find((entry) => entry.id === star.id);
-  if (!node || !isPublicSkyNodeVisible(node, connectionStatus)) {
+  if (
+    !node ||
+    !isPublicSkyNodeVisible(node, connectionStatus, visibilitySettings)
+  ) {
     return { kind: 'none', reason: 'missing-skywrite' };
   }
 

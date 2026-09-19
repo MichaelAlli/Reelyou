@@ -101,6 +101,25 @@ export type {
   SkyRelationship,
   SkySourceType,
 } from './skyNodeTypes';
+export {
+  canViewPublicSky,
+  DEFAULT_SKY_VISIBILITY_SETTINGS,
+  isSkyDiscoverable,
+  resolveSkyVisibilitySettingsForOwner,
+  SKY_VISIBILITY_ICONS,
+  SKY_VISIBILITY_LABELS,
+} from './skyVisibilitySettings';
+export type {
+  SkyContentVisibilityOverrides,
+  SkyVisibilityLevel,
+  SkyVisibilitySettings,
+} from './skyVisibilitySettings';
+export {
+  loadSkyVisibilitySettings,
+  saveSkyVisibilitySettings,
+} from './skyVisibilityPersistence';
+export { isPublicSkyNodeVisible, filterPublicSkyView } from './skyPublicVisibility';
+export { isPublicSkyAvailable, isPublicSkyDiscoverable, buildPublicSkyView } from './buildPublicSkyView';
 export { EMPTY_MY_SKY } from './types';
 export type {
   MySkyConstellation,

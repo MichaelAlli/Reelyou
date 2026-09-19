@@ -1,6 +1,10 @@
 import type { CommunitiesRecord } from '@/onboarding/personalization/communities/types';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
 import type { SkyConnectionActivity } from '@/mySky/skyConnectionSources';
+import {
+  resolveSkyVisibilitySettingsForOwner,
+  type SkyVisibilityLevel,
+} from '@/mySky/skyVisibilitySettings';
 import type { AroundYourSkyHomeFeed } from '@/social/aroundYourSky/types';
 
 export interface PublicSkyVisitorContext {
@@ -22,6 +26,16 @@ function resolveSharedCommunityName(
   return undefined;
 }
 
+function contextVisibilityAllows(
+  level: SkyVisibilityLevel | undefined,
+  connectionStatus: SkyConnectionStatus,
+): boolean {
+  const visibility = level ?? 'private';
+  if (visibility === 'public') return true;
+  if (visibility === 'orbit') return connectionStatus === 'connected';
+  return false;
+}
+
 /** Lightweight shared context for Public Sky visitors — no scores or rankings. */
 export function resolvePublicSkyVisitorContext(
   ownerId: string,
@@ -30,19 +44,30 @@ export function resolvePublicSkyVisitorContext(
   communities: CommunitiesRecord,
   connectionActivities: SkyConnectionActivity[],
 ): PublicSkyVisitorContext {
+  const settings = resolveSkyVisibilitySettingsForOwner(ownerId);
   const sharedCommunityName = resolveSharedCommunityName(ownerId, feed, communities);
   const connectedActivity = connectionActivities.find((entry) => entry.actorId === ownerId);
 
   let mutualConnectionLabel: string | undefined;
-  if (connectionStatus === 'connected' && connectedActivity) {
+
+  const connectionsAllowed = contextVisibilityAllows(
+    settings.contentOverrides.connections ?? settings.defaultVisibility,
+    connectionStatus,
+  );
+  const communitiesAllowed = contextVisibilityAllows(
+    settings.contentOverrides.communities ?? settings.defaultVisibility,
+    connectionStatus,
+  );
+
+  if (connectionsAllowed && connectionStatus === 'connected' && connectedActivity) {
     mutualConnectionLabel = `Connected through ${connectedActivity.title}`;
-  } else if (sharedCommunityName) {
+  } else if (communitiesAllowed && sharedCommunityName) {
     mutualConnectionLabel = `Shared community · ${sharedCommunityName}`;
   }
 
   return {
     connectionStatus,
-    sharedCommunityName,
+    sharedCommunityName: communitiesAllowed ? sharedCommunityName : undefined,
     mutualConnectionLabel,
   };
 }

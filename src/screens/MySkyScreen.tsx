@@ -10,8 +10,13 @@ import { MySkyControlRow } from '@/components/my-sky/MySkyControlRow';
 import { MySkyInsightOverlay } from '@/components/my-sky/MySkyInsightOverlay';
 import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
 import { MySkyProximityCue } from '@/components/my-sky/MySkyProximityCue';
+import { PrivacyGlyph } from '@/components/my-sky/MySkyControlIcons';
+import { MySkyControlColors } from '@/components/my-sky/mySkyControlColors';
+import { MySkyLabeledControl } from '@/components/my-sky/MySkyLabeledControl';
+import { MySkyPrivacySheet } from '@/components/my-sky/MySkyPrivacySheet';
 import { MySkySearchSheet } from '@/components/my-sky/MySkySearchSheet';
 import { MySkyStarCanvas } from '@/components/my-sky/MySkyStarCanvas';
+import { MySkyCopy } from '@/constants/mySkyCopy';
 import { HomePalette } from '@/constants/homeLayout';
 import { SkyArrivalCopy } from '@/constants/skyArrivalCopy';
 import { Fonts, Spacing } from '@/constants/theme';
@@ -52,11 +57,14 @@ export function MySkyScreen() {
     communities,
     skywrites,
     guidingLightView,
+    mySkyVisibilitySettings,
+    setMySkyVisibilitySettings,
   } = useOnboarding();
   const { visibleLayers } = mySkyView.viewState;
   const northStarText = mySkyView.northStar.originalVision.trim();
 
   const [cleanSkyActive, setCleanSkyActive] = useState(false);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightOwnerId, setHighlightOwnerId] = useState<string | null>(null);
@@ -359,6 +367,18 @@ export function MySkyScreen() {
             </View>
 
             <View style={styles.layerRow}>
+              <MySkyLabeledControl
+                icon={
+                  <PrivacyGlyph
+                    size={15}
+                    color={MySkyControlColors.iconDefault}
+                    strokeWidth={1.5}
+                  />
+                }
+                label={MySkyCopy.privacyControlLabel}
+                onPress={() => setPrivacyVisible(true)}
+                accessibilityLabel={MySkyCopy.privacyTitle}
+              />
               <View style={styles.layerScroll}>
                 <MySkyLayerControls
                   compact
@@ -428,6 +448,13 @@ export function MySkyScreen() {
         </View>
       </SafeAreaView>
 
+      <MySkyPrivacySheet
+        visible={privacyVisible}
+        settings={mySkyVisibilitySettings}
+        onClose={() => setPrivacyVisible(false)}
+        onChange={setMySkyVisibilitySettings}
+      />
+
       <MySkySearchSheet
         visible={searchVisible}
         query={searchQuery}
@@ -489,10 +516,10 @@ const styles = StyleSheet.create({
   layerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: Spacing.sm,
+    paddingLeft: Spacing.xs,
     paddingRight: Spacing.sm,
     paddingBottom: 2,
-    gap: 6,
+    gap: 4,
     zIndex: 2,
   },
   layerScroll: {

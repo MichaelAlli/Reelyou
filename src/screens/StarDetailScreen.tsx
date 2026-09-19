@@ -17,6 +17,7 @@ import {
 } from '@/mySky/buildPublicSkyView';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { isPublicSkyNodeVisible } from '@/mySky/skyPublicVisibility';
+import { resolveSkyVisibilitySettingsForOwner } from '@/mySky/skyVisibilitySettings';
 import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
 
@@ -43,10 +44,19 @@ export function StarDetailScreen() {
 
   const sourceView = publicSkyView ?? mySkyView;
   const node = findSkyNodeById(sourceView.nodes, nodeId);
+  const visitorVisibilitySettings = useMemo(() => {
+    if (!publicOwnerId) return undefined;
+    return resolveSkyVisibilitySettingsForOwner(publicOwnerId);
+  }, [publicOwnerId]);
+
   const visibleNode =
     node &&
     (!publicSkyView ||
-      isPublicSkyNodeVisible(node, publicSkyView.skyOwner.connectionStatus ?? 'none'))
+      isPublicSkyNodeVisible(
+        node,
+        publicSkyView.skyOwner.connectionStatus ?? 'none',
+        visitorVisibilitySettings,
+      ))
       ? node
       : null;
   const pattern = visibleNode ? findPatternForNode(sourceView.patterns, visibleNode.id) : null;
@@ -144,9 +154,12 @@ export function StarDetailScreen() {
   );
 
   const metaParts = detail
-    ? [detail.typeLabel, detail.categoryLabel, detail.dateLabel, detail.visibilityLabel].filter(
-        Boolean,
-      )
+    ? [
+        detail.typeLabel,
+        detail.categoryLabel,
+        detail.dateLabel,
+        publicOwnerId ? null : detail.visibilityLabel,
+      ].filter(Boolean)
     : [];
 
   return (

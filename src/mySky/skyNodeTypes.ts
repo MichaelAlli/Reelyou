@@ -115,6 +115,8 @@ export interface SkyPattern {
   nodeIds: string[];
   label?: string;
   note?: string;
+  /** Optional constellation-level visibility — inherited from owner settings. */
+  visibility?: string;
   source: 'explicit' | 'inferred';
   status: SkyPatternStatus;
   createdAt: string;

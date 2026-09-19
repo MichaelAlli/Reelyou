@@ -162,7 +162,35 @@ function ImmersiveSkyExitGlyphComponent({
   );
 }
 
+/** Lock shield — Privacy control. */
+function PrivacyGlyphComponent({
+  size = 16,
+  color = MySkyControlColors.iconDefault,
+  strokeWidth = 1.55,
+}: GlyphProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16">
+      <Path
+        d="M5.2 7.1 V 5.4 C 5.2 3.7 6.5 2.4 8 2.4 C 9.5 2.4 10.8 3.7 10.8 5.4 V 7.1"
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M4.1 7.1 H 11.9 C 12.5 7.1 13 7.6 13 8.2 V 12.1 C 13 12.7 12.5 13.2 11.9 13.2 H 4.1 C 3.5 13.2 3 12.7 3 12.1 V 8.2 C 3 7.6 3.5 7.1 4.1 7.1 Z"
+        fill="rgba(232, 200, 114, 0.08)"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+      <Circle cx={8} cy={10} r={0.85} fill={color} />
+    </Svg>
+  );
+}
+
 export const SearchGlyph = memo(SearchGlyphComponent);
 export const ExploreGlyph = memo(ExploreGlyphComponent);
+export const PrivacyGlyph = memo(PrivacyGlyphComponent);
 export const ImmersiveSkyEnterGlyph = memo(ImmersiveSkyEnterGlyphComponent);
 export const ImmersiveSkyExitGlyph = memo(ImmersiveSkyExitGlyphComponent);

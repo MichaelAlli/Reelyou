@@ -14,6 +14,7 @@ import { MySkyExplorableViewport } from '@/components/my-sky/MySkyExplorableView
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
 import { MySkyIdentityProfileBubble } from '@/components/my-sky/MySkyIdentityProfileBubble';
 import { MySkyIdentityStar } from '@/components/my-sky/MySkyIdentityStar';
+import { MySkyVisibilityBadge } from '@/components/my-sky/MySkyVisibilityBadge';
 import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
 import { MySkyNearbySkiesLayer } from '@/components/my-sky/MySkyNearbySkiesLayer';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
@@ -28,6 +29,10 @@ import { resolveStarNavigation } from '@/mySky/resolveStarNavigation';
 import { resolveVisitorStarNavigation } from '@/mySky/resolveVisitorStarNavigation';
 import type { MySkyLayerId } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
+import {
+  resolveSkyVisibilitySettingsForOwner,
+  type SkyVisibilityLevel,
+} from '@/mySky/skyVisibilitySettings';
 import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
@@ -116,6 +121,13 @@ function MySkyStarCanvasComponent({
     [communities.joined],
   );
   const starSignature = useMemo(() => stars.map((star) => star.id).join('|'), [stars]);
+  const visitorVisibilitySettings = useMemo(
+    () =>
+      visitorMode && publicSkyOwnerId
+        ? resolveSkyVisibilitySettingsForOwner(publicSkyOwnerId)
+        : undefined,
+    [publicSkyOwnerId, visitorMode],
+  );
   const [worldSize, setWorldSize] = useState({ width: 0, height: 0 });
 
   const styles = useThemedStyles((tokens) =>
@@ -243,6 +255,7 @@ function MySkyStarCanvasComponent({
             publicSkyNodes,
             publicSkyConnectionStatus,
             publicSkyOwnerId ?? skyOwner.id,
+            visitorVisibilitySettings,
           )
         : resolveStarNavigation(star, {
             skywrites,
@@ -293,6 +306,7 @@ function MySkyStarCanvasComponent({
       skyOwner.id,
       skywrites,
       visitorMode,
+      visitorVisibilitySettings,
     ],
   );
 
@@ -437,6 +451,13 @@ function MySkyStarCanvasComponent({
             },
           ]}>
           <View style={styles.hitGlow} />
+          {!visitorMode &&
+          (star.visibility === 'private' || star.visibility === 'orbit') ? (
+            <MySkyVisibilityBadge
+              visibility={star.visibility as SkyVisibilityLevel}
+              compact
+            />
+          ) : null}
         </Pressable>
       ))}
 

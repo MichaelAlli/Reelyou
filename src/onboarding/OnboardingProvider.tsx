@@ -58,6 +58,14 @@ import {
   DEFAULT_MY_SKY_VIEWPORT,
   type MySkyViewportSnapshot,
 } from '@/mySky/mySkyViewportSession';
+import {
+  DEFAULT_SKY_VISIBILITY_SETTINGS,
+  type SkyVisibilitySettings,
+} from '@/mySky/skyVisibilitySettings';
+import {
+  loadSkyVisibilitySettings,
+  saveSkyVisibilitySettings,
+} from '@/mySky/skyVisibilityPersistence';
 import { buildSkyNodeId, type SkyArrivalHandoff } from '@/mySky/skyArrival';
 import {
   createEvolutionEntry,
@@ -183,6 +191,9 @@ interface OnboardingContextValue {
   /** Optional wider-universe public skies in My Sky exploration. */
   mySkyExploreEnabled: boolean;
   setMySkyExploreEnabled: (enabled: boolean) => void;
+  /** Owner visibility preferences — local-first, immediately reflected in Public Sky. */
+  mySkyVisibilitySettings: SkyVisibilitySettings;
+  setMySkyVisibilitySettings: (settings: SkyVisibilitySettings) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -209,6 +220,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     ...DEFAULT_MY_SKY_VIEWPORT,
   }));
   const [mySkyExploreEnabled, setMySkyExploreEnabledState] = useState(false);
+  const [mySkyVisibilitySettings, setMySkyVisibilitySettingsState] =
+    useState<SkyVisibilitySettings>(() => ({
+      ...DEFAULT_SKY_VISIBILITY_SETTINGS,
+      contentOverrides: {},
+    }));
   const [skyEvolution, setSkyEvolution] = useState<SkyEvolutionRecord>(EMPTY_SKY_EVOLUTION);
 
   const setMySkyViewport = useCallback((snapshot: MySkyViewportSnapshot) => {
@@ -218,6 +234,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const setMySkyExploreEnabled = useCallback((enabled: boolean) => {
     setMySkyExploreEnabledState(enabled);
   }, []);
+
+  const setMySkyVisibilitySettings = useCallback((settings: SkyVisibilitySettings) => {
+    setMySkyVisibilitySettingsState(settings);
+    void saveSkyVisibilitySettings(settings);
+  }, []);
+
   useEffect(() => {
     let live = true;
     loadTodayFocus().then((record) => {
@@ -243,6 +265,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     loadSkyEvolution().then((record) => {
       if (live) {
         setSkyEvolution(record);
+      }
+    });
+    loadSkyVisibilitySettings().then((record) => {
+      if (live) {
+        setMySkyVisibilitySettingsState(record);
       }
     });
     return () => {
@@ -303,6 +330,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         skyEvolution,
         skyConnectionActivities,
         participatingCommunityIds,
+        mySkyVisibilitySettings,
       ),
     [
       basePersonalizationProfile,
@@ -312,6 +340,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       skyEvolution,
       skyConnectionActivities,
       participatingCommunityIds,
+      mySkyVisibilitySettings,
     ],
   );
 
@@ -682,6 +711,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setMySkyViewport,
       mySkyExploreEnabled,
       setMySkyExploreEnabled,
+      mySkyVisibilitySettings,
+      setMySkyVisibilitySettings,
       profile,
       goals,
       challenges,
@@ -745,6 +776,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setMySkyViewport,
       mySkyExploreEnabled,
       setMySkyExploreEnabled,
+      mySkyVisibilitySettings,
+      setMySkyVisibilitySettings,
       profile,
       goals,
       challenges,
