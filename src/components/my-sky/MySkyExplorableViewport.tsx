@@ -2,6 +2,7 @@ import { ReactNode, memo, useCallback, useEffect, useRef, useState } from 'react
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -9,46 +10,41 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
-
-/**
- * World scale vs viewport — larger factor = more explorable space before pan clamps.
- * Previous 1.55 only allowed ~27% viewport travel per axis at rest zoom.
- */
-export const MY_SKY_WORLD_FACTOR = 2.65;
-const MIN_SCALE = 0.85;
-const MAX_SCALE = 2.35;
-/** Slight extra pan beyond strict content bounds — keeps edges from feeling abrupt. */
-const PAN_BOUNDARY_RELAX = 1.08;
-/** Background moves slightly slower than stars for subtle depth. */
-const PARALLAX_RATE = 0.88;
-const JUMP_DURATION_MS = 480;
-
-function clamp(value: number, min: number, max: number) {
-  'worklet';
-  return Math.min(max, Math.max(min, value));
-}
+import {
+  MY_SKY_BOUND_SNAP_MS,
+  MY_SKY_JUMP_DURATION_MS,
+  MY_SKY_LIVE_PUBLISH_MS,
+  MY_SKY_MAX_SCALE,
+  MY_SKY_MIN_SCALE,
+  MY_SKY_PAN_MIN_DISTANCE,
+  MY_SKY_WORLD_FACTOR,
+  applyPinchFocalOffset,
+  clampOffsetToBounds,
+  snapshotKey,
+} from '@/mySky/mySkyViewportGestures';
 
 interface MySkyExplorableViewportProps {
-  renderBackground: (worldSize: { width: number; height: number }) => ReactNode;
-  renderForeground: (worldSize: { width: number; height: number }) => ReactNode;
+  renderWorld: (worldSize: { width: number; height: number }) => ReactNode;
   initialSnapshot?: MySkyViewportSnapshot;
   jumpSnapshot?: MySkyViewportSnapshot | null;
   onSnapshotChange?: (snapshot: MySkyViewportSnapshot) => void;
   onViewportLiveChange?: (snapshot: MySkyViewportSnapshot) => void;
   onWorldSizeChange?: (worldSize: { width: number; height: number }) => void;
+  onGestureActiveChange?: (active: boolean) => void;
 }
 
 function MySkyExplorableViewportComponent({
-  renderBackground,
-  renderForeground,
+  renderWorld,
   initialSnapshot,
   jumpSnapshot,
   onSnapshotChange,
   onViewportLiveChange,
   onWorldSizeChange,
+  onGestureActiveChange,
 }: MySkyExplorableViewportProps) {
   const [layout, setLayout] = useState({ width: 0, height: 0, worldWidth: 0, worldHeight: 0 });
   const lastLivePublish = useRef(0);
+  const lastSyncedSnapshot = useRef('');
 
   const viewportWidth = useSharedValue(0);
   const viewportHeight = useSharedValue(0);
@@ -61,9 +57,14 @@ function MySkyExplorableViewportComponent({
   const panStartX = useSharedValue(0);
   const panStartY = useSharedValue(0);
   const pinchStartScale = useSharedValue(1);
+  const pinchStartOffsetX = useSharedValue(0);
+  const pinchStartOffsetY = useSharedValue(0);
 
   useEffect(() => {
     if (!initialSnapshot) return;
+    const key = snapshotKey(initialSnapshot);
+    if (key === lastSyncedSnapshot.current) return;
+    lastSyncedSnapshot.current = key;
     offsetX.value = initialSnapshot.offsetX;
     offsetY.value = initialSnapshot.offsetY;
     scale.value = initialSnapshot.scale;
@@ -77,13 +78,27 @@ function MySkyExplorableViewportComponent({
     });
   }, [offsetX, offsetY, onSnapshotChange, scale]);
 
+  const setGestureActive = useCallback(
+    (active: boolean) => {
+      onGestureActiveChange?.(active);
+    },
+    [onGestureActiveChange],
+  );
+
   useEffect(() => {
     if (!jumpSnapshot) return;
-    offsetX.value = withTiming(jumpSnapshot.offsetX, { duration: JUMP_DURATION_MS });
-    offsetY.value = withTiming(jumpSnapshot.offsetY, { duration: JUMP_DURATION_MS });
+    lastSyncedSnapshot.current = snapshotKey(jumpSnapshot);
+    offsetX.value = withTiming(jumpSnapshot.offsetX, {
+      duration: MY_SKY_JUMP_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+    offsetY.value = withTiming(jumpSnapshot.offsetY, {
+      duration: MY_SKY_JUMP_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+    });
     scale.value = withTiming(
       jumpSnapshot.scale,
-      { duration: JUMP_DURATION_MS },
+      { duration: MY_SKY_JUMP_DURATION_MS, easing: Easing.out(Easing.cubic) },
       (finished) => {
         if (finished && onSnapshotChange) {
           runOnJS(publishSnapshot)();
@@ -95,7 +110,7 @@ function MySkyExplorableViewportComponent({
   const publishLive = useCallback(() => {
     if (!onViewportLiveChange) return;
     const now = Date.now();
-    if (now - lastLivePublish.current < 80) return;
+    if (now - lastLivePublish.current < MY_SKY_LIVE_PUBLISH_MS) return;
     lastLivePublish.current = now;
     onViewportLiveChange({
       offsetX: offsetX.value,
@@ -129,74 +144,154 @@ function MySkyExplorableViewportComponent({
   );
 
   const pan = Gesture.Pan()
-    .minDistance(10)
+    .minDistance(MY_SKY_PAN_MIN_DISTANCE)
+    .maxPointers(1)
     .onBegin(() => {
       panStartX.value = offsetX.value;
       panStartY.value = offsetY.value;
+      if (onGestureActiveChange) {
+        runOnJS(setGestureActive)(true);
+      }
     })
     .onUpdate((event) => {
-      const s = scale.value;
-      const scaledW = worldWidth.value * s;
-      const scaledH = worldHeight.value * s;
-      const maxX = Math.max(0, ((scaledW - viewportWidth.value) / 2) * PAN_BOUNDARY_RELAX);
-      const maxY = Math.max(0, ((scaledH - viewportHeight.value) / 2) * PAN_BOUNDARY_RELAX);
-
-      offsetX.value = clamp(panStartX.value + event.translationX, -maxX, maxX);
-      offsetY.value = clamp(panStartY.value + event.translationY, -maxY, maxY);
+      const clamped = clampOffsetToBounds(
+        panStartX.value + event.translationX,
+        panStartY.value + event.translationY,
+        worldWidth.value,
+        worldHeight.value,
+        viewportWidth.value,
+        viewportHeight.value,
+        scale.value,
+      );
+      offsetX.value = clamped.x;
+      offsetY.value = clamped.y;
 
       if (onViewportLiveChange) {
         runOnJS(publishLive)();
       }
     })
     .onEnd(() => {
+      const clamped = clampOffsetToBounds(
+        offsetX.value,
+        offsetY.value,
+        worldWidth.value,
+        worldHeight.value,
+        viewportWidth.value,
+        viewportHeight.value,
+        scale.value,
+      );
+      if (clamped.x !== offsetX.value) {
+        offsetX.value = withTiming(clamped.x, {
+          duration: MY_SKY_BOUND_SNAP_MS,
+          easing: Easing.out(Easing.quad),
+        });
+      }
+      if (clamped.y !== offsetY.value) {
+        offsetY.value = withTiming(clamped.y, {
+          duration: MY_SKY_BOUND_SNAP_MS,
+          easing: Easing.out(Easing.quad),
+        });
+      }
+      if (onGestureActiveChange) {
+        runOnJS(setGestureActive)(false);
+      }
       if (onSnapshotChange) {
         runOnJS(publishSnapshot)();
       } else if (onViewportLiveChange) {
         runOnJS(publishLive)();
+      }
+    })
+    .onFinalize(() => {
+      if (onGestureActiveChange) {
+        runOnJS(setGestureActive)(false);
       }
     });
 
   const pinch = Gesture.Pinch()
     .onBegin(() => {
       pinchStartScale.value = scale.value;
+      pinchStartOffsetX.value = offsetX.value;
+      pinchStartOffsetY.value = offsetY.value;
+      if (onGestureActiveChange) {
+        runOnJS(setGestureActive)(true);
+      }
     })
     .onUpdate((event) => {
-      const nextScale = clamp(pinchStartScale.value * event.scale, MIN_SCALE, MAX_SCALE);
+      const previousScale = scale.value;
+      const nextScale = Math.min(
+        MY_SKY_MAX_SCALE,
+        Math.max(MY_SKY_MIN_SCALE, pinchStartScale.value * event.scale),
+      );
+      const focalOffset = applyPinchFocalOffset(
+        event.focalX,
+        event.focalY,
+        viewportWidth.value,
+        viewportHeight.value,
+        pinchStartOffsetX.value,
+        pinchStartOffsetY.value,
+        pinchStartScale.value,
+        nextScale,
+      );
+      const clamped = clampOffsetToBounds(
+        focalOffset.x,
+        focalOffset.y,
+        worldWidth.value,
+        worldHeight.value,
+        viewportWidth.value,
+        viewportHeight.value,
+        nextScale,
+      );
+
       scale.value = nextScale;
+      offsetX.value = clamped.x;
+      offsetY.value = clamped.y;
 
-      const scaledW = worldWidth.value * nextScale;
-      const scaledH = worldHeight.value * nextScale;
-      const maxX = Math.max(0, ((scaledW - viewportWidth.value) / 2) * PAN_BOUNDARY_RELAX);
-      const maxY = Math.max(0, ((scaledH - viewportHeight.value) / 2) * PAN_BOUNDARY_RELAX);
-
-      offsetX.value = clamp(offsetX.value, -maxX, maxX);
-      offsetY.value = clamp(offsetY.value, -maxY, maxY);
-
-      if (onViewportLiveChange) {
+      if (previousScale !== nextScale && onViewportLiveChange) {
         runOnJS(publishLive)();
       }
     })
     .onEnd(() => {
+      const clamped = clampOffsetToBounds(
+        offsetX.value,
+        offsetY.value,
+        worldWidth.value,
+        worldHeight.value,
+        viewportWidth.value,
+        viewportHeight.value,
+        scale.value,
+      );
+      if (clamped.x !== offsetX.value) {
+        offsetX.value = withTiming(clamped.x, {
+          duration: MY_SKY_BOUND_SNAP_MS,
+          easing: Easing.out(Easing.quad),
+        });
+      }
+      if (clamped.y !== offsetY.value) {
+        offsetY.value = withTiming(clamped.y, {
+          duration: MY_SKY_BOUND_SNAP_MS,
+          easing: Easing.out(Easing.quad),
+        });
+      }
+      if (onGestureActiveChange) {
+        runOnJS(setGestureActive)(false);
+      }
       if (onSnapshotChange) {
         runOnJS(publishSnapshot)();
+      }
+    })
+    .onFinalize(() => {
+      if (onGestureActiveChange) {
+        runOnJS(setGestureActive)(false);
       }
     });
 
   const gesture = Gesture.Simultaneous(pan, pinch);
 
-  const foregroundStyle = useAnimatedStyle(() => ({
+  const worldStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: offsetX.value },
       { translateY: offsetY.value },
       { scale: scale.value },
-    ],
-  }));
-
-  const backgroundStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: offsetX.value * PARALLAX_RATE },
-      { translateY: offsetY.value * PARALLAX_RATE },
-      { scale: 1 + (scale.value - 1) * 0.72 },
     ],
   }));
 
@@ -205,7 +300,7 @@ function MySkyExplorableViewportComponent({
   const worldSize = { width: layout.worldWidth, height: layout.worldHeight };
 
   return (
-    <View style={styles.viewport} onLayout={onLayout}>
+    <View style={styles.viewport} onLayout={onLayout} testID="my-sky-viewport">
       {layout.width > 0 && layout.height > 0 ? (
         <GestureDetector gesture={gesture}>
           <Animated.View style={StyleSheet.absoluteFill} collapsable={false}>
@@ -217,11 +312,8 @@ function MySkyExplorableViewportComponent({
                 width: layout.worldWidth,
                 height: layout.worldHeight,
               }}>
-              <Animated.View style={[StyleSheet.absoluteFill, backgroundStyle]}>
-                {renderBackground(worldSize)}
-              </Animated.View>
-              <Animated.View style={[StyleSheet.absoluteFill, foregroundStyle]}>
-                {renderForeground(worldSize)}
+              <Animated.View style={[StyleSheet.absoluteFill, worldStyle]}>
+                {renderWorld(worldSize)}
               </Animated.View>
             </View>
           </Animated.View>
@@ -232,6 +324,8 @@ function MySkyExplorableViewportComponent({
 }
 
 export const MySkyExplorableViewport = memo(MySkyExplorableViewportComponent);
+
+export { MY_SKY_WORLD_FACTOR } from '@/mySky/mySkyViewportGestures';
 
 const styles = StyleSheet.create({
   viewport: {

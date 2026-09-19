@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutAnimation,
   Platform,
@@ -129,6 +129,8 @@ function MySkyStarCanvasComponent({
     [publicSkyOwnerId, visitorMode],
   );
   const [worldSize, setWorldSize] = useState({ width: 0, height: 0 });
+  const [skyGestureActive, setSkyGestureActive] = useState(false);
+  const lastGestureEndRef = useRef(0);
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -310,20 +312,33 @@ function MySkyStarCanvasComponent({
     ],
   );
 
+  const handleGestureActiveChange = useCallback((active: boolean) => {
+    setSkyGestureActive(active);
+    if (!active) {
+      lastGestureEndRef.current = Date.now();
+    }
+  }, []);
+
   const handleStarPress = useCallback(
     (star: MySkyStarDisplay) => {
+      if (skyGestureActive || Date.now() - lastGestureEndRef.current < 120) {
+        return;
+      }
       if (star.constellationId && onPatternStarPress) {
         onPatternStarPress(star);
         return;
       }
       navigateStar(star);
     },
-    [navigateStar, onPatternStarPress],
+    [navigateStar, onPatternStarPress, skyGestureActive],
   );
 
   const handleOwnIdentityPress = useCallback(() => {
+    if (skyGestureActive || Date.now() - lastGestureEndRef.current < 120) {
+      return;
+    }
     openProfileBubble(skyOwner, identityStar, null);
-  }, [identityStar, openProfileBubble, skyOwner]);
+  }, [identityStar, openProfileBubble, skyGestureActive, skyOwner]);
 
   const handleNearbyIdentityPress = useCallback(
     (anchor: NearbySkyAnchor) => {
@@ -404,103 +419,138 @@ function MySkyStarCanvasComponent({
     return star.title ? `View star: ${star.title}` : 'View star';
   }, []);
 
-  const renderSkyForeground = (foregroundWorldSize: { width: number; height: number }) => (
-    <>
-      <MySkyRenderer
-        view={view}
-        mode="resting"
-        constellationRevealCount={constellationRevealCount}
-        constellationRevealActive={constellationRevealActive}
-        revealPatternId={constellationRevealPatternId}
-        onConstellationRevealComplete={onConstellationRevealComplete}
-      />
-
-      {showNearbySkies && nearbyAnchors.length > 0 ? (
-        <MySkyNearbySkiesLayer
-          anchors={nearbyAnchors}
-          worldWidth={foregroundWorldSize.width}
-          worldHeight={foregroundWorldSize.height}
-          activeOwnerId={bubbleOpen ? activeBubbleOwner.id : null}
-          proximityOwnerId={proximityOwnerId}
-          proximityPhase={proximityPhase}
-          highlightOwnerId={highlightOwnerId}
-          onIdentityPress={handleNearbyIdentityPress}
+  const renderWorld = useCallback(
+    (world: { width: number; height: number }) => (
+      <>
+        <MySkyBackdrop dim fillScale={1.38} />
+        <MySkyRenderer
+          view={view}
+          mode="resting"
+          constellationRevealCount={constellationRevealCount}
+          constellationRevealActive={constellationRevealActive}
+          revealPatternId={constellationRevealPatternId}
+          onConstellationRevealComplete={onConstellationRevealComplete}
         />
-      ) : null}
 
-      <MySkyIdentityStar
-        star={identityStar}
-        worldWidth={foregroundWorldSize.width}
-        worldHeight={foregroundWorldSize.height}
-        active={ownBubbleActive}
-        prominence={1.06}
-        onPress={handleOwnIdentityPress}
-      />
+        {showNearbySkies && nearbyAnchors.length > 0 ? (
+          <MySkyNearbySkiesLayer
+            anchors={nearbyAnchors}
+            worldWidth={world.width}
+            worldHeight={world.height}
+            activeOwnerId={bubbleOpen ? activeBubbleOwner.id : null}
+            proximityOwnerId={proximityOwnerId}
+            proximityPhase={proximityPhase}
+            highlightOwnerId={highlightOwnerId}
+            onIdentityPress={handleNearbyIdentityPress}
+          />
+        ) : null}
 
-      {stars.map((star) => (
-        <Pressable
-          key={star.id}
-          accessibilityRole="button"
-          accessibilityLabel={accessibilityLabel(star)}
-          onPress={() => handleStarPress(star)}
-          style={[
-            styles.starHit,
-            {
-              left: `${star.x * 100}%`,
-              top: `${star.y * 100}%`,
-            },
-          ]}>
-          <View style={styles.hitGlow} />
-          {!visitorMode &&
-          (star.visibility === 'private' || star.visibility === 'orbit') ? (
-            <MySkyVisibilityBadge
-              visibility={star.visibility as SkyVisibilityLevel}
-              compact
-            />
-          ) : null}
-        </Pressable>
-      ))}
+        <MySkyIdentityStar
+          star={identityStar}
+          worldWidth={world.width}
+          worldHeight={world.height}
+          active={ownBubbleActive}
+          prominence={1.06}
+          onPress={handleOwnIdentityPress}
+        />
 
-      <MySkyIdentityProfileBubble
-        owner={activeBubbleOwner}
-        anchorStar={activeBubbleStar}
-        visible={bubbleOpen}
-        canViewFullSky={bubbleCanViewFullSky}
-        onClose={closeProfileBubble}
-        onViewProfile={handleViewProfile}
-        onJumpToSky={bubbleCanJumpToSky ? handleJumpToSkyFromBubble : undefined}
-        onViewFullSky={
-          activeBubbleOwner.isSelf || visitorMode ? undefined : handleViewFullSky
-        }
-        onConnect={
-          activeBubbleOwner.isSelf
-            ? undefined
-            : visitorMode
-              ? onConnect
-              : handleConnect
-        }
-      />
+        {stars.map((star) => (
+          <Pressable
+            key={star.id}
+            accessibilityRole="button"
+            accessibilityLabel={accessibilityLabel(star)}
+            onPress={() => handleStarPress(star)}
+            style={[
+              styles.starHit,
+              {
+                left: `${star.x * 100}%`,
+                top: `${star.y * 100}%`,
+              },
+            ]}>
+            <View style={styles.hitGlow} />
+            {!visitorMode &&
+            (star.visibility === 'private' || star.visibility === 'orbit') ? (
+              <MySkyVisibilityBadge
+                visibility={star.visibility as SkyVisibilityLevel}
+                compact
+              />
+            ) : null}
+          </Pressable>
+        ))}
 
-      {active?.title && !missingHint ? (
-        <View style={styles.tooltip} pointerEvents="none">
-          <Text style={styles.tooltipText}>{active.title}</Text>
-        </View>
-      ) : null}
+        <MySkyIdentityProfileBubble
+          owner={activeBubbleOwner}
+          anchorStar={activeBubbleStar}
+          visible={bubbleOpen}
+          canViewFullSky={bubbleCanViewFullSky}
+          onClose={closeProfileBubble}
+          onViewProfile={handleViewProfile}
+          onJumpToSky={bubbleCanJumpToSky ? handleJumpToSkyFromBubble : undefined}
+          onViewFullSky={
+            activeBubbleOwner.isSelf || visitorMode ? undefined : handleViewFullSky
+          }
+          onConnect={
+            activeBubbleOwner.isSelf
+              ? undefined
+              : visitorMode
+                ? onConnect
+                : handleConnect
+          }
+        />
 
-      {immersive && !cleanSky ? (
-        <View style={styles.exploreHint} pointerEvents="none">
-          <Text style={styles.exploreHintText}>{MySkyCopy.exploreGestureHint}</Text>
-        </View>
-      ) : null}
-      {visitorMode && cleanSky ? (
-        <View style={styles.exploreHint} pointerEvents="none">
-          <Text style={styles.exploreHintText}>{MySkyCopy.publicSkyGestureHint}</Text>
-        </View>
-      ) : null}
-    </>
+        {active?.title && !missingHint ? (
+          <View style={styles.tooltip} pointerEvents="none">
+            <Text style={styles.tooltipText}>{active.title}</Text>
+          </View>
+        ) : null}
+
+        {immersive && !cleanSky ? (
+          <View style={styles.exploreHint} pointerEvents="none">
+            <Text style={styles.exploreHintText}>{MySkyCopy.exploreGestureHint}</Text>
+          </View>
+        ) : null}
+        {visitorMode && cleanSky ? (
+          <View style={styles.exploreHint} pointerEvents="none">
+            <Text style={styles.exploreHintText}>{MySkyCopy.publicSkyGestureHint}</Text>
+          </View>
+        ) : null}
+      </>
+    ),
+    [
+      active?.title,
+      activeBubbleOwner,
+      activeBubbleStar,
+      bubbleCanJumpToSky,
+      bubbleCanViewFullSky,
+      bubbleOpen,
+      cleanSky,
+      closeProfileBubble,
+      constellationRevealActive,
+      constellationRevealCount,
+      constellationRevealPatternId,
+      handleConnect,
+      handleJumpToSkyFromBubble,
+      handleNearbyIdentityPress,
+      handleOwnIdentityPress,
+      handleStarPress,
+      handleViewFullSky,
+      handleViewProfile,
+      highlightOwnerId,
+      identityStar,
+      immersive,
+      missingHint,
+      nearbyAnchors,
+      onConnect,
+      onConstellationRevealComplete,
+      ownBubbleActive,
+      proximityOwnerId,
+      proximityPhase,
+      showNearbySkies,
+      stars,
+      visitorMode,
+      view,
+    ],
   );
-
-  const renderWorldBackground = () => <MySkyBackdrop dim fillScale={1.42} />;
 
   return (
     <View style={styles.outer}>
@@ -521,13 +571,13 @@ function MySkyStarCanvasComponent({
             onSnapshotChange={onViewportChange}
             onViewportLiveChange={onViewportLiveChange}
             onWorldSizeChange={handleWorldSizeChange}
-            renderBackground={renderWorldBackground}
-            renderForeground={renderSkyForeground}
+            onGestureActiveChange={handleGestureActiveChange}
+            renderWorld={renderWorld}
           />
         ) : (
           <>
             <MySkyBackdrop dim />
-            {renderSkyForeground(worldSize.width > 0 ? worldSize : { width: 320, height: 400 })}
+            {renderWorld(worldSize.width > 0 ? worldSize : { width: 320, height: 400 })}
           </>
         )}
       </View>
