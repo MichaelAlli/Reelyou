@@ -33,6 +33,8 @@ import type {
 } from '@/starpath/starpathInteractionTypes';
 import { getStarPathNodeCatalogEntry } from '@/starpath/starpathNodeCatalog';
 import { pickGuideReaction, pickNextStepSuggestion } from '@/starpath/starpathExperienceCopy';
+import { computeStarPathSiftingState } from '@/starpath/starpathSiftingEngine';
+import type { RelevanceBand, StarPathSiftingState } from '@/starpath/starpathSiftingTypes';
 
 interface StarPathExperienceContextValue {
   ready: boolean;
@@ -54,6 +56,8 @@ interface StarPathExperienceContextValue {
   setPresetAvatar: (presetId: string) => void;
   setCustomAvatar: (config: CustomAvatarConfig) => void;
   useDefaultSilhouette: () => void;
+  siftingState: StarPathSiftingState;
+  getNodeRelevanceBand: (nodeId: string) => RelevanceBand | undefined;
 }
 
 const StarPathExperienceContext = createContext<StarPathExperienceContextValue | null>(null);
@@ -68,6 +72,7 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
   });
   const [avatarIdentity, setAvatarIdentity] = useState<UserAvatarIdentity>(DEFAULT_USER_AVATAR_IDENTITY);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const siftingRef = useRef<StarPathSiftingState | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -94,9 +99,22 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
     }, 280);
   }, []);
 
+  const siftingState = useMemo(() => {
+    const next = computeStarPathSiftingState(interactions.signals, {
+      previousState: siftingRef.current,
+    });
+    siftingRef.current = next;
+    return next;
+  }, [interactions.signals]);
+
   const getNodeUiState = useCallback(
     (nodeId: string) => deriveNodeUiState(nodeId, interactions.signals),
     [interactions.signals],
+  );
+
+  const getNodeRelevanceBand = useCallback(
+    (nodeId: string) => siftingState.nodeRelevance[nodeId]?.relevanceBand,
+    [siftingState],
   );
 
   const recordInteraction = useCallback(
@@ -110,9 +128,6 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
         const signal = createSignal({ nodeId, branchId, interactionType: type, source });
         const signals = appendSignalDeduped(prev.signals, signal);
         let softHighlightNodeIds = [...prev.softHighlightNodeIds];
-        let activeBranchIds = [...prev.activeBranchIds];
-
-        if (!activeBranchIds.includes(branchId)) activeBranchIds = [...activeBranchIds, branchId];
 
         if (type === 'explored') {
           const entry = getStarPathNodeCatalogEntry(nodeId);
@@ -122,7 +137,7 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
           }
         }
 
-        const next = { ...prev, signals, softHighlightNodeIds, activeBranchIds };
+        const next = { ...prev, signals, softHighlightNodeIds };
         scheduleSave(next, avatarIdentity);
         return next;
       });
@@ -224,9 +239,11 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
       recordInteraction,
       undoDismiss,
       softHighlightNodeIds: new Set(interactions.softHighlightNodeIds),
-      activeBranchIds: new Set(interactions.activeBranchIds),
+      activeBranchIds: new Set(siftingState.guideSummary.elevatedBranchIds),
       guideReaction: pickGuideReaction(interactions),
-      nextStepCopy: pickNextStepSuggestion(interactions),
+      nextStepCopy: pickNextStepSuggestion(interactions, siftingState.nextStepHints),
+      siftingState,
+      getNodeRelevanceBand,
       avatarIdentity: resolvedAvatar,
       setProfilePhotoAvatar,
       setPresetAvatar,
@@ -236,6 +253,8 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
     [
       ready,
       interactions,
+      siftingState,
+      getNodeRelevanceBand,
       getNodeUiState,
       recordInteraction,
       undoDismiss,

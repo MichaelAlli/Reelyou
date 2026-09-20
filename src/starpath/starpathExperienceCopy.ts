@@ -1,5 +1,6 @@
 import type { StarPathInteractionSnapshot } from '@/starpath/starpathInteractionTypes';
 import { deriveNodeUiState } from '@/starpath/starpathInteractionLogic';
+import type { StarPathNextStepHints } from '@/starpath/starpathSiftingTypes';
 
 export function pickGuideReaction(snapshot: StarPathInteractionSnapshot): string | null {
   const { signals } = snapshot;
@@ -29,10 +30,23 @@ export function pickGuideReaction(snapshot: StarPathInteractionSnapshot): string
   return null;
 }
 
-export function pickNextStepSuggestion(snapshot: StarPathInteractionSnapshot): {
+export function pickNextStepSuggestion(
+  snapshot: StarPathInteractionSnapshot,
+  hints?: StarPathNextStepHints,
+): {
   title: string;
   actionLabel: string;
 } {
+  if (hints?.highestExplicitInterestNodeId) {
+    return { title: 'Explore one possibility', actionLabel: 'Stay on path' };
+  }
+  if (hints?.recentSavedNodeId) {
+    return { title: 'Save something that matters', actionLabel: 'Review saved' };
+  }
+  if (hints?.unresolvedExplorationNodeId) {
+    return { title: 'Follow a branch that feels relevant', actionLabel: 'Next small step' };
+  }
+
   const recent = [...snapshot.signals].sort((a, b) => b.timestamp - a.timestamp)[0];
   if (!recent) {
     return { title: 'Share a reflection', actionLabel: 'Open Skywrite' };

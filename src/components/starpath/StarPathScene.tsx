@@ -14,6 +14,7 @@ import { TabBarHeight } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
 import { createStarPathLayoutMetrics, refPointToWorldPx } from '@/starpath/starpathLayoutMetrics';
 import { nodeVisualModifiers } from '@/starpath/starpathInteractionLogic';
+import { relevanceBandVisualDelta } from '@/starpath/starpathSiftingEngine';
 import { getStarPathNodeCatalogEntry } from '@/starpath/starpathNodeCatalog';
 import { useStarPathExperience } from '@/starpath/StarPathExperienceProvider';
 import { getStarPathTheme, type StarPathVisualMode } from '@/starpath/starpathTheme';
@@ -94,11 +95,13 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
     (nodeId: string) => {
       const ui = experience.getNodeUiState(nodeId);
       const mods = nodeVisualModifiers(ui);
+      const bandDelta =
+        ui === 'dismissed' ? null : relevanceBandVisualDelta(experience.getNodeRelevanceBand(nodeId));
       return {
         uiState: ui,
-        visualOpacity: mods.opacity,
+        visualOpacity: mods.opacity * (bandDelta?.opacityMultiplier ?? 1),
         showSelectionRing: mods.showSelectionRing,
-        softPulse: mods.softPulse || experience.softHighlightNodeIds.has(nodeId),
+        softPulse: mods.softPulse || bandDelta?.softPulse || experience.softHighlightNodeIds.has(nodeId),
         revealPulse: experience.softHighlightNodeIds.has(nodeId),
       };
     },
