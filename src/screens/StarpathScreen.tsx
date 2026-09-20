@@ -3,6 +3,7 @@ import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { BottomNav } from '@/components/BottomNav';
 import { StarPathScene } from '@/components/starpath/StarPathScene';
+import { StarPathExperienceProvider } from '@/starpath/StarPathExperienceProvider';
 import { getStarPathTheme } from '@/starpath/starpathTheme';
 
 export function StarpathScreen() {
@@ -12,7 +13,9 @@ export function StarpathScreen() {
   return (
     <View style={[styles.root, { backgroundColor: theme.canvasDeep }]}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-      <StarPathScene visualMode="night" onNextStepPress={() => router.push('/skywrite')} />
+      <StarPathExperienceProvider>
+        <StarPathScene visualMode="night" onNextStepPress={() => router.push('/skywrite')} />
+      </StarPathExperienceProvider>
       <BottomNav />
     </View>
   );

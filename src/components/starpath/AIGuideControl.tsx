@@ -20,6 +20,7 @@ interface AIGuideControlProps {
   onExpand: () => void;
   onCollapse: () => void;
   reduceMotion?: boolean;
+  reactionHint?: string | null;
 }
 
 function AIGuideControlComponent({
@@ -28,6 +29,7 @@ function AIGuideControlComponent({
   onExpand,
   onCollapse,
   reduceMotion,
+  reactionHint,
 }: AIGuideControlProps) {
   const router = useRouter();
 
@@ -61,7 +63,7 @@ function AIGuideControlComponent({
           <GuideStarOrb size={32} />
           <Text style={[styles.title, { color: theme.labelBright }]}>AI GUIDE</Text>
           <Text style={[styles.hint, { color: theme.labelMuted }]}>
-            Guidance for this stretch of your Starpath.
+            {reactionHint ?? 'Guidance for this stretch of your Starpath.'}
           </Text>
           <View style={styles.actions}>
             <Pressable

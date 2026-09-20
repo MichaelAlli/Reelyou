@@ -16,6 +16,8 @@ interface SymbolicJourneyNodeProps {
   size?: 'md' | 'lg';
   visualOpacity?: number;
   revealPulse?: boolean;
+  showSelectionRing?: boolean;
+  softPulse?: boolean;
   onPress?: (id: string) => void;
 }
 
@@ -28,6 +30,8 @@ function SymbolicJourneyNodeComponent({
   size = 'md',
   visualOpacity = 1,
   revealPulse = false,
+  showSelectionRing = false,
+  softPulse = false,
   onPress,
 }: SymbolicJourneyNodeProps) {
   const dim = size === 'lg' ? SYMBOLIC_NODE_SIZE_LG : SYMBOLIC_NODE_SIZE_MD;
@@ -40,6 +44,8 @@ function SymbolicJourneyNodeComponent({
         styles.root,
         { left: x - dim / 2, top: y - dim / 2, width: dim, height: dim, opacity: visualOpacity },
         revealPulse && styles.revealPulse,
+        softPulse && styles.softPulse,
+        showSelectionRing && styles.selectionRing,
         pressed && styles.pressed,
       ]}
       accessibilityRole="button"
@@ -90,6 +96,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 7,
     elevation: 5,
+  },
+  softPulse: {
+    shadowColor: '#FFE8A8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.26,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  selectionRing: {
+    borderWidth: 2,
+    borderColor: 'rgba(255, 232, 168, 0.72)',
+    borderRadius: 999,
   },
   pressed: {
     opacity: 0.93,

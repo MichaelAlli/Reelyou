@@ -16,6 +16,8 @@ export interface User {
   location: string;
   avatarInitials: string;
   avatarColor: string;
+  /** Optional profile photo — shared with Starpath / public identity when set. */
+  avatarUri?: string | null;
   themes: string[];
 }
 

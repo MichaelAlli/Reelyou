@@ -12,11 +12,12 @@ import type { StarPathThemeTokens } from '@/starpath/starpathTheme';
 
 interface NextStepCardProps {
   theme: StarPathThemeTokens;
+  stepTitle?: string;
   onPress?: () => void;
   onDismiss?: () => void;
 }
 
-function NextStepCardComponent({ theme, onPress, onDismiss }: NextStepCardProps) {
+function NextStepCardComponent({ theme, stepTitle, onPress, onDismiss }: NextStepCardProps) {
   const body = (
     <>
         <Text style={[styles.kicker, { color: theme.labelMuted }]}>NEXT STEP</Text>
@@ -48,7 +49,9 @@ function NextStepCardComponent({ theme, onPress, onDismiss }: NextStepCardProps)
           <Text style={styles.sparkle}>✦</Text>
         </View>
 
-        <Text style={[styles.title, { color: theme.labelBright }]}>Share a reflection</Text>
+        <Text style={[styles.title, { color: theme.labelBright }]}>
+          {stepTitle ?? 'Share a reflection'}
+        </Text>
 
         <View style={styles.progressRow}>
           {[0, 1, 2, 3, 4].map((i) => (

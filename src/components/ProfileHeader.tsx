@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Fonts, Radius, Spacing } from '@/constants/theme';
@@ -28,6 +29,11 @@ export function ProfileHeader({ user, compact }: ProfileHeaderProps) {
         marginBottom: Spacing.md,
         borderWidth: 2,
         borderColor: tokens.gold,
+        overflow: 'hidden',
+      },
+      avatarPhoto: {
+        width: '100%',
+        height: '100%',
       },
       avatarGlow: {
         position: 'absolute',
@@ -78,7 +84,11 @@ export function ProfileHeader({ user, compact }: ProfileHeaderProps) {
   return (
     <View style={[styles.container, compact && styles.compact]}>
       <View style={[styles.avatar, { backgroundColor: user.avatarColor }]}>
-        <Text style={styles.initials}>{user.avatarInitials}</Text>
+        {user.avatarUri ? (
+          <Image source={{ uri: user.avatarUri }} style={styles.avatarPhoto} contentFit="cover" />
+        ) : (
+          <Text style={styles.initials}>{user.avatarInitials}</Text>
+        )}
         <View style={styles.avatarGlow} />
       </View>
       <Text style={styles.name}>{user.name}</Text>

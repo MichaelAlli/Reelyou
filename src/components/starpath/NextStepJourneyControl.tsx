@@ -16,6 +16,7 @@ interface NextStepJourneyControlProps {
   waypointY: number;
   cardBottom: number;
   reduceMotion?: boolean;
+  stepTitle?: string;
 }
 
 function NextStepJourneyControlComponent({
@@ -28,6 +29,7 @@ function NextStepJourneyControlComponent({
   waypointY,
   cardBottom,
   reduceMotion,
+  stepTitle,
 }: NextStepJourneyControlProps) {
   if (!expanded) {
     return <NextStepWaypoint x={waypointX} y={waypointY} onPress={onExpand} />;
@@ -38,7 +40,6 @@ function NextStepJourneyControlComponent({
 
   return (
     <View style={styles.expandedRoot} pointerEvents="box-none">
-      <Pressable style={styles.backdrop} onPress={onCollapse} accessibilityLabel="Dismiss Next Step" />
       <Animated.View
         entering={entering}
         exiting={exiting}
@@ -47,6 +48,7 @@ function NextStepJourneyControlComponent({
       >
         <NextStepCard
           theme={theme}
+          stepTitle={stepTitle}
           onPress={() => {
             onAction?.();
             onCollapse();
@@ -64,10 +66,6 @@ const styles = StyleSheet.create({
   expandedRoot: {
     ...StyleSheet.absoluteFill,
     zIndex: 35,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'transparent',
   },
   cardSlot: {
     position: 'absolute',

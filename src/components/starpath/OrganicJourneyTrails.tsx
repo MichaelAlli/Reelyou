@@ -8,9 +8,15 @@ import { buildOrganicTrailsForMetrics, type StarPathBranchSpec } from '@/starpat
 interface OrganicJourneyTrailsProps {
   metrics: StarPathLayoutMetrics;
   branches: StarPathBranchSpec[];
+  /** Style-only emphasis for branches the user has engaged — geometry unchanged. */
+  activeBranchIds?: Set<string>;
 }
 
-function OrganicJourneyTrailsComponent({ metrics, branches }: OrganicJourneyTrailsProps) {
+function OrganicJourneyTrailsComponent({
+  metrics,
+  branches,
+  activeBranchIds,
+}: OrganicJourneyTrailsProps) {
   const trails = useMemo(
     () => buildOrganicTrailsForMetrics(metrics, branches),
     [metrics, branches],
@@ -47,31 +53,35 @@ function OrganicJourneyTrailsComponent({ metrics, branches }: OrganicJourneyTrai
           strokeLinejoin="round"
         />
       ))}
-      {trails.map((trail) => (
+      {trails.map((trail) => {
+        const branchBoost = activeBranchIds?.has(trail.id) ? 1.12 : 1;
+        return (
         <Path
           key={`${trail.id}-core`}
           d={trail.d}
           stroke={trail.color}
           strokeWidth={trail.strokeWidth ?? 2.4}
-          strokeOpacity={(trail.opacity ?? 0.4) * 0.78}
+          strokeOpacity={(trail.opacity ?? 0.4) * 0.78 * branchBoost}
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-      ))}
-      {trails.map((trail) => (
+      );})}
+      {trails.map((trail) => {
+        const branchBoost = activeBranchIds?.has(trail.id) ? 1.08 : 1;
+        return (
         <Path
           key={trail.id}
           d={trail.d}
           stroke="#FFFFFF"
           strokeWidth={0.9}
-          strokeOpacity={(trail.opacity ?? 0.4) * 0.42}
+          strokeOpacity={(trail.opacity ?? 0.4) * 0.42 * branchBoost}
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
           testID={`journey-branch-${trail.id}`}
         />
-      ))}
+      );})}
       {trails.flatMap((trail) =>
         (trail.sparks ?? []).map((s, i) => (
           <Circle

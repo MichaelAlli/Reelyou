@@ -10,8 +10,10 @@ import { StarPathCinematicBackground } from '@/components/starpath/StarPathCinem
 import { StarPathDepthOverlay } from '@/components/starpath/StarPathDepthOverlay';
 import { StarPathWorldExtensionFill } from '@/components/starpath/StarPathWorldExtensionFill';
 import { SymbolicJourneyNode } from '@/components/starpath/SymbolicJourneyNode';
+import type { UserAvatarIdentity } from '@/identity/userAvatarTypes';
 import type { StarPathLayoutMetrics } from '@/starpath/starpathLayoutMetrics';
 import { refPointToWorldPx } from '@/starpath/starpathLayoutMetrics';
+import type { StarPathNodeUiState } from '@/starpath/starpathInteractionTypes';
 import type { StarPathViewportWindow } from '@/starpath/starpathWorldVisibility';
 import {
   projectVisiblePortraitNodes,
@@ -26,6 +28,15 @@ interface StarPathWorldLayerProps {
   viewportWindow: StarPathViewportWindow;
   onNodePress: (id: string) => void;
   onAvatarPress: () => void;
+  avatarIdentity: UserAvatarIdentity;
+  activeBranchIds: Set<string>;
+  nodeInteractionProps: (nodeId: string) => {
+    uiState: StarPathNodeUiState;
+    visualOpacity: number;
+    showSelectionRing: boolean;
+    softPulse: boolean;
+    revealPulse: boolean;
+  };
 }
 
 function StarPathWorldLayerComponent({
@@ -34,6 +45,9 @@ function StarPathWorldLayerComponent({
   viewportWindow,
   onNodePress,
   onAvatarPress,
+  avatarIdentity,
+  activeBranchIds,
+  nodeInteractionProps,
 }: StarPathWorldLayerProps) {
   const portraits = useMemo(
     () => projectVisiblePortraitNodes(graph.portraitNodes, metrics, viewportWindow),
@@ -66,14 +80,24 @@ function StarPathWorldLayerComponent({
       <StarPathCinematicBackground metrics={metrics} />
       <StarPathDepthOverlay width={metrics.worldWidth} height={metrics.worldHeight} />
       <EmbeddedGoldenPath metrics={metrics} />
-      <OrganicJourneyTrails metrics={metrics} branches={graph.branches} />
+      <OrganicJourneyTrails metrics={metrics} branches={graph.branches} activeBranchIds={activeBranchIds} />
 
       <NorthStarLabel x={northStar.x} y={northStar.y} />
 
-      <JourneyTraveler x={traveler.x} y={traveler.y} onPress={onAvatarPress} />
+      <JourneyTraveler
+        x={traveler.x}
+        y={traveler.y}
+        avatarIdentity={avatarIdentity}
+        onPress={onAvatarPress}
+      />
 
-      {portraits.map((node) =>
-        shouldRenderNode(node.presence) ? (
+      {portraits.map((node) => {
+        const interaction = nodeInteractionProps(node.id);
+        if (interaction.uiState === 'dismissed' && !shouldRenderNode(node.presence)) {
+          return null;
+        }
+        const opacity = node.visualOpacity * interaction.visualOpacity;
+        return shouldRenderNode(node.presence) || interaction.uiState === 'dismissed' ? (
           <HumanPortraitNode
             key={node.id}
             id={node.id}
@@ -81,15 +105,19 @@ function StarPathWorldLayerComponent({
             y={node.worldY}
             ringColor={node.ringColor}
             portraitSeed={node.portraitSeed}
-            visualOpacity={node.visualOpacity}
-            revealPulse={emerged.has(node.id)}
+            visualOpacity={opacity}
+            revealPulse={emerged.has(node.id) || interaction.revealPulse}
+            showSelectionRing={interaction.showSelectionRing}
+            softPulse={interaction.softPulse}
             onPress={onNodePress}
           />
-        ) : null,
-      )}
+        ) : null;
+      })}
 
-      {symbols.map((node) =>
-        shouldRenderNode(node.presence) ? (
+      {symbols.map((node) => {
+        const interaction = nodeInteractionProps(node.id);
+        const opacity = node.visualOpacity * interaction.visualOpacity;
+        return shouldRenderNode(node.presence) || interaction.uiState === 'dismissed' ? (
           <SymbolicJourneyNode
             key={node.id}
             id={node.id}
@@ -98,12 +126,14 @@ function StarPathWorldLayerComponent({
             ringColor={node.ringColor}
             icon={node.icon}
             size={node.size}
-            visualOpacity={node.visualOpacity}
-            revealPulse={emerged.has(node.id)}
+            visualOpacity={opacity}
+            revealPulse={emerged.has(node.id) || interaction.revealPulse}
+            showSelectionRing={interaction.showSelectionRing}
+            softPulse={interaction.softPulse}
             onPress={onNodePress}
           />
-        ) : null,
-      )}
+        ) : null;
+      })}
     </View>
   );
 }

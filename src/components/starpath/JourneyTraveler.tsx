@@ -8,7 +8,10 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Defs, Ellipse, Line, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, Line, RadialGradient, Stop } from 'react-native-svg';
+
+import { TravelerAvatarFigure } from '@/components/starpath/TravelerAvatarFigure';
+import type { UserAvatarIdentity } from '@/identity/userAvatarTypes';
 
 /** Feet sit 7px above the figure SVG box bottom (viewBox y=90 / height 96). */
 const FIGURE_W = 84;
@@ -24,10 +27,11 @@ const STACK_H = FIGURE_BOTTOM_OFFSET + FIGURE_H;
 interface JourneyTravelerProps {
   x: number;
   y: number;
+  avatarIdentity?: UserAvatarIdentity;
   onPress?: () => void;
 }
 
-function JourneyTravelerComponent({ x, y, onPress }: JourneyTravelerProps) {
+function JourneyTravelerComponent({ x, y, avatarIdentity, onPress }: JourneyTravelerProps) {
   const glow = useSharedValue(0);
 
   useEffect(() => {
@@ -138,21 +142,7 @@ function JourneyTravelerComponent({ x, y, onPress }: JourneyTravelerProps) {
       </Animated.View>
 
       <View style={[styles.figure, { bottom: FIGURE_BOTTOM_OFFSET }]}>
-        <Svg width={FIGURE_W} height={FIGURE_H} viewBox="0 0 72 96">
-          <Defs>
-            <RadialGradient id="figureRim" cx="50%" cy="22%" r="65%">
-              <Stop offset="0%" stopColor="rgba(255, 220, 160, 0.5)" />
-              <Stop offset="55%" stopColor="rgba(40, 36, 52, 0.96)" />
-              <Stop offset="100%" stopColor="rgba(12, 14, 28, 0.98)" />
-            </RadialGradient>
-          </Defs>
-          <Path
-            d="M 36 6 C 43 6 48 13 48 20 C 48 27 45 31 41 33 L 45 39 C 49 46 51 54 49 62 L 47 80 C 46 86 43 90 36 90 C 29 90 26 86 25 80 L 23 62 C 21 54 23 46 27 39 L 31 33 C 27 31 24 27 24 20 C 24 13 29 6 36 6 Z"
-            fill="url(#figureRim)"
-            stroke="rgba(255, 220, 160, 0.22)"
-            strokeWidth={0.6}
-          />
-        </Svg>
+        <TravelerAvatarFigure identity={avatarIdentity ?? { version: 1, avatarSourceType: 'defaultSilhouette' }} />
       </View>
 
       <View style={styles.riseParticles} pointerEvents="none">

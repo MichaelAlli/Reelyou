@@ -17,6 +17,7 @@ export const currentUser: User = {
   location: 'Atlanta, GA',
   avatarInitials: 'MA',
   avatarColor: '#D4AF37',
+  avatarUri: 'https://i.pravatar.cc/512?img=68',
   themes: ['Creativity', 'Purpose', 'Healing'],
 };
 

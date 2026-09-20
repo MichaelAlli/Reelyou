@@ -14,6 +14,8 @@ interface HumanPortraitNodeProps {
   portraitSeed: number;
   visualOpacity?: number;
   revealPulse?: boolean;
+  showSelectionRing?: boolean;
+  softPulse?: boolean;
   onPress?: (id: string) => void;
 }
 
@@ -25,6 +27,8 @@ function HumanPortraitNodeComponent({
   portraitSeed,
   visualOpacity = 1,
   revealPulse = false,
+  showSelectionRing = false,
+  softPulse = false,
   onPress,
 }: HumanPortraitNodeProps) {
   const size = HUMAN_PORTRAIT_NODE_SIZE;
@@ -37,6 +41,8 @@ function HumanPortraitNodeComponent({
         styles.root,
         { left: x - size / 2, top: y - size / 2, width: size, height: size, opacity: visualOpacity },
         revealPulse && styles.revealPulse,
+        softPulse && styles.softPulse,
+        showSelectionRing && styles.selectionRing,
         pressed && styles.pressed,
       ]}
       accessibilityRole="button"
@@ -98,6 +104,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 8,
     elevation: 5,
+  },
+  softPulse: {
+    shadowColor: '#FFE8A8',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  selectionRing: {
+    borderWidth: 2,
+    borderColor: 'rgba(255, 232, 168, 0.75)',
+    borderRadius: 999,
   },
   pressed: {
     opacity: 0.92,
