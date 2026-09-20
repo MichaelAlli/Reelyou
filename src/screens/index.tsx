@@ -4,7 +4,6 @@ import { GlowButton } from '@/components/GlowButton';
 import { ImpactMomentCard } from '@/components/ImpactMomentCard';
 import { LegacyCard } from '@/components/LegacyCard';
 import { MetricPill } from '@/components/MetricPill';
-import { OpportunityDoorCard } from '@/components/OpportunityDoorCard';
 import { OrbitAvatar } from '@/components/OrbitAvatar';
 import { ProfileHeader } from '@/components/ProfileHeader';
 import { ScreenLayout } from '@/components/ScreenLayout';
@@ -20,10 +19,8 @@ import {
   legacyStories,
   mapFilters,
   onboardingSlides,
-  opportunityDoors,
   orbitUsers,
   profileStats,
-  starpathData,
   suggestedSkies,
 } from '@/data/mockData';
 import { useOnboarding } from '@/onboarding';
@@ -56,40 +53,7 @@ export function OnboardingScreen() {
   );
 }
 
-export function StarpathScreen() {
-  const styles = useScreenStyles();
-  const router = useRouter();
-
-  return (
-    <ScreenLayout>
-      <Pressable onPress={() => router.back()} style={styles.back}>
-        <Text style={styles.backText}>← Back</Text>
-      </Pressable>
-      <Text style={styles.screenTitle}>Starpath</Text>
-      <Text style={styles.screenSubtitle}>Direction and opportunity on your journey.</Text>
-
-      <SectionHeader title="Current Path" />
-      <GlassCard glow="gold">
-        <Text style={styles.pathText}>{starpathData.currentPath}</Text>
-      </GlassCard>
-
-      <SectionHeader title="Suggested Next Step" />
-      <GlassCard>
-        <Text style={styles.previewSub}>{starpathData.suggestedNextStep}</Text>
-      </GlassCard>
-
-      <SectionHeader title="Opportunity Doors" />
-      {opportunityDoors.map((door) => (
-        <OpportunityDoorCard key={door.id} door={door} />
-      ))}
-
-      <SectionHeader title="Companion Star" />
-      <GlassCard glow="purple">
-        <Text style={styles.insightText}>{starpathData.companionInsight}</Text>
-      </GlassCard>
-    </ScreenLayout>
-  );
-}
+export { StarpathScreen } from '@/screens/StarpathScreen';
 
 export function ImpactScreen() {
   const styles = useScreenStyles();

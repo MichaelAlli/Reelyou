@@ -1,41 +1,39 @@
 import type { ReactNode } from 'react';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SkywriteTabIcon } from '@/components/nav/SkywriteTabIcon';
-import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
+import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
 import { useThemedStyles } from '@/theme/useTheme';
 
 type TabIconRenderer = (props: { size: number; active: boolean }) => ReactNode;
 
-interface TabItem {
+interface StarPathTabItem {
   name: string;
   label: string;
   href: string;
-  /** Unicode glyph for text-based tab icons (Home, My Sky, Starpath, Me). */
   icon?: string;
-  /** Custom SVG renderer — used only by Skywrite. */
   renderIcon?: TabIconRenderer;
 }
 
-const tabs: TabItem[] = [
-  { name: 'home', label: 'Home', href: '/(tabs)/home', icon: '⌂' },
+const STARPATH_TABS: StarPathTabItem[] = [
   { name: 'sky', label: 'My Sky', href: '/(tabs)/sky', icon: '✦' },
-  { name: 'starpath', label: 'Starpath', href: '/starpath', icon: '☆' },
   {
     name: 'skywrite',
     label: 'Skywrite',
     href: '/skywrite',
     renderIcon: ({ size, active }) => <SkywriteTabIcon size={size} active={active} />,
   },
-  { name: 'me', label: 'Me', href: '/(tabs)/profile', icon: '◎' },
+  { name: 'constellations', label: 'Constellations', href: '/(tabs)/sky', icon: '✧' },
+  { name: 'starpath', label: 'Starpath', href: '/starpath', icon: '☆' },
+  { name: 'impact', label: 'Impact', href: '/(tabs)/impact', icon: '◆' },
 ];
 
-export function BottomNav() {
+function StarPathReferenceBottomNavComponent() {
   const router = useRouter();
-  const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -55,10 +53,10 @@ export function BottomNav() {
         backgroundColor: 'rgba(3, 5, 14, 0.96)',
         borderRadius: 24,
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(232, 200, 114, 0.26)',
-        paddingTop: 8,
+        borderColor: 'rgba(232, 200, 114, 0.22)',
+        paddingTop: 7,
         paddingBottom: 8,
-        paddingHorizontal: 6,
+        paddingHorizontal: 4,
         minHeight: TabBarHeight - 6,
       },
       tab: {
@@ -80,8 +78,6 @@ export function BottomNav() {
         fontFamily: Fonts.sans,
         fontSize: 9,
         fontWeight: '500',
-        lineHeight: 11,
-        letterSpacing: 0.15,
         color: HomePalette.lavender,
       },
       activeLabel: {
@@ -98,44 +94,23 @@ export function BottomNav() {
     }),
   );
 
-  const isActive = (tab: TabItem) => {
-    const segment = tab.href.split('/').pop() ?? '';
-    if (tab.name === 'home') {
-      return pathname === '/home' || pathname.endsWith('/home');
-    }
-    if (tab.name === 'sky') {
-      return (
-        pathname === '/sky' ||
-        pathname.endsWith('/sky') ||
-        pathname === '/my-sky-arrival' ||
-        pathname.endsWith('/my-sky-arrival')
-      );
-    }
-    if (tab.name === 'starpath') {
-      return pathname === '/starpath' || pathname.endsWith('/starpath');
-    }
-    if (tab.name === 'skywrite') {
-      return pathname === '/skywrite' || pathname.endsWith('/skywrite');
-    }
-    return pathname === `/${segment}` || pathname.endsWith(`/${segment}`);
-  };
-
   return (
     <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, Spacing.sm) }]}>
-      <View style={styles.bar} testID="reelyou-bottom-nav">
-        {tabs.map((tab) => {
-          const active = isActive(tab);
+      <View style={styles.bar} testID="starpath-reference-bottom-nav">
+        {STARPATH_TABS.map((tab) => {
+          const active = tab.name === 'starpath';
           return (
             <Pressable
               key={tab.name}
-              style={({ pressed }) => [styles.tab, pressed && !active && { opacity: 0.88 }]}
+              style={styles.tab}
               accessibilityRole="tab"
               accessibilityLabel={tab.label}
               accessibilityState={{ selected: active }}
               onPress={() => {
                 if (active) return;
                 router.push(tab.href as never);
-              }}>
+              }}
+            >
               <View importantForAccessibility="no-hide-descendants">
                 {tab.renderIcon ? (
                   tab.renderIcon({ size: HomeLayout.navIconSize, active })
@@ -154,3 +129,5 @@ export function BottomNav() {
     </View>
   );
 }
+
+export const StarPathReferenceBottomNav = memo(StarPathReferenceBottomNavComponent);
