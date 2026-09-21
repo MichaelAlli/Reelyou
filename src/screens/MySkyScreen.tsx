@@ -37,10 +37,16 @@ import type { MySkyStarDisplay } from '@/mySky/types';
 import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
 import { computeSkyProximity, viewportSnapshotForWorldPoint } from '@/mySky/skyProximity';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
+import {
+  exploreResultCap,
+  resolveEffectiveExploreEnabled,
+} from '@/mySky/discoveryPreferencePolicy';
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
 
 export function MySkyScreen() {
   const router = useRouter();
+  const { preferences } = useReelyouConnect();
   const {
     mySkyView,
     toggleMySkyLayer,
@@ -91,20 +97,32 @@ export function MySkyScreen() {
     [aroundYourSkyFeed],
   );
 
+  const effectiveExploreEnabled = useMemo(
+    () => resolveEffectiveExploreEnabled(mySkyExploreEnabled, preferences.discoveryPreferences),
+    [mySkyExploreEnabled, preferences.discoveryPreferences],
+  );
+
+  const exploreCap = useMemo(
+    () => exploreResultCap(preferences.discoveryPreferences),
+    [preferences.discoveryPreferences],
+  );
+
   const nearbyAnchors = useMemo(
     () =>
       buildNearbySkies(
         aroundYourSkyFeed,
         connectionActivities,
         communities,
-        mySkyExploreEnabled,
+        effectiveExploreEnabled,
         mySkyView.skyOwner.id,
+        exploreCap,
       ),
     [
       aroundYourSkyFeed,
       communities,
       connectionActivities,
-      mySkyExploreEnabled,
+      effectiveExploreEnabled,
+      exploreCap,
       mySkyView.skyOwner.id,
     ],
   );
@@ -116,9 +134,9 @@ export function MySkyScreen() {
         aroundYourSkyFeed,
         connectionActivities,
         communities,
-        mySkyExploreEnabled,
+        effectiveExploreEnabled,
       ),
-    [aroundYourSkyFeed, communities, connectionActivities, mySkyExploreEnabled],
+    [aroundYourSkyFeed, communities, connectionActivities, effectiveExploreEnabled],
   );
 
   const displayAnchors = useMemo(() => {
@@ -229,10 +247,10 @@ export function MySkyScreen() {
         ownerId,
         nearbyAnchors,
         searchResult,
-        mySkyExploreEnabled,
+        effectiveExploreEnabled,
       );
     },
-    [mySkyExploreEnabled, nearbyAnchors, searchCatalog],
+    [effectiveExploreEnabled, nearbyAnchors, searchCatalog],
   );
 
   const handleJumpFromSearch = useCallback(
@@ -460,7 +478,8 @@ export function MySkyScreen() {
         query={searchQuery}
         onQueryChange={setSearchQuery}
         onClose={() => setSearchVisible(false)}
-        exploreEnabled={mySkyExploreEnabled}
+        exploreEnabled={effectiveExploreEnabled}
+        discoveryPreferences={preferences.discoveryPreferences}
         nearbyAnchors={nearbyAnchors}
         onJumpToSky={handleJumpFromSearch}
         onViewSky={handleViewSkyFromSearch}

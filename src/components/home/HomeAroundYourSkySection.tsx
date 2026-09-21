@@ -6,7 +6,9 @@ import { AroundYourSkyActivityItem } from '@/components/home/AroundYourSkyActivi
 import { AroundYourSkyCopy } from '@/constants/aroundYourSkyCopy';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
+import { personalizeAroundYourSkyFeed } from '@/social/aroundYourSky/personalizeHomeFeed';
 import { useThemedStyles } from '@/theme/useTheme';
 
 interface HomeAroundYourSkySectionProps {
@@ -15,6 +17,8 @@ interface HomeAroundYourSkySectionProps {
 
 function HomeAroundYourSkySectionComponent({ animatedStyle }: HomeAroundYourSkySectionProps) {
   const { aroundYourSkyFeed } = useOnboarding();
+  const { preferences } = useReelyouConnect();
+  const feed = personalizeAroundYourSkyFeed(aroundYourSkyFeed, preferences);
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -97,7 +101,7 @@ function HomeAroundYourSkySectionComponent({ animatedStyle }: HomeAroundYourSkyS
       <Text style={styles.title}>{AroundYourSkyCopy.title}</Text>
       <Text style={styles.subtitle}>{AroundYourSkyCopy.subtitle}</Text>
 
-      {aroundYourSkyFeed.isQuiet ? (
+      {feed.isQuiet ? (
         <View style={styles.quiet} accessibilityRole="text">
           <Text style={styles.quietTitle}>{AroundYourSkyCopy.quietTitle}</Text>
           <Text style={styles.quietBody}>{AroundYourSkyCopy.quietBody}</Text>
@@ -105,7 +109,7 @@ function HomeAroundYourSkySectionComponent({ animatedStyle }: HomeAroundYourSkyS
       ) : (
         <>
           <View style={styles.list}>
-            {aroundYourSkyFeed.items.map((item, index) => (
+            {feed.items.map((item, index) => (
               <View key={item.id}>
                 {index > 0 ? <View style={styles.divider} /> : null}
                 <AroundYourSkyActivityItem item={item} />

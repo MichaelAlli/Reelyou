@@ -50,7 +50,8 @@
     "test:living-world": "npx tsx src/starpath/starpathDynamicWorldEngine.test.ts",
     "test:guidance": "npx tsx src/starpath/starpathGuidanceEngine.test.ts",
     "test:opportunity": "npx tsx src/starpath/starpathOpportunitySystem.test.ts",
-    "test:persistence": "npx tsx src/starpath/starpathPersistence.test.ts"
+    "test:persistence": "npx tsx src/starpath/starpathPersistence.test.ts",
+    "test:connect": "npx tsx src/connect/connectSystem.test.ts"
   },
   "private": true
 }

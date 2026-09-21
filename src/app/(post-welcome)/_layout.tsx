@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 import { ReelyouMotion } from '@/constants/animation';
 import { ONBOARDING_SHARED_BACKGROUND } from '@/constants/onboardingAssets';
+import { ReelyouConnectProvider } from '@/connect/ReelyouConnectProvider';
 import { OnboardingProvider } from '@/onboarding';
 import { ThemeProvider, useTheme } from '@/theme';
 import { Asset } from 'expo-asset';
@@ -50,7 +51,9 @@ export default function PostWelcomeLayout() {
   return (
     <ThemeProvider>
       <OnboardingProvider>
-        <PostWelcomeStack />
+        <ReelyouConnectProvider>
+          <PostWelcomeStack />
+        </ReelyouConnectProvider>
       </OnboardingProvider>
     </ThemeProvider>
   );

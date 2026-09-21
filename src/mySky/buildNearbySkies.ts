@@ -35,7 +35,7 @@ const CONNECTED_RING = 0.34;
 const SHARED_COMMUNITY_RING = 0.42;
 const EXPLORE_RING = 0.58;
 const MAX_CONNECTED = 8;
-const MAX_EXPLORE = 6;
+const DEFAULT_MAX_EXPLORE = 6;
 
 function mapTier(context: SkySearchConnectionContext): NearbySkyTier {
   if (context === 'shared-community') return 'shared-community';
@@ -126,6 +126,7 @@ export function buildNearbySkies(
   communities: CommunitiesRecord,
   exploreEnabled: boolean,
   selfId: string = currentUser.id,
+  maxExplore: number = DEFAULT_MAX_EXPLORE,
 ): NearbySkyAnchor[] {
   const catalog = buildSkySearchResults('', feed, connectionActivities, communities).filter(
     (entry) => entry.id !== selfId,
@@ -141,7 +142,7 @@ export function buildNearbySkies(
     .slice(0, MAX_CONNECTED);
 
   const exploreResults = exploreEnabled
-    ? catalog.filter((entry) => entry.connectionContext === 'discoverable').slice(0, MAX_EXPLORE)
+    ? catalog.filter((entry) => entry.connectionContext === 'discoverable').slice(0, maxExplore)
     : [];
 
   const connectedAnchors = connectedResults

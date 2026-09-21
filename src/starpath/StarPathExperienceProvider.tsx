@@ -65,6 +65,12 @@ import { saveStarPathSignalState } from '@/starpath/starpathSignalPersistence';
 import type { StarPathUiChromeSnapshot, StarPathViewportSnapshot } from '@/starpath/starpathPersistenceTypes';
 import { saveStarPathUiChrome } from '@/starpath/starpathUiChromePersistence';
 import type { StarPathNextStepType } from '@/starpath/starpathGuidanceTypes';
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
+import { applyGuidePreferences } from '@/starpath/starpathGuidePreferenceFilter';
+import {
+  gateInteractionSignals,
+  gateTodayFocusText,
+} from '@/starpath/personalizationPreferenceGate';
 
 interface StarPathExperienceContextValue {
   ready: boolean;
@@ -123,6 +129,7 @@ export function StarPathExperienceProvider({
   children: ReactNode;
   todayFocusText?: string | null;
 }) {
+  const { preferences: userPreferences } = useReelyouConnect();
   const [ready, setReady] = useState(false);
   const [interactions, setInteractions] = useState<StarPathInteractionSnapshot>({
     version: 1,
@@ -197,6 +204,16 @@ export function StarPathExperienceProvider({
     }, 400);
   }, []);
 
+  const focusForGuidance = useMemo(
+    () => gateTodayFocusText(todayFocusText, userPreferences.personalizationPreferences),
+    [todayFocusText, userPreferences.personalizationPreferences],
+  );
+
+  const signalsForSifting = useMemo(
+    () => gateInteractionSignals(interactions.signals, userPreferences.personalizationPreferences),
+    [interactions.signals, userPreferences.personalizationPreferences],
+  );
+
   const scheduleSave = useCallback((next: StarPathInteractionSnapshot, avatar: UserAvatarIdentity) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
@@ -207,12 +224,12 @@ export function StarPathExperienceProvider({
   }, [scheduleManifestTouch]);
 
   const siftingState = useMemo(() => {
-    const next = computeStarPathSiftingState(interactions.signals, {
+    const next = computeStarPathSiftingState(signalsForSifting, {
       previousState: siftingRef.current,
     });
     siftingRef.current = next;
     return next;
-  }, [interactions.signals]);
+  }, [signalsForSifting]);
 
   const getNodeUiState = useCallback(
     (nodeId: string) => deriveNodeUiState(nodeId, interactions.signals),
@@ -260,9 +277,11 @@ export function StarPathExperienceProvider({
       siftingState,
       dynamicWorld,
       dynamicRecentlyEmergedIds,
-      todayFocusText,
+      focusForGuidance,
     );
-    const parsed = parseUserReportedSupport(todayFocusText);
+    const parsed = userPreferences.emotionalContextPreference.adjustGuidanceIntensity
+      ? parseUserReportedSupport(focusForGuidance)
+      : 'unknown';
     const mergedSupport: UserSupportState =
       parsed !== 'unknown' ? parsed : supportState;
 
@@ -278,12 +297,24 @@ export function StarPathExperienceProvider({
       if (gen !== orchestratorGen.current) return;
       setResourceState(result.resourceState);
       setSignalState(result.signalState);
-      setOpportunityContext({
-        primaryOpportunityNodeId: result.primaryOpportunityNodeId,
-        primaryOpportunityCandidateId: result.primaryOpportunityCandidateId,
-        timeSensitiveOpportunityId: result.timeSensitiveOpportunityId,
-        opportunityGuideEscalation: result.escalateGuideForOpportunity,
-      });
+      if (userPreferences.discoveryPreferences.showOpportunityDiscovery) {
+        setOpportunityContext({
+          primaryOpportunityNodeId: result.primaryOpportunityNodeId,
+          primaryOpportunityCandidateId: result.primaryOpportunityCandidateId,
+          timeSensitiveOpportunityId: result.timeSensitiveOpportunityId,
+          opportunityGuideEscalation:
+            result.escalateGuideForOpportunity &&
+            userPreferences.guidePreferences.opportunityNudges &&
+            userPreferences.guidePreferences.timeSensitiveGuidance,
+        });
+      } else {
+        setOpportunityContext({
+          primaryOpportunityNodeId: null,
+          primaryOpportunityCandidateId: null,
+          timeSensitiveOpportunityId: null,
+          opportunityGuideEscalation: false,
+        });
+      }
       scheduleResourceSave(result.resourceState);
       scheduleSignalSave(result.signalState);
     })();
@@ -293,16 +324,22 @@ export function StarPathExperienceProvider({
     siftingState,
     dynamicWorld,
     dynamicRecentlyEmergedIds,
-    todayFocusText,
+    focusForGuidance,
+    userPreferences.discoveryPreferences.showOpportunityDiscovery,
     resourceState.dismissedResourceIds,
     resourceState.savedResourceIds,
     resourceState.snoozedResourceUntil,
     supportState,
+    userPreferences.guidePreferences.opportunityNudges,
+    userPreferences.guidePreferences.timeSensitiveGuidance,
+    userPreferences.emotionalContextPreference.adjustGuidanceIntensity,
   ]);
 
   useEffect(() => {
     if (!ready || !resourceState.placedNodes.length) return;
-    const parsed = parseUserReportedSupport(todayFocusText);
+    const parsed = userPreferences.emotionalContextPreference.adjustGuidanceIntensity
+      ? parseUserReportedSupport(focusForGuidance)
+      : 'unknown';
     const mergedSupport: UserSupportState = parsed !== 'unknown' ? parsed : supportState;
     setSignalState((prev) => {
       const nextSignals = computeAmbientSignals({
@@ -320,7 +357,17 @@ export function StarPathExperienceProvider({
       scheduleSignalSave(nextSignals);
       return nextSignals;
     });
-  }, [ready, viewportVersion, resourceState.placedNodes, resourceState.resourcesById, resourceState.dismissedResourceIds, todayFocusText, supportState, scheduleSignalSave]);
+  }, [
+    ready,
+    viewportVersion,
+    resourceState.placedNodes,
+    resourceState.resourcesById,
+    resourceState.dismissedResourceIds,
+    focusForGuidance,
+    supportState,
+    userPreferences.emotionalContextPreference.adjustGuidanceIntensity,
+    scheduleSignalSave,
+  ]);
 
   useEffect(() => {
     if (!ready) return;
@@ -351,11 +398,19 @@ export function StarPathExperienceProvider({
       siftingState,
       dynamicWorld,
       dynamicRecentlyEmergedIds,
-      todayFocusText,
-      {
-        ...opportunityContext,
-        dismissedOpportunityIds: resourceState.dismissedResourceIds,
-      },
+      focusForGuidance,
+      userPreferences.discoveryPreferences.showOpportunityDiscovery
+        ? {
+            ...opportunityContext,
+            dismissedOpportunityIds: resourceState.dismissedResourceIds,
+          }
+        : {
+            primaryOpportunityNodeId: null,
+            primaryOpportunityCandidateId: null,
+            timeSensitiveOpportunityId: null,
+            opportunityGuideEscalation: false,
+            dismissedOpportunityIds: resourceState.dismissedResourceIds,
+          },
     );
     const out = computeStarPathGuidance(inputs, {
       previous: {
@@ -366,18 +421,20 @@ export function StarPathExperienceProvider({
       explicitPulse: guidancePulse > 0,
     });
     guidancePersistRef.current = out.state;
-    return out;
+    return applyGuidePreferences(out, userPreferences.guidePreferences);
   }, [
     interactions.signals,
     siftingState,
     dynamicWorld,
     dynamicRecentlyEmergedIds,
-    todayFocusText,
+    focusForGuidance,
+    userPreferences.discoveryPreferences.showOpportunityDiscovery,
     guidanceMeta.guideDismissedIds,
     guidanceMeta.guideSnoozedUntil,
     guidancePulse,
     opportunityContext,
     resourceState.dismissedResourceIds,
+    userPreferences.guidePreferences,
   ]);
 
   useEffect(() => {

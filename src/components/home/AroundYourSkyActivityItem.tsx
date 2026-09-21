@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { memo, useCallback } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
 import type { AroundYourSkyDisplayItem } from '@/social/aroundYourSky';
@@ -13,7 +14,9 @@ interface AroundYourSkyActivityItemProps {
 
 function AroundYourSkyActivityItemComponent({ item }: AroundYourSkyActivityItemProps) {
   const router = useRouter();
+  const { canMessageUser, openOrCreateThreadWith } = useReelyouConnect();
   const tappable = Boolean(item.destination);
+  const messageEligible = Boolean(item.actorId && canMessageUser(item.actorId));
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -64,11 +67,33 @@ function AroundYourSkyActivityItemComponent({ item }: AroundYourSkyActivityItemP
         color: tokens.mutedText,
         marginTop: 1,
       },
+      messageLink: {
+        alignSelf: 'flex-start',
+        marginTop: 6,
+        paddingVertical: 4,
+        paddingHorizontal: 2,
+        minHeight: 44,
+        justifyContent: 'center',
+      },
+      messageLinkText: {
+        fontFamily: Fonts.sans,
+        fontSize: 12,
+        fontWeight: '600',
+        color: 'rgba(196, 181, 253, 0.95)',
+      },
       pressed: {
         opacity: 0.88,
       },
     }),
   );
+
+  const handleMessage = useCallback(() => {
+    if (!item.actorId) return;
+    const threadId = openOrCreateThreadWith(item.actorId);
+    if (threadId) {
+      router.push(`/messages/${threadId}` as never);
+    }
+  }, [item.actorId, openOrCreateThreadWith, router]);
 
   const handlePress = useCallback(() => {
     if (!item.destination) return;
@@ -85,35 +110,46 @@ function AroundYourSkyActivityItemComponent({ item }: AroundYourSkyActivityItemP
     }
   }, [item.destination, item.destinationParam, router]);
 
-  const content = (
+  const messageAction = messageEligible ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Message ${item.actorName}`}
+      onPress={handleMessage}
+      style={styles.messageLink}
+    >
+      <Text style={styles.messageLinkText}>Message</Text>
+    </Pressable>
+  ) : null;
+
+  const bodyText = (
     <>
+      <Text style={styles.message}>{item.message}</Text>
+      {item.preview ? <Text style={styles.preview} numberOfLines={2}>{item.preview}</Text> : null}
+      <Text style={styles.time}>{item.relativeTime}</Text>
+    </>
+  );
+
+  return (
+    <View style={styles.row}>
       <View style={[styles.avatar, { backgroundColor: item.actorColor }]}>
         <Text style={styles.initials}>{item.actorInitials}</Text>
       </View>
       <View style={styles.body}>
-        <Text style={styles.message}>{item.message}</Text>
-        {item.preview ? <Text style={styles.preview} numberOfLines={2}>{item.preview}</Text> : null}
-        <Text style={styles.time}>{item.relativeTime}</Text>
+        {tappable ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.message} ${item.relativeTime}`}
+            onPress={handlePress}
+            style={({ pressed }) => [pressed && styles.pressed]}
+          >
+            {bodyText}
+          </Pressable>
+        ) : (
+          <View accessibilityRole="text">{bodyText}</View>
+        )}
+        {messageAction}
       </View>
-    </>
-  );
-
-  if (!tappable) {
-    return (
-      <View style={styles.row} accessibilityRole="text">
-        {content}
-      </View>
-    );
-  }
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${item.message} ${item.relativeTime}`}
-      onPress={handlePress}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      {content}
-    </Pressable>
+    </View>
   );
 }
 

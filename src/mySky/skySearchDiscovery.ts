@@ -1,4 +1,6 @@
 import { MySkyCopy } from '@/constants/mySkyCopy';
+import { discoveryTierWeight, exploreResultCap } from '@/mySky/discoveryPreferencePolicy';
+import type { DiscoveryPreferences } from '@/preferences/userPreferencesTypes';
 import type { CommunitiesRecord } from '@/onboarding/personalization/communities/types';
 import type { AroundYourSkyHomeFeed } from '@/social/aroundYourSky/types';
 
@@ -41,7 +43,15 @@ export function buildSkySearchDiscovery(
   connectionActivities: SkyConnectionActivity[],
   communities: CommunitiesRecord,
   exploreEnabled: boolean,
+  discoveryPrefs?: DiscoveryPreferences,
 ): SkySearchGroup[] {
+  const prefs: DiscoveryPreferences = discoveryPrefs ?? {
+    includePublicSkiesInExplore: true,
+    prioritizeConnections: true,
+    prioritizeSharedCommunities: true,
+    showOpportunityDiscovery: true,
+    reduceDiscoverySuggestions: false,
+  };
   const results = buildSkySearchResults(
     query,
     feed,
@@ -69,10 +79,17 @@ export function buildSkySearchDiscovery(
     });
   }
   if (exploreEnabled && explore.length > 0) {
-    groups.push({ id: 'explore', title: MySkyCopy.searchGroupExplore, results: explore });
+    const cap = exploreResultCap(prefs);
+    groups.push({
+      id: 'explore',
+      title: MySkyCopy.searchGroupExplore,
+      results: explore.slice(0, cap),
+    });
   }
 
-  return groups;
+  return groups.sort(
+    (a, b) => discoveryTierWeight(b.id, prefs) - discoveryTierWeight(a.id, prefs),
+  );
 }
 
 /** Primary + secondary actions — never overload every result. */

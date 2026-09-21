@@ -1,42 +1,58 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { HomeGlobalMenuSheet } from '@/components/home/HomeGlobalMenuSheet';
+import { HomeSignalCenterSheet } from '@/components/home/HomeSignalCenterSheet';
 import { HomeBellIcon, HomeMenuIcon } from '@/components/home/HomeIcons';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
 
 function HomeTopNavComponent() {
+  const { hasUnreadSignals } = useReelyouConnect();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [signalsOpen, setSignalsOpen] = useState(false);
+
   return (
-    <View style={styles.row}>
-      <View style={styles.sideSlot}>
-        <Pressable
-          style={styles.iconBtn}
-          hitSlop={6}
-          disabled
-          accessibilityRole="button"
-          accessibilityLabel="Open menu"
-          accessibilityState={{ disabled: true }}>
-          <HomeMenuIcon size={16} />
-        </Pressable>
+    <>
+      <View style={styles.row}>
+        <View style={styles.sideSlot}>
+          <Pressable
+            style={styles.iconBtn}
+            hitSlop={6}
+            onPress={() => setMenuOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Open menu"
+            testID="home-menu-trigger"
+          >
+            <HomeMenuIcon size={16} />
+          </Pressable>
+        </View>
+
+        <View style={styles.logoWrap} pointerEvents="none">
+          <HomeHeaderLogo />
+        </View>
+
+        <View style={styles.sideSlot}>
+          <Pressable
+            style={styles.iconBtn}
+            hitSlop={6}
+            onPress={() => setSignalsOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Open signal center"
+            testID="home-signal-trigger"
+          >
+            <HomeBellIcon size={16} />
+            {hasUnreadSignals ? (
+              <View style={styles.badge} importantForAccessibility="no-hide-descendants" />
+            ) : null}
+          </Pressable>
+        </View>
       </View>
 
-      <View style={styles.logoWrap} pointerEvents="none">
-        <HomeHeaderLogo />
-      </View>
-
-      <View style={styles.sideSlot}>
-        <Pressable
-          style={styles.iconBtn}
-          hitSlop={6}
-          disabled
-          accessibilityRole="button"
-          accessibilityLabel="Notifications"
-          accessibilityState={{ disabled: true }}>
-          <HomeBellIcon size={16} />
-          <View style={styles.badge} importantForAccessibility="no-hide-descendants" />
-        </Pressable>
-      </View>
-    </View>
+      <HomeGlobalMenuSheet visible={menuOpen} onClose={() => setMenuOpen(false)} />
+      <HomeSignalCenterSheet visible={signalsOpen} onClose={() => setSignalsOpen(false)} />
+    </>
   );
 }
 

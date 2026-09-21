@@ -12,6 +12,7 @@ interface MySkyPublicSkyHeaderProps {
   visitorContext: PublicSkyVisitorContext;
   onBack: () => void;
   onConnect?: () => void;
+  onMessage?: () => void;
 }
 
 function MySkyPublicSkyHeaderComponent({
@@ -19,6 +20,7 @@ function MySkyPublicSkyHeaderComponent({
   visitorContext,
   onBack,
   onConnect,
+  onMessage,
 }: MySkyPublicSkyHeaderProps) {
   const connected = visitorContext.connectionStatus === 'connected';
 
@@ -151,6 +153,11 @@ function MySkyPublicSkyHeaderComponent({
         <Pressable accessibilityRole="button" onPress={onBack} style={styles.back}>
           <Text style={styles.backText}>{MySkyCopy.publicSkyBack}</Text>
         </Pressable>
+        {connected && onMessage ? (
+          <Pressable accessibilityRole="button" onPress={onMessage} style={styles.connect}>
+            <Text style={styles.connectText}>Message</Text>
+          </Pressable>
+        ) : null}
         {!connected && onConnect ? (
           <Pressable accessibilityRole="button" onPress={onConnect} style={styles.connect}>
             <Text style={styles.connectText}>{MySkyCopy.identityConnect}</Text>

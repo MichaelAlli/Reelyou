@@ -19,6 +19,7 @@ import { DEFAULT_MY_SKY_VIEWPORT, type MySkyViewportSnapshot } from '@/mySky/myS
 import { resolvePublicSkyVisitorContext } from '@/mySky/resolvePublicSkyContext';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import type { MySkyStarDisplay } from '@/mySky/types';
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
 
 interface PublicSkyScreenProps {
@@ -28,6 +29,7 @@ interface PublicSkyScreenProps {
 export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
   const router = useRouter();
   const { aroundYourSkyFeed, communities } = useOnboarding();
+  const { canMessageUser, openOrCreateThreadWith } = useReelyouConnect();
   const [viewport, setViewport] = useState<MySkyViewportSnapshot>({ ...DEFAULT_MY_SKY_VIEWPORT });
   const [constellationDetailVisible, setConstellationDetailVisible] = useState(false);
   const [constellationDetail, setConstellationDetail] = useState<ConstellationDetailView | null>(
@@ -81,6 +83,12 @@ export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
   const handleConnect = useCallback(() => {
     // Stub — existing connection infrastructure hook point.
   }, []);
+
+  const handleMessage = useCallback(() => {
+    if (!userId || !canMessageUser(userId)) return;
+    const threadId = openOrCreateThreadWith(userId);
+    if (threadId) router.push(`/messages/${threadId}` as never);
+  }, [canMessageUser, openOrCreateThreadWith, router, userId]);
 
   const openConstellationDetail = useCallback(
     (patternId: string) => {
@@ -143,6 +151,11 @@ export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
           visitorContext={visitorContext}
           onBack={handleBack}
           onConnect={visitorContext.connectionStatus === 'connected' ? undefined : handleConnect}
+          onMessage={
+            userId && visitorContext.connectionStatus === 'connected' && canMessageUser(userId)
+              ? handleMessage
+              : undefined
+          }
         />
 
         <View style={styles.skyArea}>

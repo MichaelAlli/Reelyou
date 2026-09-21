@@ -22,6 +22,7 @@ import {
 } from '@/mySky/skySearchDiscovery';
 import type { SkySearchResult } from '@/mySky/skySearchSources';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
+import type { DiscoveryPreferences } from '@/preferences/userPreferencesTypes';
 import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
 
@@ -31,6 +32,7 @@ interface MySkySearchSheetProps {
   onQueryChange: (query: string) => void;
   onClose: () => void;
   exploreEnabled: boolean;
+  discoveryPreferences?: DiscoveryPreferences;
   nearbyAnchors?: NearbySkyAnchor[];
   onJumpToSky?: (ownerId: string) => void;
   onViewSky?: (publicSkyId: string) => void;
@@ -43,6 +45,7 @@ function MySkySearchSheetComponent({
   onQueryChange,
   onClose,
   exploreEnabled,
+  discoveryPreferences,
   nearbyAnchors = [],
   onJumpToSky,
   onViewSky,
@@ -65,8 +68,16 @@ function MySkySearchSheetComponent({
         connectionActivities,
         communities,
         exploreEnabled,
+        discoveryPreferences,
       ),
-    [aroundYourSkyFeed, communities, connectionActivities, exploreEnabled, query],
+    [
+      aroundYourSkyFeed,
+      communities,
+      connectionActivities,
+      discoveryPreferences,
+      exploreEnabled,
+      query,
+    ],
   );
 
   const totalResults = searchResultCount(groups);
