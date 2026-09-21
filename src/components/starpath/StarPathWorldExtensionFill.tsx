@@ -22,9 +22,9 @@ function StarPathWorldExtensionFillComponent({ metrics }: StarPathWorldExtension
           <Stop offset="100%" stopColor="#060818" stopOpacity={1} />
         </LinearGradient>
         <LinearGradient id="spWorldBottomExt" x1="0%" y1="0%" x2="0%" y2="100%">
-          <Stop offset="0%" stopColor="#030510" stopOpacity={0.95} />
-          <Stop offset="55%" stopColor="#050812" stopOpacity={1} />
-          <Stop offset="100%" stopColor="#020308" stopOpacity={1} />
+          <Stop offset="0%" stopColor="#0A1028" stopOpacity={0.55} />
+          <Stop offset="40%" stopColor="#081020" stopOpacity={0.88} />
+          <Stop offset="100%" stopColor="#060818" stopOpacity={1} />
         </LinearGradient>
       </Defs>
       {paddingTop > 0 ? (

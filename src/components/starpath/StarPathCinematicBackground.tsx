@@ -11,7 +11,8 @@ interface StarPathCinematicBackgroundProps {
 }
 
 function StarPathCinematicBackgroundComponent({ metrics }: StarPathCinematicBackgroundProps) {
-  const { worldWidth, contentBandHeight, paddingTop } = metrics;
+  const { worldWidth, contentBandHeight, paddingTop, paddingBottom } = metrics;
+  const scenicHeight = contentBandHeight + paddingBottom;
 
   return (
     <View style={[styles.root, { width: metrics.worldWidth, height: metrics.worldHeight }]}>
@@ -21,7 +22,7 @@ function StarPathCinematicBackgroundComponent({ metrics }: StarPathCinematicBack
           styles.image,
           {
             width: worldWidth,
-            height: contentBandHeight,
+            height: scenicHeight,
             top: paddingTop,
           },
         ]}
@@ -60,9 +61,19 @@ function StarPathCinematicBackgroundComponent({ metrics }: StarPathCinematicBack
           x={0}
           y={paddingTop}
           width={worldWidth}
-          height={contentBandHeight}
+          height={scenicHeight}
           fill="url(#spUiVeilBottom)"
         />
+        {paddingBottom > 0 ? (
+          <Rect
+            x={0}
+            y={paddingTop + scenicHeight - Math.min(120, paddingBottom * 0.35)}
+            width={worldWidth}
+            height={Math.min(120, paddingBottom * 0.35)}
+            fill="url(#spUiVeilBottom)"
+            opacity={0.65}
+          />
+        ) : null}
       </Svg>
     </View>
   );

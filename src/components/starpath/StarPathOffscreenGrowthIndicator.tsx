@@ -6,11 +6,16 @@ import type { StarPathOffscreenGrowthHint } from '@/starpath/starpathDynamicWorl
 
 interface StarPathOffscreenGrowthIndicatorProps {
   hints: StarPathOffscreenGrowthHint[];
+  /** When true, suppress duplicate lower hint (signal indicator owns "Along the path below"). */
+  hideBelow?: boolean;
 }
 
-function StarPathOffscreenGrowthIndicatorComponent({ hints }: StarPathOffscreenGrowthIndicatorProps) {
+function StarPathOffscreenGrowthIndicatorComponent({
+  hints,
+  hideBelow = false,
+}: StarPathOffscreenGrowthIndicatorProps) {
   if (!hints.length) return null;
-  const below = hints.some((h) => h.direction === 'below');
+  const below = !hideBelow && hints.some((h) => h.direction === 'below');
   const above = hints.some((h) => h.direction === 'above');
 
   return (

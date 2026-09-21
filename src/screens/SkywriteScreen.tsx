@@ -38,7 +38,8 @@ import {
 import { HomeLayout, HomePalette, measureHomeAvatarSize, measureHomePadH } from '@/constants/homeLayout';
 import { Fonts, Radius } from '@/constants/theme';
 import { useOnboarding } from '@/onboarding';
-import { buildSkyNodeId } from '@/mySky/skyArrival';
+import { takeFocusedSkywriteComposeStars } from '@/skywrite/focusedSkyComposeSnapshot';
+import { submitSkywriteToFocusedSky } from '@/skywrite/submitToFocusedSkywrite';
 import {
   createEmptySkywriteDraft,
   getSkywriteMediaActionLabels,
@@ -77,7 +78,7 @@ export function SkywriteScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const padH = measureHomePadH(screenWidth);
   const avatarSize = Math.min(measureHomeAvatarSize(screenWidth), 88);
-  const { createSkywrite, setSkyArrivalHandoff, state } = useOnboarding();
+  const { createSkywrite, mySkyView, setSkyArrivalHandoff, state } = useOnboarding();
 
   const [draft, setDraft] = useState<SkywriteDraft>(() =>
     createEmptySkywriteDraft({
@@ -277,6 +278,7 @@ export function SkywriteScreen() {
     }
 
     const trimmed = draft.text.trim();
+    const starsBeforeSubmit = takeFocusedSkywriteComposeStars() ?? mySkyView.stars;
     const record = createSkywrite({
       ...draft,
       text: trimmed,
@@ -284,18 +286,12 @@ export function SkywriteScreen() {
     });
 
     if (record.animateToSky) {
-      setSkyArrivalHandoff({
-        skywriteId: record.id,
-        skyNodeId: buildSkyNodeId(record.id),
-        justAddedToSky: true,
-        skywriteStatus: 'animating',
-      });
-      router.replace('/skywrite-to-sky' as never);
+      submitSkywriteToFocusedSky(record, starsBeforeSubmit, setSkyArrivalHandoff, router);
       return;
     }
 
     router.replace('/(tabs)/sky' as never);
-  }, [createSkywrite, draft, manualHashtags, router, setSkyArrivalHandoff]);
+  }, [createSkywrite, draft, manualHashtags, mySkyView.stars, router, setSkyArrivalHandoff]);
 
   return (
     <View style={styles.root}>

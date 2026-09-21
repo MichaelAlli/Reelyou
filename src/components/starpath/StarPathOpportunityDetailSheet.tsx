@@ -43,9 +43,6 @@ function StarPathOpportunityDetailSheetComponent({
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close opportunity detail" />
       <View style={styles.anchor} pointerEvents="box-none">
         <View style={styles.panel} testID="starpath-opportunity-detail">
-          {candidate.fixtureOnly ? (
-            <Text style={[styles.fixtureBadge, { color: theme.labelMuted }]}>FIXTURE-ONLY preview</Text>
-          ) : null}
           <Text style={[styles.kicker, { color: theme.labelMuted }]}>
             {candidate.opportunityType.replace('_', ' ').toUpperCase()}
           </Text>
@@ -78,12 +75,11 @@ function StarPathOpportunityDetailSheetComponent({
               Eligibility: {candidate.eligibilitySummary}
             </Text>
           ) : null}
-          <Text style={[styles.meta, { color: theme.labelMuted }]}>
-            Source: {candidate.sourceName}
-            {candidate.lastVerifiedAt
-              ? ` · Verified ${new Date(candidate.lastVerifiedAt).toLocaleDateString()}`
-              : ''}
-          </Text>
+          {candidate.sourceName ? (
+            <Text style={[styles.meta, { color: theme.labelMuted }]}>
+              From {candidate.sourceName}
+            </Text>
+          ) : null}
           <Text style={[styles.caution, { color: theme.labelMuted }]}>
             You may want to review this opportunity on the official site before applying.
           </Text>

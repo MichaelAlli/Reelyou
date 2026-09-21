@@ -87,6 +87,7 @@ interface StarPathExperienceContextValue {
   activeBranchIds: Set<string>;
   guideReaction: string | null;
   guideWhyThisLines: string[];
+  guideMessageId: string | null;
   dismissActiveGuide: () => void;
   snoozeActiveGuide: () => void;
   nextStepCopy: { title: string; actionLabel: string };
@@ -636,8 +637,14 @@ export function StarPathExperienceProvider({
   const setUiChrome = useCallback((patch: Partial<StarPathUiChromeSnapshot>) => {
     setUiChromeState((prev) => {
       const next: StarPathUiChromeSnapshot = {
-        guideExpanded: patch.guideExpanded ?? prev?.guideExpanded ?? true,
+        guideExpanded: patch.guideExpanded ?? prev?.guideExpanded ?? false,
         nextStepExpanded: patch.nextStepExpanded ?? prev?.nextStepExpanded ?? true,
+        guidePopupDismissedMessageId:
+          patch.guidePopupDismissedMessageId !== undefined
+            ? patch.guidePopupDismissedMessageId
+            : (prev?.guidePopupDismissedMessageId ?? null),
+        guideIntroPopupDismissed:
+          patch.guideIntroPopupDismissed ?? prev?.guideIntroPopupDismissed ?? false,
         savedAt: Date.now(),
       };
       if (uiChromeSaveTimer.current) clearTimeout(uiChromeSaveTimer.current);
@@ -747,6 +754,7 @@ export function StarPathExperienceProvider({
       activeBranchIds: new Set(siftingState.guideSummary.elevatedBranchIds),
       guideReaction: guidancePack.guide?.body ?? null,
       guideWhyThisLines: whyThisLinesForReasons(guidancePack.guide?.reasonCodes ?? []),
+      guideMessageId: guidancePack.guide?.messageId ?? null,
       dismissActiveGuide,
       snoozeActiveGuide,
       nextStepCopy: {

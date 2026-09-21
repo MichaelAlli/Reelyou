@@ -43,6 +43,14 @@ function PostWelcomeStack() {
           }
         />
         <Stack.Screen
+          name="skywrite/compose"
+          options={
+            Platform.OS === 'web'
+              ? { presentation: 'card', animation: 'fade' }
+              : { presentation: 'modal' }
+          }
+        />
+        <Stack.Screen
           name="skywrite/[id]"
           options={
             Platform.OS === 'web'

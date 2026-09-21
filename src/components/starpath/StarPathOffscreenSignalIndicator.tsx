@@ -7,11 +7,14 @@ import type { StarPathAmbientSignal } from '@/starpath/starpathSignalTypes';
 interface StarPathOffscreenSignalIndicatorProps {
   signals: StarPathAmbientSignal[];
   onNavigateToNode: (nodeId: string) => void;
+  /** Distance from bottom of viewport — clears Next Step card when set higher. */
+  bottomOffset?: number;
 }
 
 function StarPathOffscreenSignalIndicatorComponent({
   signals,
   onNavigateToNode,
+  bottomOffset = 108,
 }: StarPathOffscreenSignalIndicatorProps) {
   const directional = signals.filter(
     (s) => s.signalType === 'directional_light' && s.offscreenDirection && s.sourceNodeId,
@@ -25,7 +28,7 @@ function StarPathOffscreenSignalIndicatorComponent({
     <View style={styles.wrap} pointerEvents="box-none" testID="starpath-offscreen-signal">
       {below ? (
         <Pressable
-          style={styles.edgeBelow}
+          style={[styles.edgeBelow, { bottom: bottomOffset }]}
           onPress={() => onNavigateToNode(below.sourceNodeId)}
           accessibilityRole="button"
           accessibilityLabel="Something relevant below on your path"
@@ -58,7 +61,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: StarPathSpacing.guideLeft,
     right: StarPathSpacing.guideLeft,
-    bottom: 108,
     alignItems: 'center',
   },
   edgeAbove: {

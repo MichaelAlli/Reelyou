@@ -1,3 +1,4 @@
+/** LOCKED MY SKY EXPERIENCE — preserve approved visuals/interactions unless explicitly authorized. */
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -330,7 +331,7 @@ export function MySkyScreen() {
           router.push(`/skywrite/${target.skywriteId}` as never);
           return;
         case 'skywrite-compose':
-          router.push('/skywrite' as never);
+          router.push('/skywrite/compose' as never);
           return;
         case 'public-sky':
           router.push(`/public-sky?id=${target.param}` as never);

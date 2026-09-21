@@ -11,7 +11,15 @@ import {
 } from '@/components/starpath/starpathGlass';
 import { Fonts } from '@/constants/theme';
 
-function StarPathTopChromeComponent() {
+interface StarPathTopChromeProps {
+  onCommunityPress?: () => void;
+  onFavoritesPress?: () => void;
+}
+
+function StarPathTopChromeComponent({
+  onCommunityPress,
+  onFavoritesPress,
+}: StarPathTopChromeProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, 8);
@@ -39,25 +47,27 @@ function StarPathTopChromeComponent() {
 
         <View style={styles.rightCluster}>
           <Pressable
+            onPress={onCommunityPress}
             hitSlop={8}
             style={({ pressed }) => [
               starpathGlassControl.base,
               pressed && starpathGlassControl.pressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Community"
+            accessibilityLabel="Community on your path"
             testID="starpath-community-control"
           >
             <Text style={styles.iconGlyph}>⚭</Text>
           </Pressable>
           <Pressable
+            onPress={onFavoritesPress}
             hitSlop={8}
             style={({ pressed }) => [
               starpathGlassControl.base,
               pressed && starpathGlassControl.pressed,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Favorites"
+            accessibilityLabel="Saved on your path"
             testID="starpath-favorite-control"
           >
             <Text style={styles.iconGlyph}>★</Text>

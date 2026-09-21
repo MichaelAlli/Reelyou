@@ -1,3 +1,5 @@
+/** LOCKED STARPATH WORLD — preserve approved world/background/scroll behavior unless explicitly authorized. */
+import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ScrollView as ScrollViewType } from 'react-native';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -41,9 +43,9 @@ interface StarPathSceneProps {
 }
 
 function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarPathSceneProps) {
+  const router = useRouter();
   const { width, height } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
-  const [guideExpanded, setGuideExpanded] = useState(true);
   const [nextStepExpanded, setNextStepExpanded] = useState(true);
   const [scrollY, setScrollY] = useState(0);
   const [detailNodeId, setDetailNodeId] = useState<string | null>(null);
@@ -65,7 +67,6 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   useEffect(() => {
     if (!experience.ready) return;
     if (experience.uiChrome) {
-      setGuideExpanded(experience.uiChrome.guideExpanded);
       setNextStepExpanded(experience.uiChrome.nextStepExpanded);
     }
   }, [experience.ready, experience.uiChrome]);
@@ -195,6 +196,14 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
     [experience.signalState],
   );
 
+  const hasBelowPathSignal = useMemo(
+    () =>
+      offscreenSignals.some(
+        (s) => s.signalType === 'directional_light' && s.offscreenDirection === 'below',
+      ),
+    [offscreenSignals],
+  );
+
   const onOpportunityPress = useCallback(
     (nodeId: string) => {
       experience.openOpportunityNode(nodeId);
@@ -216,6 +225,69 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   }, [experience, onNextStepPress, scrollToOpportunityNode]);
 
   const bottomInset = TabBarHeight + StarPathSpacing.controlGap;
+  /** ~compact Next Step card height + breathing room above "Along the path below". */
+  const nextStepCardBottom = bottomInset + 18;
+  const alongPathBottomOffset = nextStepExpanded ? nextStepCardBottom + 132 : bottomInset + 8;
+
+  const guideMessageId = experience.guideMessageId;
+  const guideIntroDismissed = experience.uiChrome?.guideIntroPopupDismissed === true;
+  const showGuideIntroPopup = experience.ready && !guideIntroDismissed;
+  const showGuideBeacon =
+    guideIntroDismissed &&
+    Boolean(guideMessageId) &&
+    experience.uiChrome?.guidePopupDismissedMessageId !== guideMessageId;
+
+  const openYourGuide = useCallback(() => {
+    router.push('/companion' as never);
+  }, [router]);
+
+  const dismissGuidePopup = useCallback(() => {
+    experience.setUiChrome({
+      guideIntroPopupDismissed: true,
+      guideExpanded: false,
+    });
+  }, [experience]);
+
+  const scrollToWorldNode = useCallback(
+    (nodeId: string) => {
+      const symbol = graph.symbolNodes.find((n) => n.id === nodeId);
+      const portrait = graph.portraitNodes.find((n) => n.id === nodeId);
+      const point = symbol ?? portrait;
+      if (!point) return;
+      const { y } = refPointToWorldPx(point, metrics);
+      const targetY = Math.max(0, y - height * 0.42);
+      (scrollRef.current as ScrollViewType | null)?.scrollTo({ y: targetY, animated: true });
+      setScrollY(targetY);
+    },
+    [graph.portraitNodes, graph.symbolNodes, metrics, height, scrollRef],
+  );
+
+  const handleCommunityChromePress = useCallback(() => {
+    scrollToWorldNode('sym-community');
+    onNodePress('sym-community');
+  }, [onNodePress, scrollToWorldNode]);
+
+  const handleFavoritesChromePress = useCallback(() => {
+    const savedResourceId = experience.resourceState.savedResourceIds[0];
+    if (savedResourceId) {
+      const candidate = experience.resourceState.resourcesById[savedResourceId];
+      const nodeId = candidate?.relatedNodeIds[0];
+      if (nodeId) {
+        scrollToOpportunityNode(nodeId);
+        experience.openOpportunityNode(nodeId);
+        setDetailOpportunityNodeId(nodeId);
+        return;
+      }
+    }
+    const exampleNode =
+      experience.resourceState.placedNodes.find((n) => n.nodeId.includes('community'))?.nodeId ??
+      experience.resourceState.placedNodes[0]?.nodeId;
+    if (exampleNode) {
+      scrollToOpportunityNode(exampleNode);
+      experience.openOpportunityNode(exampleNode);
+      setDetailOpportunityNodeId(exampleNode);
+    }
+  }, [experience, scrollToOpportunityNode]);
 
   const nodeInteractionProps = useCallback(
     (nodeId: string) => {
@@ -286,11 +358,18 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
         </View>
       </ScrollView>
 
-      <StarPathTopChrome />
+      <StarPathTopChrome
+        onCommunityPress={handleCommunityChromePress}
+        onFavoritesPress={handleFavoritesChromePress}
+      />
 
-      <StarPathOffscreenGrowthIndicator hints={experience.offscreenGrowthHints} />
+      <StarPathOffscreenGrowthIndicator
+        hints={experience.offscreenGrowthHints}
+        hideBelow={hasBelowPathSignal}
+      />
       <StarPathOffscreenSignalIndicator
         signals={offscreenSignals}
+        bottomOffset={alongPathBottomOffset}
         onNavigateToNode={(nodeId) => {
           experience.navigateToOpportunityNode(nodeId);
           scrollToOpportunityNode(nodeId);
@@ -299,51 +378,28 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
       />
 
       <View style={styles.overlay} pointerEvents="box-none">
-        {guideExpanded ? (
-          <AIGuideControl
-            theme={theme}
-            expanded
-            reactionHint={experience.guideReaction}
-            whyThisLines={experience.guideWhyThisLines}
-            onDismissGuidance={experience.dismissActiveGuide}
-            onSnoozeGuidance={experience.snoozeActiveGuide}
-            showOpportunityAction={experience.guideShowsOpportunity}
-            onShowOpportunity={() => {
-              experience.showGuideOpportunity();
-              const nodeId =
-                experience.nextStepSourceIds[0] ?? experience.highlightOpportunityNodeId;
-              if (nodeId) scrollToOpportunityNode(nodeId);
-            }}
-            onExpand={() => {
-              setGuideExpanded(true);
-              experience.setUiChrome({ guideExpanded: true });
-            }}
-            onCollapse={() => {
-              setGuideExpanded(false);
-              experience.setUiChrome({ guideExpanded: false });
-            }}
-            reduceMotion={!!reduceMotion}
-          />
-        ) : (
-          <View
-            style={[styles.guideSlot, { top: StarPathSpacing.guideTop }]}
-            pointerEvents="box-none"
-          >
+        <View
+          style={[styles.guideSlot, { top: StarPathSpacing.guideTop }]}
+          pointerEvents="box-none"
+        >
+          {showGuideIntroPopup ? (
             <AIGuideControl
               theme={theme}
-              expanded={false}
-              onExpand={() => {
-                setGuideExpanded(true);
-                experience.setUiChrome({ guideExpanded: true });
-              }}
-              onCollapse={() => {
-                setGuideExpanded(false);
-                experience.setUiChrome({ guideExpanded: false });
-              }}
+              variant="popup"
+              onOpenGuide={openYourGuide}
+              onDismissPopup={dismissGuidePopup}
               reduceMotion={!!reduceMotion}
             />
-          </View>
-        )}
+          ) : (
+            <AIGuideControl
+              theme={theme}
+              variant="icon"
+              showBeacon={showGuideBeacon}
+              onOpenGuide={openYourGuide}
+              reduceMotion={!!reduceMotion}
+            />
+          )}
+        </View>
 
         {nextStepExpanded ? (
           <NextStepJourneyControl
@@ -361,7 +417,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
             onAction={handleNextStep}
             waypointX={nextStepWorld.x}
             waypointY={nextStepWorld.y - scrollY}
-            cardBottom={bottomInset}
+            cardBottom={nextStepCardBottom}
             reduceMotion={!!reduceMotion}
           />
         ) : null}

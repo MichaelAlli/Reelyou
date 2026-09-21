@@ -1,3 +1,3 @@
-import { SkywriteScreen } from '@/screens/SkywriteScreen';
+import { FocusedSkywriteScreen } from '@/screens/FocusedSkywriteScreen';
 
-export default SkywriteScreen;
+export default FocusedSkywriteScreen;

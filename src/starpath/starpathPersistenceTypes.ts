@@ -27,6 +27,10 @@ export interface StarPathViewportSnapshot {
 export interface StarPathUiChromeSnapshot {
   guideExpanded: boolean;
   nextStepExpanded: boolean;
+  /** When set, minimal Guide popup stays hidden for this guide message. */
+  guidePopupDismissedMessageId?: string | null;
+  /** StarPath first-visit Your Guide intro popup dismissed. */
+  guideIntroPopupDismissed?: boolean;
   savedAt: number;
 }
 

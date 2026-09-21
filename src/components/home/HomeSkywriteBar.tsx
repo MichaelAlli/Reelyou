@@ -39,7 +39,7 @@ function HomeSkywriteBarComponent({ animatedStyle }: HomeSkywriteBarProps) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Open Skywrite"
-        onPress={() => router.push('/skywrite' as never)}
+        onPress={() => router.push('/skywrite/compose' as never)}
         style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
         <View style={styles.shell}>
           <LinearGradient

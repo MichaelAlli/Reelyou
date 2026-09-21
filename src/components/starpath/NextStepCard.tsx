@@ -53,7 +53,6 @@ function NextStepCardComponent({
               fill="none"
             />
           </Svg>
-          <Text style={styles.sparkle}>✦</Text>
         </View>
 
         <Text style={[styles.title, { color: theme.labelBright }]}>
@@ -117,16 +116,18 @@ const styles = StyleSheet.create({
   },
   body: {
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     width: '100%',
+    paddingTop: 4,
   },
   card: {
     borderRadius: StarPathGlass.cardRadius - 6,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: StarPathGlass.cardBorder,
     backgroundColor: StarPathGlass.cardBg,
-    paddingVertical: 10,
-    paddingHorizontal: 11,
+    paddingTop: 12,
+    paddingBottom: 10,
+    paddingHorizontal: 12,
     alignItems: 'center',
     ...starpathCardShadow,
   },
@@ -142,12 +143,6 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  sparkle: {
-    position: 'absolute',
-    fontSize: 15,
-    color: '#1A1538',
-    fontWeight: '700',
   },
   title: {
     fontFamily: Fonts.sans,
@@ -173,8 +168,8 @@ const styles = StyleSheet.create({
   },
   dismiss: {
     position: 'absolute',
-    top: 2,
-    right: 4,
+    top: 0,
+    right: 2,
     zIndex: 2,
     padding: 8,
     minWidth: 36,

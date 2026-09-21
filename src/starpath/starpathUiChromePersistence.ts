@@ -9,8 +9,13 @@ export async function loadStarPathUiChrome(): Promise<StarPathUiChromeSnapshot |
   const { value, ok } = safeJsonParse<StarPathUiChromeSnapshot>(await AsyncStorage.getItem(STORAGE_KEY));
   if (!ok || !value) return null;
   return {
-    guideExpanded: value.guideExpanded !== false,
+    guideExpanded: value.guideExpanded === true,
     nextStepExpanded: value.nextStepExpanded !== false,
+    guidePopupDismissedMessageId:
+      typeof value.guidePopupDismissedMessageId === 'string'
+        ? value.guidePopupDismissedMessageId
+        : null,
+    guideIntroPopupDismissed: value.guideIntroPopupDismissed === true,
     savedAt: typeof value.savedAt === 'number' ? value.savedAt : 0,
   };
 }

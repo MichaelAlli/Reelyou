@@ -1,64 +1,61 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { HomeGlobalMenuSheet } from '@/components/home/HomeGlobalMenuSheet';
-import { HomeSignalCenterSheet } from '@/components/home/HomeSignalCenterSheet';
 import { HomeBellIcon, HomeMenuIcon } from '@/components/home/HomeIcons';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
 
-function HomeTopNavComponent() {
+interface HomeTopNavProps {
+  onOpenMenu: () => void;
+  onOpenSignals: () => void;
+}
+
+function HomeTopNavComponent({ onOpenMenu, onOpenSignals }: HomeTopNavProps) {
   const { hasUnreadSignals } = useReelyouConnect();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [signalsOpen, setSignalsOpen] = useState(false);
 
   return (
-    <>
-      <View style={styles.row}>
-        <View style={styles.sideSlot}>
-          <Pressable
-            style={styles.iconBtn}
-            hitSlop={6}
-            onPress={() => setMenuOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Open menu"
-            testID="home-menu-trigger"
-          >
-            <HomeMenuIcon size={16} />
-          </Pressable>
-        </View>
-
-        <View style={styles.logoWrap} pointerEvents="none">
-          <HomeHeaderLogo />
-        </View>
-
-        <View style={styles.sideSlot}>
-          <Pressable
-            style={styles.iconBtn}
-            hitSlop={6}
-            onPress={() => setSignalsOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Open signal center"
-            testID="home-signal-trigger"
-          >
-            <HomeBellIcon size={16} />
-            {hasUnreadSignals ? (
-              <View style={styles.badge} importantForAccessibility="no-hide-descendants" />
-            ) : null}
-          </Pressable>
-        </View>
+    <View style={styles.row} collapsable={false}>
+      <View style={styles.sideSlot}>
+        <Pressable
+          style={styles.iconBtn}
+          hitSlop={HIT_SLOP}
+          onPress={onOpenMenu}
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+          testID="home-menu-trigger"
+        >
+          <HomeMenuIcon size={16} />
+        </Pressable>
       </View>
 
-      <HomeGlobalMenuSheet visible={menuOpen} onClose={() => setMenuOpen(false)} />
-      <HomeSignalCenterSheet visible={signalsOpen} onClose={() => setSignalsOpen(false)} />
-    </>
+      <View style={styles.logoWrap} pointerEvents="none">
+        <HomeHeaderLogo />
+      </View>
+
+      <View style={styles.sideSlot}>
+        <Pressable
+          style={styles.iconBtn}
+          hitSlop={HIT_SLOP}
+          onPress={onOpenSignals}
+          accessibilityRole="button"
+          accessibilityLabel="Open signals"
+          testID="home-signal-trigger"
+        >
+          <HomeBellIcon size={16} />
+          {hasUnreadSignals ? (
+            <View style={styles.badge} importantForAccessibility="no-hide-descendants" />
+          ) : null}
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 export const HomeTopNav = memo(HomeTopNavComponent);
 
 const slot = HomeLayout.iconCircleSm;
+const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
 const styles = StyleSheet.create({
   row: {
@@ -67,13 +64,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: HomeLayout.headerHeight,
     paddingBottom: HomeLayout.headerBottomGap,
+    zIndex: 20,
+    elevation: 20,
   },
   sideSlot: {
     width: slot,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 21,
   },
   iconBtn: {
+    minWidth: 44,
+    minHeight: 44,
     width: slot,
     height: slot,
     borderRadius: slot / 2,

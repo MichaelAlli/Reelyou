@@ -47,7 +47,7 @@ function MySkyRendererComponent({
 
   return (
     <View style={styles.wrap} onLayout={onLayout} pointerEvents="none">
-      {mode === 'arrival' || animateArrival || highlightStarId ? (
+      {mode === 'arrival' || animateArrival ? (
         <MySkyArrivalCanvas
           stars={stars}
           highlightStarId={highlightStarId}
@@ -62,6 +62,7 @@ function MySkyRendererComponent({
           width={size.w}
           height={size.h}
           userStars={stars}
+          highlightStarId={highlightStarId}
           vitality={vitality}
           patternRelationships={relationships}
           patternNodes={nodes}

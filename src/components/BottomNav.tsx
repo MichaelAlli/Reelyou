@@ -115,7 +115,11 @@ export function BottomNav() {
       return pathname === '/starpath' || pathname.endsWith('/starpath');
     }
     if (tab.name === 'skywrite') {
-      return pathname === '/skywrite' || pathname.endsWith('/skywrite');
+      return (
+        pathname === '/skywrite' ||
+        pathname.startsWith('/skywrite/') ||
+        pathname.startsWith('/skywrite-to-sky')
+      );
     }
     return pathname === `/${segment}` || pathname.endsWith(`/${segment}`);
   };

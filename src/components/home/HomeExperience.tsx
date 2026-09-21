@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -17,6 +17,8 @@ import { HomeMySkyCard } from '@/components/home/HomeMySkyCard';
 import { HomeSkywriteBar } from '@/components/home/HomeSkywriteBar';
 import { HomeStarpathCard } from '@/components/home/HomeStarpathCard';
 import { HomeTodayFocusSection } from '@/components/home/HomeTodayFocusSection';
+import { HomeGlobalMenuSheet } from '@/components/home/HomeGlobalMenuSheet';
+import { HomeSignalCenterSheet } from '@/components/home/HomeSignalCenterSheet';
 import { HomeTopNav } from '@/components/home/HomeTopNav';
 import { ReelyouEasing } from '@/constants/animation';
 import { HomeCopy } from '@/constants/homeCopy';
@@ -35,6 +37,13 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
   const tabContentInset = TabBarHeight + Math.max(insets.bottom, 8);
   const scrollBottomInset = HomeLayout.scrollBottomExtra + tabContentInset;
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [signalsOpen, setSignalsOpen] = useState(false);
+
+  const openMenu = useCallback(() => setMenuOpen(true), []);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const openSignals = useCallback(() => setSignalsOpen(true), []);
+  const closeSignals = useCallback(() => setSignalsOpen(false), []);
 
   const isArrival = useMemo(() => {
     if (calmEntry) return false;
@@ -125,6 +134,9 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
     <View style={[styles.root, { marginBottom: -tabContentInset }]}>
       <HomeBackdrop reduceMotion={reduceMotion} />
 
+      <HomeGlobalMenuSheet visible={menuOpen} onClose={closeMenu} />
+      <HomeSignalCenterSheet visible={signalsOpen} onClose={closeSignals} />
+
       <Animated.View style={[styles.foreground, screenStyle]}>
         <SafeAreaView style={styles.safe} edges={['top']}>
           <ScrollView
@@ -136,7 +148,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
             showsVerticalScrollIndicator={false}
             bounces
             nestedScrollEnabled>
-            <HomeTopNav />
+            <HomeTopNav onOpenMenu={openMenu} onOpenSignals={openSignals} />
             <HomeArrivalHeader
               greetingStyle={greetingStyle}
               supportStyle={supportStyle}

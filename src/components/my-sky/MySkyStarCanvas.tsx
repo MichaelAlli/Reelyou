@@ -312,7 +312,7 @@ function MySkyStarCanvasComponent({
           router.push(`/skywrite/${target.skywriteId}` as never);
           return;
         case 'skywrite-compose':
-          router.push('/skywrite' as never);
+          router.push('/skywrite/compose' as never);
           return;
         case 'public-sky':
           router.push(`/public-sky?id=${target.param}` as never);

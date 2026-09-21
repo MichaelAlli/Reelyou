@@ -1,12 +1,11 @@
-import { memo, useState } from 'react';
+/** LOCKED YOUR GUIDE COMPACT EXPERIENCE — preserve approved copy/layout/behavior unless explicitly authorized. */
+import { memo } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
 
 import { GuideStarOrb } from '@/components/starpath/GuideStarOrb';
 import {
   StarPathGlass,
-  StarPathSpacing,
   StarPathTypography,
   starpathCardShadow,
   starpathGlassControl,
@@ -16,38 +15,25 @@ import type { StarPathThemeTokens } from '@/starpath/starpathTheme';
 
 interface AIGuideControlProps {
   theme: StarPathThemeTokens;
-  expanded: boolean;
-  onExpand: () => void;
-  onCollapse: () => void;
+  variant: 'icon' | 'popup';
+  showBeacon?: boolean;
   reduceMotion?: boolean;
-  reactionHint?: string | null;
-  whyThisLines?: string[];
-  onDismissGuidance?: () => void;
-  onSnoozeGuidance?: () => void;
-  onShowOpportunity?: () => void;
-  showOpportunityAction?: boolean;
+  onOpenGuide: () => void;
+  onDismissPopup?: () => void;
 }
 
 function AIGuideControlComponent({
   theme,
-  expanded,
-  onExpand,
-  onCollapse,
+  variant,
+  showBeacon = false,
   reduceMotion,
-  reactionHint,
-  whyThisLines,
-  onDismissGuidance,
-  onSnoozeGuidance,
-  onShowOpportunity,
-  showOpportunityAction,
+  onOpenGuide,
+  onDismissPopup,
 }: AIGuideControlProps) {
-  const router = useRouter();
-  const [whyOpen, setWhyOpen] = useState(false);
-
-  if (!expanded) {
+  if (variant === 'icon') {
     return (
       <Pressable
-        onPress={onExpand}
+        onPress={onOpenGuide}
         hitSlop={6}
         style={({ pressed }) => [
           starpathGlassControl.base,
@@ -55,88 +41,51 @@ function AIGuideControlComponent({
           pressed && starpathGlassControl.pressed,
         ]}
         accessibilityRole="button"
-        accessibilityLabel="Open AI Guide"
+        accessibilityLabel="Open Your Guide"
         testID="ai-guide-trigger"
       >
+        {showBeacon ? <View style={styles.beaconRing} pointerEvents="none" /> : null}
+        {showBeacon ? <View style={styles.beaconDot} pointerEvents="none" /> : null}
         <GuideStarOrb size={40} />
       </Pressable>
     );
   }
 
-  const entering = reduceMotion ? undefined : FadeIn.duration(280);
-  const exiting = reduceMotion ? undefined : FadeOut.duration(220);
+  const entering = reduceMotion ? undefined : FadeIn.duration(220);
+  const exiting = reduceMotion ? undefined : FadeOut.duration(180);
 
   return (
-    <View style={styles.expandedRoot} testID="ai-guide-panel" pointerEvents="box-none">
-      <Animated.View entering={entering} exiting={exiting} style={styles.panelWrap}>
-        <View style={styles.panel}>
-          <GuideStarOrb size={32} />
-          <Text style={[styles.title, { color: theme.labelBright }]}>AI GUIDE</Text>
-          <Text style={[styles.hint, { color: theme.labelMuted }]}>
-            {reactionHint ?? 'Guidance for this stretch of your Starpath.'}
-          </Text>
-          {whyThisLines?.length ? (
-            <>
-              <Pressable
-                onPress={() => setWhyOpen((v) => !v)}
-                accessibilityRole="button"
-                accessibilityLabel="Why this guidance"
-                style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
-              >
-                <Text style={[styles.linkText, { color: theme.labelMuted }]}>Why this?</Text>
-              </Pressable>
-              {whyOpen ? (
-                <Text style={[styles.whyText, { color: theme.labelMuted }]}>
-                  {whyThisLines.join(' ')}
-                </Text>
-              ) : null}
-            </>
-          ) : null}
-          <View style={styles.actions}>
-            {showOpportunityAction && onShowOpportunity ? (
-              <Pressable
-                onPress={onShowOpportunity}
-                style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
-                accessibilityLabel="Show opportunity on path"
-              >
-                <Text style={[styles.linkText, { color: theme.pathGold }]}>Show me</Text>
-              </Pressable>
-            ) : null}
-            {onSnoozeGuidance ? (
-              <Pressable
-                onPress={onSnoozeGuidance}
-                style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
-                accessibilityLabel="Hide guidance for now"
-              >
-                <Text style={[styles.linkText, { color: theme.labelMuted }]}>Not now</Text>
-              </Pressable>
-            ) : null}
-            {onDismissGuidance ? (
-              <Pressable
-                onPress={onDismissGuidance}
-                style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
-                accessibilityLabel="Dismiss guidance"
-              >
-                <Text style={[styles.linkText, { color: theme.labelMuted }]}>Dismiss</Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={() => router.push('/companion')}
-              style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
-            >
-              <Text style={[styles.linkText, { color: theme.pathGold }]}>Open guide</Text>
-            </Pressable>
-            <Pressable
-              onPress={onCollapse}
-              style={({ pressed }) => [styles.closeBtn, pressed && styles.pressed]}
-              accessibilityLabel="Close AI Guide"
-            >
-              <Text style={[styles.closeText, { color: theme.labelBright }]}>Done</Text>
-            </Pressable>
-          </View>
+    <Animated.View
+      entering={entering}
+      exiting={exiting}
+      style={styles.panelWrap}
+      testID="ai-guide-panel"
+      pointerEvents="box-none"
+    >
+      <View style={styles.panel}>
+        <GuideStarOrb size={28} />
+        <Text style={[styles.title, { color: theme.labelBright }]}>Your Guide</Text>
+        <Text style={[styles.subtitle, { color: theme.labelMuted }]}>Here to assist</Text>
+        <View style={styles.actions}>
+          <Pressable
+            onPress={onOpenGuide}
+            style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Open Your Guide"
+          >
+            <Text style={[styles.actionText, { color: theme.pathGold }]}>Open</Text>
+          </Pressable>
+          <Pressable
+            onPress={onDismissPopup}
+            style={({ pressed }) => [styles.actionBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss Guide"
+          >
+            <Text style={[styles.actionText, { color: theme.labelMuted }]}>Dismiss</Text>
+          </Pressable>
         </View>
-      </Animated.View>
-    </View>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -151,70 +100,74 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.88,
   },
-  expandedRoot: {
+  beaconRing: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 40,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 200, 114, 0.45)',
+    backgroundColor: 'rgba(140, 120, 255, 0.12)',
+  },
+  beaconDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#E8C872',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 248, 235, 0.9)',
   },
   panelWrap: {
-    position: 'absolute',
-    top: StarPathSpacing.guideTop,
-    left: StarPathSpacing.guideLeft,
-    maxWidth: 200,
+    zIndex: 40,
   },
   panel: {
-    borderRadius: 16,
-    paddingVertical: 11,
-    paddingHorizontal: 14,
+    borderRadius: 10,
+    paddingTop: 6,
+    paddingBottom: 7,
+    paddingHorizontal: 10,
+    minWidth: 96,
+    maxWidth: 112,
     backgroundColor: StarPathGlass.cardBg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: StarPathGlass.guideAccentBorder,
     alignItems: 'center',
-    gap: 6,
+    gap: 3,
     ...starpathCardShadow,
   },
   title: {
     fontFamily: Fonts.sans,
-    ...StarPathTypography.kicker,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+    textAlign: 'center',
     ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
   },
-  hint: {
-    fontFamily: Fonts.sans,
-    ...StarPathTypography.caption,
-    color: StarPathTypography.mutedLilac,
-    textAlign: 'center',
-  },
-  whyText: {
+  subtitle: {
     fontFamily: Fonts.sans,
     fontSize: 9,
-    lineHeight: 12,
+    lineHeight: 11,
     textAlign: 'center',
-    paddingHorizontal: 4,
+    marginBottom: 1,
+    ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
   },
   actions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
+    gap: 10,
+    marginTop: 1,
   },
-  linkBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
+  actionBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: 2,
+    minHeight: 26,
+    justifyContent: 'center',
   },
-  linkText: {
+  actionText: {
     fontFamily: Fonts.sans,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
-  },
-  closeBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-  },
-  closeText: {
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '600',
+    color: StarPathTypography.warmWhite,
   },
 });

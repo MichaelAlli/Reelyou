@@ -36,6 +36,8 @@ import { MY_SKY_SHOOTING_STAR_PATH } from '@/mySky/constellationLayout';
 
 interface SkywriteToSkyTransitionProps {
   onComplete: () => void;
+  /** Overlay = play FX over Focused Skywrite Sky without replacing the screen. */
+  presentation?: 'fullscreen' | 'overlay';
 }
 
 function CompactStarSvg({ size, color }: { size: number; color: string }) {
@@ -69,7 +71,11 @@ function useParticleStyle(
 }
 
 /** Cinematic shooting-star rise — ~3s, Reanimated + SVG, premium celestial handoff. */
-export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionProps) {
+export function SkywriteToSkyTransition({
+  onComplete,
+  presentation = 'fullscreen',
+}: SkywriteToSkyTransitionProps) {
+  const isOverlay = presentation === 'overlay';
   const { width, height } = useWindowDimensions();
   const { mySkyView, skywrites, communities, guidingLightView } = useOnboarding();
   const joinedCommunityIds = useMemo(
@@ -202,23 +208,27 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
   const landingPulse = CelestialStarBloom.landingPulse;
 
   return (
-    <View style={styles.root}>
-      <MySkyBackdrop />
-      <SkyAtmosphereTint />
+    <View style={[styles.root, isOverlay && styles.rootOverlay]} pointerEvents="box-none">
+      {!isOverlay ? <MySkyBackdrop /> : null}
+      {!isOverlay ? <SkyAtmosphereTint /> : null}
 
-      <View style={styles.nebulaLayer} accessibilityElementsHidden pointerEvents="none">
-        <SkyGlow width={width} height={height} variant="nebula" />
-      </View>
+      {!isOverlay ? (
+        <View style={styles.nebulaLayer} accessibilityElementsHidden pointerEvents="none">
+          <SkyGlow width={width} height={height} variant="nebula" />
+        </View>
+      ) : null}
 
-      <View style={styles.starFieldLayer} pointerEvents="none">
-        <MySkyConstellationLayer
-          width={width}
-          height={height}
-          trailOpacity={trailOpacity}
-          linksOpacity={linksOpacity}
-          starBreath={starBreath}
-        />
-      </View>
+      {!isOverlay ? (
+        <View style={styles.starFieldLayer} pointerEvents="none">
+          <MySkyConstellationLayer
+            width={width}
+            height={height}
+            trailOpacity={trailOpacity}
+            linksOpacity={linksOpacity}
+            starBreath={starBreath}
+          />
+        </View>
+      ) : null}
 
       <Animated.View
         style={[styles.emergenceFlash, emergenceStyle, { left: startX - 60, top: startY - 60 }]}
@@ -272,22 +282,26 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
         <CompactStarSvg size={flying.size} color={flying.color} />
       </Animated.View>
 
-      <Animated.View
-        style={[styles.skyHandoff, skyHandoffStyle]}
-        accessibilityElementsHidden
-        pointerEvents="none">
-        <SkyGlow width={width} height={height} variant="arrivalVeil" />
-      </Animated.View>
+      {!isOverlay ? (
+        <Animated.View
+          style={[styles.skyHandoff, skyHandoffStyle]}
+          accessibilityElementsHidden
+          pointerEvents="none">
+          <SkyGlow width={width} height={height} variant="arrivalVeil" />
+        </Animated.View>
+      ) : null}
 
-      <MySkyStarInteractionOverlay
-        view={mySkyView}
-        skywrites={skywrites}
-        joinedCommunityIds={joinedCommunityIds}
-        guidanceActive={guidanceActive}
-        layoutWidth={width}
-        layoutHeight={height}
-        allowTapDuringGesture
-      />
+      {!isOverlay ? (
+        <MySkyStarInteractionOverlay
+          view={mySkyView}
+          skywrites={skywrites}
+          joinedCommunityIds={joinedCommunityIds}
+          guidanceActive={guidanceActive}
+          layoutWidth={width}
+          layoutHeight={height}
+          allowTapDuringGesture
+        />
+      ) : null}
     </View>
   );
 }
@@ -296,6 +310,11 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: CelestialSkyAtmosphere.base,
+  },
+  rootOverlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 50,
+    backgroundColor: 'transparent',
   },
   starFieldLayer: {
     ...StyleSheet.absoluteFill,
