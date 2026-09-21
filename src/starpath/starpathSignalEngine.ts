@@ -14,6 +14,8 @@ export interface SignalEngineInput {
   contentBandHeight: number;
   supportState: UserSupportState;
   previous: StarPathSignalState;
+  acknowledgedSignalIds?: string[];
+  dismissedSignalIds?: string[];
 }
 
 function timeSensitivityLevel(candidate: OpportunityCandidate, now: number): SignalLevel {
@@ -46,12 +48,16 @@ export function computeAmbientSignals(input: SignalEngineInput): StarPathSignalS
     contentBandHeight,
     supportState,
     previous,
+    acknowledgedSignalIds = previous.acknowledgedSignalIds ?? [],
+    dismissedSignalIds = previous.dismissedSignalIds ?? [],
   } = input;
 
   const raw: StarPathAmbientSignal[] = [];
 
   for (const node of placedNodes) {
     if (dismissedResourceIds.includes(node.candidateId)) continue;
+    const signalId = `sig-${node.nodeId}`;
+    if (dismissedSignalIds.includes(signalId)) continue;
     const resource = resourcesById[node.candidateId];
     if (!resource || resource.freshnessStatus === 'expired') continue;
 
@@ -61,6 +67,10 @@ export function computeAmbientSignals(input: SignalEngineInput): StarPathSignalS
 
     let level: SignalLevel = node.prominence === 'primary' ? 'notice' : 'whisper';
     if (resource.deadline) level = timeSensitivityLevel(resource, now);
+
+    if (acknowledgedSignalIds.includes(signalId)) {
+      level = level === 'priority' ? 'notice' : 'whisper';
+    }
 
     if (supportState === 'overloaded') {
       level = level === 'priority' ? 'guide' : 'whisper';
@@ -103,6 +113,8 @@ export function computeAmbientSignals(input: SignalEngineInput): StarPathSignalS
     signalVersion: previous.signalVersion,
     signalsById,
     activeSignalIds: capped.map((s) => s.id),
+    acknowledgedSignalIds,
+    dismissedSignalIds,
     lastSignalUpdateAt: now,
   };
 }

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ScrollView as ScrollViewType } from 'react-native';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -33,6 +33,7 @@ import { getStarPathTheme, type StarPathVisualMode } from '@/starpath/starpathTh
 import { useStarPathScrollCamera } from '@/starpath/useStarPathScrollCamera';
 import { useStarPathWorldGraph } from '@/starpath/useStarPathWorldGraph';
 import type { StarPathViewportWindow } from '@/starpath/starpathWorldVisibility';
+import { saveStarPathViewport } from '@/starpath/starpathViewportPersistence';
 
 interface StarPathSceneProps {
   visualMode?: StarPathVisualMode;
@@ -58,11 +59,44 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   }, [width, height, experience.dynamicWorld.worldExpansionPx]);
   const { graph } = useStarPathWorldGraph();
   const { scrollRef, onScroll, restoreInitialViewport } = useStarPathScrollCamera(metrics, height);
+  const viewportRestoredRef = useRef(false);
+  const viewportSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (!experience.ready) return;
+    if (experience.uiChrome) {
+      setGuideExpanded(experience.uiChrome.guideExpanded);
+      setNextStepExpanded(experience.uiChrome.nextStepExpanded);
+    }
+  }, [experience.ready, experience.uiChrome]);
+
+  useEffect(() => {
+    if (!experience.ready || viewportRestoredRef.current) return;
+    viewportRestoredRef.current = true;
+    const saved = experience.savedViewport;
+    const maxScroll = Math.max(0, metrics.worldHeight - height);
+    if (
+      saved &&
+      saved.worldExpansionPx === experience.dynamicWorld.worldExpansionPx &&
+      Math.abs(saved.viewportHeight - height) < 96
+    ) {
+      const y = Math.min(Math.max(0, saved.scrollY), maxScroll);
+      (scrollRef.current as ScrollViewType | null)?.scrollTo({ y, animated: false });
+      setScrollY(y);
+      return;
+    }
     restoreInitialViewport(false);
     setScrollY(metrics.initialScrollY);
-  }, [metrics.initialScrollY, width, height, restoreInitialViewport]);
+  }, [
+    experience.ready,
+    experience.savedViewport,
+    experience.dynamicWorld.worldExpansionPx,
+    metrics.worldHeight,
+    metrics.initialScrollY,
+    height,
+    restoreInitialViewport,
+    scrollRef,
+  ]);
 
   useEffect(() => {
     experience.setLivingWorldViewport(scrollY, height, metrics.contentBandHeight, metrics.paddingTop);
@@ -113,9 +147,19 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   const handleScroll = useCallback(
     (e: Parameters<typeof onScroll>[0]) => {
       onScroll(e);
-      setScrollY(e.nativeEvent.contentOffset.y);
+      const y = e.nativeEvent.contentOffset.y;
+      setScrollY(y);
+      if (viewportSaveTimer.current) clearTimeout(viewportSaveTimer.current);
+      viewportSaveTimer.current = setTimeout(() => {
+        void saveStarPathViewport({
+          scrollY: y,
+          worldExpansionPx: experience.dynamicWorld.worldExpansionPx,
+          viewportHeight: height,
+          savedAt: Date.now(),
+        });
+      }, 520);
     },
-    [onScroll],
+    [onScroll, experience.dynamicWorld.worldExpansionPx, height],
   );
 
   const closeDetail = useCallback(() => setDetailNodeId(null), []);
@@ -233,7 +277,10 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
             <NextStepWaypoint
               x={nextStepWorld.x}
               y={nextStepWorld.y}
-              onPress={() => setNextStepExpanded(true)}
+              onPress={() => {
+                setNextStepExpanded(true);
+                experience.setUiChrome({ nextStepExpanded: true });
+              }}
             />
           ) : null}
         </View>
@@ -247,6 +294,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
         onNavigateToNode={(nodeId) => {
           experience.navigateToOpportunityNode(nodeId);
           scrollToOpportunityNode(nodeId);
+          experience.acknowledgeSignal(`sig-${nodeId}`);
         }}
       />
 
@@ -266,8 +314,14 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
                 experience.nextStepSourceIds[0] ?? experience.highlightOpportunityNodeId;
               if (nodeId) scrollToOpportunityNode(nodeId);
             }}
-            onExpand={() => setGuideExpanded(true)}
-            onCollapse={() => setGuideExpanded(false)}
+            onExpand={() => {
+              setGuideExpanded(true);
+              experience.setUiChrome({ guideExpanded: true });
+            }}
+            onCollapse={() => {
+              setGuideExpanded(false);
+              experience.setUiChrome({ guideExpanded: false });
+            }}
             reduceMotion={!!reduceMotion}
           />
         ) : (
@@ -278,8 +332,14 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
             <AIGuideControl
               theme={theme}
               expanded={false}
-              onExpand={() => setGuideExpanded(true)}
-              onCollapse={() => setGuideExpanded(false)}
+              onExpand={() => {
+                setGuideExpanded(true);
+                experience.setUiChrome({ guideExpanded: true });
+              }}
+              onCollapse={() => {
+                setGuideExpanded(false);
+                experience.setUiChrome({ guideExpanded: false });
+              }}
               reduceMotion={!!reduceMotion}
             />
           </View>
@@ -290,8 +350,14 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
             theme={theme}
             expanded
             stepTitle={experience.nextStepCopy.title}
-            onExpand={() => setNextStepExpanded(true)}
-            onCollapse={() => setNextStepExpanded(false)}
+            onExpand={() => {
+              setNextStepExpanded(true);
+              experience.setUiChrome({ nextStepExpanded: true });
+            }}
+            onCollapse={() => {
+              setNextStepExpanded(false);
+              experience.setUiChrome({ nextStepExpanded: false });
+            }}
             onAction={handleNextStep}
             waypointX={nextStepWorld.x}
             waypointY={nextStepWorld.y - scrollY}

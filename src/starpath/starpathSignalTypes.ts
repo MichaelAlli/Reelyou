@@ -37,6 +37,9 @@ export interface StarPathSignalState {
   signalVersion: string;
   signalsById: Record<string, StarPathAmbientSignal>;
   activeSignalIds: string[];
+  /** User acknowledged — do not re-pulse aggressively after reload. */
+  acknowledgedSignalIds: string[];
+  dismissedSignalIds: string[];
   lastSignalUpdateAt: number;
 }
 
@@ -44,5 +47,7 @@ export const EMPTY_SIGNAL_STATE: StarPathSignalState = {
   signalVersion: 'beta-v1',
   signalsById: {},
   activeSignalIds: [],
+  acknowledgedSignalIds: [],
+  dismissedSignalIds: [],
   lastSignalUpdateAt: 0,
 };

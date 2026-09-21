@@ -8,7 +8,13 @@ export async function loadStarPathSignalState(): Promise<StarPathSignalState> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...EMPTY_SIGNAL_STATE };
-    return { ...EMPTY_SIGNAL_STATE, ...(JSON.parse(raw) as StarPathSignalState) };
+    const parsed = JSON.parse(raw) as StarPathSignalState;
+    return {
+      ...EMPTY_SIGNAL_STATE,
+      ...parsed,
+      acknowledgedSignalIds: parsed.acknowledgedSignalIds ?? [],
+      dismissedSignalIds: parsed.dismissedSignalIds ?? [],
+    };
   } catch {
     return { ...EMPTY_SIGNAL_STATE };
   }

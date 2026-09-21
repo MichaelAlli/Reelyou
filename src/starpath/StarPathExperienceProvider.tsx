@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 import { currentUser } from '@/data/mockData';
-import { loadUserAvatarIdentity, saveUserAvatarIdentity } from '@/identity/userAvatarPersistence';
+import { saveUserAvatarIdentity } from '@/identity/userAvatarPersistence';
 import {
   DEFAULT_CUSTOM_AVATAR,
   DEFAULT_USER_AVATAR_IDENTITY,
@@ -23,9 +23,9 @@ import {
   deriveNodeUiState,
 } from '@/starpath/starpathInteractionLogic';
 import {
-  loadStarPathInteractions,
   saveStarPathInteractions,
 } from '@/starpath/starpathInteractionPersistence';
+import { hydrateStarPathAuthoritativeState, touchStarPathPersistenceManifest } from '@/starpath/starpathPersistenceBoundary';
 import type {
   StarPathInteractionSnapshot,
   StarPathInteractionType,
@@ -35,17 +35,11 @@ import { getStarPathNodeCatalogEntry } from '@/starpath/starpathNodeCatalog';
 import { whyThisLinesForReasons } from '@/starpath/starpathGuidanceCopy';
 import { computeStarPathGuidance } from '@/starpath/starpathGuidanceEngine';
 import { buildGuidanceSafeInputs } from '@/starpath/starpathGuidanceInputs';
-import {
-  loadStarPathGuidanceState,
-  saveStarPathGuidanceState,
-} from '@/starpath/starpathGuidancePersistence';
+import { saveStarPathGuidanceState } from '@/starpath/starpathGuidancePersistence';
 import { EMPTY_GUIDANCE_STATE } from '@/starpath/starpathGuidanceTypes';
 import { GUIDANCE_STABILITY } from '@/starpath/starpathGuidanceConfig';
 import { reconcileLivingWorld } from '@/starpath/starpathDynamicWorldEngine';
-import {
-  loadStarPathDynamicWorld,
-  saveStarPathDynamicWorld,
-} from '@/starpath/starpathDynamicWorldPersistence';
+import { saveStarPathDynamicWorld } from '@/starpath/starpathDynamicWorldPersistence';
 import {
   EMPTY_DYNAMIC_WORLD,
   type StarPathDynamicWorldState,
@@ -53,19 +47,12 @@ import {
 } from '@/starpath/starpathDynamicWorldTypes';
 import { computeStarPathSiftingState } from '@/starpath/starpathSiftingEngine';
 import type { RelevanceBand, StarPathSiftingState } from '@/starpath/starpathSiftingTypes';
-import {
-  loadEmotionalContext,
-  parseUserReportedSupport,
-  saveEmotionalContext,
-} from '@/starpath/starpathEmotionalContextPersistence';
+import { parseUserReportedSupport, saveEmotionalContext } from '@/starpath/starpathEmotionalContextPersistence';
 import type { UserSupportState } from '@/starpath/starpathEmotionalContextTypes';
 import { markGuideMentioned, markOpportunityOpened } from '@/starpath/starpathOpportunityOrganizer';
 import { EMPTY_RESOURCE_STATE, type StarPathResourceState } from '@/starpath/starpathOpportunityTypes';
 import { runOpportunityOrchestrator } from '@/starpath/starpathOpportunityOrchestrator';
-import {
-  loadStarPathResourceState,
-  saveStarPathResourceState,
-} from '@/starpath/starpathResourcePersistence';
+import { saveStarPathResourceState } from '@/starpath/starpathResourcePersistence';
 import {
   dismissResource,
   opportunityByNodeId,
@@ -74,10 +61,9 @@ import {
 } from '@/starpath/starpathResourceActions';
 import { computeAmbientSignals } from '@/starpath/starpathSignalEngine';
 import { EMPTY_SIGNAL_STATE, type StarPathSignalState } from '@/starpath/starpathSignalTypes';
-import {
-  loadStarPathSignalState,
-  saveStarPathSignalState,
-} from '@/starpath/starpathSignalPersistence';
+import { saveStarPathSignalState } from '@/starpath/starpathSignalPersistence';
+import type { StarPathUiChromeSnapshot, StarPathViewportSnapshot } from '@/starpath/starpathPersistenceTypes';
+import { saveStarPathUiChrome } from '@/starpath/starpathUiChromePersistence';
 import type { StarPathNextStepType } from '@/starpath/starpathGuidanceTypes';
 
 interface StarPathExperienceContextValue {
@@ -122,6 +108,10 @@ interface StarPathExperienceContextValue {
   snoozeOpportunity: (candidateId: string) => void;
   showGuideOpportunity: () => void;
   reportUserSupportLabel: (label: string) => void;
+  uiChrome: StarPathUiChromeSnapshot | null;
+  setUiChrome: (patch: Partial<StarPathUiChromeSnapshot>) => void;
+  savedViewport: StarPathViewportSnapshot | null;
+  acknowledgeSignal: (signalId: string) => void;
 }
 
 const StarPathExperienceContext = createContext<StarPathExperienceContextValue | null>(null);
@@ -173,29 +163,25 @@ export function StarPathExperienceProvider({
   const lastGuideMentionRef = useRef<string | null>(null);
   const resourceStateRef = useRef(resourceState);
   resourceStateRef.current = resourceState;
+  const [uiChrome, setUiChromeState] = useState<StarPathUiChromeSnapshot | null>(null);
+  const [savedViewport, setSavedViewport] = useState<StarPathViewportSnapshot | null>(null);
+  const uiChromeSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [loadedInteractions, loadedAvatar, loadedDynamic, loadedGuidance, loadedResources, loadedSignals, loadedEmotion] =
-        await Promise.all([
-          loadStarPathInteractions(),
-          loadUserAvatarIdentity(),
-          loadStarPathDynamicWorld(),
-          loadStarPathGuidanceState(),
-          loadStarPathResourceState(),
-          loadStarPathSignalState(),
-          loadEmotionalContext(),
-        ]);
+      const { bundle } = await hydrateStarPathAuthoritativeState();
       if (!mounted) return;
-      setInteractions(loadedInteractions);
-      setAvatarIdentity(loadedAvatar);
-      setDynamicWorld(loadedDynamic);
-      setGuidanceMeta(loadedGuidance);
-      guidancePersistRef.current = loadedGuidance;
-      setResourceState(loadedResources);
-      setSignalState(loadedSignals);
-      setSupportState(loadedEmotion.supportState);
+      setInteractions(bundle.interactions);
+      setAvatarIdentity(bundle.avatarIdentity);
+      setDynamicWorld(bundle.dynamicWorld);
+      setGuidanceMeta(bundle.guidance);
+      guidancePersistRef.current = bundle.guidance;
+      setResourceState(bundle.resources);
+      setSignalState(bundle.signals);
+      setSupportState(bundle.emotional.supportState);
+      setUiChromeState(bundle.uiChrome);
+      setSavedViewport(bundle.viewport);
       setReady(true);
     })();
     return () => {
@@ -203,13 +189,22 @@ export function StarPathExperienceProvider({
     };
   }, []);
 
+  const manifestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleManifestTouch = useCallback(() => {
+    if (manifestTimer.current) clearTimeout(manifestTimer.current);
+    manifestTimer.current = setTimeout(() => {
+      void touchStarPathPersistenceManifest();
+    }, 400);
+  }, []);
+
   const scheduleSave = useCallback((next: StarPathInteractionSnapshot, avatar: UserAvatarIdentity) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       void saveStarPathInteractions(next);
       void saveUserAvatarIdentity(avatar);
+      scheduleManifestTouch();
     }, 280);
-  }, []);
+  }, [scheduleManifestTouch]);
 
   const siftingState = useMemo(() => {
     const next = computeStarPathSiftingState(interactions.signals, {
@@ -245,15 +240,17 @@ export function StarPathExperienceProvider({
     if (resourceSaveTimer.current) clearTimeout(resourceSaveTimer.current);
     resourceSaveTimer.current = setTimeout(() => {
       void saveStarPathResourceState(next);
+      scheduleManifestTouch();
     }, 320);
-  }, []);
+  }, [scheduleManifestTouch]);
 
   const scheduleSignalSave = useCallback((next: StarPathSignalState) => {
     if (signalSaveTimer.current) clearTimeout(signalSaveTimer.current);
     signalSaveTimer.current = setTimeout(() => {
       void saveStarPathSignalState(next);
+      scheduleManifestTouch();
     }, 320);
-  }, []);
+  }, [scheduleManifestTouch]);
 
   useEffect(() => {
     if (!ready) return;
@@ -307,20 +304,22 @@ export function StarPathExperienceProvider({
     if (!ready || !resourceState.placedNodes.length) return;
     const parsed = parseUserReportedSupport(todayFocusText);
     const mergedSupport: UserSupportState = parsed !== 'unknown' ? parsed : supportState;
-    const nextSignals = computeAmbientSignals({
-      now: Date.now(),
-      placedNodes: resourceState.placedNodes,
-      resourcesById: resourceState.resourcesById,
-      dismissedResourceIds: resourceState.dismissedResourceIds,
-      viewportScrollY: viewportRef.current.scrollY,
-      viewportHeight: viewportRef.current.viewportHeight,
-      paddingTop: viewportRef.current.paddingTop,
-      contentBandHeight: viewportRef.current.contentBandHeight,
-      supportState: mergedSupport,
-      previous: EMPTY_SIGNAL_STATE,
+    setSignalState((prev) => {
+      const nextSignals = computeAmbientSignals({
+        now: Date.now(),
+        placedNodes: resourceState.placedNodes,
+        resourcesById: resourceState.resourcesById,
+        dismissedResourceIds: resourceState.dismissedResourceIds,
+        viewportScrollY: viewportRef.current.scrollY,
+        viewportHeight: viewportRef.current.viewportHeight,
+        paddingTop: viewportRef.current.paddingTop,
+        contentBandHeight: viewportRef.current.contentBandHeight,
+        supportState: mergedSupport,
+        previous: prev,
+      });
+      scheduleSignalSave(nextSignals);
+      return nextSignals;
     });
-    setSignalState(nextSignals);
-    scheduleSignalSave(nextSignals);
   }, [ready, viewportVersion, resourceState.placedNodes, resourceState.resourcesById, resourceState.dismissedResourceIds, todayFocusText, supportState, scheduleSignalSave]);
 
   useEffect(() => {
@@ -340,10 +339,11 @@ export function StarPathExperienceProvider({
       if (dynamicSaveTimer.current) clearTimeout(dynamicSaveTimer.current);
       dynamicSaveTimer.current = setTimeout(() => {
         void saveStarPathDynamicWorld(result.world);
+        scheduleManifestTouch();
       }, 320);
       return result.world;
     });
-  }, [ready, interactions.signals, siftingState, explorePulse]);
+  }, [ready, interactions.signals, siftingState, explorePulse, scheduleManifestTouch]);
 
   const guidancePack = useMemo(() => {
     const inputs = buildGuidanceSafeInputs(
@@ -405,6 +405,7 @@ export function StarPathExperienceProvider({
     if (guidanceSaveTimer.current) clearTimeout(guidanceSaveTimer.current);
     guidanceSaveTimer.current = setTimeout(() => {
       void saveStarPathGuidanceState(guidancePersistRef.current);
+      scheduleManifestTouch();
     }, 280);
   }, [ready, guidancePack.guide?.messageId, guidancePack.nextStep.stepId, guidancePulse, guidanceMeta]);
 
@@ -561,9 +562,40 @@ export function StarPathExperienceProvider({
     [recordInteraction],
   );
 
+  const acknowledgeSignal = useCallback(
+    (signalId: string) => {
+      setSignalState((prev) => {
+        const acknowledgedSignalIds = prev.acknowledgedSignalIds.includes(signalId)
+          ? prev.acknowledgedSignalIds
+          : [...prev.acknowledgedSignalIds, signalId];
+        const next = { ...prev, acknowledgedSignalIds };
+        scheduleSignalSave(next);
+        return next;
+      });
+    },
+    [scheduleSignalSave],
+  );
+
+  const setUiChrome = useCallback((patch: Partial<StarPathUiChromeSnapshot>) => {
+    setUiChromeState((prev) => {
+      const next: StarPathUiChromeSnapshot = {
+        guideExpanded: patch.guideExpanded ?? prev?.guideExpanded ?? true,
+        nextStepExpanded: patch.nextStepExpanded ?? prev?.nextStepExpanded ?? true,
+        savedAt: Date.now(),
+      };
+      if (uiChromeSaveTimer.current) clearTimeout(uiChromeSaveTimer.current);
+      uiChromeSaveTimer.current = setTimeout(() => {
+        void saveStarPathUiChrome(next);
+        scheduleManifestTouch();
+      }, 280);
+      return next;
+    });
+  }, [scheduleManifestTouch]);
+
   const openOpportunityNode = useCallback(
     (nodeId: string) => {
       setHighlightOpportunityNodeId(nodeId);
+      acknowledgeSignal(`sig-${nodeId}`);
       setResourceState((prev) => {
         const next = markOpportunityOpened(prev, nodeId, Date.now());
         scheduleResourceSave(next);
@@ -572,7 +604,7 @@ export function StarPathExperienceProvider({
       const match = opportunityByNodeId(resourceStateRef.current, nodeId);
       if (match) feedbackOpportunitySignal(match.candidate.id, 'viewed');
     },
-    [feedbackOpportunitySignal, scheduleResourceSave],
+    [acknowledgeSignal, feedbackOpportunitySignal, scheduleResourceSave],
   );
 
   const navigateToOpportunityNode = useCallback((nodeId: string) => {
@@ -688,6 +720,10 @@ export function StarPathExperienceProvider({
       snoozeOpportunity,
       showGuideOpportunity,
       reportUserSupportLabel,
+      uiChrome,
+      setUiChrome,
+      savedViewport,
+      acknowledgeSignal,
     }),
     [
       ready,
@@ -720,6 +756,10 @@ export function StarPathExperienceProvider({
       snoozeOpportunity,
       showGuideOpportunity,
       reportUserSupportLabel,
+      uiChrome,
+      setUiChrome,
+      savedViewport,
+      acknowledgeSignal,
     ],
   );
 

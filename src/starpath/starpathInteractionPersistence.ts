@@ -1,22 +1,23 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { boundInteractionSignals } from '@/starpath/starpathInteractionBounds';
+import { migrateInteractionSnapshot } from '@/starpath/starpathPersistenceMigrations';
 import {
   EMPTY_STARPATH_INTERACTIONS,
   type StarPathInteractionSnapshot,
 } from '@/starpath/starpathInteractionTypes';
+import { safeJsonParse } from '@/starpath/starpathPersistenceRecovery';
 
 const STORAGE_KEY = '@reellyou/starpath-interactions';
 
 export async function loadStarPathInteractions(): Promise<StarPathInteractionSnapshot> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...EMPTY_STARPATH_INTERACTIONS, softHighlightNodeIds: [], activeBranchIds: [] };
-    const parsed = JSON.parse(raw) as StarPathInteractionSnapshot;
+    const { value, ok } = safeJsonParse<StarPathInteractionSnapshot>(await AsyncStorage.getItem(STORAGE_KEY));
+    if (!ok || !value) return { ...EMPTY_STARPATH_INTERACTIONS };
+    const migrated = migrateInteractionSnapshot(value);
     return {
-      version: parsed.version ?? 1,
-      signals: Array.isArray(parsed.signals) ? parsed.signals : [],
-      softHighlightNodeIds: parsed.softHighlightNodeIds ?? [],
-      activeBranchIds: parsed.activeBranchIds ?? [],
+      ...migrated,
+      signals: boundInteractionSignals(migrated.signals),
     };
   } catch {
     return { ...EMPTY_STARPATH_INTERACTIONS };
@@ -24,5 +25,9 @@ export async function loadStarPathInteractions(): Promise<StarPathInteractionSna
 }
 
 export async function saveStarPathInteractions(snapshot: StarPathInteractionSnapshot): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  const bounded = {
+    ...snapshot,
+    signals: boundInteractionSignals(snapshot.signals),
+  };
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(bounded));
 }
