@@ -1,5 +1,5 @@
 /** LOCKED REELYOU STAR INTERACTION/DETAIL SYSTEM — do not refactor or alter without explicit product approval. */
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MySkyIdentityProfileBubble } from '@/components/my-sky/MySkyIdentityProfileBubble';
@@ -9,12 +9,14 @@ import {
   useMySkyStarInteraction,
   type MySkyStarInteractionOptions,
 } from '@/components/my-sky/useMySkyStarInteraction';
+import { useSpatialFocusInteractionClear } from '@/spatialFocus/SpatialFocusContext';
 import type { MySkyStarDisplay } from '@/mySky/types';
 
 interface MySkyStarInteractionOverlayProps extends MySkyStarInteractionOptions {
   layoutWidth: number;
   layoutHeight: number;
   showIdentityStar?: boolean;
+  onSpatialFocusBlockingChange?: (blocking: boolean) => void;
 }
 
 function starAccessibilityLabel(star: MySkyStarDisplay): string {
@@ -41,8 +43,10 @@ function MySkyStarInteractionOverlayComponent({
   layoutWidth,
   layoutHeight,
   showIdentityStar = true,
+  onSpatialFocusBlockingChange,
   ...interactionOptions
 }: MySkyStarInteractionOverlayProps) {
+  const clearSpatialFocus = useSpatialFocusInteractionClear();
   const interaction = useMySkyStarInteraction(interactionOptions);
   const {
     stars,
@@ -63,6 +67,10 @@ function MySkyStarInteractionOverlayComponent({
     handleViewProfile,
   } = interaction;
 
+  useEffect(() => {
+    onSpatialFocusBlockingChange?.(insightOpen || bubbleOpen);
+  }, [bubbleOpen, insightOpen, onSpatialFocusBlockingChange]);
+
   if (layoutWidth <= 0 || layoutHeight <= 0) return null;
 
   return (
@@ -74,7 +82,10 @@ function MySkyStarInteractionOverlayComponent({
           worldHeight={layoutHeight}
           active={ownBubbleActive}
           prominence={1.06}
-          onPress={handleOwnIdentityPress}
+          onPress={() => {
+            clearSpatialFocus?.();
+            handleOwnIdentityPress();
+          }}
         />
       ) : null}
 
@@ -83,7 +94,10 @@ function MySkyStarInteractionOverlayComponent({
           key={star.id}
           accessibilityRole="button"
           accessibilityLabel={starAccessibilityLabel(star)}
-          onPress={() => handleStarPress(star)}
+          onPress={() => {
+            clearSpatialFocus?.();
+            handleStarPress(star);
+          }}
           style={[
             styles.starHit,
             {

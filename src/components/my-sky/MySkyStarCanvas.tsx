@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   LayoutAnimation,
+  LayoutChangeEvent,
   Platform,
   Pressable,
   StyleSheet,
@@ -24,7 +25,10 @@ import { MySkyCopy } from '@/constants/mySkyCopy';
 import { buildStarInsightBubble } from '@/mySky/buildStarInsightBubble';
 import type { StarNavigationTarget } from '@/mySky/resolveStarNavigation';
 import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
-import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
+import {
+  DEFAULT_MY_SKY_VIEWPORT,
+  type MySkyViewportSnapshot,
+} from '@/mySky/mySkyViewportSession';
 import type { SkyProximityPhase } from '@/mySky/skyProximity';
 import type { SkyOwnerProfile } from '@/mySky/skyIdentity';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
@@ -38,6 +42,9 @@ import {
   type SkyVisibilityLevel,
 } from '@/mySky/skyVisibilitySettings';
 import { useOnboarding } from '@/onboarding';
+import { buildMySkyStarFocusCandidates } from '@/spatialFocus/adapters/mySkyStarFocusAdapter';
+import { SpatialFocusHost } from '@/spatialFocus/SpatialFocusHost';
+import { SpatialFocusTapSync } from '@/spatialFocus/SpatialFocusTapSync';
 import { useThemedStyles } from '@/theme/useTheme';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 
@@ -84,6 +91,8 @@ interface MySkyStarCanvasProps {
   publicSkyNodes?: SkyNode[];
   publicSkyConnectionStatus?: SkyConnectionStatus;
   onConnect?: () => void;
+  /** Suspend edge focus navigation (modals, transient sky animations). */
+  spatialFocusSuspended?: boolean;
 }
 
 function MySkyStarCanvasComponent({
@@ -115,8 +124,13 @@ function MySkyStarCanvasComponent({
   publicSkyNodes = [],
   publicSkyConnectionStatus = 'none',
   onConnect,
+  spatialFocusSuspended = false,
 }: MySkyStarCanvasProps) {
   const { stars, viewState, skyOwner, identityStar } = view;
+  const spatialClearRef = useRef<(() => void) | null>(null);
+  const registerSpatialClear = useCallback((clear: (() => void) | null) => {
+    spatialClearRef.current = clear;
+  }, []);
   const router = useRouter();
   const { skywrites, communities, guidingLightView } = useOnboarding();
   const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
@@ -133,6 +147,10 @@ function MySkyStarCanvasComponent({
     [publicSkyOwnerId, visitorMode],
   );
   const [worldSize, setWorldSize] = useState({ width: 0, height: 0 });
+  const [viewportShell, setViewportShell] = useState({ width: 0, height: 0 });
+  const [focusViewport, setFocusViewport] = useState<MySkyViewportSnapshot>(
+    viewportSnapshot ?? DEFAULT_MY_SKY_VIEWPORT,
+  );
   const [skyGestureActive, setSkyGestureActive] = useState(false);
   const lastGestureEndRef = useRef(0);
 
@@ -140,7 +158,7 @@ function MySkyStarCanvasComponent({
     StyleSheet.create({
       outer: immersive ? { flex: 1 } : { gap: Spacing.sm },
       wrap: immersive
-        ? { flex: 1, width: '100%', overflow: 'hidden' }
+        ? { flex: 1, width: '100%', overflow: 'hidden', position: 'relative' }
         : {
             width: '100%',
             aspectRatio: 0.72,
@@ -246,6 +264,58 @@ function MySkyStarCanvasComponent({
     },
     [onWorldSizeChange],
   );
+
+  const handleFocusViewportLiveChange = useCallback(
+    (snapshot: MySkyViewportSnapshot) => {
+      setFocusViewport(snapshot);
+      onViewportLiveChange?.(snapshot);
+    },
+    [onViewportLiveChange],
+  );
+
+  const viewportOrigin = useMemo(() => {
+    if (viewportShell.width <= 0 || worldSize.width <= 0) {
+      return { originLeft: 0, originTop: 0 };
+    }
+    return {
+      originLeft: (viewportShell.width - worldSize.width) / 2,
+      originTop: (viewportShell.height - worldSize.height) / 2,
+    };
+  }, [viewportShell.height, viewportShell.width, worldSize.height, worldSize.width]);
+
+  const spatialFocusCandidates = useMemo(() => {
+    if (!immersive || worldSize.width <= 0 || worldSize.height <= 0) return [];
+    const shellWidth = viewportShell.width > 0 ? viewportShell.width : worldSize.width;
+    const shellHeight = viewportShell.height > 0 ? viewportShell.height : worldSize.height;
+    return buildMySkyStarFocusCandidates({
+      stars,
+      identityStar,
+      includeIdentity: true,
+      worldWidth: worldSize.width,
+      worldHeight: worldSize.height,
+      layoutWidth: shellWidth,
+      layoutHeight: shellHeight,
+      viewport: focusViewport,
+      originLeft: viewportOrigin.originLeft,
+      originTop: viewportOrigin.originTop,
+    });
+  }, [
+    focusViewport,
+    identityStar,
+    immersive,
+    stars,
+    viewportOrigin.originLeft,
+    viewportOrigin.originTop,
+    viewportShell.height,
+    viewportShell.width,
+    worldSize.height,
+    worldSize.width,
+  ]);
+
+  const handleViewportShellLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setViewportShell({ width, height });
+  }, []);
 
   const openProfileBubble = useCallback(
     (owner: SkyOwnerProfile, star: MySkyStarDisplay, anchor: NearbySkyAnchor | null = null) => {
@@ -383,6 +453,7 @@ function MySkyStarCanvasComponent({
       if (skyGestureActive || Date.now() - lastGestureEndRef.current < 120) {
         return;
       }
+      spatialClearRef.current?.();
       openInsightForStar(star);
     },
     [openInsightForStar, skyGestureActive],
@@ -392,10 +463,17 @@ function MySkyStarCanvasComponent({
     if (skyGestureActive || Date.now() - lastGestureEndRef.current < 120) {
       return;
     }
+    spatialClearRef.current?.();
     closeInsightBubble();
     setActiveId(identityStar.id);
     openProfileBubble(skyOwner, identityStar, null);
-  }, [closeInsightBubble, identityStar, openProfileBubble, skyGestureActive, skyOwner]);
+  }, [
+    closeInsightBubble,
+    identityStar,
+    openProfileBubble,
+    skyGestureActive,
+    skyOwner,
+  ]);
 
   const handleNearbyIdentityPress = useCallback(
     (anchor: NearbySkyAnchor) => {
@@ -479,6 +557,7 @@ function MySkyStarCanvasComponent({
   const renderWorld = useCallback(
     (world: { width: number; height: number }) => (
       <>
+        <SpatialFocusTapSync onRegisterClear={registerSpatialClear} />
         <MySkyBackdrop dim fillScale={1.38} />
         <MySkyRenderer
           view={view}
@@ -576,6 +655,7 @@ function MySkyStarCanvasComponent({
       </>
     ),
     [
+      registerSpatialClear,
       activeBubbleOwner,
       closeInsightBubble,
       insightActionAvailable,
@@ -627,17 +707,33 @@ function MySkyStarCanvasComponent({
           constellationRevealActive={constellationRevealActive}
         />
       ) : null}
-      <View style={styles.wrap}>
+      <View style={styles.wrap} onLayout={immersive ? handleViewportShellLayout : undefined}>
         {immersive ? (
-          <MySkyExplorableViewport
-            initialSnapshot={viewportSnapshot}
-            jumpSnapshot={jumpSnapshot}
-            onSnapshotChange={onViewportChange}
-            onViewportLiveChange={onViewportLiveChange}
-            onWorldSizeChange={handleWorldSizeChange}
-            onGestureActiveChange={handleGestureActiveChange}
-            renderWorld={renderWorld}
-          />
+          <SpatialFocusHost
+            layoutWidth={
+              viewportShell.width > 0 ? viewportShell.width : worldSize.width
+            }
+            layoutHeight={
+              viewportShell.height > 0 ? viewportShell.height : worldSize.height
+            }
+            candidates={spatialFocusCandidates}
+            hintSurface="mysky"
+            disabled={
+              spatialFocusSuspended ||
+              skyGestureActive ||
+              insightOpen ||
+              bubbleOpen
+            }>
+            <MySkyExplorableViewport
+              initialSnapshot={viewportSnapshot}
+              jumpSnapshot={jumpSnapshot}
+              onSnapshotChange={onViewportChange}
+              onViewportLiveChange={handleFocusViewportLiveChange}
+              onWorldSizeChange={handleWorldSizeChange}
+              onGestureActiveChange={handleGestureActiveChange}
+              renderWorld={renderWorld}
+            />
+          </SpatialFocusHost>
         ) : (
           <>
             <MySkyBackdrop dim />

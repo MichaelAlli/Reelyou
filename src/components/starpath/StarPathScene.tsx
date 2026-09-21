@@ -1,8 +1,10 @@
 /** LOCKED STARPATH WORLD — preserve approved world/background/scroll behavior unless explicitly authorized. */
+/** LOCKED NAV 01 STARPATH INTEGRATION — preserve vertical journey, world visuals, Guide, Next Step, and direct interactions. */
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ScrollView as ScrollViewType } from 'react-native';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
+import { Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
 import { AIGuideControl } from '@/components/starpath/AIGuideControl';
@@ -36,6 +38,8 @@ import { useStarPathScrollCamera } from '@/starpath/useStarPathScrollCamera';
 import { useStarPathWorldGraph } from '@/starpath/useStarPathWorldGraph';
 import type { StarPathViewportWindow } from '@/starpath/starpathWorldVisibility';
 import { saveStarPathViewport } from '@/starpath/starpathViewportPersistence';
+import { buildStarPathFocusCandidates } from '@/spatialFocus/adapters/starPathFocusAdapter';
+import { SpatialFocusHost } from '@/spatialFocus/SpatialFocusHost';
 
 interface StarPathSceneProps {
   visualMode?: StarPathVisualMode;
@@ -51,8 +55,12 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   const [detailNodeId, setDetailNodeId] = useState<string | null>(null);
   const [detailOpportunityNodeId, setDetailOpportunityNodeId] = useState<string | null>(null);
   const [avatarSheetOpen, setAvatarSheetOpen] = useState(false);
+  const [sceneLayout, setSceneLayout] = useState({ width: 0, height: 0 });
+  const spatialFocusClearRef = useRef<(() => void) | null>(null);
 
   const theme = useMemo(() => getStarPathTheme(visualMode), [visualMode]);
+  const viewportWidth = sceneLayout.width > 0 ? sceneLayout.width : width;
+  const viewportHeight = sceneLayout.height > 0 ? sceneLayout.height : height;
   const experience = useStarPathExperience();
 
   const metrics = useMemo(() => {
@@ -129,6 +137,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
 
   const onNodePress = useCallback(
     (id: string) => {
+      spatialFocusClearRef.current?.();
       const dynamicNode = experience.dynamicWorld.nodes.find((n) => n.id === id);
       const entry =
         getStarPathNodeCatalogEntry(id) ??
@@ -206,11 +215,21 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
 
   const onOpportunityPress = useCallback(
     (nodeId: string) => {
+      spatialFocusClearRef.current?.();
       experience.openOpportunityNode(nodeId);
       setDetailOpportunityNodeId(nodeId);
     },
     [experience],
   );
+
+  const handleSceneLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
+    setSceneLayout({ width: layoutWidth, height: layoutHeight });
+  }, []);
+
+  const registerSpatialFocusClear = useCallback((clear: (() => void) | null) => {
+    spatialFocusClearRef.current = clear;
+  }, []);
 
   const handleNextStep = useCallback(() => {
     if (experience.nextStepType === 'review_opportunity' && experience.nextStepSourceIds[0]) {
@@ -247,6 +266,53 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
       guideExpanded: false,
     });
   }, [experience]);
+
+  const spatialFocusDisabled =
+    !!detailNodeId ||
+    !!detailOpportunityNodeId ||
+    avatarSheetOpen ||
+    showGuideIntroPopup;
+
+  const starPathFocusCandidates = useMemo(
+    () =>
+      buildStarPathFocusCandidates({
+        graph,
+        placedNodes: experience.resourceState.placedNodes.map((node) => ({
+          nodeId: node.nodeId,
+          refX: node.refX,
+          refY: node.refY,
+        })),
+        dynamicNodes: experience.dynamicWorld.nodes.map((node) => ({
+          id: node.id,
+          refX: node.refX,
+          refY: node.refY,
+        })),
+        metrics,
+        scrollY,
+        layoutWidth: viewportWidth,
+        layoutHeight: viewportHeight,
+        isNodeEligible: (nodeId) => {
+          const dynamicNode = experience.dynamicWorld.nodes.find((n) => n.id === nodeId);
+          const ui = experience.getNodeUiState(dynamicNode?.sourceId ?? nodeId);
+          return ui !== 'dismissed';
+        },
+      }),
+    [
+      experience.dynamicWorld.nodes,
+      experience.getNodeUiState,
+      experience.resourceState.placedNodes,
+      graph,
+      metrics,
+      scrollY,
+      viewportHeight,
+      viewportWidth,
+    ],
+  );
+
+  const spatialFocusBottomInset = nextStepExpanded ? nextStepCardBottom + 88 : bottomInset + 28;
+  const spatialFocusFloatingNavBottom = nextStepExpanded
+    ? nextStepCardBottom + 148
+    : bottomInset + 52;
 
   const scrollToWorldNode = useCallback(
     (nodeId: string) => {
@@ -307,7 +373,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   );
 
   return (
-    <View style={styles.root} testID="starpath-world">
+    <View style={styles.root} testID="starpath-world" onLayout={handleSceneLayout}>
       <ScrollView
         ref={scrollRef}
         style={styles.viewport}
@@ -421,6 +487,22 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
             reduceMotion={!!reduceMotion}
           />
         ) : null}
+      </View>
+
+      <View style={styles.spatialFocusViewport} pointerEvents="box-none">
+        <SpatialFocusHost
+          overlayMode
+          layoutWidth={viewportWidth}
+          layoutHeight={viewportHeight}
+          candidates={starPathFocusCandidates}
+          disabled={spatialFocusDisabled}
+          hintSurface="starpath"
+          showFloatingNav
+          floatingNavBottom={spatialFocusFloatingNavBottom}
+          onRegisterClear={registerSpatialFocusClear}
+          topInset={StarPathSpacing.guideTop + 68}
+          bottomInset={spatialFocusBottomInset}
+        />
       </View>
 
       <StarPathOpportunityDetailSheet
@@ -543,6 +625,12 @@ const styles = StyleSheet.create({
   },
   viewport: {
     flex: 1,
+  },
+  spatialFocusViewport: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 56,
+    pointerEvents: 'box-none',
+    ...(Platform.OS === 'android' ? { elevation: 56 } : null),
   },
   overlay: {
     ...StyleSheet.absoluteFill,

@@ -1,4 +1,5 @@
 /** LOCKED MY SKY EXPERIENCE — preserve approved visuals/interactions unless explicitly authorized. */
+/** LOCKED NAV 01 MY SKY INTEGRATION — preserve pan/zoom, immersive exploration, direct taps, and current visuals. */
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -449,6 +450,12 @@ export function MySkyScreen() {
             onViewportChange={handleViewportChange}
             onViewportLiveChange={handleViewportLiveChange}
             onWorldSizeChange={setWorldSize}
+            spatialFocusSuspended={
+              searchVisible ||
+              privacyVisible ||
+              constellationDetailVisible ||
+              constellationRevealActive
+            }
           />
           {!cleanSkyActive ? (
             <MySkyInsightOverlay

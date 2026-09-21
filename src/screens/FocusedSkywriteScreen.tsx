@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -16,8 +16,11 @@ import { applyArrivalHighlight } from '@/mySky/mySkyState';
 import { useOnboarding } from '@/onboarding';
 import { stageFocusedSkywriteComposeStars } from '@/skywrite/focusedSkyComposeSnapshot';
 import { useSharedSky } from '@/sharedSky/useSharedSky';
+import { buildFocusedSkywriteFocusCandidates } from '@/spatialFocus/adapters/mySkyStarFocusAdapter';
+import { SpatialFocusHost } from '@/spatialFocus/SpatialFocusHost';
 
 /** LOCKED FOCUSED SKYWRITE SKY — canonical shared Sky view; preserve stars, launcher, and arrival overlay flow unless explicitly authorized. */
+/** LOCKED NAV 01 SKYWRITE INTEGRATION — preserve existing stars, scrolling, launcher, arrival, constellation, and tap/detail systems. */
 export function FocusedSkywriteScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
@@ -42,6 +45,7 @@ export function FocusedSkywriteScreen() {
   );
   const guidanceActive = Boolean(guidingLightView.light);
   const { focusedView, setScrollOffsetY } = useSharedSky();
+  const [spatialFocusBlocked, setSpatialFocusBlocked] = useState(false);
 
   const panelHeight = Math.min(Math.round(height * 0.72), 620);
   const regionCount = Math.min(
@@ -97,6 +101,7 @@ export function FocusedSkywriteScreen() {
   }, [clearSkyArrivalHandoff, setSkyArrivalHandoff, skyArrivalHandoff, triggerConstellationReveal]);
 
   const launcherBottom = TabBarHeight + Math.max(insets.bottom, Spacing.sm) + 8;
+  const canvasWidth = width - Spacing.sm * 2;
 
   return (
     <View style={styles.root}>
@@ -126,39 +131,64 @@ export function FocusedSkywriteScreen() {
                   marginTop: index === 0 ? 0 : Spacing.sm,
                 },
               ]}>
-              <View
-                style={[
-                  styles.parallax,
-                  { transform: [{ translateY: index * -12 }] },
-                ]}>
-                <MySkyRenderer
-                  view={displayView}
-                  mode="resting"
-                  highlightStarId={
-                    index === 0 && !arrivalOverlayActive && !arrivalLandingPhase && skyArrivalHandoff?.skyNodeId
-                      ? skyArrivalHandoff.skyNodeId
-                      : null
-                  }
-                  constellationRevealCount={
-                    suppressConstellationFx ? 0 : constellationRevealCount
-                  }
-                  constellationRevealActive={
-                    suppressConstellationFx ? false : constellationRevealActive
-                  }
-                  revealPatternId={suppressConstellationFx ? null : constellationRevealPatternId}
-                  onConstellationRevealComplete={completeConstellationReveal}
-                />
-              </View>
-              <MySkyStarInteractionOverlay
-                layoutWidth={width - Spacing.sm * 2}
+              <SpatialFocusHost
+                layoutWidth={canvasWidth}
                 layoutHeight={panelHeight}
-                view={displayView}
-                skywrites={skywrites}
-                joinedCommunityIds={joinedCommunityIds}
-                guidanceActive={guidanceActive}
-                showIdentityStar={index === 0}
-                allowTapDuringGesture
-              />
+                hintSurface={index === 0 ? 'skywrite' : undefined}
+                disabled={
+                  index !== 0 ||
+                  arrivalOverlayActive ||
+                  arrivalLandingPhase ||
+                  spatialFocusBlocked
+                }
+                candidates={
+                  index === 0
+                    ? buildFocusedSkywriteFocusCandidates({
+                        stars: displayView.stars,
+                        identityStar: displayView.identityStar,
+                        includeIdentity: true,
+                        layoutWidth: canvasWidth,
+                        layoutHeight: panelHeight,
+                      })
+                    : []
+                }>
+                <View
+                  style={[
+                    styles.parallax,
+                    { transform: [{ translateY: index * -12 }] },
+                  ]}>
+                  <MySkyRenderer
+                    view={displayView}
+                    mode="resting"
+                    highlightStarId={
+                      index === 0 && !arrivalOverlayActive && !arrivalLandingPhase && skyArrivalHandoff?.skyNodeId
+                        ? skyArrivalHandoff.skyNodeId
+                        : null
+                    }
+                    constellationRevealCount={
+                      suppressConstellationFx ? 0 : constellationRevealCount
+                    }
+                    constellationRevealActive={
+                      suppressConstellationFx ? false : constellationRevealActive
+                    }
+                    revealPatternId={suppressConstellationFx ? null : constellationRevealPatternId}
+                    onConstellationRevealComplete={completeConstellationReveal}
+                  />
+                </View>
+                <MySkyStarInteractionOverlay
+                  layoutWidth={canvasWidth}
+                  layoutHeight={panelHeight}
+                  view={displayView}
+                  skywrites={skywrites}
+                  joinedCommunityIds={joinedCommunityIds}
+                  guidanceActive={guidanceActive}
+                  showIdentityStar={index === 0}
+                  allowTapDuringGesture
+                  onSpatialFocusBlockingChange={
+                    index === 0 ? setSpatialFocusBlocked : undefined
+                  }
+                />
+              </SpatialFocusHost>
             </View>
           ))}
 
@@ -217,6 +247,7 @@ const styles = StyleSheet.create({
   canvas: {
     borderRadius: 20,
     overflow: 'hidden',
+    position: 'relative',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(232, 200, 114, 0.18)',
     backgroundColor: 'rgba(4, 6, 16, 0.35)',

@@ -51,7 +51,8 @@
     "test:guidance": "npx tsx src/starpath/starpathGuidanceEngine.test.ts",
     "test:opportunity": "npx tsx src/starpath/starpathOpportunitySystem.test.ts",
     "test:persistence": "npx tsx src/starpath/starpathPersistence.test.ts",
-    "test:connect": "npx tsx src/connect/connectSystem.test.ts"
+    "test:connect": "npx tsx src/connect/connectSystem.test.ts",
+    "test:spatial-focus": "npx tsx src/spatialFocus/spatialFocusNavigator.test.ts"
   },
   "private": true
 }
