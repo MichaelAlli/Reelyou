@@ -26,9 +26,7 @@ function isImmersiveMySky(text) {
 
 async function tuckAiGuide(page) {
   if (await page.locator('[data-testid="ai-guide-panel"]').count()) {
-    const doneBtn = page.getByRole('button', { name: 'Done' });
-    if (await doneBtn.count()) await doneBtn.click({ timeout: 5000 });
-    else await page.getByLabel('Dismiss AI Guide').click({ timeout: 5000 });
+    await page.getByText('Done', { exact: true }).click({ timeout: 8000 });
     await page.waitForTimeout(400);
   }
 }

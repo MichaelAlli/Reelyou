@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ScrollView as ScrollViewType } from 'react-native';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
@@ -14,6 +15,10 @@ import { TabBarHeight } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
 import { StarPathDynamicGrowthLayer } from '@/components/starpath/StarPathDynamicGrowthLayer';
 import { StarPathOffscreenGrowthIndicator } from '@/components/starpath/StarPathOffscreenGrowthIndicator';
+import { StarPathOffscreenSignalIndicator } from '@/components/starpath/StarPathOffscreenSignalIndicator';
+import { StarPathOpportunityDetailSheet } from '@/components/starpath/StarPathOpportunityDetailSheet';
+import { StarPathOpportunityLayer } from '@/components/starpath/StarPathOpportunityLayer';
+import { opportunityByNodeId } from '@/starpath/starpathResourceActions';
 import {
   applyDynamicWorldExpansion,
   createStarPathLayoutMetrics,
@@ -41,6 +46,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   const [nextStepExpanded, setNextStepExpanded] = useState(true);
   const [scrollY, setScrollY] = useState(0);
   const [detailNodeId, setDetailNodeId] = useState<string | null>(null);
+  const [detailOpportunityNodeId, setDetailOpportunityNodeId] = useState<string | null>(null);
   const [avatarSheetOpen, setAvatarSheetOpen] = useState(false);
 
   const theme = useMemo(() => getStarPathTheme(visualMode), [visualMode]);
@@ -114,6 +120,57 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
 
   const closeDetail = useCallback(() => setDetailNodeId(null), []);
 
+  const scrollToOpportunityNode = useCallback(
+    (nodeId: string) => {
+      const placed = experience.resourceState.placedNodes.find((n) => n.nodeId === nodeId);
+      if (!placed) return;
+      const { y } = refPointToWorldPx({ x: placed.refX, y: placed.refY }, metrics);
+      const targetY = Math.max(0, y - height * 0.42);
+      (scrollRef.current as ScrollViewType | null)?.scrollTo({ y: targetY, animated: true });
+      setScrollY(targetY);
+    },
+    [experience.resourceState.placedNodes, metrics, height, scrollRef],
+  );
+
+  useEffect(() => {
+    if (!experience.highlightOpportunityNodeId) return;
+    scrollToOpportunityNode(experience.highlightOpportunityNodeId);
+    setDetailOpportunityNodeId(experience.highlightOpportunityNodeId);
+  }, [experience.highlightOpportunityNodeId, scrollToOpportunityNode]);
+
+  const opportunityDetail = useMemo(() => {
+    if (!detailOpportunityNodeId) return null;
+    return opportunityByNodeId(experience.resourceState, detailOpportunityNodeId);
+  }, [detailOpportunityNodeId, experience.resourceState]);
+
+  const offscreenSignals = useMemo(
+    () =>
+      experience.signalState.activeSignalIds
+        .map((id) => experience.signalState.signalsById[id])
+        .filter(Boolean),
+    [experience.signalState],
+  );
+
+  const onOpportunityPress = useCallback(
+    (nodeId: string) => {
+      experience.openOpportunityNode(nodeId);
+      setDetailOpportunityNodeId(nodeId);
+    },
+    [experience],
+  );
+
+  const handleNextStep = useCallback(() => {
+    if (experience.nextStepType === 'review_opportunity' && experience.nextStepSourceIds[0]) {
+      const nodeId = experience.nextStepSourceIds[0];
+      experience.navigateToOpportunityNode(nodeId);
+      scrollToOpportunityNode(nodeId);
+      setDetailOpportunityNodeId(nodeId);
+      experience.openOpportunityNode(nodeId);
+      return;
+    }
+    onNextStepPress?.();
+  }, [experience, onNextStepPress, scrollToOpportunityNode]);
+
   const bottomInset = TabBarHeight + StarPathSpacing.controlGap;
 
   const nodeInteractionProps = useCallback(
@@ -164,6 +221,14 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
             nodeInteractionProps={nodeInteractionProps}
             onNodePress={onNodePress}
           />
+          <StarPathOpportunityLayer
+            metrics={metrics}
+            placedNodes={experience.resourceState.placedNodes}
+            signalsById={experience.signalState.signalsById}
+            activeSignalIds={experience.signalState.activeSignalIds}
+            highlightNodeId={experience.highlightOpportunityNodeId}
+            onNodePress={onOpportunityPress}
+          />
           {!nextStepExpanded ? (
             <NextStepWaypoint
               x={nextStepWorld.x}
@@ -177,6 +242,13 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
       <StarPathTopChrome />
 
       <StarPathOffscreenGrowthIndicator hints={experience.offscreenGrowthHints} />
+      <StarPathOffscreenSignalIndicator
+        signals={offscreenSignals}
+        onNavigateToNode={(nodeId) => {
+          experience.navigateToOpportunityNode(nodeId);
+          scrollToOpportunityNode(nodeId);
+        }}
+      />
 
       <View style={styles.overlay} pointerEvents="box-none">
         {guideExpanded ? (
@@ -184,6 +256,16 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
             theme={theme}
             expanded
             reactionHint={experience.guideReaction}
+            whyThisLines={experience.guideWhyThisLines}
+            onDismissGuidance={experience.dismissActiveGuide}
+            onSnoozeGuidance={experience.snoozeActiveGuide}
+            showOpportunityAction={experience.guideShowsOpportunity}
+            onShowOpportunity={() => {
+              experience.showGuideOpportunity();
+              const nodeId =
+                experience.nextStepSourceIds[0] ?? experience.highlightOpportunityNodeId;
+              if (nodeId) scrollToOpportunityNode(nodeId);
+            }}
             onExpand={() => setGuideExpanded(true)}
             onCollapse={() => setGuideExpanded(false)}
             reduceMotion={!!reduceMotion}
@@ -210,7 +292,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
             stepTitle={experience.nextStepCopy.title}
             onExpand={() => setNextStepExpanded(true)}
             onCollapse={() => setNextStepExpanded(false)}
-            onAction={onNextStepPress}
+            onAction={handleNextStep}
             waypointX={nextStepWorld.x}
             waypointY={nextStepWorld.y - scrollY}
             cardBottom={bottomInset}
@@ -218,6 +300,46 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
           />
         ) : null}
       </View>
+
+      <StarPathOpportunityDetailSheet
+        visible={!!opportunityDetail}
+        theme={theme}
+        candidate={opportunityDetail?.candidate ?? null}
+        whyHere={
+          opportunityDetail?.candidate.reasonCodes.length
+            ? 'This connects with paths and interests you have been exploring.'
+            : null
+        }
+        saved={
+          opportunityDetail
+            ? experience.resourceState.savedResourceIds.includes(opportunityDetail.candidate.id)
+            : false
+        }
+        onClose={() => setDetailOpportunityNodeId(null)}
+        onSave={() => {
+          if (!opportunityDetail) return;
+          experience.saveOpportunity(opportunityDetail.candidate.id);
+        }}
+        onDismiss={() => {
+          if (!opportunityDetail) return;
+          experience.dismissOpportunity(opportunityDetail.candidate.id);
+          setDetailOpportunityNodeId(null);
+        }}
+        onSnooze={() => {
+          if (!opportunityDetail) return;
+          experience.snoozeOpportunity(opportunityDetail.candidate.id);
+          setDetailOpportunityNodeId(null);
+        }}
+        onInterested={() => {
+          if (!opportunityDetail) return;
+          experience.saveOpportunity(opportunityDetail.candidate.id);
+          const nodeId = opportunityDetail.candidate.relatedNodeIds[0];
+          if (nodeId) {
+            const entry = getStarPathNodeCatalogEntry(nodeId);
+            if (entry) experience.recordInteraction(nodeId, entry.branchId, 'interested', 'discovery');
+          }
+        }}
+      />
 
       <StarPathNodeDetailSheet
         visible={!!detailEntry}

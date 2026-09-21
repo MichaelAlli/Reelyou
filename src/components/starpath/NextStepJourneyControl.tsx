@@ -49,6 +49,7 @@ function NextStepJourneyControlComponent({
         <NextStepCard
           theme={theme}
           stepTitle={stepTitle}
+          accessibilityActionLabel={stepTitle ? `Next step: ${stepTitle}` : undefined}
           onPress={() => {
             onAction?.();
             onCollapse();

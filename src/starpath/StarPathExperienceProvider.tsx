@@ -32,7 +32,15 @@ import type {
   StarPathNodeUiState,
 } from '@/starpath/starpathInteractionTypes';
 import { getStarPathNodeCatalogEntry } from '@/starpath/starpathNodeCatalog';
-import { pickGuideReaction, pickNextStepSuggestion } from '@/starpath/starpathExperienceCopy';
+import { whyThisLinesForReasons } from '@/starpath/starpathGuidanceCopy';
+import { computeStarPathGuidance } from '@/starpath/starpathGuidanceEngine';
+import { buildGuidanceSafeInputs } from '@/starpath/starpathGuidanceInputs';
+import {
+  loadStarPathGuidanceState,
+  saveStarPathGuidanceState,
+} from '@/starpath/starpathGuidancePersistence';
+import { EMPTY_GUIDANCE_STATE } from '@/starpath/starpathGuidanceTypes';
+import { GUIDANCE_STABILITY } from '@/starpath/starpathGuidanceConfig';
 import { reconcileLivingWorld } from '@/starpath/starpathDynamicWorldEngine';
 import {
   loadStarPathDynamicWorld,
@@ -45,6 +53,32 @@ import {
 } from '@/starpath/starpathDynamicWorldTypes';
 import { computeStarPathSiftingState } from '@/starpath/starpathSiftingEngine';
 import type { RelevanceBand, StarPathSiftingState } from '@/starpath/starpathSiftingTypes';
+import {
+  loadEmotionalContext,
+  parseUserReportedSupport,
+  saveEmotionalContext,
+} from '@/starpath/starpathEmotionalContextPersistence';
+import type { UserSupportState } from '@/starpath/starpathEmotionalContextTypes';
+import { markGuideMentioned, markOpportunityOpened } from '@/starpath/starpathOpportunityOrganizer';
+import { EMPTY_RESOURCE_STATE, type StarPathResourceState } from '@/starpath/starpathOpportunityTypes';
+import { runOpportunityOrchestrator } from '@/starpath/starpathOpportunityOrchestrator';
+import {
+  loadStarPathResourceState,
+  saveStarPathResourceState,
+} from '@/starpath/starpathResourcePersistence';
+import {
+  dismissResource,
+  opportunityByNodeId,
+  saveResource,
+  snoozeResource,
+} from '@/starpath/starpathResourceActions';
+import { computeAmbientSignals } from '@/starpath/starpathSignalEngine';
+import { EMPTY_SIGNAL_STATE, type StarPathSignalState } from '@/starpath/starpathSignalTypes';
+import {
+  loadStarPathSignalState,
+  saveStarPathSignalState,
+} from '@/starpath/starpathSignalPersistence';
+import type { StarPathNextStepType } from '@/starpath/starpathGuidanceTypes';
 
 interface StarPathExperienceContextValue {
   ready: boolean;
@@ -60,6 +94,9 @@ interface StarPathExperienceContextValue {
   softHighlightNodeIds: Set<string>;
   activeBranchIds: Set<string>;
   guideReaction: string | null;
+  guideWhyThisLines: string[];
+  dismissActiveGuide: () => void;
+  snoozeActiveGuide: () => void;
   nextStepCopy: { title: string; actionLabel: string };
   avatarIdentity: UserAvatarIdentity;
   setProfilePhotoAvatar: (uri?: string | null) => void;
@@ -72,11 +109,30 @@ interface StarPathExperienceContextValue {
   dynamicRecentlyEmergedIds: Set<string>;
   offscreenGrowthHints: StarPathOffscreenGrowthHint[];
   setLivingWorldViewport: (scrollY: number, viewportHeight: number, contentBandHeight: number, paddingTop: number) => void;
+  resourceState: StarPathResourceState;
+  signalState: StarPathSignalState;
+  highlightOpportunityNodeId: string | null;
+  nextStepType: StarPathNextStepType;
+  nextStepSourceIds: string[];
+  guideShowsOpportunity: boolean;
+  navigateToOpportunityNode: (nodeId: string) => void;
+  openOpportunityNode: (nodeId: string) => void;
+  saveOpportunity: (candidateId: string) => void;
+  dismissOpportunity: (candidateId: string) => void;
+  snoozeOpportunity: (candidateId: string) => void;
+  showGuideOpportunity: () => void;
+  reportUserSupportLabel: (label: string) => void;
 }
 
 const StarPathExperienceContext = createContext<StarPathExperienceContextValue | null>(null);
 
-export function StarPathExperienceProvider({ children }: { children: ReactNode }) {
+export function StarPathExperienceProvider({
+  children,
+  todayFocusText = null,
+}: {
+  children: ReactNode;
+  todayFocusText?: string | null;
+}) {
   const [ready, setReady] = useState(false);
   const [interactions, setInteractions] = useState<StarPathInteractionSnapshot>({
     version: 1,
@@ -90,24 +146,56 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
   const [dynamicWorld, setDynamicWorld] = useState<StarPathDynamicWorldState>(EMPTY_DYNAMIC_WORLD);
   const [dynamicRecentlyEmergedIds, setDynamicRecentlyEmergedIds] = useState<string[]>([]);
   const [offscreenGrowthHints, setOffscreenGrowthHints] = useState<StarPathOffscreenGrowthHint[]>([]);
-  const [growthGuideHint, setGrowthGuideHint] = useState<string | null>(null);
+  const [guidanceMeta, setGuidanceMeta] = useState(EMPTY_GUIDANCE_STATE);
+  const [guidancePulse, setGuidancePulse] = useState(0);
+  const guidanceSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const guidancePersistRef = useRef(EMPTY_GUIDANCE_STATE);
+  const activeGuideIdRef = useRef<string | null>(null);
   const exploreTriggerRef = useRef<string | null>(null);
   const [explorePulse, setExplorePulse] = useState(0);
   const viewportRef = useRef({ scrollY: 0, viewportHeight: 852, contentBandHeight: 852, paddingTop: 0 });
   const dynamicSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [resourceState, setResourceState] = useState<StarPathResourceState>(EMPTY_RESOURCE_STATE);
+  const [signalState, setSignalState] = useState<StarPathSignalState>(EMPTY_SIGNAL_STATE);
+  const [supportState, setSupportState] = useState<UserSupportState>('unknown');
+  const [highlightOpportunityNodeId, setHighlightOpportunityNodeId] = useState<string | null>(null);
+  const [opportunityContext, setOpportunityContext] = useState({
+    primaryOpportunityNodeId: null as string | null,
+    primaryOpportunityCandidateId: null as string | null,
+    timeSensitiveOpportunityId: null as string | null,
+    opportunityGuideEscalation: false,
+  });
+  const [viewportVersion, setViewportVersion] = useState(0);
+  const resourceSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const signalSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const orchestratorGen = useRef(0);
+  const lastViewportBump = useRef(0);
+  const lastGuideMentionRef = useRef<string | null>(null);
+  const resourceStateRef = useRef(resourceState);
+  resourceStateRef.current = resourceState;
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [loadedInteractions, loadedAvatar, loadedDynamic] = await Promise.all([
-        loadStarPathInteractions(),
-        loadUserAvatarIdentity(),
-        loadStarPathDynamicWorld(),
-      ]);
+      const [loadedInteractions, loadedAvatar, loadedDynamic, loadedGuidance, loadedResources, loadedSignals, loadedEmotion] =
+        await Promise.all([
+          loadStarPathInteractions(),
+          loadUserAvatarIdentity(),
+          loadStarPathDynamicWorld(),
+          loadStarPathGuidanceState(),
+          loadStarPathResourceState(),
+          loadStarPathSignalState(),
+          loadEmotionalContext(),
+        ]);
       if (!mounted) return;
       setInteractions(loadedInteractions);
       setAvatarIdentity(loadedAvatar);
       setDynamicWorld(loadedDynamic);
+      setGuidanceMeta(loadedGuidance);
+      guidancePersistRef.current = loadedGuidance;
+      setResourceState(loadedResources);
+      setSignalState(loadedSignals);
+      setSupportState(loadedEmotion.supportState);
       setReady(true);
     })();
     return () => {
@@ -144,9 +232,96 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
   const setLivingWorldViewport = useCallback(
     (scrollY: number, viewportHeight: number, contentBandHeight: number, paddingTop: number) => {
       viewportRef.current = { scrollY, viewportHeight, contentBandHeight, paddingTop };
+      const now = Date.now();
+      if (now - lastViewportBump.current > 220) {
+        lastViewportBump.current = now;
+        setViewportVersion((v) => v + 1);
+      }
     },
     [],
   );
+
+  const scheduleResourceSave = useCallback((next: StarPathResourceState) => {
+    if (resourceSaveTimer.current) clearTimeout(resourceSaveTimer.current);
+    resourceSaveTimer.current = setTimeout(() => {
+      void saveStarPathResourceState(next);
+    }, 320);
+  }, []);
+
+  const scheduleSignalSave = useCallback((next: StarPathSignalState) => {
+    if (signalSaveTimer.current) clearTimeout(signalSaveTimer.current);
+    signalSaveTimer.current = setTimeout(() => {
+      void saveStarPathSignalState(next);
+    }, 320);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    const gen = ++orchestratorGen.current;
+    const baseInputs = buildGuidanceSafeInputs(
+      interactions.signals,
+      siftingState,
+      dynamicWorld,
+      dynamicRecentlyEmergedIds,
+      todayFocusText,
+    );
+    const parsed = parseUserReportedSupport(todayFocusText);
+    const mergedSupport: UserSupportState =
+      parsed !== 'unknown' ? parsed : supportState;
+
+    void (async () => {
+      const result = await runOpportunityOrchestrator({
+        now: Date.now(),
+        guidanceInputs: baseInputs,
+        resourceState: resourceStateRef.current,
+        signalState,
+        supportState: mergedSupport,
+        viewport: viewportRef.current,
+      });
+      if (gen !== orchestratorGen.current) return;
+      setResourceState(result.resourceState);
+      setSignalState(result.signalState);
+      setOpportunityContext({
+        primaryOpportunityNodeId: result.primaryOpportunityNodeId,
+        primaryOpportunityCandidateId: result.primaryOpportunityCandidateId,
+        timeSensitiveOpportunityId: result.timeSensitiveOpportunityId,
+        opportunityGuideEscalation: result.escalateGuideForOpportunity,
+      });
+      scheduleResourceSave(result.resourceState);
+      scheduleSignalSave(result.signalState);
+    })();
+  }, [
+    ready,
+    interactions.signals,
+    siftingState,
+    dynamicWorld,
+    dynamicRecentlyEmergedIds,
+    todayFocusText,
+    resourceState.dismissedResourceIds,
+    resourceState.savedResourceIds,
+    resourceState.snoozedResourceUntil,
+    supportState,
+  ]);
+
+  useEffect(() => {
+    if (!ready || !resourceState.placedNodes.length) return;
+    const parsed = parseUserReportedSupport(todayFocusText);
+    const mergedSupport: UserSupportState = parsed !== 'unknown' ? parsed : supportState;
+    const nextSignals = computeAmbientSignals({
+      now: Date.now(),
+      placedNodes: resourceState.placedNodes,
+      resourcesById: resourceState.resourcesById,
+      dismissedResourceIds: resourceState.dismissedResourceIds,
+      viewportScrollY: viewportRef.current.scrollY,
+      viewportHeight: viewportRef.current.viewportHeight,
+      paddingTop: viewportRef.current.paddingTop,
+      contentBandHeight: viewportRef.current.contentBandHeight,
+      supportState: mergedSupport,
+      previous: EMPTY_SIGNAL_STATE,
+    });
+    setSignalState(nextSignals);
+    scheduleSignalSave(nextSignals);
+  }, [ready, viewportVersion, resourceState.placedNodes, resourceState.resourcesById, resourceState.dismissedResourceIds, todayFocusText, supportState, scheduleSignalSave]);
 
   useEffect(() => {
     if (!ready) return;
@@ -162,7 +337,6 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
       });
       setDynamicRecentlyEmergedIds(result.recentlyEmergedIds);
       setOffscreenGrowthHints(result.offscreenHints);
-      setGrowthGuideHint(result.growthGuideHint);
       if (dynamicSaveTimer.current) clearTimeout(dynamicSaveTimer.current);
       dynamicSaveTimer.current = setTimeout(() => {
         void saveStarPathDynamicWorld(result.world);
@@ -170,6 +344,98 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
       return result.world;
     });
   }, [ready, interactions.signals, siftingState, explorePulse]);
+
+  const guidancePack = useMemo(() => {
+    const inputs = buildGuidanceSafeInputs(
+      interactions.signals,
+      siftingState,
+      dynamicWorld,
+      dynamicRecentlyEmergedIds,
+      todayFocusText,
+      {
+        ...opportunityContext,
+        dismissedOpportunityIds: resourceState.dismissedResourceIds,
+      },
+    );
+    const out = computeStarPathGuidance(inputs, {
+      previous: {
+        ...guidancePersistRef.current,
+        guideDismissedIds: guidanceMeta.guideDismissedIds,
+        guideSnoozedUntil: guidanceMeta.guideSnoozedUntil,
+      },
+      explicitPulse: guidancePulse > 0,
+    });
+    guidancePersistRef.current = out.state;
+    return out;
+  }, [
+    interactions.signals,
+    siftingState,
+    dynamicWorld,
+    dynamicRecentlyEmergedIds,
+    todayFocusText,
+    guidanceMeta.guideDismissedIds,
+    guidanceMeta.guideSnoozedUntil,
+    guidancePulse,
+    opportunityContext,
+    resourceState.dismissedResourceIds,
+  ]);
+
+  useEffect(() => {
+    const guide = guidancePack.guide;
+    if (!guide) return;
+    if (lastGuideMentionRef.current === guide.messageId) return;
+    if (
+      !['opportunity_notice', 'time_sensitive_opportunity', 'undiscovered_opportunity'].includes(guide.type)
+    ) {
+      return;
+    }
+    const candidateId = opportunityContext.primaryOpportunityCandidateId;
+    if (!candidateId) return;
+    lastGuideMentionRef.current = guide.messageId;
+    setResourceState((prev) => {
+      const next = markGuideMentioned(prev, candidateId, Date.now());
+      scheduleResourceSave(next);
+      return next;
+    });
+  }, [guidancePack.guide?.messageId, guidancePack.guide?.type, opportunityContext.primaryOpportunityCandidateId, scheduleResourceSave]);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (guidancePulse > 0) setGuidancePulse(0);
+    if (guidanceSaveTimer.current) clearTimeout(guidanceSaveTimer.current);
+    guidanceSaveTimer.current = setTimeout(() => {
+      void saveStarPathGuidanceState(guidancePersistRef.current);
+    }, 280);
+  }, [ready, guidancePack.guide?.messageId, guidancePack.nextStep.stepId, guidancePulse, guidanceMeta]);
+
+  const dismissActiveGuide = useCallback(() => {
+    const id = guidancePack.guide?.messageId ?? activeGuideIdRef.current;
+    if (!id) return;
+    activeGuideIdRef.current = id;
+    setGuidanceMeta((prev) => {
+      const next = {
+        ...prev,
+        guideDismissedIds: prev.guideDismissedIds.includes(id)
+          ? prev.guideDismissedIds
+          : [...prev.guideDismissedIds, id],
+      };
+      guidancePersistRef.current = { ...guidancePersistRef.current, guideDismissedIds: next.guideDismissedIds };
+      return next;
+    });
+    setGuidancePulse((n) => n + 1);
+  }, [guidancePack.guide?.messageId]);
+
+  const snoozeActiveGuide = useCallback(() => {
+    const id = guidancePack.guide?.messageId;
+    if (!id) return;
+    const until = Date.now() + GUIDANCE_STABILITY.snoozeDurationMs;
+    setGuidanceMeta((prev) => {
+      const guideSnoozedUntil = { ...prev.guideSnoozedUntil, [id]: until };
+      guidancePersistRef.current = { ...guidancePersistRef.current, guideSnoozedUntil };
+      return { ...prev, guideSnoozedUntil };
+    });
+    setGuidancePulse((n) => n + 1);
+  }, [guidancePack.guide?.messageId]);
 
   const recordInteraction = useCallback(
     (
@@ -196,6 +462,9 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
         if (type === 'explored') {
           exploreTriggerRef.current = nodeId;
           setExplorePulse((n) => n + 1);
+        }
+        if (['explored', 'interested', 'saved', 'selected'].includes(type)) {
+          setGuidancePulse((n) => n + 1);
         }
         return next;
       });
@@ -280,6 +549,95 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
     });
   }, [interactions, scheduleSave]);
 
+  const feedbackOpportunitySignal = useCallback(
+    (candidateId: string, type: StarPathInteractionType) => {
+      const candidate = resourceStateRef.current.resourcesById[candidateId];
+      const nodeId = candidate?.relatedNodeIds[0];
+      if (!nodeId) return;
+      const entry = getStarPathNodeCatalogEntry(nodeId);
+      if (!entry) return;
+      recordInteraction(nodeId, entry.branchId, type, 'discovery');
+    },
+    [recordInteraction],
+  );
+
+  const openOpportunityNode = useCallback(
+    (nodeId: string) => {
+      setHighlightOpportunityNodeId(nodeId);
+      setResourceState((prev) => {
+        const next = markOpportunityOpened(prev, nodeId, Date.now());
+        scheduleResourceSave(next);
+        return next;
+      });
+      const match = opportunityByNodeId(resourceStateRef.current, nodeId);
+      if (match) feedbackOpportunitySignal(match.candidate.id, 'viewed');
+    },
+    [feedbackOpportunitySignal, scheduleResourceSave],
+  );
+
+  const navigateToOpportunityNode = useCallback((nodeId: string) => {
+    setHighlightOpportunityNodeId(nodeId);
+  }, []);
+
+  const saveOpportunity = useCallback(
+    (candidateId: string) => {
+      setResourceState((prev) => {
+        const next = saveResource(prev, candidateId);
+        scheduleResourceSave(next);
+        return next;
+      });
+      feedbackOpportunitySignal(candidateId, 'saved');
+      setGuidancePulse((n) => n + 1);
+    },
+    [feedbackOpportunitySignal, scheduleResourceSave],
+  );
+
+  const dismissOpportunity = useCallback(
+    (candidateId: string) => {
+      setResourceState((prev) => {
+        const next = dismissResource(prev, candidateId);
+        scheduleResourceSave(next);
+        return next;
+      });
+      feedbackOpportunitySignal(candidateId, 'dismissed');
+      setGuidancePulse((n) => n + 1);
+    },
+    [feedbackOpportunitySignal, scheduleResourceSave],
+  );
+
+  const snoozeOpportunity = useCallback(
+    (candidateId: string) => {
+      setResourceState((prev) => {
+        const next = snoozeResource(prev, candidateId, Date.now());
+        scheduleResourceSave(next);
+        return next;
+      });
+      setGuidancePulse((n) => n + 1);
+    },
+    [scheduleResourceSave],
+  );
+
+  const showGuideOpportunity = useCallback(() => {
+    const nodeId =
+      guidancePack.guide?.sourceIds[0] ?? opportunityContext.primaryOpportunityNodeId;
+    if (nodeId) navigateToOpportunityNode(nodeId);
+  }, [guidancePack.guide?.sourceIds, navigateToOpportunityNode, opportunityContext.primaryOpportunityNodeId]);
+
+  const reportUserSupportLabel = useCallback((label: string) => {
+    const parsed = parseUserReportedSupport(label);
+    setSupportState(parsed);
+    void saveEmotionalContext({ supportState: parsed, userReportedLabel: label, updatedAt: Date.now() });
+  }, []);
+
+  const guideShowsOpportunity = useMemo(() => {
+    const t = guidancePack.guide?.type;
+    return (
+      t === 'opportunity_notice' ||
+      t === 'time_sensitive_opportunity' ||
+      t === 'undiscovered_opportunity'
+    );
+  }, [guidancePack.guide?.type]);
+
   const resolvedAvatar = useMemo(() => {
     if (avatarIdentity.avatarSourceType === 'profilePhoto') {
       const uri = avatarIdentity.profilePhotoUri ?? undefined;
@@ -298,8 +656,14 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
       undoDismiss,
       softHighlightNodeIds: new Set(interactions.softHighlightNodeIds),
       activeBranchIds: new Set(siftingState.guideSummary.elevatedBranchIds),
-      guideReaction: pickGuideReaction(interactions, growthGuideHint),
-      nextStepCopy: pickNextStepSuggestion(interactions, siftingState.nextStepHints),
+      guideReaction: guidancePack.guide?.body ?? null,
+      guideWhyThisLines: whyThisLinesForReasons(guidancePack.guide?.reasonCodes ?? []),
+      dismissActiveGuide,
+      snoozeActiveGuide,
+      nextStepCopy: {
+        title: guidancePack.nextStep.title,
+        actionLabel: guidancePack.nextStep.actionLabel,
+      },
       siftingState,
       getNodeRelevanceBand,
       dynamicWorld,
@@ -311,12 +675,27 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
       setPresetAvatar,
       setCustomAvatar,
       useDefaultSilhouette,
+      resourceState,
+      signalState,
+      highlightOpportunityNodeId,
+      nextStepType: guidancePack.nextStep.type,
+      nextStepSourceIds: guidancePack.nextStep.sourceIds,
+      guideShowsOpportunity,
+      navigateToOpportunityNode,
+      openOpportunityNode,
+      saveOpportunity,
+      dismissOpportunity,
+      snoozeOpportunity,
+      showGuideOpportunity,
+      reportUserSupportLabel,
     }),
     [
       ready,
       interactions,
       siftingState,
-      growthGuideHint,
+      guidancePack,
+      dismissActiveGuide,
+      snoozeActiveGuide,
       dynamicWorld,
       dynamicRecentlyEmergedIds,
       offscreenGrowthHints,
@@ -330,6 +709,17 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
       setPresetAvatar,
       setCustomAvatar,
       useDefaultSilhouette,
+      resourceState,
+      signalState,
+      highlightOpportunityNodeId,
+      guideShowsOpportunity,
+      navigateToOpportunityNode,
+      openOpportunityNode,
+      saveOpportunity,
+      dismissOpportunity,
+      snoozeOpportunity,
+      showGuideOpportunity,
+      reportUserSupportLabel,
     ],
   );
 

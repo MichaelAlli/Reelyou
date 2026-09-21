@@ -13,11 +13,18 @@ import type { StarPathThemeTokens } from '@/starpath/starpathTheme';
 interface NextStepCardProps {
   theme: StarPathThemeTokens;
   stepTitle?: string;
+  accessibilityActionLabel?: string;
   onPress?: () => void;
   onDismiss?: () => void;
 }
 
-function NextStepCardComponent({ theme, stepTitle, onPress, onDismiss }: NextStepCardProps) {
+function NextStepCardComponent({
+  theme,
+  stepTitle,
+  accessibilityActionLabel,
+  onPress,
+  onDismiss,
+}: NextStepCardProps) {
   const body = (
     <>
         <Text style={[styles.kicker, { color: theme.labelMuted }]}>NEXT STEP</Text>
@@ -86,7 +93,7 @@ function NextStepCardComponent({ theme, stepTitle, onPress, onDismiss }: NextSte
             onPress={onPress}
             style={({ pressed }) => [styles.body, pressed && styles.pressed]}
             accessibilityRole="button"
-            accessibilityLabel="Next step: Share a reflection"
+            accessibilityLabel={accessibilityActionLabel ?? `Next step: ${stepTitle ?? 'Share a reflection'}`}
           >
             {body}
           </Pressable>

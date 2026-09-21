@@ -47,7 +47,9 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test:sifting": "npx tsx src/starpath/starpathSiftingEngine.test.ts",
-    "test:living-world": "npx tsx src/starpath/starpathDynamicWorldEngine.test.ts"
+    "test:living-world": "npx tsx src/starpath/starpathDynamicWorldEngine.test.ts",
+    "test:guidance": "npx tsx src/starpath/starpathGuidanceEngine.test.ts",
+    "test:opportunity": "npx tsx src/starpath/starpathOpportunitySystem.test.ts"
   },
   "private": true
 }

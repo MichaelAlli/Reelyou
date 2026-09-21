@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
@@ -21,6 +21,11 @@ interface AIGuideControlProps {
   onCollapse: () => void;
   reduceMotion?: boolean;
   reactionHint?: string | null;
+  whyThisLines?: string[];
+  onDismissGuidance?: () => void;
+  onSnoozeGuidance?: () => void;
+  onShowOpportunity?: () => void;
+  showOpportunityAction?: boolean;
 }
 
 function AIGuideControlComponent({
@@ -30,8 +35,14 @@ function AIGuideControlComponent({
   onCollapse,
   reduceMotion,
   reactionHint,
+  whyThisLines,
+  onDismissGuidance,
+  onSnoozeGuidance,
+  onShowOpportunity,
+  showOpportunityAction,
 }: AIGuideControlProps) {
   const router = useRouter();
+  const [whyOpen, setWhyOpen] = useState(false);
 
   if (!expanded) {
     return (
@@ -56,8 +67,7 @@ function AIGuideControlComponent({
   const exiting = reduceMotion ? undefined : FadeOut.duration(220);
 
   return (
-    <View style={styles.expandedRoot} testID="ai-guide-panel">
-      <Pressable style={styles.backdrop} onPress={onCollapse} accessibilityLabel="Dismiss AI Guide" />
+    <View style={styles.expandedRoot} testID="ai-guide-panel" pointerEvents="box-none">
       <Animated.View entering={entering} exiting={exiting} style={styles.panelWrap}>
         <View style={styles.panel}>
           <GuideStarOrb size={32} />
@@ -65,7 +75,51 @@ function AIGuideControlComponent({
           <Text style={[styles.hint, { color: theme.labelMuted }]}>
             {reactionHint ?? 'Guidance for this stretch of your Starpath.'}
           </Text>
+          {whyThisLines?.length ? (
+            <>
+              <Pressable
+                onPress={() => setWhyOpen((v) => !v)}
+                accessibilityRole="button"
+                accessibilityLabel="Why this guidance"
+                style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
+              >
+                <Text style={[styles.linkText, { color: theme.labelMuted }]}>Why this?</Text>
+              </Pressable>
+              {whyOpen ? (
+                <Text style={[styles.whyText, { color: theme.labelMuted }]}>
+                  {whyThisLines.join(' ')}
+                </Text>
+              ) : null}
+            </>
+          ) : null}
           <View style={styles.actions}>
+            {showOpportunityAction && onShowOpportunity ? (
+              <Pressable
+                onPress={onShowOpportunity}
+                style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
+                accessibilityLabel="Show opportunity on path"
+              >
+                <Text style={[styles.linkText, { color: theme.pathGold }]}>Show me</Text>
+              </Pressable>
+            ) : null}
+            {onSnoozeGuidance ? (
+              <Pressable
+                onPress={onSnoozeGuidance}
+                style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
+                accessibilityLabel="Hide guidance for now"
+              >
+                <Text style={[styles.linkText, { color: theme.labelMuted }]}>Not now</Text>
+              </Pressable>
+            ) : null}
+            {onDismissGuidance ? (
+              <Pressable
+                onPress={onDismissGuidance}
+                style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
+                accessibilityLabel="Dismiss guidance"
+              >
+                <Text style={[styles.linkText, { color: theme.labelMuted }]}>Dismiss</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={() => router.push('/companion')}
               style={({ pressed }) => [styles.linkBtn, pressed && styles.pressed]}
@@ -105,10 +159,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 40,
   },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: StarPathGlass.backdropDim,
-  },
   panelWrap: {
     position: 'absolute',
     top: StarPathSpacing.guideTop,
@@ -136,6 +186,13 @@ const styles = StyleSheet.create({
     ...StarPathTypography.caption,
     color: StarPathTypography.mutedLilac,
     textAlign: 'center',
+  },
+  whyText: {
+    fontFamily: Fonts.sans,
+    fontSize: 9,
+    lineHeight: 12,
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
   actions: {
     flexDirection: 'row',
