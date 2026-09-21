@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 
 import { ReelyouMotion } from '@/constants/animation';
 import { ONBOARDING_SHARED_BACKGROUND } from '@/constants/onboardingAssets';
@@ -33,8 +34,22 @@ function PostWelcomeStack() {
           animation: 'fade',
           animationDuration: ReelyouMotion.screenTransition,
         }}>
-        <Stack.Screen name="skywrite" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="skywrite/[id]" options={{ presentation: 'modal' }} />
+        <Stack.Screen
+          name="skywrite"
+          options={
+            Platform.OS === 'web'
+              ? { presentation: 'card', animation: 'fade' }
+              : { presentation: 'modal' }
+          }
+        />
+        <Stack.Screen
+          name="skywrite/[id]"
+          options={
+            Platform.OS === 'web'
+              ? { presentation: 'card', animation: 'fade' }
+              : { presentation: 'modal' }
+          }
+        />
         <Stack.Screen name="my-sky-star/[id]" options={{ presentation: 'modal' }} />
         <Stack.Screen name="skywrite-to-sky" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="my-sky-arrival" options={{ animation: 'fade' }} />

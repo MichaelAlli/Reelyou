@@ -1,4 +1,6 @@
 import { useEffect, useMemo } from 'react';
+import { useOnboarding } from '@/onboarding';
+import { MySkyStarInteractionOverlay } from '@/components/my-sky/MySkyStarInteractionOverlay';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
@@ -6,6 +8,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSequence,
   withTiming,
   type SharedValue,
@@ -21,8 +24,13 @@ import {
   SkyGlow,
   sampleQuadraticPath,
 } from '@/components/celestial';
-import { CelestialShootingStarFlightMotion } from '@/constants/celestialMotion';
+import {
+  CelestialArrivalMotion,
+  CelestialShootingStarFlightMotion,
+  CelestialStarBreathMotion,
+} from '@/constants/celestialMotion';
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
+import { MySkyConstellationLayer } from '@/components/my-sky/MySkyConstellationLayer';
 import { ReelyouEasing } from '@/constants/animation';
 import { MY_SKY_SHOOTING_STAR_PATH } from '@/mySky/constellationLayout';
 
@@ -63,12 +71,22 @@ function useParticleStyle(
 /** Cinematic shooting-star rise — ~3s, Reanimated + SVG, premium celestial handoff. */
 export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionProps) {
   const { width, height } = useWindowDimensions();
+  const { mySkyView, skywrites, communities, guidingLightView } = useOnboarding();
+  const joinedCommunityIds = useMemo(
+    () => communities.joined.map((entry) => entry.id),
+    [communities.joined],
+  );
+  const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
+
   const progress = useSharedValue(0);
   const emerge = useSharedValue(0);
   const bloom = useSharedValue(0);
   const destGlow = useSharedValue(0);
   const sceneFade = useSharedValue(0);
   const raySpin = useSharedValue(0);
+  const trailOpacity = useSharedValue(0);
+  const linksOpacity = useSharedValue(0);
+  const starBreath = useSharedValue(0);
 
   const { startX, startY, controlX, controlY, endX, endY } = useMemo(() => {
     const s = MY_SKY_SHOOTING_STAR_PATH;
@@ -188,30 +206,44 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
       <MySkyBackdrop />
       <SkyAtmosphereTint />
 
-      <View style={styles.nebulaLayer} accessibilityElementsHidden>
+      <View style={styles.nebulaLayer} accessibilityElementsHidden pointerEvents="none">
         <SkyGlow width={width} height={height} variant="nebula" />
+      </View>
+
+      <View style={styles.starFieldLayer} pointerEvents="none">
+        <MySkyConstellationLayer
+          width={width}
+          height={height}
+          trailOpacity={trailOpacity}
+          linksOpacity={linksOpacity}
+          starBreath={starBreath}
+        />
       </View>
 
       <Animated.View
         style={[styles.emergenceFlash, emergenceStyle, { left: startX - 60, top: startY - 60 }]}
-        accessibilityElementsHidden>
+        accessibilityElementsHidden
+        pointerEvents="none">
         <View style={styles.emergenceCore} />
       </Animated.View>
 
-      <Animated.View style={[styles.trailLayer, purpleTrailStyle]} accessibilityElementsHidden>
+      <Animated.View
+        style={[styles.trailLayer, purpleTrailStyle]}
+        accessibilityElementsHidden
+        pointerEvents="none">
         <Svg width={width} height={height}>
           <ShootingStarTrail width={width} height={height} variant="flight" layer="underglow" />
         </Svg>
       </Animated.View>
 
-      <Animated.View style={[styles.trailLayer, trailStyle]} accessibilityElementsHidden>
+      <Animated.View style={[styles.trailLayer, trailStyle]} accessibilityElementsHidden pointerEvents="none">
         <Svg width={width} height={height}>
           <ShootingStarTrail width={width} height={height} variant="flight" layer="core" gradientId="shootTrail" />
         </Svg>
       </Animated.View>
 
       {particles.map((style, index) => (
-        <Animated.View key={index} style={[styles.particle, style]}>
+        <Animated.View key={index} style={[styles.particle, style]} pointerEvents="none">
           <View
             style={[
               styles.particleDot,
@@ -222,24 +254,40 @@ export function SkywriteToSkyTransition({ onComplete }: SkywriteToSkyTransitionP
         </Animated.View>
       ))}
 
-      <Animated.View style={[styles.destPulse, destPulseStyle]} accessibilityElementsHidden>
+      <Animated.View style={[styles.destPulse, destPulseStyle]} accessibilityElementsHidden pointerEvents="none">
         <View style={[styles.destPulseRing, { borderColor: landingPulse.border, backgroundColor: landingPulse.fill }]} />
       </Animated.View>
 
-      <Animated.View style={[styles.destStar, destStarStyle]} accessibilityLabel="New star in your sky">
+      <Animated.View
+        style={[styles.destStar, destStarStyle]}
+        accessibilityLabel="New star in your sky"
+        pointerEvents="none">
         <View style={[styles.destHalo, { backgroundColor: destination.halo, borderColor: destination.haloBorder }]} />
         <CompactStarSvg size={destination.size} color={destination.color} />
       </Animated.View>
 
-      <Animated.View style={[styles.flyingStar, starStyle]} accessibilityLabel="Shooting star">
+      <Animated.View style={[styles.flyingStar, starStyle]} accessibilityLabel="Shooting star" pointerEvents="none">
         <Animated.View style={[styles.starBloom, starGlowStyle, { backgroundColor: flying.bloom }]} />
         <View style={[styles.starHalo, { backgroundColor: flying.halo, borderColor: flying.haloBorder }]} />
         <CompactStarSvg size={flying.size} color={flying.color} />
       </Animated.View>
 
-      <Animated.View style={[styles.skyHandoff, skyHandoffStyle]} accessibilityElementsHidden>
+      <Animated.View
+        style={[styles.skyHandoff, skyHandoffStyle]}
+        accessibilityElementsHidden
+        pointerEvents="none">
         <SkyGlow width={width} height={height} variant="arrivalVeil" />
       </Animated.View>
+
+      <MySkyStarInteractionOverlay
+        view={mySkyView}
+        skywrites={skywrites}
+        joinedCommunityIds={joinedCommunityIds}
+        guidanceActive={guidanceActive}
+        layoutWidth={width}
+        layoutHeight={height}
+        allowTapDuringGesture
+      />
     </View>
   );
 }
@@ -248,6 +296,9 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: CelestialSkyAtmosphere.base,
+  },
+  starFieldLayer: {
+    ...StyleSheet.absoluteFill,
   },
   nebulaLayer: {
     ...StyleSheet.absoluteFill,
@@ -269,6 +320,7 @@ const styles = StyleSheet.create({
   },
   trailLayer: {
     ...StyleSheet.absoluteFill,
+    pointerEvents: 'none',
   },
   flyingStar: {
     position: 'absolute',

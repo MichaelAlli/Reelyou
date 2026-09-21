@@ -251,6 +251,57 @@ export function ConstellationLine({
 /** @deprecated Use ConstellationLine — kept for home card compatibility. */
 export const ConstellationLink = ConstellationLine;
 
+/** Display constellation connectors — colored halo + luminous core. */
+export function GlowingConstellationLink({
+  x1,
+  y1,
+  x2,
+  y2,
+  color,
+}: {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
+}) {
+  const coreWidth = CelestialConstellationStroke.display.strokeWidth;
+  return (
+    <G>
+      <Line
+        x1={x1}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        stroke={color}
+        strokeWidth={coreWidth + 7}
+        strokeOpacity={0.55}
+        strokeLinecap="round"
+      />
+      <Line
+        x1={x1}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        stroke={color}
+        strokeWidth={coreWidth + 3}
+        strokeOpacity={0.82}
+        strokeLinecap="round"
+      />
+      <Line
+        x1={x1}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        stroke={color}
+        strokeWidth={coreWidth + 0.6}
+        strokeOpacity={1}
+        strokeLinecap="round"
+      />
+    </G>
+  );
+}
+
 export function MilestoneNode({
   cx,
   cy,

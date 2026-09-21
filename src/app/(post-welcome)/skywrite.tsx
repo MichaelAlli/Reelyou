@@ -1,3 +1,3 @@
-import { SkywriteScreen } from '@/screens';
+import { SkywriteScreen } from '@/screens/SkywriteScreen';
 
 export default SkywriteScreen;

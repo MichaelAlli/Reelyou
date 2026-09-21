@@ -216,7 +216,7 @@ function MySkyIdentityProfileBubbleComponent({
             )}
             <View style={{ flex: 1 }}>
               <Text style={styles.name} numberOfLines={1}>
-                {owner.name}
+                {owner.isSelf ? MySkyCopy.identityStarTitle : owner.name}
               </Text>
               {owner.subtitle ? (
                 <Text style={styles.subtitle} numberOfLines={1}>
@@ -236,6 +236,10 @@ function MySkyIdentityProfileBubbleComponent({
             <Text style={styles.northStar} numberOfLines={2}>
               {MySkyCopy.identityNorthStarPrefix} {owner.northStarSummary}
             </Text>
+          ) : null}
+
+          {owner.isSelf ? (
+            <Text style={styles.bio}>{MySkyCopy.identitySelfInsight}</Text>
           ) : null}
 
           {!owner.isSelf && owner.connectionStatus ? (

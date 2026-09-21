@@ -1,7 +1,9 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
+import { Easing } from 'react-native-reanimated';
 import {
   runOnJS,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
@@ -9,10 +11,7 @@ import {
 
 import { CelestialConstellationRevealMotion, CelestialStarBreathMotion } from '@/constants/celestialMotion';
 import { MySkyConstellationLayer } from '@/components/my-sky/MySkyConstellationLayer';
-import {
-  emphasizedNodesForPattern,
-  filterRelationshipsForReveal,
-} from '@/mySky/buildConstellationIntelligence';
+import { filterRelationshipsForReveal } from '@/mySky/buildConstellationIntelligence';
 import type { SkyNode, SkyPattern, SkyRelationship } from '@/mySky/skyNodeTypes';
 import type { MySkyVisibleLayers } from '@/mySky/skyLayers';
 import { DEFAULT_MY_SKY_VISIBLE_LAYERS } from '@/mySky/skyLayers';
@@ -54,6 +53,7 @@ function MySkyLivingSkyLayerComponent({
   const trailOpacity = useSharedValue(0);
   const linksOpacity = useSharedValue(0);
   const starBreath = useSharedValue(0);
+  const lastRevealCount = useRef(0);
 
   useEffect(() => {
     starBreath.value = withRepeat(
@@ -67,28 +67,35 @@ function MySkyLivingSkyLayerComponent({
   }, [starBreath]);
 
   useEffect(() => {
-    if (constellationRevealCount <= 0) return;
+    if (constellationRevealCount <= lastRevealCount.current) return;
+    lastRevealCount.current = constellationRevealCount;
 
     linksOpacity.value = withSequence(
       withTiming(CelestialConstellationRevealMotion.revealOpacity, {
         duration: CelestialConstellationRevealMotion.revealDurationMs,
+        easing: Easing.out(Easing.cubic),
       }),
-      withTiming(0, { duration: CelestialConstellationRevealMotion.fadeDurationMs }, (finished) => {
-        if (finished && onRevealComplete) {
-          runOnJS(onRevealComplete)();
-        }
-      }),
+      withDelay(
+        CelestialConstellationRevealMotion.holdDelayMs,
+        withTiming(
+          0,
+          {
+            duration: CelestialConstellationRevealMotion.fadeDurationMs,
+            easing: Easing.out(Easing.quad),
+          },
+          (finished) => {
+            if (finished && onRevealComplete) {
+              runOnJS(onRevealComplete)();
+            }
+          },
+        ),
+      ),
     );
   }, [constellationRevealCount, linksOpacity, onRevealComplete]);
 
   const activeRelationships = useMemo(
     () => filterRelationshipsForReveal(patternRelationships, revealPatternId),
     [patternRelationships, revealPatternId],
-  );
-
-  const emphasizedNodeIds = useMemo(
-    () => emphasizedNodesForPattern(patterns, revealPatternId),
-    [patterns, revealPatternId],
   );
 
   const showPatternLinks = constellationRevealActive || visibleLayers.constellations;
@@ -107,8 +114,6 @@ function MySkyLivingSkyLayerComponent({
       patternNodes={patternNodes}
       visibleLayers={visibleLayers}
       showPatternLinks={showPatternLinks}
-      emphasizedNodeIds={emphasizedNodeIds}
-      revealActive={constellationRevealActive}
     />
   );
 }

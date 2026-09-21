@@ -133,6 +133,14 @@ export function BottomNav() {
               accessibilityLabel={tab.label}
               accessibilityState={{ selected: active }}
               onPress={() => {
+                if (tab.name === 'skywrite') {
+                  if (active) {
+                    router.replace(tab.href as never);
+                  } else {
+                    router.push(tab.href as never);
+                  }
+                  return;
+                }
                 if (active) return;
                 router.push(tab.href as never);
               }}>

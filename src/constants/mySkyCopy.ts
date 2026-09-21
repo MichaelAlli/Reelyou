@@ -11,7 +11,12 @@ export const MySkyCopy = {
   constellationsTitle: 'Patterns taking shape',
   connectionsTitle: 'Communities in your sky',
   contributionsTitle: 'Moments of contribution',
-  exploreHint: 'Tap a star to revisit a moment where a destination exists.',
+  exploreHint: 'Tap a star to sense what it might mean — possibilities emerge, then settle.',
+  starInsightOpenDetail: 'Open full detail',
+  starInsightBetaLabel: 'Beta example',
+  identityStarTitle: 'Your Identity Star',
+  identitySelfInsight:
+    'This is you within your living Sky. It reflects who you are becoming as your experiences, choices, relationships, and growth evolve.',
   skywriteDetailBack: '← My Sky',
   skywriteDetailTitle: 'Your Skywrite',
   skywriteMissingTitle: 'Moment unavailable',

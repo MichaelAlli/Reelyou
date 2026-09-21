@@ -262,6 +262,14 @@ export function SkywriteScreen() {
     await voice.togglePlayback();
   }, [draft.media.audio, voice]);
 
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(tabs)/home' as never);
+  }, [router]);
+
   const handleShare = useCallback(() => {
     if (!hasSkywriteContent(draft)) {
       setValidationHint(SkywriteCopy.emptyValidation);
@@ -308,11 +316,11 @@ export function SkywriteScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
-                onPress={() => router.back()}
+                onPress={handleBack}
                 style={styles.iconCircle}>
                 <Text style={styles.backArrow}>←</Text>
               </Pressable>
-              <View style={[styles.logoWrap, { pointerEvents: 'none' }]}>
+              <View style={styles.logoWrap} pointerEvents="none">
                 <HomeHeaderLogo />
               </View>
               <Pressable

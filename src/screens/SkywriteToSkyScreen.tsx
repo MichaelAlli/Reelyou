@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,11 +9,12 @@ import { useOnboarding } from '@/onboarding';
 export function SkywriteToSkyScreen() {
   const router = useRouter();
   const { skyArrivalHandoff, setSkyArrivalHandoff } = useOnboarding();
+  const redirectedRef = useRef(false);
 
   useEffect(() => {
-    if (!skyArrivalHandoff) {
-      router.replace('/(tabs)/sky' as never);
-    }
+    if (skyArrivalHandoff || redirectedRef.current) return;
+    redirectedRef.current = true;
+    router.replace('/(tabs)/sky' as never);
   }, [router, skyArrivalHandoff]);
 
   const handleComplete = useCallback(() => {
@@ -27,7 +28,7 @@ export function SkywriteToSkyScreen() {
   }, [router, setSkyArrivalHandoff, skyArrivalHandoff]);
 
   if (!skyArrivalHandoff) {
-    return null;
+    return <View style={styles.root} />;
   }
 
   return (

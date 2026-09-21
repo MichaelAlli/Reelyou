@@ -1,6 +1,7 @@
+/** LOCKED REELYOU CONSTELLATION VISUAL/ANIMATION SYSTEM — do not alter without explicit product approval. */
 import { memo, useMemo } from 'react';
 import Animated, { useAnimatedProps, type SharedValue } from 'react-native-reanimated';
-import Svg, { Circle, G, Line } from 'react-native-svg';
+import Svg, { Circle, Defs, FeGaussianBlur, Filter, G, Line } from 'react-native-svg';
 
 import {
   CelestialConstellationStroke,
@@ -8,10 +9,11 @@ import {
   CelestialStarBloom,
   CelestialStarGeometry,
   FourPointStar,
-  PinpointStar,
+  GlowingConstellationLink,
   PremiumStar,
   ShootingStarTrail,
 } from '@/components/celestial';
+import { MySkyDisplayStarField } from '@/components/my-sky/MySkyDisplayStarField';
 import { CelestialStarBreathMotion } from '@/constants/celestialMotion';
 import {
   MY_SKY_DISPLAY_CONSTELLATIONS,
@@ -88,35 +90,28 @@ function MySkyConstellationLayerComponent({
   const baseIntensity = Math.min(1.45, 1.05 + (vitality - 1) * 0.35);
 
   return (
-    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      {Array.from({ length: 64 }).map((_, i) => (
-        <PinpointStar
-          key={`dust-${i}`}
-          cx={(i * 53) % width}
-          cy={(i * 97) % (height * 0.88)}
-          color={CelestialPalette.warmWhite}
-          opacity={0.35 + (i % 5) * 0.08}
-          size={i % 4 === 0 ? 0.5 : 0.35}
-        />
-      ))}
+    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} pointerEvents="none">
+      <Defs>
+        <Filter id="my-sky-display-link-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <FeGaussianBlur stdDeviation="3.2" />
+        </Filter>
+      </Defs>
+      <MySkyDisplayStarField width={width} height={height} vitality={vitality} />
 
-      <AnimatedG animatedProps={linksAnimatedProps}>
+      <AnimatedG animatedProps={linksAnimatedProps} filter="url(#my-sky-display-link-glow)">
         {showDecorativeLinks
           ? MY_SKY_DISPLAY_CONSTELLATIONS.map((group) =>
               group.links.map(([a, b], linkIndex) => {
                 const p1 = toPx(group.stars[a], { w: width, h: height });
                 const p2 = toPx(group.stars[b], { w: width, h: height });
                 return (
-                  <Line
+                  <GlowingConstellationLink
                     key={`${group.id}-link-${linkIndex}`}
                     x1={p1.cx}
                     y1={p1.cy}
                     x2={p2.cx}
                     y2={p2.cy}
-                    stroke={group.color}
-                    strokeWidth={CelestialConstellationStroke.display.strokeWidth}
-                    strokeOpacity={CelestialConstellationStroke.display.strokeOpacity * 0.45}
-                    strokeLinecap="round"
+                    color={group.color}
                   />
                 );
               }),
@@ -144,36 +139,6 @@ function MySkyConstellationLayerComponent({
       </AnimatedG>
 
       <AnimatedG animatedProps={starsAnimatedProps}>
-        {MY_SKY_DISPLAY_CONSTELLATIONS.map((group) =>
-          group.stars.map((star, index) => {
-            const { cx, cy } = toPx(star, { w: width, h: height });
-            const id = `${group.id}-${index}`;
-            const sizeScale = 1 + (vitality - 1) * 0.12;
-            return index === 0 || index === group.stars.length - 1 ? (
-              <PremiumStar
-                key={id}
-                id={id}
-                cx={cx}
-                cy={cy}
-                size={star.size * sizeScale}
-                color={group.color}
-                intensity={baseIntensity}
-              />
-            ) : (
-              <FourPointStar
-                key={id}
-                id={id}
-                cx={cx}
-                cy={cy}
-                size={star.size * 0.82 * sizeScale}
-                color={group.color}
-                opacity={0.94}
-                rotation={(cx + cy) % 40}
-              />
-            );
-          }),
-        )}
-
         {userStars.map((star) => {
           if (star.id === highlightStarId) return null;
           const { cx, cy } = toPx(star, { w: width, h: height });

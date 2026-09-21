@@ -46,7 +46,7 @@ function MySkyRendererComponent({
   }, []);
 
   return (
-    <View style={styles.wrap} onLayout={onLayout}>
+    <View style={styles.wrap} onLayout={onLayout} pointerEvents="none">
       {mode === 'arrival' || animateArrival || highlightStarId ? (
         <MySkyArrivalCanvas
           stars={stars}

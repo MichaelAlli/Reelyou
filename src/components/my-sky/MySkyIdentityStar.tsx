@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Svg from 'react-native-svg';
 
-import { PremiumStar } from '@/components/celestial/CelestialStarPrimitives';
+import { ApprovedReelyouStar } from '@/components/celestial/ApprovedReelyouStar';
 import { CelestialStarGeometry } from '@/constants/celestialTokens';
 import type { MySkyStarDisplay } from '@/mySky/types';
 
@@ -40,12 +40,13 @@ function MySkyIdentityStarComponent({
       ]}>
       <View pointerEvents="none" style={styles.starWrap}>
         <Svg width={svgSize} height={svgSize}>
-          <PremiumStar
+          <ApprovedReelyouStar
             id={`identity-${star.id}`}
             cx={svgSize / 2}
             cy={svgSize / 2}
             size={baseSize * (active ? 1.06 : 1)}
             color={star.color}
+            role="focal"
             intensity={intensity}
           />
         </Svg>
@@ -65,6 +66,7 @@ const styles = StyleSheet.create({
     marginTop: -32,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 13,
   },
   hitActive: {
     transform: [{ scale: 1.03 }],

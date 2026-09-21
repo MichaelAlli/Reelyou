@@ -1,3 +1,4 @@
+/** LOCKED REELYOU STAR INTERACTION/DETAIL SYSTEM — do not refactor or alter without explicit product approval. */
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -18,7 +19,10 @@ import { MySkyVisibilityBadge } from '@/components/my-sky/MySkyVisibilityBadge';
 import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
 import { MySkyNearbySkiesLayer } from '@/components/my-sky/MySkyNearbySkiesLayer';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
+import { MySkyStarInsightBubble } from '@/components/my-sky/MySkyStarInsightBubble';
 import { MySkyCopy } from '@/constants/mySkyCopy';
+import { buildStarInsightBubble } from '@/mySky/buildStarInsightBubble';
+import type { StarNavigationTarget } from '@/mySky/resolveStarNavigation';
 import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
 import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
 import type { SkyProximityPhase } from '@/mySky/skyProximity';
@@ -159,6 +163,7 @@ function MySkyStarCanvasComponent({
         marginTop: -22,
         alignItems: 'center',
         justifyContent: 'center',
+        zIndex: 12,
       },
       hitGlow: {
         width: 20,
@@ -208,12 +213,23 @@ function MySkyStarCanvasComponent({
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [insightStar, setInsightStar] = useState<MySkyStarDisplay | null>(null);
+  const [insightOpen, setInsightOpen] = useState(false);
   const [bubbleOpen, setBubbleOpen] = useState(false);
   const [bubbleOwner, setBubbleOwner] = useState<SkyOwnerProfile | null>(null);
   const [bubbleStar, setBubbleStar] = useState<MySkyStarDisplay | null>(null);
   const [bubbleAnchor, setBubbleAnchor] = useState<NearbySkyAnchor | null>(null);
   const [missingHint, setMissingHint] = useState<string | null>(null);
-  const active = stars.find((s) => s.id === activeId);
+
+  const insightDetail = useMemo(() => {
+    if (!insightStar) return null;
+    return buildStarInsightBubble(
+      insightStar,
+      view.nodes,
+      view.patterns,
+      skywrites,
+    );
+  }, [insightStar, skywrites, view.nodes, view.patterns]);
 
   const activeBubbleOwner = bubbleOwner ?? skyOwner;
   const activeBubbleStar = bubbleStar ?? identityStar;
@@ -244,14 +260,21 @@ function MySkyStarCanvasComponent({
   const closeProfileBubble = useCallback(() => {
     setBubbleOpen(false);
     setBubbleAnchor(null);
+    if (activeId === identityStar.id) {
+      setActiveId(null);
+    }
+  }, [activeId, identityStar.id]);
+
+  const closeInsightBubble = useCallback(() => {
+    setInsightOpen(false);
+    setInsightStar(null);
+    setActiveId(null);
+    setMissingHint(null);
   }, []);
 
-  const navigateStar = useCallback(
-    (star: MySkyStarDisplay) => {
-      setActiveId(star.id);
-      setMissingHint(null);
-
-      const target = visitorMode
+  const resolveNavigationTarget = useCallback(
+    (star: MySkyStarDisplay): StarNavigationTarget => {
+      return visitorMode
         ? resolveVisitorStarNavigation(
             star,
             publicSkyNodes,
@@ -264,6 +287,25 @@ function MySkyStarCanvasComponent({
             joinedCommunityIds,
             guidanceActive,
           });
+    },
+    [
+      guidanceActive,
+      joinedCommunityIds,
+      publicSkyConnectionStatus,
+      publicSkyNodes,
+      publicSkyOwnerId,
+      skyOwner.id,
+      skywrites,
+      visitorMode,
+      visitorVisibilitySettings,
+    ],
+  );
+
+  const navigateStar = useCallback(
+    (star: MySkyStarDisplay) => {
+      setMissingHint(null);
+
+      const target = resolveNavigationTarget(star);
 
       switch (target.kind) {
         case 'skywrite-detail':
@@ -298,19 +340,36 @@ function MySkyStarCanvasComponent({
           return;
       }
     },
-    [
-      guidanceActive,
-      joinedCommunityIds,
-      publicSkyConnectionStatus,
-      publicSkyNodes,
-      publicSkyOwnerId,
-      router,
-      skyOwner.id,
-      skywrites,
-      visitorMode,
-      visitorVisibilitySettings,
-    ],
+    [resolveNavigationTarget, router, visitorMode, publicSkyOwnerId, skyOwner.id],
   );
+
+  const openInsightForStar = useCallback((star: MySkyStarDisplay) => {
+    setBubbleOpen(false);
+    setBubbleAnchor(null);
+    setActiveId(star.id);
+    setInsightStar(star);
+    setInsightOpen(true);
+    setMissingHint(null);
+  }, []);
+
+  const handleOpenInsightDetail = useCallback(() => {
+    if (!insightStar) return;
+    const star = insightStar;
+    if (star.constellationId && onPatternStarPress) {
+      closeInsightBubble();
+      onPatternStarPress(star);
+      return;
+    }
+    closeInsightBubble();
+    navigateStar(star);
+  }, [closeInsightBubble, insightStar, navigateStar, onPatternStarPress]);
+
+  const insightActionAvailable = useMemo(() => {
+    if (!insightStar) return false;
+    if (insightStar.constellationId && onPatternStarPress) return true;
+    const target = resolveNavigationTarget(insightStar);
+    return target.kind !== 'none';
+  }, [insightStar, onPatternStarPress, resolveNavigationTarget]);
 
   const handleGestureActiveChange = useCallback((active: boolean) => {
     setSkyGestureActive(active);
@@ -324,21 +383,19 @@ function MySkyStarCanvasComponent({
       if (skyGestureActive || Date.now() - lastGestureEndRef.current < 120) {
         return;
       }
-      if (star.constellationId && onPatternStarPress) {
-        onPatternStarPress(star);
-        return;
-      }
-      navigateStar(star);
+      openInsightForStar(star);
     },
-    [navigateStar, onPatternStarPress, skyGestureActive],
+    [openInsightForStar, skyGestureActive],
   );
 
   const handleOwnIdentityPress = useCallback(() => {
     if (skyGestureActive || Date.now() - lastGestureEndRef.current < 120) {
       return;
     }
+    closeInsightBubble();
+    setActiveId(identityStar.id);
     openProfileBubble(skyOwner, identityStar, null);
-  }, [identityStar, openProfileBubble, skyGestureActive, skyOwner]);
+  }, [closeInsightBubble, identityStar, openProfileBubble, skyGestureActive, skyOwner]);
 
   const handleNearbyIdentityPress = useCallback(
     (anchor: NearbySkyAnchor) => {
@@ -498,11 +555,13 @@ function MySkyStarCanvasComponent({
           }
         />
 
-        {active?.title && !missingHint ? (
-          <View style={styles.tooltip} pointerEvents="none">
-            <Text style={styles.tooltipText}>{active.title}</Text>
-          </View>
-        ) : null}
+        <MySkyStarInsightBubble
+          star={insightStar}
+          detail={insightDetail}
+          visible={insightOpen}
+          onClose={closeInsightBubble}
+          onOpenDetail={insightActionAvailable ? handleOpenInsightDetail : undefined}
+        />
 
         {immersive && !cleanSky ? (
           <View style={styles.exploreHint} pointerEvents="none">
@@ -517,8 +576,13 @@ function MySkyStarCanvasComponent({
       </>
     ),
     [
-      active?.title,
       activeBubbleOwner,
+      closeInsightBubble,
+      insightActionAvailable,
+      insightDetail,
+      insightOpen,
+      insightStar,
+      handleOpenInsightDetail,
       activeBubbleStar,
       bubbleCanJumpToSky,
       bubbleCanViewFullSky,

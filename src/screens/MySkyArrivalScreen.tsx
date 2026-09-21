@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -14,6 +14,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
 import { MySkyCanvas } from '@/components/my-sky/MySkyCanvas';
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
+import { MySkyStarInteractionOverlay } from '@/components/my-sky/MySkyStarInteractionOverlay';
 import { SkyArrivalCopy } from '@/constants/skyArrivalCopy';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
@@ -27,7 +28,21 @@ const TOAST_FADE_MS = 650;
 export function MySkyArrivalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { mySkyView, skyArrivalHandoff, clearSkyArrivalHandoff } = useOnboarding();
+  const { mySkyView, skyArrivalHandoff, clearSkyArrivalHandoff, skywrites, communities, guidingLightView } =
+    useOnboarding();
+  const [skyLayout, setSkyLayout] = useState({ width: 0, height: 0 });
+  const joinedCommunityIds = useMemo(
+    () => communities.joined.map((entry) => entry.id),
+    [communities.joined],
+  );
+  const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
+
+  const onSkyLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setSkyLayout({ width, height });
+    }
+  };
 
   const landedStarIdRef = useRef<string | null>(skyArrivalHandoff?.skyNodeId ?? null);
   const [toastMounted, setToastMounted] = useState(Boolean(skyArrivalHandoff?.justAddedToSky));
@@ -99,11 +114,22 @@ export function MySkyArrivalScreen() {
             <Text style={styles.headerSubtitle}>{SkyArrivalCopy.mySkySubtitle}</Text>
           </View>
 
-          <MySkyCanvas
-            view={{ ...mySkyView, stars }}
-            highlightStarId={highlightStarId}
-            animateArrival={!arrivalSettled}
-          />
+          <View style={styles.skyCanvasWrap} onLayout={onSkyLayout}>
+            <MySkyCanvas
+              view={{ ...mySkyView, stars }}
+              highlightStarId={highlightStarId}
+              animateArrival={!arrivalSettled}
+            />
+            <MySkyStarInteractionOverlay
+              view={{ ...mySkyView, stars }}
+              skywrites={skywrites}
+              joinedCommunityIds={joinedCommunityIds}
+              guidanceActive={guidanceActive}
+              layoutWidth={skyLayout.width}
+              layoutHeight={skyLayout.height}
+              allowTapDuringGesture
+            />
+          </View>
         </View>
 
         {toastMounted ? (
@@ -134,6 +160,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   main: {
+    flex: 1,
+  },
+  skyCanvasWrap: {
     flex: 1,
   },
   header: {

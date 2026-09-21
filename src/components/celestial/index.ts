@@ -4,6 +4,15 @@
  */
 
 export {
+  ApprovedReelyouStar,
+  approvedDisplayStarIntensities,
+  approvedDustColor,
+  ApprovedReelyouStarIntensity,
+  type ApprovedReelyouStarProps,
+  type ApprovedReelyouStarRole,
+} from '@/components/celestial/ApprovedReelyouStar';
+
+export {
   PinpointStar,
   FourPointStar,
   CompactFourPointStar,
@@ -13,6 +22,7 @@ export {
   HeroStar,
   ConstellationLine,
   ConstellationLink,
+  GlowingConstellationLink,
   MilestoneNode,
   MilestoneMarker,
   MilestoneOrb,

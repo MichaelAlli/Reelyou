@@ -13,7 +13,7 @@ export const CelestialArrivalMotion = {
   trailFadeDelayMs: 600,
   trailFadeDurationMs: 1400,
   linksRevealDurationMs: 500,
-  linksInitialOpacity: 0.68,
+  linksInitialOpacity: 1,
   linksFadeDelayMs: 1200,
   linksFadeDurationMs: 1600,
   starBreathDelayMs: 800,
@@ -21,8 +21,9 @@ export const CelestialArrivalMotion = {
 
 export const CelestialConstellationRevealMotion = {
   revealDurationMs: 600,
+  holdDelayMs: 1200,
   fadeDurationMs: 1800,
-  revealOpacity: 0.55,
+  revealOpacity: 1,
 } as const;
 
 export const CelestialShootingStarFlightMotion = {
