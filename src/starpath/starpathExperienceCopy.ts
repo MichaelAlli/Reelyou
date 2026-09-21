@@ -2,7 +2,11 @@ import type { StarPathInteractionSnapshot } from '@/starpath/starpathInteraction
 import { deriveNodeUiState } from '@/starpath/starpathInteractionLogic';
 import type { StarPathNextStepHints } from '@/starpath/starpathSiftingTypes';
 
-export function pickGuideReaction(snapshot: StarPathInteractionSnapshot): string | null {
+export function pickGuideReaction(
+  snapshot: StarPathInteractionSnapshot,
+  growthHint?: string | null,
+): string | null {
+  if (growthHint) return growthHint;
   const { signals } = snapshot;
   if (!signals.length) return null;
 
@@ -45,6 +49,9 @@ export function pickNextStepSuggestion(
   }
   if (hints?.unresolvedExplorationNodeId) {
     return { title: 'Follow a branch that feels relevant', actionLabel: 'Next small step' };
+  }
+  if (hints?.elevatedBranchId) {
+    return { title: 'Explore one possibility', actionLabel: 'Stay on path' };
   }
 
   const recent = [...snapshot.signals].sort((a, b) => b.timestamp - a.timestamp)[0];

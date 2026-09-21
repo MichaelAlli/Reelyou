@@ -58,3 +58,16 @@ export function refPointToWorldPx(
 export function worldYToRefY(worldY: number, metrics: StarPathLayoutMetrics): number {
   return (worldY - metrics.paddingTop) / metrics.contentBandHeight;
 }
+
+/** Expand scrollable world when dynamic growth extends below the reference band. */
+export function applyDynamicWorldExpansion(
+  metrics: StarPathLayoutMetrics,
+  extraBottomPx: number,
+): StarPathLayoutMetrics {
+  if (extraBottomPx <= 0) return metrics;
+  return {
+    ...metrics,
+    paddingBottom: metrics.paddingBottom + extraBottomPx,
+    worldHeight: metrics.worldHeight + extraBottomPx,
+  };
+}

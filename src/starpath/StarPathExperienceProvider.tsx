@@ -33,6 +33,16 @@ import type {
 } from '@/starpath/starpathInteractionTypes';
 import { getStarPathNodeCatalogEntry } from '@/starpath/starpathNodeCatalog';
 import { pickGuideReaction, pickNextStepSuggestion } from '@/starpath/starpathExperienceCopy';
+import { reconcileLivingWorld } from '@/starpath/starpathDynamicWorldEngine';
+import {
+  loadStarPathDynamicWorld,
+  saveStarPathDynamicWorld,
+} from '@/starpath/starpathDynamicWorldPersistence';
+import {
+  EMPTY_DYNAMIC_WORLD,
+  type StarPathDynamicWorldState,
+  type StarPathOffscreenGrowthHint,
+} from '@/starpath/starpathDynamicWorldTypes';
 import { computeStarPathSiftingState } from '@/starpath/starpathSiftingEngine';
 import type { RelevanceBand, StarPathSiftingState } from '@/starpath/starpathSiftingTypes';
 
@@ -58,6 +68,10 @@ interface StarPathExperienceContextValue {
   useDefaultSilhouette: () => void;
   siftingState: StarPathSiftingState;
   getNodeRelevanceBand: (nodeId: string) => RelevanceBand | undefined;
+  dynamicWorld: StarPathDynamicWorldState;
+  dynamicRecentlyEmergedIds: Set<string>;
+  offscreenGrowthHints: StarPathOffscreenGrowthHint[];
+  setLivingWorldViewport: (scrollY: number, viewportHeight: number, contentBandHeight: number, paddingTop: number) => void;
 }
 
 const StarPathExperienceContext = createContext<StarPathExperienceContextValue | null>(null);
@@ -73,17 +87,27 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
   const [avatarIdentity, setAvatarIdentity] = useState<UserAvatarIdentity>(DEFAULT_USER_AVATAR_IDENTITY);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const siftingRef = useRef<StarPathSiftingState | null>(null);
+  const [dynamicWorld, setDynamicWorld] = useState<StarPathDynamicWorldState>(EMPTY_DYNAMIC_WORLD);
+  const [dynamicRecentlyEmergedIds, setDynamicRecentlyEmergedIds] = useState<string[]>([]);
+  const [offscreenGrowthHints, setOffscreenGrowthHints] = useState<StarPathOffscreenGrowthHint[]>([]);
+  const [growthGuideHint, setGrowthGuideHint] = useState<string | null>(null);
+  const exploreTriggerRef = useRef<string | null>(null);
+  const [explorePulse, setExplorePulse] = useState(0);
+  const viewportRef = useRef({ scrollY: 0, viewportHeight: 852, contentBandHeight: 852, paddingTop: 0 });
+  const dynamicSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [loadedInteractions, loadedAvatar] = await Promise.all([
+      const [loadedInteractions, loadedAvatar, loadedDynamic] = await Promise.all([
         loadStarPathInteractions(),
         loadUserAvatarIdentity(),
+        loadStarPathDynamicWorld(),
       ]);
       if (!mounted) return;
       setInteractions(loadedInteractions);
       setAvatarIdentity(loadedAvatar);
+      setDynamicWorld(loadedDynamic);
       setReady(true);
     })();
     return () => {
@@ -117,6 +141,36 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
     [siftingState],
   );
 
+  const setLivingWorldViewport = useCallback(
+    (scrollY: number, viewportHeight: number, contentBandHeight: number, paddingTop: number) => {
+      viewportRef.current = { scrollY, viewportHeight, contentBandHeight, paddingTop };
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!ready) return;
+    const exploreNodeId = exploreTriggerRef.current;
+    exploreTriggerRef.current = null;
+    setDynamicWorld((prev) => {
+      const result = reconcileLivingWorld(prev, {
+        now: Date.now(),
+        sifting: siftingState,
+        signals: interactions.signals,
+        exploreTriggerNodeId: exploreNodeId,
+        ...viewportRef.current,
+      });
+      setDynamicRecentlyEmergedIds(result.recentlyEmergedIds);
+      setOffscreenGrowthHints(result.offscreenHints);
+      setGrowthGuideHint(result.growthGuideHint);
+      if (dynamicSaveTimer.current) clearTimeout(dynamicSaveTimer.current);
+      dynamicSaveTimer.current = setTimeout(() => {
+        void saveStarPathDynamicWorld(result.world);
+      }, 320);
+      return result.world;
+    });
+  }, [ready, interactions.signals, siftingState, explorePulse]);
+
   const recordInteraction = useCallback(
     (
       nodeId: string,
@@ -139,6 +193,10 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
 
         const next = { ...prev, signals, softHighlightNodeIds };
         scheduleSave(next, avatarIdentity);
+        if (type === 'explored') {
+          exploreTriggerRef.current = nodeId;
+          setExplorePulse((n) => n + 1);
+        }
         return next;
       });
     },
@@ -240,10 +298,14 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
       undoDismiss,
       softHighlightNodeIds: new Set(interactions.softHighlightNodeIds),
       activeBranchIds: new Set(siftingState.guideSummary.elevatedBranchIds),
-      guideReaction: pickGuideReaction(interactions),
+      guideReaction: pickGuideReaction(interactions, growthGuideHint),
       nextStepCopy: pickNextStepSuggestion(interactions, siftingState.nextStepHints),
       siftingState,
       getNodeRelevanceBand,
+      dynamicWorld,
+      dynamicRecentlyEmergedIds: new Set(dynamicRecentlyEmergedIds),
+      offscreenGrowthHints,
+      setLivingWorldViewport,
       avatarIdentity: resolvedAvatar,
       setProfilePhotoAvatar,
       setPresetAvatar,
@@ -254,6 +316,11 @@ export function StarPathExperienceProvider({ children }: { children: ReactNode }
       ready,
       interactions,
       siftingState,
+      growthGuideHint,
+      dynamicWorld,
+      dynamicRecentlyEmergedIds,
+      offscreenGrowthHints,
+      setLivingWorldViewport,
       getNodeRelevanceBand,
       getNodeUiState,
       recordInteraction,

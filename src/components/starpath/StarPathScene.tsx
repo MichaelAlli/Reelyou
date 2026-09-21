@@ -12,7 +12,14 @@ import { StarPathTopChrome } from '@/components/starpath/StarPathTopChrome';
 import { StarPathWorldLayer } from '@/components/starpath/StarPathWorldLayer';
 import { TabBarHeight } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
-import { createStarPathLayoutMetrics, refPointToWorldPx } from '@/starpath/starpathLayoutMetrics';
+import { StarPathDynamicGrowthLayer } from '@/components/starpath/StarPathDynamicGrowthLayer';
+import { StarPathOffscreenGrowthIndicator } from '@/components/starpath/StarPathOffscreenGrowthIndicator';
+import {
+  applyDynamicWorldExpansion,
+  createStarPathLayoutMetrics,
+  refPointToWorldPx,
+} from '@/starpath/starpathLayoutMetrics';
+import { resolveStarPathNodeEntry } from '@/starpath/starpathGrowthNodeCatalog';
 import { nodeVisualModifiers } from '@/starpath/starpathInteractionLogic';
 import { relevanceBandVisualDelta } from '@/starpath/starpathSiftingEngine';
 import { getStarPathNodeCatalogEntry } from '@/starpath/starpathNodeCatalog';
@@ -39,7 +46,10 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   const theme = useMemo(() => getStarPathTheme(visualMode), [visualMode]);
   const experience = useStarPathExperience();
 
-  const metrics = useMemo(() => createStarPathLayoutMetrics(width, height), [width, height]);
+  const metrics = useMemo(() => {
+    const base = createStarPathLayoutMetrics(width, height);
+    return applyDynamicWorldExpansion(base, experience.dynamicWorld.worldExpansionPx);
+  }, [width, height, experience.dynamicWorld.worldExpansionPx]);
   const { graph } = useStarPathWorldGraph();
   const { scrollRef, onScroll, restoreInitialViewport } = useStarPathScrollCamera(metrics, height);
 
@@ -47,6 +57,10 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
     restoreInitialViewport(false);
     setScrollY(metrics.initialScrollY);
   }, [metrics.initialScrollY, width, height, restoreInitialViewport]);
+
+  useEffect(() => {
+    experience.setLivingWorldViewport(scrollY, height, metrics.contentBandHeight, metrics.paddingTop);
+  }, [scrollY, height, metrics.contentBandHeight, metrics.paddingTop, experience]);
 
   const viewportWindow: StarPathViewportWindow = useMemo(
     () => ({ scrollY, viewportHeight: height }),
@@ -58,18 +72,29 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
     [graph.nextStepWaypoint, metrics],
   );
 
-  const detailEntry = useMemo(
-    () => (detailNodeId ? getStarPathNodeCatalogEntry(detailNodeId) : null),
-    [detailNodeId],
-  );
+  const detailEntry = useMemo(() => {
+    if (!detailNodeId) return null;
+    return (
+      getStarPathNodeCatalogEntry(detailNodeId) ??
+      resolveStarPathNodeEntry(detailNodeId, experience.dynamicWorld.nodes)
+    );
+  }, [detailNodeId, experience.dynamicWorld.nodes]);
 
-  const detailUiState = detailNodeId ? experience.getNodeUiState(detailNodeId) : 'neutral';
+  const detailUiState = useMemo(() => {
+    if (!detailNodeId) return 'neutral' as const;
+    const dynamicNode = experience.dynamicWorld.nodes.find((n) => n.id === detailNodeId);
+    return experience.getNodeUiState(dynamicNode?.sourceId ?? detailNodeId);
+  }, [detailNodeId, experience]);
 
   const onNodePress = useCallback(
     (id: string) => {
-      const entry = getStarPathNodeCatalogEntry(id);
+      const dynamicNode = experience.dynamicWorld.nodes.find((n) => n.id === id);
+      const entry =
+        getStarPathNodeCatalogEntry(id) ??
+        (dynamicNode ? resolveStarPathNodeEntry(id, experience.dynamicWorld.nodes) : undefined);
       if (!entry) return;
-      experience.recordInteraction(id, entry.branchId, 'viewed', 'node_tap');
+      const signalNodeId = dynamicNode?.sourceId ?? id;
+      experience.recordInteraction(signalNodeId, entry.branchId, 'viewed', 'node_tap');
       setDetailNodeId(id);
     },
     [experience],
@@ -131,6 +156,14 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
             activeBranchIds={experience.activeBranchIds}
             nodeInteractionProps={nodeInteractionProps}
           />
+          <StarPathDynamicGrowthLayer
+            metrics={metrics}
+            dynamicWorld={experience.dynamicWorld}
+            recentlyEmergedIds={experience.dynamicRecentlyEmergedIds}
+            activeBranchIds={experience.activeBranchIds}
+            nodeInteractionProps={nodeInteractionProps}
+            onNodePress={onNodePress}
+          />
           {!nextStepExpanded ? (
             <NextStepWaypoint
               x={nextStepWorld.x}
@@ -142,6 +175,8 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
       </ScrollView>
 
       <StarPathTopChrome />
+
+      <StarPathOffscreenGrowthIndicator hints={experience.offscreenGrowthHints} />
 
       <View style={styles.overlay} pointerEvents="box-none">
         {guideExpanded ? (
@@ -192,27 +227,37 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
         onClose={closeDetail}
         onExplore={() => {
           if (!detailEntry) return;
-          experience.recordInteraction(detailEntry.id, detailEntry.branchId, 'explored');
+          const dynamicNode = experience.dynamicWorld.nodes.find((n) => n.id === detailEntry.id);
+          const signalNodeId = dynamicNode?.sourceId ?? detailEntry.id;
+          experience.recordInteraction(signalNodeId, detailEntry.branchId, 'explored');
           closeDetail();
         }}
         onInterested={() => {
           if (!detailEntry) return;
-          experience.recordInteraction(detailEntry.id, detailEntry.branchId, 'interested');
+          const dynamicNode = experience.dynamicWorld.nodes.find((n) => n.id === detailEntry.id);
+          const signalNodeId = dynamicNode?.sourceId ?? detailEntry.id;
+          experience.recordInteraction(signalNodeId, detailEntry.branchId, 'interested');
           closeDetail();
         }}
         onDismiss={() => {
           if (!detailEntry) return;
-          experience.recordInteraction(detailEntry.id, detailEntry.branchId, 'dismissed');
+          const dynamicNode = experience.dynamicWorld.nodes.find((n) => n.id === detailEntry.id);
+          const signalNodeId = dynamicNode?.sourceId ?? detailEntry.id;
+          experience.recordInteraction(signalNodeId, detailEntry.branchId, 'dismissed');
           closeDetail();
         }}
         onSave={() => {
           if (!detailEntry) return;
-          experience.recordInteraction(detailEntry.id, detailEntry.branchId, 'saved');
+          const dynamicNode = experience.dynamicWorld.nodes.find((n) => n.id === detailEntry.id);
+          const signalNodeId = dynamicNode?.sourceId ?? detailEntry.id;
+          experience.recordInteraction(signalNodeId, detailEntry.branchId, 'saved');
           closeDetail();
         }}
         onUndoDismiss={() => {
           if (!detailEntry) return;
-          experience.undoDismiss(detailEntry.id, detailEntry.branchId);
+          const dynamicNode = experience.dynamicWorld.nodes.find((n) => n.id === detailEntry.id);
+          const signalNodeId = dynamicNode?.sourceId ?? detailEntry.id;
+          experience.undoDismiss(signalNodeId, detailEntry.branchId);
           closeDetail();
         }}
       />

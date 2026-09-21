@@ -46,7 +46,8 @@
     "web": "expo start --web --port 8090",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:sifting": "npx tsx src/starpath/starpathSiftingEngine.test.ts"
+    "test:sifting": "npx tsx src/starpath/starpathSiftingEngine.test.ts",
+    "test:living-world": "npx tsx src/starpath/starpathDynamicWorldEngine.test.ts"
   },
   "private": true
 }
