@@ -87,45 +87,8 @@ export function ImpactScreen() {
   );
 }
 
-export function ProfileScreen() {
-  const styles = useScreenStyles();
-  const router = useRouter();
-  const [tab, setTab] = useState('Lives Encouraged');
-
-  return (
-    <ScreenLayout showTabBar>
-      <ProfileHeader user={currentUser} />
-      <TabPill tabs={['Lives Encouraged', 'Orbit', 'Legacy']} activeTab={tab} onTabChange={setTab} />
-
-      {tab === 'Lives Encouraged' && (
-        <SkyPreviewCard description="Your sky — a constellation of growth and impact." stats={profileStats} />
-      )}
-
-      {tab === 'Orbit' && (
-        <>
-          <SectionHeader title="Followed Skies" action="View all" onAction={() => router.push('/orbit' as never)} />
-          <View style={styles.avatarRowWrap}>
-            {orbitUsers.map((user) => (
-              <OrbitAvatar
-                key={user.id}
-                user={user}
-                onPress={() => router.push(`/public-sky?id=${user.id}` as never)}
-              />
-            ))}
-          </View>
-        </>
-      )}
-
-      {tab === 'Legacy' && (
-        <LegacyCard
-          heroLine="The people whose lives became different because you existed."
-          subtitle="Every star represents a life you've touched."
-          onEnter={() => router.push('/legacy' as never)}
-        />
-      )}
-    </ScreenLayout>
-  );
-}
+/** @deprecated Owner tab uses OwnerProfileScreen — retained export for legacy imports. */
+export { OwnerProfileScreen as ProfileScreen } from '@/screens/OwnerProfileScreen';
 
 export function LegacyScreen() {
   const styles = useScreenStyles();

@@ -1,3 +1,3 @@
-import { ProfileScreen } from '@/screens';
+import { OwnerProfileScreen } from '@/screens/OwnerProfileScreen';
 
-export default ProfileScreen;
+export default OwnerProfileScreen;
