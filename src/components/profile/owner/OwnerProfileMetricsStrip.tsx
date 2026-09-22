@@ -8,16 +8,21 @@ import {
   OWNER_PROFILE_SECTION_GAP,
 } from '@/components/profile/owner/ownerProfileLayout';
 import { Fonts } from '@/constants/theme';
+import { OWNER_PROFILE_LEGACY_SUBTITLE } from '@/profile/profileLegacyCopy';
 import type { OwnerProfileMetrics } from '@/profile/ownerProfileTypes';
 
 interface OwnerProfileMetricsStripProps {
   metrics: OwnerProfileMetrics;
-  onLegacyPress: () => void;
+  onLegacyPress?: () => void;
+  legacyPressEnabled?: boolean;
+  legacySubtitle?: string;
 }
 
 function OwnerProfileMetricsStripComponent({
   metrics,
   onLegacyPress,
+  legacyPressEnabled = true,
+  legacySubtitle = OWNER_PROFILE_LEGACY_SUBTITLE,
 }: OwnerProfileMetricsStripProps) {
   return (
     <View style={styles.panel}>
@@ -33,19 +38,31 @@ function OwnerProfileMetricsStripComponent({
         <Text style={styles.label}>Contributions Made</Text>
       </View>
       <View style={styles.divider} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Open Legacy"
-        onPress={onLegacyPress}
-        style={({ pressed }) => [styles.column, styles.legacyColumn, pressed && styles.pressed]}>
-        <View style={styles.legacyIconWrap}>
-          <Text style={styles.legacyIcon}>✦</Text>
+      {legacyPressEnabled && onLegacyPress ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open Legacy"
+          onPress={onLegacyPress}
+          style={({ pressed }) => [styles.column, styles.legacyColumn, pressed && styles.pressed]}>
+          <View style={styles.legacyIconWrap}>
+            <Text style={styles.legacyIcon}>✦</Text>
+          </View>
+          <Text style={styles.legacyTitle}>Legacy</Text>
+          <Text style={styles.legacySubtitle} numberOfLines={2}>
+            {legacySubtitle}
+          </Text>
+        </Pressable>
+      ) : (
+        <View style={[styles.column, styles.legacyColumn]}>
+          <View style={styles.legacyIconWrap}>
+            <Text style={styles.legacyIcon}>✦</Text>
+          </View>
+          <Text style={styles.legacyTitle}>Legacy</Text>
+          <Text style={styles.legacySubtitle} numberOfLines={2}>
+            {legacySubtitle}
+          </Text>
         </View>
-        <Text style={styles.legacyTitle}>Legacy</Text>
-        <Text style={styles.legacySubtitle} numberOfLines={2}>
-          Your journey and ripple effects over time.
-        </Text>
-      </Pressable>
+      )}
     </View>
   );
 }

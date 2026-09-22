@@ -221,7 +221,7 @@ function MySkySearchSheetComponent({
   const handleViewProfile = useCallback(
     (id: string) => {
       onClose();
-      router.push(`/public-sky?id=${id}` as never);
+      router.push(`/visitor-profile?id=${id}` as never);
     },
     [onClose, router],
   );

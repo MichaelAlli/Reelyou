@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { SKYWRITE_SHOWING_UP_OPTIONS } from '@/constants/skywriteCopy';
 import { isSkywriteTextStyle } from '@/constants/skywriteTextStyles';
+import { isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import { deriveMediaMode } from '@/skywrite/draft';
 import type {
   SkywriteAudioMedia,
@@ -85,6 +86,8 @@ function parsePost(raw: unknown): SkywriteRecord | null {
 
   const textStyle = isSkywriteTextStyle(entry.textStyle) ? entry.textStyle : 'plain';
 
+  const skyAreaId = isSkyAreaCategoryId(entry.skyAreaId) ? entry.skyAreaId : undefined;
+
   return {
     id: entry.id,
     text: entry.text,
@@ -95,6 +98,7 @@ function parsePost(raw: unknown): SkywriteRecord | null {
     mood: isMood(entry.mood) ? entry.mood : null,
     showingUp,
     userHashtags,
+    skyAreaId,
     animateToSky: entry.animateToSky !== false,
     allowAIContext: entry.allowAIContext !== false,
     createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),

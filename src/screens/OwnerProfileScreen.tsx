@@ -47,7 +47,7 @@ export function OwnerProfileScreen() {
         <OwnerProfileHero identity={ownerView.identity} />
         <OwnerProfileMetricsStrip metrics={ownerView.metrics} onLegacyPress={handleLegacy} />
         <OwnerProfileMySkyPreviewCard view={mySkyView} />
-        <OwnerProfileSkywritingsCard previews={ownerView.skywritingPreviews} />
+        <OwnerProfileSkywritingsCard section={ownerView.skywritings} />
       </ScrollView>
     </View>
   );

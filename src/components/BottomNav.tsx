@@ -121,6 +121,14 @@ export function BottomNav() {
         pathname.startsWith('/skywrite-to-sky')
       );
     }
+    if (tab.name === 'me') {
+      return (
+        pathname === '/profile' ||
+        pathname.endsWith('/profile') ||
+        pathname === '/visitor-profile' ||
+        pathname.endsWith('/visitor-profile')
+      );
+    }
     return pathname === `/${segment}` || pathname.endsWith(`/${segment}`);
   };
 

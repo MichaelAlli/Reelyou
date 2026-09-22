@@ -1,4 +1,5 @@
 import { SkywriteCopy } from '@/constants/skywriteCopy';
+import { resolveSkywriteSkyAreaId } from '@/skyAreas/resolveSkywriteSkyAreaId';
 import type { SkywriteDraft, SkywriteMedia, SkywriteMediaMode, SkywriteRecord } from '@/skywrite/types';
 import { EMPTY_SKYWRITE_MEDIA } from '@/skywrite/types';
 
@@ -86,7 +87,7 @@ export function buildSkywriteRecord(
   createdAt: string,
 ): SkywriteRecord {
   const text = draft.text.trim();
-  return {
+  const base = {
     id,
     text,
     textStyle: draft.textStyle ?? 'plain',
@@ -102,5 +103,10 @@ export function buildSkywriteRecord(
     animateToSky: draft.animateToSky ?? true,
     allowAIContext: draft.allowAIContext ?? true,
     createdAt,
+  } satisfies Omit<SkywriteRecord, 'skyAreaId'>;
+
+  return {
+    ...base,
+    skyAreaId: draft.skyAreaId ?? resolveSkywriteSkyAreaId({ ...base, skyAreaId: draft.skyAreaId }),
   };
 }

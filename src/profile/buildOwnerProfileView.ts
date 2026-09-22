@@ -1,36 +1,10 @@
-import { currentUser, impactMetrics, profileStats, skywriteTags } from '@/data/mockData';
+import { currentUser, impactMetrics, profileStats } from '@/data/mockData';
 import type { SkywriteRecord } from '@/skywrite/types';
 
-import type {
-  OwnerProfileSkywritingPreview,
-  OwnerProfileView,
-} from '@/profile/ownerProfileTypes';
-
-const PREVIEW_TONES: OwnerProfileSkywritingPreview['tone'][] = [
-  'briefcase',
-  'leaf',
-  'creative',
-  'community',
-];
-
-function buildSkywritingPreviews(
-  skywrites: SkywriteRecord[],
-  tags: string[],
-): OwnerProfileSkywritingPreview[] {
-  const fromPosts = skywrites.slice(0, 4).map((entry, index) => ({
-    id: entry.id,
-    label: entry.text?.slice(0, 28).trim() || 'Reflection',
-    tone: PREVIEW_TONES[index % PREVIEW_TONES.length],
-  }));
-
-  if (fromPosts.length >= 3) return fromPosts;
-
-  return tags.slice(0, 4).map((label, index) => ({
-    id: `tag-${label}`,
-    label,
-    tone: PREVIEW_TONES[index % PREVIEW_TONES.length],
-  }));
-}
+import { buildProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
+import type { OwnerProfileView } from '@/profile/ownerProfileTypes';
+import { filterProfileSkywritingItems } from '@/profile/buildProfileSkywritingsSection';
+import { SKY_AREA_TAB_ALL } from '@/skyAreas/skyAreaCategory';
 
 export function buildOwnerProfileView(input: {
   skywrites: SkywriteRecord[];
@@ -47,6 +21,16 @@ export function buildOwnerProfileView(input: {
     currentUser.bio ||
     'I’m building businesses and communities that help people become their best selves.';
 
+  const skywritings = buildProfileSkywritingsSection({
+    skywrites: input.skywrites,
+    viewerMode: 'owner',
+  });
+
+  const skywritingPreviews = filterProfileSkywritingItems(
+    skywritings.items,
+    SKY_AREA_TAB_ALL,
+  ).slice(0, 4);
+
   return {
     identity: {
       id: currentUser.id,
@@ -61,6 +45,7 @@ export function buildOwnerProfileView(input: {
       livesImpacted: profileStats.livesEncouraged ?? impactMetrics.livesEncouraged,
       contributionsMade: profileStats.contributionsMade ?? impactMetrics.contributionsMade,
     },
-    skywritingPreviews: buildSkywritingPreviews(input.skywrites, skywriteTags),
+    skywritingPreviews,
+    skywritings,
   };
 }

@@ -50,6 +50,11 @@ import { loadStarPathResourceState } from '@/starpath/starpathResourcePersistenc
 import type { StarPathResourceState } from '@/starpath/starpathOpportunityTypes';
 import { EMPTY_RESOURCE_STATE } from '@/starpath/starpathOpportunityTypes';
 import { personalizeAroundYourSkyFeed } from '@/social/aroundYourSky/personalizeHomeFeed';
+import {
+  loadFollowedSkyUserIds,
+  saveFollowedSkyUserIds,
+} from '@/social/skyFollow/skyFollowPersistence';
+import { isFollowingSky } from '@/social/skyFollow/resolveVisitorSkyConnection';
 
 interface ReelyouConnectContextValue {
   ready: boolean;
@@ -78,6 +83,11 @@ interface ReelyouConnectContextValue {
   getThreadMessages: (threadId: string) => ReturnType<typeof threadMessages>;
   canMessageUser: (userId: string) => boolean;
   connectedUserIds: string[];
+  followedSkyUserIds: string[];
+  isFollowingSkyUser: (userId: string) => boolean;
+  followSky: (userId: string) => void;
+  unfollowSky: (userId: string) => void;
+  toggleFollowSky: (userId: string) => void;
   searchableUsers: typeof orbitUsers;
 }
 
@@ -99,7 +109,9 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   });
   const [signalsMeta, setSignalsMeta] = useState<ReelyouSignalsMetaState>(EMPTY_SIGNALS_META);
   const [starpathResources, setStarpathResources] = useState<StarPathResourceState>(EMPTY_RESOURCE_STATE);
+  const [followedSkyUserIds, setFollowedSkyUserIds] = useState<string[]>([]);
   const prefTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const followTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const msgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -108,17 +120,19 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      const [prefs, msgs, meta, resources] = await Promise.all([
+      const [prefs, msgs, meta, resources, followed] = await Promise.all([
         loadUserPreferences(),
         loadMessagesState(),
         loadReelyouSignalsMeta(),
         loadStarPathResourceState(),
+        loadFollowedSkyUserIds(),
       ]);
       if (!mounted) return;
       setPreferences(prefs);
       setMessages(msgs);
       setSignalsMeta(meta);
       setStarpathResources(resources);
+      setFollowedSkyUserIds(followed);
       setReady(true);
     })();
     return () => {
@@ -148,6 +162,53 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
     if (metaTimer.current) clearTimeout(metaTimer.current);
     metaTimer.current = setTimeout(() => void saveReelyouSignalsMeta(next), 280);
   }, []);
+
+  const scheduleFollowSave = useCallback((next: string[]) => {
+    if (followTimer.current) clearTimeout(followTimer.current);
+    followTimer.current = setTimeout(() => void saveFollowedSkyUserIds(next), 280);
+  }, []);
+
+  const followSky = useCallback(
+    (userId: string) => {
+      setFollowedSkyUserIds((prev) => {
+        if (prev.includes(userId)) return prev;
+        const next = [...prev, userId];
+        scheduleFollowSave(next);
+        return next;
+      });
+    },
+    [scheduleFollowSave],
+  );
+
+  const unfollowSky = useCallback(
+    (userId: string) => {
+      setFollowedSkyUserIds((prev) => {
+        if (!prev.includes(userId)) return prev;
+        const next = prev.filter((id) => id !== userId);
+        scheduleFollowSave(next);
+        return next;
+      });
+    },
+    [scheduleFollowSave],
+  );
+
+  const toggleFollowSky = useCallback(
+    (userId: string) => {
+      setFollowedSkyUserIds((prev) => {
+        const next = prev.includes(userId)
+          ? prev.filter((id) => id !== userId)
+          : [...prev, userId];
+        scheduleFollowSave(next);
+        return next;
+      });
+    },
+    [scheduleFollowSave],
+  );
+
+  const isFollowingSkyUser = useCallback(
+    (userId: string) => isFollowingSky(userId, followedSkyUserIds),
+    [followedSkyUserIds],
+  );
 
   const updatePreferences = useCallback(
     (patch: UserPreferencesUpdate) => {
@@ -406,6 +467,11 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       getThreadMessages,
       canMessageUser,
       connectedUserIds,
+      followedSkyUserIds,
+      isFollowingSkyUser,
+      followSky,
+      unfollowSky,
+      toggleFollowSky,
       searchableUsers: orbitUsers,
     }),
     [
@@ -431,6 +497,11 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       getThreadMessages,
       canMessageUser,
       connectedUserIds,
+      followedSkyUserIds,
+      isFollowingSkyUser,
+      followSky,
+      unfollowSky,
+      toggleFollowSky,
     ],
   );
 

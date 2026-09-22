@@ -489,7 +489,7 @@ function MySkyStarCanvasComponent({
       return;
     }
     if (!visitorMode) {
-      router.push(`/public-sky?id=${activeBubbleOwner.id}` as never);
+      router.push(`/visitor-profile?id=${activeBubbleOwner.id}` as never);
     }
   }, [activeBubbleOwner.isSelf, activeBubbleOwner.id, router, visitorMode]);
 

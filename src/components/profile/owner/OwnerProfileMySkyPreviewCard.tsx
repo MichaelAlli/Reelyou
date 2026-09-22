@@ -14,9 +14,14 @@ import type { MySkyView } from '@/mySky/types';
 
 interface OwnerProfileMySkyPreviewCardProps {
   view: MySkyView;
+  /** Visitor handoff — defaults to owner My Sky tab. */
+  viewFullSkyHref?: string;
 }
 
-function OwnerProfileMySkyPreviewCardComponent({ view }: OwnerProfileMySkyPreviewCardProps) {
+function OwnerProfileMySkyPreviewCardComponent({
+  view,
+  viewFullSkyHref,
+}: OwnerProfileMySkyPreviewCardProps) {
   const router = useRouter();
 
   return (
@@ -29,7 +34,9 @@ function OwnerProfileMySkyPreviewCardComponent({ view }: OwnerProfileMySkyPrevie
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="View full My Sky"
-          onPress={() => router.push('/(tabs)/sky' as never)}>
+          onPress={() =>
+            router.push((viewFullSkyHref ?? '/(tabs)/sky') as never)
+          }>
           <Text style={styles.link}>View Full Sky →</Text>
         </Pressable>
       </View>

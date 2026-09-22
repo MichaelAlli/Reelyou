@@ -65,6 +65,7 @@ function PostWelcomeStack() {
         <Stack.Screen name="today-focus-reflection" options={{ presentation: 'modal' }} />
         <Stack.Screen name="companion" options={{ presentation: 'modal' }} />
         <Stack.Screen name="process" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="visitor-profile" options={{ animation: 'fade' }} />
       </Stack>
     </>
   );

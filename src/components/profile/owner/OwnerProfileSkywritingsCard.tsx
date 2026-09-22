@@ -1,11 +1,6 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { memo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import {
-  HomeGrowingInPillIcon,
-  type GrowingInPillIconType,
-} from '@/components/home/HomeGrowingInPillIcon';
 import {
   OWNER_PROFILE_CARD_RADIUS,
   OWNER_PROFILE_HORIZONTAL_INSET,
@@ -13,48 +8,16 @@ import {
   OWNER_PROFILE_SECTION_GAP,
 } from '@/components/profile/owner/ownerProfileLayout';
 import { Fonts } from '@/constants/theme';
-import type { OwnerProfileSkywritingPreview } from '@/profile/ownerProfileTypes';
-
-const PILL_THEMES: Record<
-  OwnerProfileSkywritingPreview['tone'],
-  {
-    icon: GrowingInPillIconType;
-    iconColor: string;
-    gradient: [string, string, string];
-    border: string;
-  }
-> = {
-  briefcase: {
-    icon: 'briefcase',
-    iconColor: '#C4B5FD',
-    gradient: ['rgba(62, 42, 108, 0.92)', 'rgba(48, 32, 88, 0.88)', 'rgba(36, 24, 68, 0.94)'],
-    border: 'rgba(167, 139, 250, 0.38)',
-  },
-  leaf: {
-    icon: 'leaf',
-    iconColor: '#F5E6B8',
-    gradient: ['rgba(108, 78, 38, 0.9)', 'rgba(88, 62, 28, 0.88)', 'rgba(68, 48, 22, 0.92)'],
-    border: 'rgba(232, 200, 114, 0.36)',
-  },
-  creative: {
-    icon: 'creative',
-    iconColor: '#7EECD8',
-    gradient: ['rgba(28, 72, 62, 0.92)', 'rgba(22, 58, 50, 0.9)', 'rgba(16, 44, 38, 0.94)'],
-    border: 'rgba(94, 234, 212, 0.32)',
-  },
-  community: {
-    icon: 'community',
-    iconColor: '#D8C4FF',
-    gradient: ['rgba(68, 44, 102, 0.92)', 'rgba(52, 34, 82, 0.9)', 'rgba(40, 26, 64, 0.94)'],
-    border: 'rgba(196, 168, 255, 0.34)',
-  },
-};
+import type { ProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
+import { SKY_AREA_TAB_ALL, type SkyAreaTabId } from '@/skyAreas/skyAreaCategory';
 
 interface OwnerProfileSkywritingsCardProps {
-  previews: OwnerProfileSkywritingPreview[];
+  section: ProfileSkywritingsSection;
 }
 
-function OwnerProfileSkywritingsCardComponent({ previews }: OwnerProfileSkywritingsCardProps) {
+function OwnerProfileSkywritingsCardComponent({ section }: OwnerProfileSkywritingsCardProps) {
+  const [selectedTabId, setSelectedTabId] = useState<SkyAreaTabId>(SKY_AREA_TAB_ALL);
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -64,24 +27,22 @@ function OwnerProfileSkywritingsCardComponent({ previews }: OwnerProfileSkywriti
         </View>
         <Text style={styles.chevron}>⌄</Text>
       </View>
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.pillRow}>
-        {previews.map((preview) => {
-          const theme = PILL_THEMES[preview.tone];
+        contentContainerStyle={styles.tabRow}>
+        {section.tabs.map((tab) => {
+          const active = tab.id === selectedTabId;
           return (
-            <LinearGradient
-              key={preview.id}
-              colors={theme.gradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.pill, { borderColor: theme.border }]}>
-              <HomeGrowingInPillIcon type={theme.icon} color={theme.iconColor} size={14} />
-              <Text style={styles.pillLabel} numberOfLines={1}>
-                {preview.label}
-              </Text>
-            </LinearGradient>
+            <Pressable
+              key={tab.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              onPress={() => setSelectedTabId(tab.id)}
+              style={[styles.tab, active && styles.tabActive]}>
+              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
+            </Pressable>
           );
         })}
       </ScrollView>
@@ -99,7 +60,7 @@ const styles = StyleSheet.create({
     borderRadius: OWNER_PROFILE_CARD_RADIUS,
     paddingHorizontal: 14,
     paddingTop: 11,
-    paddingBottom: 10,
+    paddingBottom: 8,
     backgroundColor: 'rgba(10, 14, 34, 0.82)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: OWNER_PROFILE_PANEL_BORDER,
@@ -131,26 +92,34 @@ const styles = StyleSheet.create({
     color: 'rgba(248, 244, 236, 0.55)',
     marginTop: 2,
   },
-  pillRow: {
+  tabRow: {
     gap: 7,
-    paddingRight: 2,
     paddingBottom: 0,
+    paddingRight: 2,
   },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
+  tab: {
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 7,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    maxWidth: 168,
+    borderColor: 'rgba(167, 139, 250, 0.22)',
+    backgroundColor: 'rgba(8, 12, 28, 0.55)',
   },
-  pillLabel: {
+  tabActive: {
+    borderColor: 'rgba(232, 200, 114, 0.48)',
+    backgroundColor: 'rgba(232, 200, 114, 0.16)',
+    shadowColor: '#E8C872',
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  tabLabel: {
     fontFamily: Fonts.sans,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
+    color: 'rgba(248, 244, 236, 0.68)',
+  },
+  tabLabelActive: {
     color: '#FFF8F0',
-    flexShrink: 1,
   },
 });

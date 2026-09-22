@@ -1,3 +1,5 @@
+import type { ProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
+
 /** Canonical owner/public profile view model — single source for identity + metrics previews. */
 export interface OwnerProfileIdentity {
   id: string;
@@ -23,5 +25,7 @@ export interface OwnerProfileSkywritingPreview {
 export interface OwnerProfileView {
   identity: OwnerProfileIdentity;
   metrics: OwnerProfileMetrics;
+  /** @deprecated use skywritings — retained for transitional imports */
   skywritingPreviews: OwnerProfileSkywritingPreview[];
+  skywritings: ProfileSkywritingsSection;
 }

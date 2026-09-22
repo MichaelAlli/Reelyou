@@ -1,5 +1,6 @@
 import type { SkywriteShowingUpId } from '@/constants/skywriteCopy';
 import type { SkywriteTextStyleId } from '@/constants/skywriteTextStyles';
+import type { SkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import type { Mood, Privacy } from '@/types';
 
 export type SkywriteMediaMode = 'text' | 'photo' | 'voice' | 'photo_voiceover';
@@ -37,6 +38,8 @@ export interface SkywriteRecord {
   animateToSky: boolean;
   /** Per-Skywrite consent for AI personalization signals. */
   allowAIContext: boolean;
+  /** Canonical Where You Live / beacon / profile category id. */
+  skyAreaId?: SkyAreaCategoryId;
   createdAt: string;
 }
 
@@ -50,6 +53,7 @@ export interface SkywriteDraft {
   userHashtags: string[];
   animateToSky?: boolean;
   allowAIContext?: boolean;
+  skyAreaId?: SkyAreaCategoryId;
 }
 
 export interface SkywritesState {

@@ -11,10 +11,8 @@ import {
   type ConstellationDetailView,
 } from '@/mySky/buildConstellationDetailView';
 import { findPatternForNodeId } from '@/mySky/buildConstellationIntelligence';
-import {
-  buildPublicSkyView,
-  resolvePublicSkyConnectionStatus,
-} from '@/mySky/buildPublicSkyView';
+import { buildPublicSkyView } from '@/mySky/buildPublicSkyView';
+import { resolveVisitorSkyConnectionStatus } from '@/social/skyFollow/resolveVisitorSkyConnection';
 import { DEFAULT_MY_SKY_VIEWPORT, type MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
 import { resolvePublicSkyVisitorContext } from '@/mySky/resolvePublicSkyContext';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
@@ -29,7 +27,8 @@ interface PublicSkyScreenProps {
 export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
   const router = useRouter();
   const { aroundYourSkyFeed, communities } = useOnboarding();
-  const { canMessageUser, openOrCreateThreadWith } = useReelyouConnect();
+  const { canMessageUser, openOrCreateThreadWith, followedSkyUserIds, toggleFollowSky } =
+    useReelyouConnect();
   const [viewport, setViewport] = useState<MySkyViewportSnapshot>({ ...DEFAULT_MY_SKY_VIEWPORT });
   const [constellationDetailVisible, setConstellationDetailVisible] = useState(false);
   const [constellationDetail, setConstellationDetail] = useState<ConstellationDetailView | null>(
@@ -48,8 +47,11 @@ export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
   );
 
   const connectionStatus = useMemo(
-    () => (userId ? resolvePublicSkyConnectionStatus(userId, connectedActorIds) : 'none'),
-    [connectedActorIds, userId],
+    () =>
+      userId
+        ? resolveVisitorSkyConnectionStatus(userId, connectedActorIds, followedSkyUserIds)
+        : 'none',
+    [connectedActorIds, followedSkyUserIds, userId],
   );
 
   const publicSkyView = useMemo(() => {
@@ -81,8 +83,9 @@ export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
   }, [router]);
 
   const handleConnect = useCallback(() => {
-    // Stub — existing connection infrastructure hook point.
-  }, []);
+    if (!userId) return;
+    toggleFollowSky(userId);
+  }, [toggleFollowSky, userId]);
 
   const handleMessage = useCallback(() => {
     if (!userId || !canMessageUser(userId)) return;

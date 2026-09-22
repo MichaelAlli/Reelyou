@@ -189,7 +189,7 @@ export function useMySkyStarInteraction({
     if (skyOwner.isSelf) {
       router.push('/(tabs)/profile' as never);
     } else if (!visitorMode) {
-      router.push(`/public-sky?id=${skyOwner.id}` as never);
+      router.push(`/visitor-profile?id=${skyOwner.id}` as never);
     }
   }, [router, skyOwner.id, skyOwner.isSelf, visitorMode]);
 
