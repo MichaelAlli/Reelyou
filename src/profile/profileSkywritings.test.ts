@@ -21,19 +21,20 @@ function testNoExtraTabsFromData() {
   assert(section.tabs.length === 4, 'four tabs only');
 }
 
-function testVisitorBetaTabs() {
+function testVisitorPrivacyTabs() {
   const view = buildVisitorProfileView({
     ownerId: 'orbit-jordan',
     connectionStatus: 'none',
   });
   assert(view !== null, 'visitor view');
-  assert(view!.skywritings.tabs.length === 4, 'visitor beta tabs');
+  const labels = view!.skywritings.tabs.map((tab) => tab.label).join('|');
+  assert(labels === 'All|Growth|Purpose', 'visitor tabs from visible content only');
 }
 
 function run() {
   testBetaTabsOnly();
   testNoExtraTabsFromData();
-  testVisitorBetaTabs();
+  testVisitorPrivacyTabs();
   console.log('profileSkywritings.test.ts — all cases passed');
 }
 

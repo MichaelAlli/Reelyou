@@ -54,7 +54,8 @@
     "test:connect": "npx tsx src/connect/connectSystem.test.ts",
     "test:spatial-focus": "npx tsx src/spatialFocus/spatialFocusNavigator.test.ts",
     "test:visitor-profile": "npx tsx src/profile/visitorProfile.test.ts",
-    "test:profile-skywritings": "npx tsx src/profile/profileSkywritings.test.ts"
+    "test:profile-skywritings": "npx tsx src/profile/profileSkywritings.test.ts",
+    "test:visitor-profile-privacy": "npx tsx src/profile/visitorProfilePrivacy.test.ts"
   },
   "private": true
 }

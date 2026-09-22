@@ -26,6 +26,7 @@ import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { buildVisitorProfileView } from '@/profile/buildVisitorProfileView';
 import { VISITOR_PROFILE_LEGACY_SUBTITLE } from '@/profile/profileLegacyCopy';
 import { profileOwnerCelestialBackground } from '@/profile/profileOwnerAssets';
+import { isVisitorProfileBlocked } from '@/profile/resolveVisitorProfilePrivacy';
 import { resolveVisitorSkyConnectionStatus } from '@/social/skyFollow/resolveVisitorSkyConnection';
 import { useOnboarding } from '@/onboarding';
 
@@ -72,7 +73,7 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
     return buildPublicSkyView(ownerId, connectionStatus);
   }, [connectionStatus, ownerId, visitorView?.showSkyPreview]);
 
-  const isBlocked = ownerId ? messages.blockedUserIds.includes(ownerId) : false;
+  const isBlocked = ownerId ? isVisitorProfileBlocked(ownerId, messages.blockedUserIds) : false;
   const isFollowing = ownerId ? isFollowingSkyUser(ownerId) : false;
   const canMessage = ownerId ? canMessageUser(ownerId) && !isBlocked : false;
 
@@ -105,7 +106,7 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
     return null;
   }
 
-  if (!ownerId || !visitorView) {
+  if (!ownerId || !visitorView || isBlocked) {
     return (
       <View style={styles.root}>
         <ImageBackground
@@ -140,14 +141,12 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
           showsVerticalScrollIndicator={false}>
           <OwnerProfileTopChrome variant="visitor" onBack={handleBack} />
           <OwnerProfileHero identity={visitorView.identity} />
-          {!isBlocked ? (
-            <OwnerProfileVisitorActionRow
-              isFollowing={isFollowing}
-              canMessage={canMessage}
-              onFollowPress={handleFollow}
-              onMessagePress={handleMessage}
-            />
-          ) : null}
+          <OwnerProfileVisitorActionRow
+            isFollowing={isFollowing}
+            canMessage={canMessage}
+            onFollowPress={handleFollow}
+            onMessagePress={handleMessage}
+          />
           <OwnerProfileMetricsStrip
             metrics={visitorView.metrics}
             legacyPressEnabled={false}

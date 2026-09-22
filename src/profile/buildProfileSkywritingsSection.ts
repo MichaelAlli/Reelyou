@@ -9,6 +9,7 @@ import { resolveSkywriteSkyAreaId } from '@/skyAreas/resolveSkywriteSkyAreaId';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 import { filterVisitorVisibleSkywrites } from '@/profile/buildSkywritingPreviews';
+import { buildVisitorSkywritingTabsFromVisibleItems } from '@/profile/resolveVisitorProfilePrivacy';
 import type { OwnerProfileSkywritingPreview } from '@/profile/ownerProfileTypes';
 
 export type ProfileSkywritingTone = OwnerProfileSkywritingPreview['tone'];
@@ -81,7 +82,10 @@ export function buildProfileSkywritingsSection(input: {
       : filterVisitorVisibleSkywrites(input.skywrites, Boolean(input.isConnected));
 
   const items = eligible.map(recordToItem);
-  const tabs = buildProfileBetaSkywritingTabs();
+  const tabs =
+    input.viewerMode === 'visitor'
+      ? buildVisitorSkywritingTabsFromVisibleItems(items)
+      : buildProfileBetaSkywritingTabs();
 
   return {
     tabs,
