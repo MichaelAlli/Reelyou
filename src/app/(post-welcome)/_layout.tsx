@@ -7,6 +7,7 @@ import { ReelyouMotion } from '@/constants/animation';
 import { ONBOARDING_SHARED_BACKGROUND } from '@/constants/onboardingAssets';
 import { ReelyouConnectProvider } from '@/connect/ReelyouConnectProvider';
 import { OnboardingProvider } from '@/onboarding';
+import { SkyAreaPreferencesProvider } from '@/skyAreas/SkyAreaPreferencesProvider';
 import { ThemeProvider, useTheme } from '@/theme';
 import { Asset } from 'expo-asset';
 
@@ -75,9 +76,11 @@ export default function PostWelcomeLayout() {
   return (
     <ThemeProvider>
       <OnboardingProvider>
-        <ReelyouConnectProvider>
-          <PostWelcomeStack />
-        </ReelyouConnectProvider>
+        <SkyAreaPreferencesProvider>
+          <ReelyouConnectProvider>
+            <PostWelcomeStack />
+          </ReelyouConnectProvider>
+        </SkyAreaPreferencesProvider>
       </OnboardingProvider>
     </ThemeProvider>
   );

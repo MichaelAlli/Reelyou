@@ -22,6 +22,7 @@ export function resolveSkywriteSkyAreaId(record: SkywriteRecord): SkyAreaCategor
     'purpose',
     'creativity',
     'career',
+    'entrepreneurship',
     'health',
     'faith-meaning',
     'learning',

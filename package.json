@@ -55,7 +55,8 @@
     "test:spatial-focus": "npx tsx src/spatialFocus/spatialFocusNavigator.test.ts",
     "test:visitor-profile": "npx tsx src/profile/visitorProfile.test.ts",
     "test:profile-skywritings": "npx tsx src/profile/profileSkywritings.test.ts",
-    "test:visitor-profile-privacy": "npx tsx src/profile/visitorProfilePrivacy.test.ts"
+    "test:visitor-profile-privacy": "npx tsx src/profile/visitorProfilePrivacy.test.ts",
+    "test:sky-area-preferences": "npx tsx src/skyAreas/skyAreaPreferences.test.ts"
   },
   "private": true
 }

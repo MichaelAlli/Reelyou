@@ -6,6 +6,7 @@ export type SkyAreaCategoryId =
   | 'purpose'
   | 'relationships'
   | 'career'
+  | 'entrepreneurship'
   | 'creativity'
   | 'health'
   | 'faith-meaning'
@@ -38,6 +39,12 @@ export const SKY_AREA_CATEGORIES: readonly SkyAreaCategory[] = [
   { id: 'purpose', label: 'Purpose', pillIcon: 'community', sortOrder: 20 },
   { id: 'relationships', label: 'Relationships', pillIcon: 'community', sortOrder: 30 },
   { id: 'career', label: 'Career', pillIcon: 'briefcase', sortOrder: 40 },
+  {
+    id: 'entrepreneurship',
+    label: 'Entrepreneurship',
+    pillIcon: 'briefcase',
+    sortOrder: 45,
+  },
   { id: 'creativity', label: 'Creativity', pillIcon: 'creative', sortOrder: 50 },
   { id: 'health', label: 'Health', pillIcon: 'leaf', sortOrder: 60 },
   { id: 'faith-meaning', label: 'Faith / Meaning', pillIcon: 'community', sortOrder: 70 },
@@ -65,7 +72,7 @@ const TAG_TO_AREA: Record<string, SkyAreaCategoryId> = {
   relationships: 'relationships',
   relationship: 'relationships',
   career: 'career',
-  entrepreneurship: 'career',
+  entrepreneurship: 'entrepreneurship',
   creativity: 'creativity',
   creative: 'creativity',
   health: 'health',

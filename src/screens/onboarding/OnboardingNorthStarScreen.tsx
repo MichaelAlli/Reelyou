@@ -121,7 +121,7 @@ export function OnboardingNorthStarScreen() {
 
       setTimeout(() => {
         setIsSubmitting(false);
-        router.replace('/process' as never);
+        router.replace('/onboarding/where-you-live' as never);
       }, 300);
     },
     [hasRequiredVision, markStep, router],

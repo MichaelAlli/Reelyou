@@ -91,6 +91,10 @@ export function SettingsHubScreen() {
             label="Personalization preferences"
             onPress={() => router.push('/settings/personalization' as never)}
           />
+          <LinkRow
+            label="Where I Live in the Sky"
+            onPress={() => router.push('/settings/where-you-live' as never)}
+          />
         </Section>
 
         <Section title="Theme">
