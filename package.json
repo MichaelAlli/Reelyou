@@ -58,7 +58,11 @@
     "test:visitor-profile-privacy": "npx tsx src/profile/visitorProfilePrivacy.test.ts",
     "test:sky-area-preferences": "npx tsx src/skyAreas/skyAreaPreferences.test.ts",
     "test:skywrite-beacon": "npx tsx src/skywrite/beacon/skywriteBeacon.test.ts",
-    "test:beacon-lifecycle": "npx tsx src/skywrite/beacon/beaconLifecycle.test.ts"
+    "test:beacon-lifecycle": "npx tsx src/skywrite/beacon/beaconLifecycle.test.ts",
+    "test:saved-threads": "npx tsx src/skywrite/savedThreads/savedThreadLogic.test.ts",
+    "test:human-potential-evidence": "npx tsx src/humanPotential/humanPotentialEvidenceLogic.test.ts",
+    "test:human-potential-metrics": "npx tsx src/humanPotential/humanPotentialMetricsEngine.test.ts",
+    "test:skywrite-lifecycle": "npx tsx src/skywrite/lifecycle/skywriteContentLifecycle.test.ts"
   },
   "private": true
 }

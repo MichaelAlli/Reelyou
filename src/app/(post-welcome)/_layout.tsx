@@ -10,6 +10,8 @@ import { OnboardingProvider } from '@/onboarding';
 import { SkyAreaPreferencesProvider } from '@/skyAreas/SkyAreaPreferencesProvider';
 import { SkywriteBeaconProvider } from '@/skywrite/beacon/SkywriteBeaconProvider';
 import { SkywriteLibraryProvider } from '@/skywrite/library/SkywriteLibraryProvider';
+import { HumanPotentialMetricsProvider } from '@/humanPotential/HumanPotentialMetricsProvider';
+import { SavedThreadsProvider } from '@/skywrite/savedThreads/SavedThreadsProvider';
 import { SkywriteThreadProvider } from '@/skywrite/threads/SkywriteThreadProvider';
 import { ThemeProvider, useTheme } from '@/theme';
 import { Asset } from 'expo-asset';
@@ -62,6 +64,14 @@ function PostWelcomeStack() {
               : { presentation: 'modal' }
           }
         />
+        <Stack.Screen
+          name="skywrite/saved/[savedThreadId]"
+          options={
+            Platform.OS === 'web'
+              ? { presentation: 'card', animation: 'fade' }
+              : { presentation: 'modal' }
+          }
+        />
         <Stack.Screen name="my-sky-star/[id]" options={{ presentation: 'modal' }} />
         <Stack.Screen name="skywrite-to-sky" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="my-sky-arrival" options={{ animation: 'fade' }} />
@@ -83,9 +93,13 @@ export default function PostWelcomeLayout() {
           <SkywriteLibraryProvider>
             <SkywriteBeaconProvider>
               <SkywriteThreadProvider>
-                <ReelyouConnectProvider>
-                  <PostWelcomeStack />
-                </ReelyouConnectProvider>
+                <SavedThreadsProvider>
+                  <HumanPotentialMetricsProvider>
+                    <ReelyouConnectProvider>
+                      <PostWelcomeStack />
+                    </ReelyouConnectProvider>
+                  </HumanPotentialMetricsProvider>
+                </SavedThreadsProvider>
               </SkywriteThreadProvider>
             </SkywriteBeaconProvider>
           </SkywriteLibraryProvider>

@@ -1,14 +1,21 @@
-import { currentUser } from '@/data/mockData';
+import { currentUser, orbitUsers } from '@/data/mockData';
 import type { ContributionRecord } from '@/contributions/contributionTypes';
 import { BETA_CONNECTED_USER_IDS } from '@/messages/messagesConnections';
+import {
+  buildSkywriteLifecycleView,
+  isSkywriteDeleted,
+} from '@/skywrite/lifecycle/skywriteContentLifecycle';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import type { SkywriteResponseRecord } from '@/skywrite/threads/skywriteThreadTypes';
 import type { SkywriteLibraryState } from '@/skywrite/library/skywriteLibraryTypes';
+import type { SavedThreadsState } from '@/skywrite/savedThreads/savedThreadTypes';
+import { latestReflectionAt } from '@/skywrite/savedThreads/savedThreadLogic';
+import { resolveSavedThreadSourceAccess } from '@/skywrite/savedThreads/savedThreadAccess';
 import type { SkywriteRecord } from '@/skywrite/types';
 import { resolveSkywriteIntent, SKYWRITE_INTENT_OPTIONS } from '@/skywrite/skywriteIntent';
 import { getSkyAreaCategory, isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 
-export type MySkywritesTabId = 'recent' | 'archived' | 'contributed';
+export type MySkywritesTabId = 'recent' | 'saved' | 'archived' | 'contributed';
 
 export interface MySkywriteLibraryRow {
   skywriteId: string;
@@ -19,6 +26,8 @@ export interface MySkywriteLibraryRow {
   sortMs: number;
   visibility: SkywriteRecord['visibility'];
   contributedResponseId?: string;
+  savedThreadId?: string;
+  latestReflectionAt?: number | null;
 }
 
 function areaLabelFor(skyAreaId: string | undefined): string | null {
@@ -67,10 +76,12 @@ export function buildAuthoredLibraryRows(input: {
 }): MySkywriteLibraryRow[] {
   const q = input.query?.trim().toLowerCase() ?? '';
   const rows: MySkywriteLibraryRow[] = [];
+  const lifecycle = buildSkywriteLifecycleView(input.library);
 
   for (const post of input.localPosts) {
     const record = { ...post, authorId: post.authorId ?? currentUser.id };
     if (!authoredByViewer(record)) continue;
+    if (isSkywriteDeleted(record.id, input.library.deletionTombstonesBySkywriteId)) continue;
     const archived = isArchived(input.library, record.id);
     if (input.tab === 'recent' && archived) continue;
     if (input.tab === 'archived' && !archived) continue;
@@ -99,14 +110,134 @@ export function buildAuthoredLibraryRows(input: {
   return rows.sort((a, b) => b.sortMs - a.sortMs);
 }
 
+function authorName(userId: string): string | null {
+  return orbitUsers.find((user) => user.id === userId)?.name ?? null;
+}
+
+function buildSavedThreadRows(input: {
+  localPosts: readonly SkywriteRecord[];
+  library: SkywriteLibraryState;
+  saved: SavedThreadsState;
+  contributions: readonly ContributionRecord[];
+  blockedUserIds: readonly string[];
+  status: 'active' | 'archived';
+  query?: string;
+}): MySkywriteLibraryRow[] {
+  const q = input.query?.trim().toLowerCase() ?? '';
+  const rows: MySkywriteLibraryRow[] = [];
+  const lifecycle = buildSkywriteLifecycleView(input.library);
+
+  for (const saved of input.saved.savedThreads) {
+    if (saved.ownerUserId !== currentUser.id) continue;
+    if (saved.status !== input.status) continue;
+    const sourceDeleted = isSkywriteDeleted(
+      saved.skywriteId,
+      input.library.deletionTombstonesBySkywriteId,
+    );
+    const skywrite = resolveSkywriteById(input.localPosts, saved.skywriteId, lifecycle);
+    const access = resolveSavedThreadSourceAccess({
+      skywrite: skywrite ? { ...skywrite, authorId: skywrite.authorId ?? saved.originalAuthorId } : null,
+      blockedUserIds: input.blockedUserIds,
+      viewerId: currentUser.id,
+    });
+    const authorLabel = authorName(saved.originalAuthorId);
+    const areaLabel = areaLabelFor(saved.skyAreaId ?? skywrite?.skyAreaId);
+    const baseText = skywrite?.text ?? '';
+    const excerptText = excerpt(baseText || 'Saved thread');
+    const reflectionAt = latestReflectionAt(input.saved, saved.savedThreadId);
+    const hasContribution = input.contributions.some(
+      (entry) => entry.sourceSkywriteId === saved.skywriteId && entry.state === 'active',
+    );
+
+    if (q) {
+      const reflectionHay = input.saved.reflections
+        .filter((entry) => entry.savedThreadId === saved.savedThreadId && !entry.deletedAt)
+        .map((entry) => entry.body)
+        .join(' ');
+      const haystack =
+        `${excerptText} ${areaLabel ?? ''} ${authorLabel ?? ''} ${reflectionHay}`.toLowerCase();
+      if (!haystack.includes(q)) continue;
+    }
+
+    const hideSourceContent =
+      sourceDeleted || !skywrite || (input.status === 'active' && access === 'inaccessible');
+
+    if (hideSourceContent) {
+      rows.push({
+        skywriteId: saved.skywriteId,
+        skywrite: {
+          id: saved.skywriteId,
+          text: '',
+          visibility: saved.visibilitySnapshot,
+          authorId: saved.originalAuthorId,
+          createdAt: new Date(saved.savedAt).toISOString(),
+          media: { photo: null, audio: null },
+          mediaMode: 'text',
+          mood: null,
+          showingUp: null,
+          userHashtags: [],
+          animateToSky: false,
+          allowAIContext: false,
+          textStyle: 'plain',
+        },
+        areaLabel,
+        intentLabel: hasContribution ? 'Contribution saved' : authorLabel ? `With ${authorLabel}` : 'Saved thread',
+        excerpt: 'Conversation unavailable',
+        sortMs: Math.max(saved.lastVisitedAt, reflectionAt ?? 0, saved.savedAt),
+        visibility: saved.visibilitySnapshot,
+        savedThreadId: saved.savedThreadId,
+        latestReflectionAt: reflectionAt,
+      });
+      continue;
+    }
+    rows.push({
+      skywriteId: skywrite.id,
+      skywrite: { ...skywrite, authorId: skywrite.authorId ?? saved.originalAuthorId },
+      areaLabel,
+      intentLabel: hasContribution ? 'Contribution saved' : authorLabel ? `With ${authorLabel}` : 'Saved thread',
+      excerpt: excerptText,
+      sortMs: Math.max(saved.lastVisitedAt, reflectionAt ?? 0, saved.savedAt),
+      visibility: skywrite.visibility,
+      savedThreadId: saved.savedThreadId,
+      latestReflectionAt: reflectionAt,
+    });
+  }
+
+  return rows.sort((a, b) => b.sortMs - a.sortMs);
+}
+
+export function buildSavedThreadLibraryRows(input: {
+  localPosts: readonly SkywriteRecord[];
+  library: SkywriteLibraryState;
+  saved: SavedThreadsState;
+  contributions: readonly ContributionRecord[];
+  blockedUserIds: readonly string[];
+  query?: string;
+}): MySkywriteLibraryRow[] {
+  return buildSavedThreadRows({ ...input, status: 'active' });
+}
+
+export function buildArchivedSavedThreadLibraryRows(input: {
+  localPosts: readonly SkywriteRecord[];
+  library: SkywriteLibraryState;
+  saved: SavedThreadsState;
+  contributions: readonly ContributionRecord[];
+  blockedUserIds: readonly string[];
+  query?: string;
+}): MySkywriteLibraryRow[] {
+  return buildSavedThreadRows({ ...input, status: 'archived' });
+}
+
 export function buildContributedLibraryRows(input: {
   localPosts: readonly SkywriteRecord[];
+  library: SkywriteLibraryState;
   responses: readonly SkywriteResponseRecord[];
   contributions: readonly ContributionRecord[];
   blockedUserIds: readonly string[];
   query?: string;
 }): MySkywriteLibraryRow[] {
   const q = input.query?.trim().toLowerCase() ?? '';
+  const lifecycle = buildSkywriteLifecycleView(input.library);
   const byResponse = new Map<string, SkywriteResponseRecord>();
   for (const response of input.responses) {
     if (response.responderId !== currentUser.id) continue;
@@ -118,7 +249,12 @@ export function buildContributedLibraryRows(input: {
 
   for (const response of [...byResponse.values()].sort((a, b) => b.createdAt - a.createdAt)) {
     if (seenSkywrites.has(response.skywriteId)) continue;
-    const skywrite = resolveSkywriteById(input.localPosts, response.skywriteId);
+    if (
+      isSkywriteDeleted(response.skywriteId, input.library.deletionTombstonesBySkywriteId)
+    ) {
+      continue;
+    }
+    const skywrite = resolveSkywriteById(input.localPosts, response.skywriteId, lifecycle);
     if (!skywrite || skywrite.authorId === currentUser.id) continue;
     if (!contributorMayViewSkywrite(skywrite, input.blockedUserIds)) continue;
 

@@ -12,16 +12,20 @@ import {
 import { CalmOverlaySheet } from '@/components/focused-sky/CalmOverlaySheet';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { MySkywritesCopy } from '@/constants/mySkywritesCopy';
+import { SavedThreadsCopy } from '@/constants/savedThreadsCopy';
 import { SKYWRITE_VISIBILITY_OPTIONS } from '@/constants/skywriteCopy';
 import { Fonts, Radius } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
 import { useOnboarding } from '@/onboarding';
 import {
+  buildArchivedSavedThreadLibraryRows,
   buildAuthoredLibraryRows,
   buildContributedLibraryRows,
+  buildSavedThreadLibraryRows,
   type MySkywritesTabId,
 } from '@/skywrite/library/buildMySkywritesLibrary';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
+import { useSavedThreads } from '@/skywrite/savedThreads/SavedThreadsProvider';
 import { SkywriteMediaPreview } from '@/components/skywrite/SkywriteMediaPreview';
 import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPreviewScope';
 import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
@@ -47,6 +51,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const { skywrites } = useOnboarding();
   const { library, archiveSkywrite, restoreSkywrite } = useSkywriteLibrary();
   const { threadState, contributions } = useSkywriteThreads();
+  const { state: savedThreadsState, archiveThread, restoreThread } = useSavedThreads();
   const { messages } = useReelyouConnect();
   const [tab, setTab] = useState<MySkywritesTabId>('recent');
   const [query, setQuery] = useState('');
@@ -56,32 +61,76 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
     if (tab === 'contributed') {
       return buildContributedLibraryRows({
         localPosts: skywrites,
+        library,
         responses: threadState.responses,
         contributions,
         blockedUserIds: messages.blockedUserIds,
         query,
       });
     }
+    if (tab === 'saved') {
+      return buildSavedThreadLibraryRows({
+        localPosts: skywrites,
+        library,
+        saved: savedThreadsState,
+        contributions,
+        blockedUserIds: messages.blockedUserIds,
+        query,
+      });
+    }
+    if (tab === 'archived') {
+      return [
+        ...buildAuthoredLibraryRows({
+          localPosts: skywrites,
+          library,
+          tab: 'archived',
+          query,
+        }),
+        ...buildArchivedSavedThreadLibraryRows({
+          localPosts: skywrites,
+          library,
+          saved: savedThreadsState,
+          contributions,
+          blockedUserIds: messages.blockedUserIds,
+          query,
+        }),
+      ].sort((a, b) => b.sortMs - a.sortMs);
+    }
     return buildAuthoredLibraryRows({
       localPosts: skywrites,
       library,
-      tab,
+      tab: 'recent',
       query,
     });
-  }, [contributions, library, messages.blockedUserIds, query, skywrites, tab, threadState.responses]);
+  }, [
+    contributions,
+    library,
+    messages.blockedUserIds,
+    query,
+    savedThreadsState,
+    skywrites,
+    tab,
+    threadState.responses,
+  ]);
 
   const emptyCopy =
     tab === 'archived'
       ? MySkywritesCopy.emptyArchived
-      : tab === 'contributed'
-        ? MySkywritesCopy.emptyContributed
-        : MySkywritesCopy.emptyRecent;
+      : tab === 'saved'
+        ? MySkywritesCopy.emptySaved
+        : tab === 'contributed'
+          ? MySkywritesCopy.emptyContributed
+          : MySkywritesCopy.emptyRecent;
 
   const openDetail = useCallback(
-    (skywriteId: string) => {
+    (row: { skywriteId: string; savedThreadId?: string }) => {
       void audioPreview.stopAll();
       onClose();
-      router.push(`/skywrite/${skywriteId}` as never);
+      if (row.savedThreadId) {
+        router.push(`/skywrite/saved/${row.savedThreadId}` as never);
+        return;
+      }
+      router.push(`/skywrite/${row.skywriteId}` as never);
     },
     [audioPreview, onClose, router],
   );
@@ -93,6 +142,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
 
   const tabs: { id: MySkywritesTabId; label: string }[] = [
     { id: 'recent', label: MySkywritesCopy.tabRecent },
+    { id: 'saved', label: MySkywritesCopy.tabSaved },
     { id: 'archived', label: MySkywritesCopy.tabArchived },
     { id: 'contributed', label: MySkywritesCopy.tabContributed },
   ];
@@ -135,10 +185,12 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                 row.visibility;
               const isOwner = row.skywrite.authorId === currentUser.id;
               return (
-                <View key={`${row.skywriteId}-${row.contributedResponseId ?? 'owned'}`} style={styles.row}>
+                <View
+                  key={`${row.savedThreadId ?? row.skywriteId}-${row.contributedResponseId ?? 'owned'}`}
+                  style={styles.row}>
                   <Pressable
                     style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}
-                    onPress={() => openDetail(row.skywriteId)}>
+                    onPress={() => openDetail(row)}>
                     <SkywriteMediaPreview
                       skywrite={row.skywrite}
                       variant="library"
@@ -154,7 +206,22 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                     {row.intentLabel ? <Text style={styles.intent}>{row.intentLabel}</Text> : null}
                     <Text style={styles.visibility}>{visibilityLabel}</Text>
                   </Pressable>
-                  {isOwner && tab !== 'contributed' ? (
+                  {row.savedThreadId && (tab === 'saved' || tab === 'archived') ? (
+                    <Pressable
+                      onPress={() =>
+                        tab === 'archived'
+                          ? restoreThread(row.savedThreadId!)
+                          : archiveThread(row.savedThreadId!)
+                      }
+                      hitSlop={8}
+                      style={styles.secondaryAction}>
+                      <Text style={styles.secondaryActionText}>
+                        {tab === 'archived'
+                          ? SavedThreadsCopy.restoreSaved
+                          : SavedThreadsCopy.archiveSaved}
+                      </Text>
+                    </Pressable>
+                  ) : isOwner && tab !== 'contributed' && tab !== 'saved' ? (
                     <Pressable
                       onPress={() =>
                         tab === 'archived'

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import type { SkywriteDeletionTombstone } from '@/skywrite/lifecycle/skywriteContentLifecycleTypes';
 import {
   EMPTY_SKYWRITE_LIBRARY_STATE,
   type SkywriteLibraryState,
@@ -14,8 +15,30 @@ function normalize(raw: unknown): SkywriteLibraryState {
     entry.archivedAtBySkywriteId && typeof entry.archivedAtBySkywriteId === 'object'
       ? { ...entry.archivedAtBySkywriteId }
       : {};
+  const deletionTombstonesBySkywriteId: Record<string, SkywriteDeletionTombstone> = {};
+  if (entry.deletionTombstonesBySkywriteId && typeof entry.deletionTombstonesBySkywriteId === 'object') {
+    for (const [id, rawTombstone] of Object.entries(entry.deletionTombstonesBySkywriteId)) {
+      if (!rawTombstone || typeof rawTombstone !== 'object') continue;
+      const tomb = rawTombstone as Partial<SkywriteDeletionTombstone>;
+      if (typeof tomb.skywriteId !== 'string' || typeof tomb.ownerAuthorId !== 'string') continue;
+      deletionTombstonesBySkywriteId[id] = {
+        skywriteId: tomb.skywriteId,
+        ownerAuthorId: tomb.ownerAuthorId,
+        deletedAt: typeof tomb.deletedAt === 'number' ? tomb.deletedAt : Date.now(),
+        skyAreaId: typeof tomb.skyAreaId === 'string' ? tomb.skyAreaId : undefined,
+        visibilitySnapshot:
+          tomb.visibilitySnapshot === 'private' ||
+          tomb.visibilitySnapshot === 'orbit' ||
+          tomb.visibilitySnapshot === 'public'
+            ? tomb.visibilitySnapshot
+            : undefined,
+        threadId: typeof tomb.threadId === 'string' ? tomb.threadId : undefined,
+      };
+    }
+  }
   return {
     archivedAtBySkywriteId,
+    deletionTombstonesBySkywriteId,
     updatedAt: typeof entry.updatedAt === 'number' ? entry.updatedAt : Date.now(),
   };
 }

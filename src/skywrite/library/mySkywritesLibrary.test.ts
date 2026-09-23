@@ -47,6 +47,7 @@ assert(archived.length === 1, 'archived tab lists archived item');
 
 const contributed = buildContributedLibraryRows({
   localPosts: [],
+  library: EMPTY_SKYWRITE_LIBRARY_STATE,
   responses: [
     {
       responseId: 'resp-1',

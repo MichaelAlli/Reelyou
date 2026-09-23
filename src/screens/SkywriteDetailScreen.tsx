@@ -28,8 +28,11 @@ import { getSkyAreaCategory, isSkyAreaCategoryId } from '@/skyAreas/skyAreaCateg
 import { useOnboarding } from '@/onboarding';
 import { beaconSignalIdForSkywrite } from '@/skywrite/beacon/skywriteBeaconEligibility';
 import { markReturnToSkyInvitationsAfterResponse } from '@/skywrite/invitations/skyInvitationFlow';
+import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import { useSkywriteBeacon } from '@/skywrite/beacon/SkywriteBeaconProvider';
+import { resolveSavedThreadSourceAccess } from '@/skywrite/savedThreads/savedThreadAccess';
+import { useSavedThreads } from '@/skywrite/savedThreads/SavedThreadsProvider';
 import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
 import { useThemedStyles } from '@/theme/useTheme';
 
@@ -53,7 +56,8 @@ export function SkywriteDetailScreen() {
     returnTo?: string;
   }>();
   const { skywrites } = useOnboarding();
-  const { dismissSignal } = useReelyouConnect();
+  const { dismissSignal, messages } = useReelyouConnect();
+  const { saveThread, isThreadSaved, getSavedForSkywrite } = useSavedThreads();
   const {
     getResponses,
     addResponse,
@@ -62,8 +66,13 @@ export function SkywriteDetailScreen() {
     unsaveResponseAsAuthor,
   } = useSkywriteThreads();
   const { getLifecycle, resolveAuthorBeacon, reactivateAuthorBeacon } = useSkywriteBeacon();
+  const { lifecycle: contentLifecycle } = useSkywriteLibrary();
 
-  const record = resolveSkywriteById(skywrites, typeof id === 'string' ? id : undefined);
+  const record = resolveSkywriteById(
+    skywrites,
+    typeof id === 'string' ? id : undefined,
+    contentLifecycle,
+  );
   const skywriteId = record?.id;
   const responses = useMemo(
     () => (skywriteId ? getResponses(skywriteId) : []),
@@ -71,6 +80,17 @@ export function SkywriteDetailScreen() {
   );
 
   const isAuthor = record?.authorId === currentUser.id;
+  const canSaveThread = useMemo(() => {
+    if (!record) return false;
+    return (
+      resolveSavedThreadSourceAccess({
+        skywrite: { ...record, authorId: record.authorId ?? currentUser.id },
+        blockedUserIds: messages.blockedUserIds,
+        viewerId: currentUser.id,
+      }) === 'available'
+    );
+  }, [messages.blockedUserIds, record]);
+  const savedEntry = skywriteId ? getSavedForSkywrite(skywriteId) : undefined;
   const lifecycle = skywriteId ? getLifecycle(skywriteId) : undefined;
   const beaconResolved = lifecycle?.beaconStatus === 'resolved';
   const fromBeacon = source === 'beacon';
@@ -273,6 +293,17 @@ export function SkywriteDetailScreen() {
     setRespondMode(true);
   }, []);
 
+  const handleSaveThread = useCallback(() => {
+    if (!record) return;
+    const saved = saveThread({ ...record, authorId: record.authorId ?? currentUser.id });
+    router.push(`/skywrite/saved/${saved.savedThreadId}` as never);
+  }, [record, router, saveThread]);
+
+  const handleOpenSavedThread = useCallback(() => {
+    if (!savedEntry) return;
+    router.push(`/skywrite/saved/${savedEntry.savedThreadId}` as never);
+  }, [router, savedEntry]);
+
   const handleSubmitResponse = useCallback(() => {
     if (!skywriteId) return;
     const created = addResponse(skywriteId, responseDraft);
@@ -339,6 +370,25 @@ export function SkywriteDetailScreen() {
                 {visibilityLabel ? ` · ${visibilityLabel}` : ''}
                 {areaLabel ? ` · ${areaLabel}` : ''}
               </Text>
+
+              {canSaveThread ? (
+                <Pressable
+                  style={styles.saveBtn}
+                  onPress={
+                    isThreadSaved(record.id) ? handleOpenSavedThread : handleSaveThread
+                  }
+                  accessibilityLabel={
+                    isThreadSaved(record.id)
+                      ? SkywriteCopy.openSavedThread
+                      : SkywriteCopy.saveThread
+                  }>
+                  <Text style={styles.saveBtnText}>
+                    {isThreadSaved(record.id)
+                      ? SkywriteCopy.openSavedThread
+                      : SkywriteCopy.saveThread}
+                  </Text>
+                </Pressable>
+              ) : null}
 
               {isAuthor && record.visibility === 'public' ? (
                 <Pressable
