@@ -1,13 +1,16 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 
 import { AroundYourSkyActivityItem } from '@/components/home/AroundYourSkyActivityItem';
+import { HomeDismissibleSignalCard } from '@/components/home/HomeDismissibleSignalCard';
+import { aroundYourSkyHomeSignalIds } from '@/signals/homeSignalPresentation';
 import { AroundYourSkyCopy } from '@/constants/aroundYourSkyCopy';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
+import { filterAroundYourSkyForHome } from '@/signals/homeSignalPresentation';
 import { personalizeAroundYourSkyFeed } from '@/social/aroundYourSky/personalizeHomeFeed';
 import { useThemedStyles } from '@/theme/useTheme';
 
@@ -17,8 +20,12 @@ interface HomeAroundYourSkySectionProps {
 
 function HomeAroundYourSkySectionComponent({ animatedStyle }: HomeAroundYourSkySectionProps) {
   const { aroundYourSkyFeed } = useOnboarding();
-  const { preferences } = useReelyouConnect();
-  const feed = personalizeAroundYourSkyFeed(aroundYourSkyFeed, preferences);
+  const { preferences, signalsMeta, dismissHomePresentation } = useReelyouConnect();
+
+  const activeAroundYourSkyItems = useMemo(() => {
+    const personalized = personalizeAroundYourSkyFeed(aroundYourSkyFeed, preferences);
+    return filterAroundYourSkyForHome(personalized.items, signalsMeta);
+  }, [aroundYourSkyFeed, preferences, signalsMeta]);
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -46,33 +53,16 @@ function HomeAroundYourSkySectionComponent({ animatedStyle }: HomeAroundYourSkyS
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: 'rgba(167, 139, 250, 0.18)',
         backgroundColor: 'rgba(8, 10, 26, 0.55)',
-        paddingHorizontal: 12,
+        paddingHorizontal: 8,
         paddingVertical: 2,
+      },
+      swipeRow: {
+        paddingRight: 28,
+        paddingTop: 2,
       },
       divider: {
         height: StyleSheet.hairlineWidth,
         backgroundColor: 'rgba(167, 139, 250, 0.12)',
-      },
-      quiet: {
-        borderRadius: HomeLayout.cardRadius,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(167, 139, 250, 0.18)',
-        backgroundColor: 'rgba(8, 10, 26, 0.45)',
-        paddingHorizontal: 14,
-        paddingVertical: 16,
-        gap: 4,
-      },
-      quietTitle: {
-        fontFamily: Fonts.sans,
-        fontSize: 14,
-        fontWeight: '600',
-        color: HomePalette.textPrimary,
-      },
-      quietBody: {
-        fontFamily: Fonts.sans,
-        fontSize: 12.5,
-        lineHeight: 17,
-        color: tokens.secondaryText,
       },
       caughtUp: {
         alignItems: 'center',
@@ -96,32 +86,33 @@ function HomeAroundYourSkySectionComponent({ animatedStyle }: HomeAroundYourSkyS
     }),
   );
 
+  if (activeAroundYourSkyItems.length === 0) {
+    return null;
+  }
+
   return (
     <Animated.View style={[styles.shell, animatedStyle]}>
       <Text style={styles.title}>{AroundYourSkyCopy.title}</Text>
       <Text style={styles.subtitle}>{AroundYourSkyCopy.subtitle}</Text>
 
-      {feed.isQuiet ? (
-        <View style={styles.quiet} accessibilityRole="text">
-          <Text style={styles.quietTitle}>{AroundYourSkyCopy.quietTitle}</Text>
-          <Text style={styles.quietBody}>{AroundYourSkyCopy.quietBody}</Text>
-        </View>
-      ) : (
-        <>
-          <View style={styles.list}>
-            {feed.items.map((item, index) => (
-              <View key={item.id}>
-                {index > 0 ? <View style={styles.divider} /> : null}
-                <AroundYourSkyActivityItem item={item} />
-              </View>
-            ))}
+      <View style={styles.list}>
+        {activeAroundYourSkyItems.map((item, index) => (
+          <View key={item.id}>
+            {index > 0 ? <View style={styles.divider} /> : null}
+            <HomeDismissibleSignalCard
+              style={styles.swipeRow}
+              dismissAccessibilityLabel={`Dismiss ${item.message}`}
+              onDismiss={() => dismissHomePresentation(aroundYourSkyHomeSignalIds(item))}
+            >
+              <AroundYourSkyActivityItem item={item} />
+            </HomeDismissibleSignalCard>
           </View>
-          <View style={styles.caughtUp} accessibilityRole="text">
-            <Text style={styles.caughtUpPrimary}>{AroundYourSkyCopy.caughtUp}</Text>
-            <Text style={styles.caughtUpSecondary}>{AroundYourSkyCopy.caughtUpSecondary}</Text>
-          </View>
-        </>
-      )}
+        ))}
+      </View>
+      <View style={styles.caughtUp} accessibilityRole="text">
+        <Text style={styles.caughtUpPrimary}>{AroundYourSkyCopy.caughtUp}</Text>
+        <Text style={styles.caughtUpSecondary}>{AroundYourSkyCopy.caughtUpSecondary}</Text>
+      </View>
     </Animated.View>
   );
 }

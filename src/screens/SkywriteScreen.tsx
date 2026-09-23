@@ -25,7 +25,10 @@ import { SkywriteMediaRow } from '@/components/skywrite/SkywriteMediaRow';
 import { SkywritePhotoSourceSheet } from '@/components/skywrite/SkywritePhotoSourceSheet';
 import { SkywriteShootingStar } from '@/components/skywrite/SkywriteShootingStar';
 import { SkywriteToggleRow } from '@/components/skywrite/SkywriteToggleRow';
+import { SkywriteSkyAreaPicker } from '@/components/skywrite/SkywriteSkyAreaPicker';
 import { SkywriteVisibilityControl } from '@/components/skywrite/SkywriteVisibilityControl';
+import type { SkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
+import { inferSkywriteIntentFromShowingUp } from '@/skywrite/skywriteIntent';
 import {
   SKYWRITE_REFLECTION_PROMPTS,
   SKYWRITE_SHOWING_UP_OPTIONS,
@@ -84,6 +87,7 @@ export function SkywriteScreen() {
     createEmptySkywriteDraft({
       allowAIContext: state.aiPersonalizationEnabled,
       animateToSky: true,
+      skyAreaId: 'growth',
     }),
   );
   const [promptIndex, setPromptIndex] = useState(0);
@@ -117,7 +121,13 @@ export function SkywriteScreen() {
   );
 
   const updateDraft = useCallback((patch: Partial<SkywriteDraft>) => {
-    setDraft((current) => ({ ...current, ...patch }));
+    setDraft((current) => {
+      const next = { ...current, ...patch };
+      if (patch.showingUp !== undefined) {
+        next.intent = inferSkywriteIntentFromShowingUp(patch.showingUp);
+      }
+      return next;
+    });
     setValidationHint(null);
   }, []);
 
@@ -559,6 +569,11 @@ export function SkywriteScreen() {
                 />
               </SkywriteAccordionRow>
             </View>
+
+            <SkywriteSkyAreaPicker
+              value={draft.skyAreaId}
+              onChange={(skyAreaId: SkyAreaCategoryId) => updateDraft({ skyAreaId })}
+            />
 
             <SkywriteVisibilityControl
               value={draft.visibility}

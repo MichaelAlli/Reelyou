@@ -1,0 +1,15 @@
+export const MySkywritesCopy = {
+  indicatorA11y: 'My Skywrites',
+  sheetTitle: 'My Skywrites',
+  sheetSubtitle: 'Your writing and where you have shown up.',
+  tabRecent: 'Recent',
+  tabArchived: 'Archived',
+  tabContributed: 'Contributed',
+  searchPlaceholder: 'Search text or area…',
+  emptyRecent: 'Your Skywrites will gather here.',
+  emptyArchived: 'Nothing resting here yet.',
+  emptyContributed: 'When you respond to others, it will appear here.',
+  archiveAction: 'Rest in archive',
+  restoreAction: 'Bring back',
+  close: 'Close',
+} as const;

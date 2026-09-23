@@ -4,6 +4,7 @@ import { SKYWRITE_SHOWING_UP_OPTIONS } from '@/constants/skywriteCopy';
 import { isSkywriteTextStyle } from '@/constants/skywriteTextStyles';
 import { isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import { deriveMediaMode } from '@/skywrite/draft';
+import type { SkywriteIntentId } from '@/skywrite/types';
 import type {
   SkywriteAudioMedia,
   SkywriteMedia,
@@ -88,8 +89,20 @@ function parsePost(raw: unknown): SkywriteRecord | null {
 
   const skyAreaId = isSkyAreaCategoryId(entry.skyAreaId) ? entry.skyAreaId : undefined;
 
+  const intentValues = new Set<SkywriteIntentId>([
+    'reflection',
+    'question',
+    'perspective',
+    'learned',
+  ]);
+  const intent =
+    typeof entry.intent === 'string' && intentValues.has(entry.intent as SkywriteIntentId)
+      ? (entry.intent as SkywriteIntentId)
+      : undefined;
+
   return {
     id: entry.id,
+    authorId: typeof entry.authorId === 'string' ? entry.authorId : undefined,
     text: entry.text,
     textStyle,
     media,
@@ -99,6 +112,7 @@ function parsePost(raw: unknown): SkywriteRecord | null {
     showingUp,
     userHashtags,
     skyAreaId,
+    intent,
     animateToSky: entry.animateToSky !== false,
     allowAIContext: entry.allowAIContext !== false,
     createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),

@@ -2,6 +2,7 @@ export type ReelyouSignalType =
   | 'messages'
   | 'connections'
   | 'opportunities'
+  | 'contribution_beacon'
   | 'communities'
   | 'sky_activity'
   | 'account_system';

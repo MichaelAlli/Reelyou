@@ -13,9 +13,26 @@ export const DEV_SCREEN_PREVIEW_ENABLED = true;
  */
 export const DEV_SCREEN_PREVIEW_STARTUP = true;
 
+/**
+ * When true in __DEV__, seeds 12 canonical contribution beacons for the demo user
+ * (Focused Skywrite indicator + Signal Center). Never active in production builds.
+ */
+export const CONTRIBUTION_BEACON_DEMO_ENABLED = true;
+
+declare const __DEV__: boolean | undefined;
+
+function isDevRuntime(): boolean {
+  return typeof __DEV__ !== 'undefined' && __DEV__;
+}
+
+/** True when contribution beacon demo fixtures are active. */
+export function isContributionBeaconDemoEnabled(): boolean {
+  return isDevRuntime() && CONTRIBUTION_BEACON_DEMO_ENABLED;
+}
+
 /** True when Screen Preview route and launcher are active. */
 export function isScreenPreviewEnabled(): boolean {
-  return __DEV__ && DEV_SCREEN_PREVIEW_ENABLED;
+  return isDevRuntime() && DEV_SCREEN_PREVIEW_ENABLED;
 }
 
 /** True when dev app should boot directly into Screen Preview. Never true in production. */

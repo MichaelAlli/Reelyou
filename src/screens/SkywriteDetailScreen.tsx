@@ -1,9 +1,18 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import {
   SKYWRITE_VISIBILITY_OPTIONS,
@@ -14,8 +23,14 @@ import {
   getSkywriteWriteInputStyle,
 } from '@/constants/skywriteTextStyles';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
-import { findSkywriteById } from '@/mySky/resolveStarNavigation';
+import { currentUser } from '@/data/mockData';
+import { getSkyAreaCategory, isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import { useOnboarding } from '@/onboarding';
+import { beaconSignalIdForSkywrite } from '@/skywrite/beacon/skywriteBeaconEligibility';
+import { markReturnToSkyInvitationsAfterResponse } from '@/skywrite/invitations/skyInvitationFlow';
+import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
+import { useSkywriteBeacon } from '@/skywrite/beacon/SkywriteBeaconProvider';
+import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
 import { useThemedStyles } from '@/theme/useTheme';
 
 function formatSkywriteDate(iso: string): string {
@@ -32,18 +47,50 @@ function formatSkywriteDate(iso: string): string {
 
 export function SkywriteDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, source, returnTo } = useLocalSearchParams<{
+    id?: string;
+    source?: string;
+    returnTo?: string;
+  }>();
   const { skywrites } = useOnboarding();
-  const record = findSkywriteById(skywrites, typeof id === 'string' ? id : undefined);
+  const { dismissSignal } = useReelyouConnect();
+  const {
+    getResponses,
+    addResponse,
+    ignoreBeacon,
+    saveResponseAsAuthor,
+    unsaveResponseAsAuthor,
+  } = useSkywriteThreads();
+  const { getLifecycle, resolveAuthorBeacon, reactivateAuthorBeacon } = useSkywriteBeacon();
+
+  const record = resolveSkywriteById(skywrites, typeof id === 'string' ? id : undefined);
+  const skywriteId = record?.id;
+  const responses = useMemo(
+    () => (skywriteId ? getResponses(skywriteId) : []),
+    [getResponses, skywriteId],
+  );
+
+  const isAuthor = record?.authorId === currentUser.id;
+  const lifecycle = skywriteId ? getLifecycle(skywriteId) : undefined;
+  const beaconResolved = lifecycle?.beaconStatus === 'resolved';
+  const fromBeacon = source === 'beacon';
+  const returnToInvitations = returnTo === 'invitations';
+  const [responseDraft, setResponseDraft] = useState('');
+  const [respondMode, setRespondMode] = useState(fromBeacon);
+  const [responseSendError, setResponseSendError] = useState<string | null>(null);
+
+  const areaLabel = useMemo(() => {
+    if (!record?.skyAreaId) return null;
+    if (isSkyAreaCategoryId(record.skyAreaId)) {
+      return getSkyAreaCategory(record.skyAreaId).label;
+    }
+    return record.skyAreaId;
+  }, [record?.skyAreaId]);
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
-      root: {
-        flex: 1,
-      },
-      safe: {
-        flex: 1,
-      },
+      root: { flex: 1 },
+      safe: { flex: 1 },
       scroll: {
         paddingHorizontal: Spacing.lg,
         paddingBottom: Spacing.xl,
@@ -81,9 +128,7 @@ export function SkywriteDetailScreen() {
         padding: Spacing.md,
         gap: Spacing.sm,
       },
-      body: {
-        color: tokens.primaryText,
-      },
+      body: { color: tokens.primaryText },
       label: {
         fontFamily: Fonts.sans,
         fontSize: 11,
@@ -92,11 +137,7 @@ export function SkywriteDetailScreen() {
         textTransform: 'uppercase',
         color: tokens.gold,
       },
-      chipRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 6,
-      },
+      chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
       chip: {
         borderRadius: Radius.full,
         borderWidth: StyleSheet.hairlineWidth,
@@ -120,6 +161,92 @@ export function SkywriteDetailScreen() {
         fontSize: 13,
         color: tokens.secondaryText,
       },
+      beaconBanner: {
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: 'rgba(232, 200, 114, 0.35)',
+        backgroundColor: 'rgba(232, 200, 114, 0.08)',
+        padding: Spacing.sm,
+        gap: 8,
+        marginBottom: Spacing.md,
+      },
+      beaconCopy: {
+        fontFamily: Fonts.sans,
+        fontSize: 12.5,
+        lineHeight: 18,
+        color: tokens.secondaryText,
+      },
+      beaconActions: { flexDirection: 'row', gap: 10 },
+      beaconBtn: {
+        flex: 1,
+        minHeight: 44,
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: 'rgba(232, 200, 114, 0.45)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 8,
+      },
+      beaconBtnPrimary: {
+        backgroundColor: 'rgba(232, 200, 114, 0.16)',
+      },
+      beaconBtnText: {
+        fontFamily: Fonts.sans,
+        fontSize: 13,
+        fontWeight: '600',
+        color: tokens.gold,
+      },
+      responseCard: {
+        borderRadius: Radius.md,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(167, 139, 250, 0.22)',
+        padding: Spacing.sm,
+        gap: 6,
+        marginTop: 8,
+      },
+      responseBody: {
+        fontFamily: Fonts.sans,
+        fontSize: 14,
+        lineHeight: 20,
+        color: tokens.primaryText,
+      },
+      saveBtn: {
+        alignSelf: 'flex-start',
+        minHeight: 40,
+        justifyContent: 'center',
+        paddingHorizontal: 4,
+      },
+      saveBtnText: {
+        fontFamily: Fonts.sans,
+        fontSize: 12.5,
+        fontWeight: '700',
+        color: tokens.gold,
+      },
+      input: {
+        borderRadius: Radius.md,
+        borderWidth: 1,
+        borderColor: 'rgba(167, 139, 250, 0.28)',
+        padding: Spacing.sm,
+        minHeight: 88,
+        fontFamily: Fonts.sans,
+        fontSize: 14,
+        color: tokens.primaryText,
+        marginTop: 8,
+      },
+      submitBtn: {
+        marginTop: 10,
+        minHeight: 44,
+        borderRadius: Radius.md,
+        backgroundColor: 'rgba(232, 200, 114, 0.18)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      submitBtnText: {
+        fontFamily: Fonts.sans,
+        fontSize: 14,
+        fontWeight: '700',
+        color: tokens.gold,
+      },
       emptyTitle: {
         fontFamily: Fonts.serif,
         fontSize: 20,
@@ -134,6 +261,34 @@ export function SkywriteDetailScreen() {
       },
     }),
   );
+
+  const handleIgnoreBeacon = useCallback(() => {
+    if (!skywriteId) return;
+    ignoreBeacon(skywriteId);
+    dismissSignal(beaconSignalIdForSkywrite(skywriteId));
+    router.back();
+  }, [dismissSignal, ignoreBeacon, router, skywriteId]);
+
+  const handleRespondTap = useCallback(() => {
+    setRespondMode(true);
+  }, []);
+
+  const handleSubmitResponse = useCallback(() => {
+    if (!skywriteId) return;
+    const created = addResponse(skywriteId, responseDraft);
+    if (!created) {
+      setResponseSendError(SkywriteCopy.emptyValidation);
+      return;
+    }
+    setResponseSendError(null);
+    setResponseDraft('');
+    setRespondMode(false);
+    dismissSignal(beaconSignalIdForSkywrite(skywriteId));
+    if (fromBeacon && returnToInvitations) {
+      markReturnToSkyInvitationsAfterResponse();
+      router.back();
+    }
+  }, [addResponse, dismissSignal, fromBeacon, responseDraft, returnToInvitations, router, skywriteId]);
 
   const visibilityLabel =
     SKYWRITE_VISIBILITY_OPTIONS.find((option) => option.id === record?.visibility)?.title ??
@@ -154,11 +309,60 @@ export function SkywriteDetailScreen() {
 
           {record ? (
             <>
+              {fromBeacon && !isAuthor ? (
+                <View style={styles.beaconBanner}>
+                  <Text style={styles.beaconCopy}>
+                    {areaLabel
+                      ? `Suggested because ${areaLabel} is one of the areas you chose.`
+                      : SkywriteCopy.beaconTransparency}
+                  </Text>
+                  <View style={styles.beaconActions}>
+                    <Pressable
+                      style={[styles.beaconBtn, styles.beaconBtnPrimary]}
+                      onPress={handleRespondTap}
+                      accessibilityLabel={SkywriteCopy.respond}>
+                      <Text style={styles.beaconBtnText}>{SkywriteCopy.respond}</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.beaconBtn}
+                      onPress={handleIgnoreBeacon}
+                      accessibilityLabel={SkywriteCopy.ignoreBeacon}>
+                      <Text style={styles.beaconBtnText}>{SkywriteCopy.ignoreBeacon}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+
               <Text style={styles.title}>{MySkyCopy.skywriteDetailTitle}</Text>
               <Text style={styles.meta}>
                 {formatSkywriteDate(record.createdAt)}
                 {visibilityLabel ? ` · ${visibilityLabel}` : ''}
+                {areaLabel ? ` · ${areaLabel}` : ''}
               </Text>
+
+              {isAuthor && record.visibility === 'public' ? (
+                <Pressable
+                  style={styles.saveBtn}
+                  onPress={() => {
+                    if (!skywriteId) return;
+                    if (beaconResolved) {
+                      reactivateAuthorBeacon(skywriteId);
+                      return;
+                    }
+                    resolveAuthorBeacon(skywriteId);
+                  }}
+                  accessibilityLabel={
+                    beaconResolved
+                      ? SkywriteCopy.authorBeaconReopen
+                      : SkywriteCopy.authorBeaconResolved
+                  }>
+                  <Text style={styles.saveBtnText}>
+                    {beaconResolved
+                      ? SkywriteCopy.authorBeaconReopen
+                      : SkywriteCopy.authorBeaconResolved}
+                  </Text>
+                </Pressable>
+              ) : null}
 
               <View style={styles.card}>
                 <Text style={styles.label}>{getSkywriteTextStyleLabel(record.textStyle)}</Text>
@@ -189,6 +393,68 @@ export function SkywriteDetailScreen() {
                   </View>
                 ) : null}
               </View>
+
+              {responses.length > 0 ? (
+                <View style={{ marginTop: Spacing.md }}>
+                  <Text style={styles.label}>{SkywriteCopy.threadResponsesTitle}</Text>
+                  {responses.map((response) => (
+                    <View key={response.responseId} style={styles.responseCard}>
+                      <Text style={styles.responseBody}>{response.body}</Text>
+                      {isAuthor && response.responderId !== currentUser.id ? (
+                        <Pressable
+                          style={styles.saveBtn}
+                          accessibilityLabel={
+                            response.savedByAuthor
+                              ? SkywriteCopy.unsaveResponse
+                              : SkywriteCopy.saveResponse
+                          }
+                          onPress={() => {
+                            if (!skywriteId || !record.skyAreaId) return;
+                            if (response.savedByAuthor) {
+                              unsaveResponseAsAuthor(skywriteId, response.responseId);
+                              return;
+                            }
+                            saveResponseAsAuthor({
+                              skywriteId,
+                              responseId: response.responseId,
+                              authorId: record.authorId,
+                              skyAreaId: record.skyAreaId,
+                            });
+                          }}>
+                          <Text style={styles.saveBtnText}>
+                            {response.savedByAuthor
+                              ? SkywriteCopy.unsaveResponse
+                              : SkywriteCopy.saveResponse}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              {!isAuthor && (respondMode || fromBeacon) ? (
+                <View style={{ marginTop: Spacing.md }}>
+                  <Text style={styles.label}>{SkywriteCopy.respond}</Text>
+                  <TextInput
+                    value={responseDraft}
+                    onChangeText={setResponseDraft}
+                    placeholder={SkywriteCopy.threadResponsePlaceholder}
+                    placeholderTextColor="rgba(235,228,248,0.45)"
+                    multiline
+                    style={styles.input}
+                  />
+                  {responseSendError ? (
+                    <Text style={styles.beaconCopy}>{responseSendError}</Text>
+                  ) : null}
+                  <Pressable
+                    style={styles.submitBtn}
+                    onPress={handleSubmitResponse}
+                    accessibilityLabel={SkywriteCopy.threadSubmitResponse}>
+                    <Text style={styles.submitBtnText}>{SkywriteCopy.threadSubmitResponse}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </>
           ) : (
             <View style={styles.card}>

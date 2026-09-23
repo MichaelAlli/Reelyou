@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
+import { aroundYourSkyHomeSignalIds } from '@/signals/homeSignalPresentation';
 import type { AroundYourSkyDisplayItem } from '@/social/aroundYourSky';
 import { useThemedStyles } from '@/theme/useTheme';
 
@@ -14,7 +15,8 @@ interface AroundYourSkyActivityItemProps {
 
 function AroundYourSkyActivityItemComponent({ item }: AroundYourSkyActivityItemProps) {
   const router = useRouter();
-  const { canMessageUser, openOrCreateThreadWith } = useReelyouConnect();
+  const { canMessageUser, openOrCreateThreadWith, markHomePresentationOpened } =
+    useReelyouConnect();
   const tappable = Boolean(item.destination);
   const messageEligible = Boolean(item.actorId && canMessageUser(item.actorId));
 
@@ -97,8 +99,13 @@ function AroundYourSkyActivityItemComponent({ item }: AroundYourSkyActivityItemP
 
   const handlePress = useCallback(() => {
     if (!item.destination) return;
+    markHomePresentationOpened(aroundYourSkyHomeSignalIds(item));
     if (item.destination === 'skywrite') {
-      router.push('/skywrite' as never);
+      if (item.contentId) {
+        router.push(`/skywrite/${item.contentId}` as never);
+      } else {
+        router.push('/skywrite' as never);
+      }
       return;
     }
     if (item.destination === 'community' && item.destinationParam) {
@@ -108,7 +115,7 @@ function AroundYourSkyActivityItemComponent({ item }: AroundYourSkyActivityItemP
     if (item.destination === 'public-sky' && item.destinationParam) {
       router.push(`/public-sky?id=${item.destinationParam}` as never);
     }
-  }, [item.destination, item.destinationParam, router]);
+  }, [item, markHomePresentationOpened, router]);
 
   const messageAction = messageEligible ? (
     <Pressable

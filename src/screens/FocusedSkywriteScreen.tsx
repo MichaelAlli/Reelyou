@@ -1,9 +1,13 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ContributionBeaconIndicator } from '@/components/focused-sky/ContributionBeaconIndicator';
+import { ContributionBeaconQueueSheet } from '@/components/focused-sky/ContributionBeaconQueueSheet';
 import { FocusedSkyQuickLauncher } from '@/components/focused-sky/FocusedSkyQuickLauncher';
+import { MySkywritesIndicator } from '@/components/focused-sky/MySkywritesIndicator';
+import { MySkywritesSheet } from '@/components/focused-sky/MySkywritesSheet';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
@@ -14,6 +18,8 @@ import { CelestialArrivalMotion } from '@/constants/celestialMotion';
 import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
 import { applyArrivalHighlight } from '@/mySky/mySkyState';
 import { useOnboarding } from '@/onboarding';
+import { useContributionBeaconOverlayQueue } from '@/skywrite/beacon/useActiveContributionBeacons';
+import { consumeReturnToSkyInvitationsAfterResponse } from '@/skywrite/invitations/skyInvitationFlow';
 import { stageFocusedSkywriteComposeStars } from '@/skywrite/focusedSkyComposeSnapshot';
 import { useSharedSky } from '@/sharedSky/useSharedSky';
 import { buildFocusedSkywriteFocusCandidates } from '@/spatialFocus/adapters/mySkyStarFocusAdapter';
@@ -46,6 +52,19 @@ export function FocusedSkywriteScreen() {
   const guidanceActive = Boolean(guidingLightView.light);
   const { focusedView, setScrollOffsetY } = useSharedSky();
   const [spatialFocusBlocked, setSpatialFocusBlocked] = useState(false);
+  const [beaconSheetOpen, setBeaconSheetOpen] = useState(false);
+  const [beaconQueueIndex, setBeaconQueueIndex] = useState(0);
+  const [invitationResponseAck, setInvitationResponseAck] = useState(false);
+  const [mySkywritesOpen, setMySkywritesOpen] = useState(false);
+  const activeContributionBeacons = useContributionBeaconOverlayQueue();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!consumeReturnToSkyInvitationsAfterResponse()) return;
+      setInvitationResponseAck(true);
+      setBeaconSheetOpen(true);
+    }, []),
+  );
 
   const panelHeight = Math.min(Math.round(height * 0.72), 620);
   const regionCount = Math.min(
@@ -197,8 +216,31 @@ export function FocusedSkywriteScreen() {
       </SafeAreaView>
 
       <View style={[styles.launcherDock, { bottom: launcherBottom }]} pointerEvents="box-none">
+        <View style={styles.quickAccessRow}>
+          <MySkywritesIndicator onPress={() => setMySkywritesOpen(true)} />
+          {activeContributionBeacons.length > 0 ? (
+            <ContributionBeaconIndicator
+              count={activeContributionBeacons.length}
+              onPress={() => setBeaconSheetOpen(true)}
+            />
+          ) : (
+            <View style={styles.quickAccessSpacer} />
+          )}
+        </View>
         <FocusedSkyQuickLauncher onPress={openComposer} />
       </View>
+
+      <ContributionBeaconQueueSheet
+        visible={beaconSheetOpen}
+        queue={activeContributionBeacons}
+        initialIndex={beaconQueueIndex}
+        onIndexChange={setBeaconQueueIndex}
+        onClose={() => setBeaconSheetOpen(false)}
+        responseSentAck={invitationResponseAck}
+        onClearResponseSentAck={() => setInvitationResponseAck(false)}
+      />
+
+      <MySkywritesSheet visible={mySkywritesOpen} onClose={() => setMySkywritesOpen(false)} />
 
       {arrivalOverlayActive ? (
         <View style={styles.arrivalOverlay} pointerEvents="none">
@@ -260,6 +302,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 20,
+  },
+  quickAccessRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 4,
+  },
+  quickAccessSpacer: {
+    width: 44,
+    height: 44,
   },
   arrivalOverlay: {
     ...StyleSheet.absoluteFill,

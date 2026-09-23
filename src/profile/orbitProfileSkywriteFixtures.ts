@@ -5,6 +5,7 @@ export const ORBIT_PROFILE_SKYWRITE_FIXTURES: Record<string, SkywriteRecord[]> =
   'orbit-jordan': [
     {
       id: 'orbit-jordan-sw-1',
+      authorId: 'orbit-jordan',
       text: 'What helps you stay steady during growth seasons?',
       textStyle: 'plain',
       media: { photo: null, audio: null },
@@ -12,14 +13,16 @@ export const ORBIT_PROFILE_SKYWRITE_FIXTURES: Record<string, SkywriteRecord[]> =
       visibility: 'public',
       mood: 'hopeful',
       showingUp: 'question',
+      intent: 'question',
       userHashtags: ['growth'],
       skyAreaId: 'growth',
       animateToSky: true,
       allowAIContext: true,
-      createdAt: '2026-03-01T12:00:00.000Z',
+      createdAt: '2026-09-20T12:00:00.000Z',
     },
     {
       id: 'orbit-jordan-sw-2',
+      authorId: 'orbit-jordan',
       text: 'Purpose is showing up even when the path is unclear.',
       textStyle: 'plain',
       media: { photo: null, audio: null },
@@ -31,10 +34,11 @@ export const ORBIT_PROFILE_SKYWRITE_FIXTURES: Record<string, SkywriteRecord[]> =
       skyAreaId: 'purpose',
       animateToSky: false,
       allowAIContext: true,
-      createdAt: '2026-03-02T12:00:00.000Z',
+      createdAt: '2026-09-19T12:00:00.000Z',
     },
     {
       id: 'orbit-jordan-sw-3',
+      authorId: 'orbit-jordan',
       text: 'Private creative draft — not for visitors.',
       textStyle: 'plain',
       media: { photo: null, audio: null },
@@ -46,7 +50,7 @@ export const ORBIT_PROFILE_SKYWRITE_FIXTURES: Record<string, SkywriteRecord[]> =
       skyAreaId: 'creativity',
       animateToSky: false,
       allowAIContext: false,
-      createdAt: '2026-03-03T12:00:00.000Z',
+      createdAt: '2026-09-18T12:00:00.000Z',
     },
   ],
 };

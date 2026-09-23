@@ -8,6 +8,9 @@ import { ONBOARDING_SHARED_BACKGROUND } from '@/constants/onboardingAssets';
 import { ReelyouConnectProvider } from '@/connect/ReelyouConnectProvider';
 import { OnboardingProvider } from '@/onboarding';
 import { SkyAreaPreferencesProvider } from '@/skyAreas/SkyAreaPreferencesProvider';
+import { SkywriteBeaconProvider } from '@/skywrite/beacon/SkywriteBeaconProvider';
+import { SkywriteLibraryProvider } from '@/skywrite/library/SkywriteLibraryProvider';
+import { SkywriteThreadProvider } from '@/skywrite/threads/SkywriteThreadProvider';
 import { ThemeProvider, useTheme } from '@/theme';
 import { Asset } from 'expo-asset';
 
@@ -77,9 +80,15 @@ export default function PostWelcomeLayout() {
     <ThemeProvider>
       <OnboardingProvider>
         <SkyAreaPreferencesProvider>
-          <ReelyouConnectProvider>
-            <PostWelcomeStack />
-          </ReelyouConnectProvider>
+          <SkywriteLibraryProvider>
+            <SkywriteBeaconProvider>
+              <SkywriteThreadProvider>
+                <ReelyouConnectProvider>
+                  <PostWelcomeStack />
+                </ReelyouConnectProvider>
+              </SkywriteThreadProvider>
+            </SkywriteBeaconProvider>
+          </SkywriteLibraryProvider>
         </SkyAreaPreferencesProvider>
       </OnboardingProvider>
     </ThemeProvider>

@@ -1,21 +1,20 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { memo, useState } from 'react';
-import {
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { memo, useCallback, useMemo } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 
+import { HomeDismissibleSignalCard } from '@/components/home/HomeDismissibleSignalCard';
 import { GuidingLightCopy } from '@/constants/guidingLightCopy';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
+import {
+  guidingLightQualifyingSignals,
+  shouldShowHomeGuidingLight,
+} from '@/signals/reelyouSignalEngine';
+import { navigateReelyouSignal } from '@/signals/navigateReelyouSignal';
 import { useThemedStyles } from '@/theme/useTheme';
 
 interface HomeGuidingLightSectionProps {
@@ -31,9 +30,27 @@ const CARD = {
 
 function HomeGuidingLightSectionComponent({ animatedStyle }: HomeGuidingLightSectionProps) {
   const router = useRouter();
-  const { guidingLightView, dismissGuidingLight } = useOnboarding();
-  const [whyVisible, setWhyVisible] = useState(false);
-  const { light, isPeaceState, whyExplanation } = guidingLightView;
+  const { signals, presentHomeSignal, dismissHomePresentation } = useReelyouConnect();
+  const { dismissGuidingLight } = useOnboarding();
+  const qualifyingSignals = useMemo(() => guidingLightQualifyingSignals(signals), [signals]);
+  const showGuidingLight = shouldShowHomeGuidingLight(signals);
+  const primarySignal = qualifyingSignals[0];
+
+  const signalIds = useMemo(
+    () => qualifyingSignals.map((signal) => signal.signalId),
+    [qualifyingSignals],
+  );
+
+  const handleDismissGuidingLight = useCallback(() => {
+    dismissHomePresentation(signalIds);
+    dismissGuidingLight();
+  }, [dismissGuidingLight, dismissHomePresentation, signalIds]);
+
+  const handleOpenGuidingLight = useCallback(() => {
+    if (!primarySignal) return;
+    presentHomeSignal(primarySignal);
+    navigateReelyouSignal(router, primarySignal);
+  }, [presentHomeSignal, primarySignal, router]);
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -46,6 +63,8 @@ function HomeGuidingLightSectionComponent({ animatedStyle }: HomeGuidingLightSec
         borderWidth: StyleSheet.hairlineWidth + 0.5,
         borderColor: 'rgba(232, 200, 114, 0.2)',
         backgroundColor: HomePalette.navyMid,
+        paddingTop: 4,
+        paddingRight: 36,
         ...Platform.select({
           ios: {
             shadowColor: '#000',
@@ -121,15 +140,6 @@ function HomeGuidingLightSectionComponent({ animatedStyle }: HomeGuidingLightSec
         gap: 12,
         paddingLeft: CARD.iconCircle + CARD.gap,
       },
-      action: {
-        fontFamily: Fonts.sans,
-        fontSize: 11.5,
-        fontWeight: '600',
-        color: tokens.gold,
-        minHeight: 44,
-        lineHeight: 44,
-        letterSpacing: 0.01,
-      },
       companionLink: {
         fontFamily: Fonts.sans,
         fontSize: 11,
@@ -137,139 +147,74 @@ function HomeGuidingLightSectionComponent({ animatedStyle }: HomeGuidingLightSec
         minHeight: 44,
         lineHeight: 44,
       },
-      modalBackdrop: {
-        flex: 1,
-        backgroundColor: 'rgba(2, 4, 14, 0.72)',
-        justifyContent: 'center',
-        paddingHorizontal: 24,
-      },
-      modalPanel: {
-        borderRadius: HomeLayout.cardRadius,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(232, 200, 114, 0.28)',
-        backgroundColor: 'rgba(8, 12, 36, 0.96)',
-        padding: 20,
-        gap: 12,
-      },
-      modalTitle: {
-        fontFamily: Fonts.serif,
-        fontSize: 18,
-        fontWeight: '600',
-        color: HomePalette.textPrimary,
-      },
-      modalBody: {
-        fontFamily: Fonts.sans,
-        fontSize: 14,
-        lineHeight: 20,
-        color: 'rgba(235, 228, 248, 0.78)',
-      },
-      modalClose: {
-        alignSelf: 'flex-start',
-        minHeight: 44,
-        justifyContent: 'center',
-      },
-      modalCloseText: {
-        fontFamily: Fonts.sans,
-        fontSize: 14,
-        fontWeight: '600',
-        color: tokens.gold,
-      },
+      pressed: { opacity: 0.9 },
     }),
   );
 
+  if (!showGuidingLight || !primarySignal) {
+    return null;
+  }
+
   return (
     <Animated.View style={[styles.wrap, animatedStyle]}>
-      <View style={styles.shell}>
-        <LinearGradient
-          colors={['rgba(10, 10, 28, 0.97)', 'rgba(6, 8, 20, 0.98)', 'rgba(8, 8, 24, 0.97)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <LinearGradient
-          colors={['rgba(232, 200, 114, 0.06)', 'transparent', 'rgba(124, 92, 191, 0.04)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-        <LinearGradient
-          colors={['rgba(255, 255, 255, 0.04)', 'transparent']}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 0.4 }}
-          style={styles.topSheen}
-          pointerEvents="none"
-        />
+      <HomeDismissibleSignalCard
+        onDismiss={handleDismissGuidingLight}
+        dismissAccessibilityLabel="Dismiss Guiding Light"
+      >
+        <View style={styles.shell}>
+          <LinearGradient
+            colors={['rgba(10, 10, 28, 0.97)', 'rgba(6, 8, 20, 0.98)', 'rgba(8, 8, 24, 0.97)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <LinearGradient
+            colors={['rgba(232, 200, 114, 0.06)', 'transparent', 'rgba(124, 92, 191, 0.04)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0.04)', 'transparent']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 0.4 }}
+            style={styles.topSheen}
+            pointerEvents="none"
+          />
 
-        <View style={styles.inner}>
-          <View style={styles.mainRow}>
-            <View style={styles.iconCircle}>
-              <Text style={styles.icon}>✦</Text>
-            </View>
-            <View style={styles.center}>
-              <Text style={styles.title}>{GuidingLightCopy.sectionTitle}</Text>
-              {isPeaceState || !light ? (
-                <Text style={styles.peace}>{GuidingLightCopy.peaceMessage}</Text>
-              ) : (
-                <>
-                  <Text style={styles.body}>{light.title}</Text>
-                  {light.supportingText ? (
-                    <Text style={styles.peace}>{light.supportingText}</Text>
-                  ) : null}
-                </>
-              )}
-            </View>
-          </View>
+          <View style={styles.inner}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open Guiding Light"
+              onPress={handleOpenGuidingLight}
+              style={({ pressed }) => [styles.mainRow, pressed && styles.pressed]}
+            >
+              <View style={styles.iconCircle}>
+                <Text style={styles.icon}>✦</Text>
+              </View>
+              <View style={styles.center}>
+                <Text style={styles.title}>{GuidingLightCopy.sectionTitle}</Text>
+                <Text style={styles.body}>{primarySignal.title}</Text>
+                {primarySignal.description ? (
+                  <Text style={styles.peace}>{primarySignal.description}</Text>
+                ) : null}
+              </View>
+            </Pressable>
 
-          <View style={styles.actionRow}>
-            {!isPeaceState && light && whyExplanation ? (
+            <View style={styles.actionRow}>
               <Pressable
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel={GuidingLightCopy.whyThisA11y}
-                onPress={() => setWhyVisible(true)}>
-                <Text style={styles.action}>{GuidingLightCopy.whyThis}</Text>
+                accessibilityLabel={GuidingLightCopy.companionA11y}
+                onPress={() => router.push('/companion' as never)}
+              >
+                <Text style={styles.companionLink}>{GuidingLightCopy.companionLink}</Text>
               </Pressable>
-            ) : null}
-            {!isPeaceState && light ? (
-              <Pressable
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={GuidingLightCopy.dismiss}
-                onPress={dismissGuidingLight}>
-                <Text style={styles.action}>{GuidingLightCopy.dismiss}</Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={GuidingLightCopy.companionA11y}
-              onPress={() => router.push('/companion' as never)}>
-              <Text style={styles.companionLink}>{GuidingLightCopy.companionLink}</Text>
-            </Pressable>
+            </View>
           </View>
         </View>
-      </View>
-
-      <Modal
-        animationType="fade"
-        transparent
-        visible={whyVisible}
-        onRequestClose={() => setWhyVisible(false)}>
-        <View style={styles.modalBackdrop} accessibilityViewIsModal>
-          <View style={styles.modalPanel} accessibilityViewIsModal>
-            <Text style={styles.modalTitle}>{GuidingLightCopy.whyTitle}</Text>
-            <Text style={styles.modalBody}>{whyExplanation}</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={GuidingLightCopy.closeA11y}
-              onPress={() => setWhyVisible(false)}
-              style={styles.modalClose}>
-              <Text style={styles.modalCloseText}>Close</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      </HomeDismissibleSignalCard>
     </Animated.View>
   );
 }

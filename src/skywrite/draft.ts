@@ -1,5 +1,6 @@
 import { SkywriteCopy } from '@/constants/skywriteCopy';
 import { resolveSkywriteSkyAreaId } from '@/skyAreas/resolveSkywriteSkyAreaId';
+import { inferSkywriteIntentFromShowingUp } from '@/skywrite/skywriteIntent';
 import type { SkywriteDraft, SkywriteMedia, SkywriteMediaMode, SkywriteRecord } from '@/skywrite/types';
 import { EMPTY_SKYWRITE_MEDIA } from '@/skywrite/types';
 
@@ -66,12 +67,15 @@ export function hasSkywriteContent(draft: Pick<SkywriteDraft, 'text' | 'media'>)
 }
 
 export function createEmptySkywriteDraft(
-  defaults?: Partial<Pick<SkywriteDraft, 'visibility' | 'animateToSky' | 'allowAIContext'>>,
+  defaults?: Partial<
+    Pick<SkywriteDraft, 'visibility' | 'animateToSky' | 'allowAIContext' | 'skyAreaId'>
+  >,
 ): SkywriteDraft {
   return {
     text: '',
     media: { ...EMPTY_SKYWRITE_MEDIA },
     visibility: defaults?.visibility ?? 'public',
+    skyAreaId: defaults?.skyAreaId,
     mood: null,
     showingUp: null,
     textStyle: 'plain',
@@ -85,10 +89,14 @@ export function buildSkywriteRecord(
   draft: SkywriteDraft,
   id: string,
   createdAt: string,
+  authorId: string,
 ): SkywriteRecord {
   const text = draft.text.trim();
+  const intent = draft.intent ?? inferSkywriteIntentFromShowingUp(draft.showingUp);
+
   const base = {
     id,
+    authorId,
     text,
     textStyle: draft.textStyle ?? 'plain',
     media: {
@@ -102,6 +110,7 @@ export function buildSkywriteRecord(
     userHashtags: draft.userHashtags,
     animateToSky: draft.animateToSky ?? true,
     allowAIContext: draft.allowAIContext ?? true,
+    intent,
     createdAt,
   } satisfies Omit<SkywriteRecord, 'skyAreaId'>;
 

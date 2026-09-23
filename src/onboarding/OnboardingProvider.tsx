@@ -77,6 +77,7 @@ import {
   loadSkyEvolution,
   saveSkyEvolution,
 } from '@/mySky/skyEvolutionPersistence';
+import { currentUser } from '@/data/mockData';
 import {
   buildSkywriteRecord,
   EMPTY_SKYWRITES,
@@ -619,6 +620,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       draft,
       `skywrite-${Date.now()}`,
       new Date().toISOString(),
+      currentUser.id,
     );
     setSkywritesState((current) => {
       const next: SkywritesState = { posts: [record, ...current.posts] };

@@ -11,6 +11,10 @@ import {
 
 import { currentUser, orbitUsers } from '@/data/mockData';
 import { useOnboarding } from '@/onboarding';
+import { useSkywriteBeacon } from '@/skywrite/beacon/SkywriteBeaconProvider';
+import { beaconNow } from '@/skywrite/beacon/beaconTime';
+import { contributionBeaconSignalsFromQueue } from '@/skywrite/beacon/skywriteBeaconSignals';
+import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
 import { BETA_CONNECTED_USER_IDS } from '@/messages/messagesConnections';
 import { canonicalThreadId } from '@/messages/messagesCanonical';
 import {
@@ -38,6 +42,7 @@ import {
 import { loadUserPreferences, saveUserPreferences } from '@/preferences/userPreferencesPersistence';
 import type { SafetyReportReason } from '@/safety/safetyActions';
 import { reportUserSafety } from '@/safety/safetyActions';
+import { isHomePresentationHandled as isHomePresentationHandledMeta } from '@/signals/homeSignalPresentation';
 import { buildReelyouSignals, hasMeaningfulUnread } from '@/signals/reelyouSignalEngine';
 import type { ReelyouSignalSources } from '@/signals/reelyouSignalSources';
 import {
@@ -64,9 +69,14 @@ interface ReelyouConnectContextValue {
   inboxThreadIds: string[];
   messageRequestsEnabled: boolean;
   signals: ReelyouSignal[];
+  signalsMeta: ReelyouSignalsMetaState;
   hasUnreadSignals: boolean;
   dismissSignal: (signalId: string) => void;
   acknowledgeSignal: (signalId: string) => void;
+  isHomePresentationHandled: (signalId: string) => boolean;
+  markHomePresentationOpened: (signalIds: string | readonly string[]) => void;
+  dismissHomePresentation: (signalIds: string | readonly string[]) => void;
+  presentHomeSignal: (signal: ReelyouSignal) => void;
   snoozeSignal: (signalId: string, untilMs: number) => void;
   openOrCreateThreadWith: (userId: string) => string | null;
   sendMessage: (threadId: string, text: string) => void;
@@ -94,7 +104,9 @@ interface ReelyouConnectContextValue {
 const ReelyouConnectContext = createContext<ReelyouConnectContextValue | null>(null);
 
 export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
-  const { aroundYourSkyFeed } = useOnboarding();
+  const { aroundYourSkyFeed, skywrites } = useOnboarding();
+  const { buildQueueForViewer } = useSkywriteBeacon();
+  const { ignoreBeacon } = useSkywriteThreads();
   const [ready, setReady] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferencesState>(DEFAULT_USER_PREFERENCES);
   const [messages, setMessages] = useState<MessagesState>({
@@ -245,12 +257,22 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
     [aroundYourSkyFeed, preferences],
   );
 
+  const contributionBeacons = useMemo(() => {
+    const queue = buildQueueForViewer(
+      currentUser.id,
+      messages.blockedUserIds,
+      beaconNow(),
+    );
+    return contributionBeaconSignalsFromQueue(queue);
+  }, [buildQueueForViewer, messages.blockedUserIds]);
+
   const signalSources: ReelyouSignalSources = useMemo(
     () => ({
       starpathResourceState: starpathResources,
       homeFeed: personalizedHomeFeed,
+      contributionBeacons,
     }),
-    [personalizedHomeFeed, starpathResources],
+    [contributionBeacons, personalizedHomeFeed, starpathResources],
   );
 
   const signals = useMemo(
@@ -290,6 +312,9 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
 
   const dismissSignal = useCallback(
     (signalId: string) => {
+      if (signalId.startsWith('sig-beacon-sw-')) {
+        ignoreBeacon(signalId.replace('sig-beacon-sw-', ''));
+      }
       setSignalsMeta((prev) => {
         const next = {
           ...prev,
@@ -301,7 +326,7 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
         return next;
       });
     },
-    [scheduleMetaSave],
+    [ignoreBeacon, scheduleMetaSave],
   );
 
   const acknowledgeSignal = useCallback(
@@ -318,6 +343,54 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       });
     },
     [scheduleMetaSave],
+  );
+
+  const isHomePresentationHandled = useCallback(
+    (signalId: string) => isHomePresentationHandledMeta(signalsMeta, signalId),
+    [signalsMeta],
+  );
+
+  const markHomePresentationOpened = useCallback(
+    (signalIds: string | readonly string[]) => {
+      const ids = typeof signalIds === 'string' ? [signalIds] : [...signalIds];
+      if (ids.length === 0) return;
+      setSignalsMeta((prev) => {
+        const acknowledgedSignalIds = [...prev.acknowledgedSignalIds];
+        for (const id of ids) {
+          if (!acknowledgedSignalIds.includes(id)) {
+            acknowledgedSignalIds.push(id);
+          }
+        }
+        const next = { ...prev, acknowledgedSignalIds };
+        scheduleMetaSave(next);
+        return next;
+      });
+    },
+    [scheduleMetaSave],
+  );
+
+  const dismissHomePresentation = useCallback(
+    (signalIds: string | readonly string[]) => {
+      const ids = typeof signalIds === 'string' ? [signalIds] : [...signalIds];
+      if (ids.length === 0) return;
+      for (const id of ids) {
+        if (id.startsWith('sig-beacon-sw-')) {
+          ignoreBeacon(id.replace('sig-beacon-sw-', ''));
+        }
+      }
+      setSignalsMeta((prev) => {
+        const dismissedSignalIds = [...prev.dismissedSignalIds];
+        for (const id of ids) {
+          if (!dismissedSignalIds.includes(id)) {
+            dismissedSignalIds.push(id);
+          }
+        }
+        const next = { ...prev, dismissedSignalIds };
+        scheduleMetaSave(next);
+        return next;
+      });
+    },
+    [ignoreBeacon, scheduleMetaSave],
   );
 
   const snoozeSignal = useCallback(
@@ -380,6 +453,17 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       });
     },
     [acknowledgeSignal, scheduleMsgSave],
+  );
+
+  const presentHomeSignal = useCallback(
+    (signal: ReelyouSignal) => {
+      if (signal.type === 'messages' && signal.destinationParams?.threadId) {
+        markThreadRead(signal.destinationParams.threadId);
+        return;
+      }
+      markHomePresentationOpened(signal.signalId);
+    },
+    [markHomePresentationOpened, markThreadRead],
   );
 
   const acceptMessageRequest = useCallback(
@@ -452,9 +536,14 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       inboxThreadIds: inboxIds,
       messageRequestsEnabled,
       signals,
+      signalsMeta,
       hasUnreadSignals,
       dismissSignal,
       acknowledgeSignal,
+      isHomePresentationHandled,
+      markHomePresentationOpened,
+      dismissHomePresentation,
+      presentHomeSignal,
       snoozeSignal,
       openOrCreateThreadWith,
       sendMessage,
@@ -482,9 +571,14 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       inboxIds,
       messageRequestsEnabled,
       signals,
+      signalsMeta,
       hasUnreadSignals,
       dismissSignal,
       acknowledgeSignal,
+      isHomePresentationHandled,
+      markHomePresentationOpened,
+      dismissHomePresentation,
+      presentHomeSignal,
       snoozeSignal,
       openOrCreateThreadWith,
       sendMessage,

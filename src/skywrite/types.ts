@@ -1,4 +1,5 @@
 import type { SkywriteShowingUpId } from '@/constants/skywriteCopy';
+export type SkywriteIntentId = 'reflection' | 'question' | 'perspective' | 'learned';
 import type { SkywriteTextStyleId } from '@/constants/skywriteTextStyles';
 import type { SkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import type { Mood, Privacy } from '@/types';
@@ -24,6 +25,8 @@ export interface SkywriteMedia {
 /** User-authored Skywrite — explicit hashtags stored separately from inferred themes. */
 export interface SkywriteRecord {
   id: string;
+  /** Owner of the Skywrite — required for beacon routing and thread authorship. */
+  authorId?: string;
   text: string;
   textStyle: SkywriteTextStyleId;
   media: SkywriteMedia;
@@ -40,6 +43,8 @@ export interface SkywriteRecord {
   allowAIContext: boolean;
   /** Canonical Where You Live / beacon / profile category id. */
   skyAreaId?: SkyAreaCategoryId;
+  /** Lightweight intent for beacon routing — explicit choice wins over showingUp inference. */
+  intent?: SkywriteIntentId;
   createdAt: string;
 }
 
@@ -54,6 +59,7 @@ export interface SkywriteDraft {
   animateToSky?: boolean;
   allowAIContext?: boolean;
   skyAreaId?: SkyAreaCategoryId;
+  intent?: SkywriteIntentId;
 }
 
 export interface SkywritesState {

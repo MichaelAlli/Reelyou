@@ -2,9 +2,18 @@ import { stableOpportunityNodeId } from '@/starpath/starpathOpportunityOrganizer
 import type { StarPathResourceState } from '@/starpath/starpathOpportunityTypes';
 import type { AroundYourSkyHomeFeed } from '@/social/aroundYourSky/types';
 
+export interface ContributionBeaconSignalSource {
+  signalId: string;
+  skywriteId: string;
+  title: string;
+  description: string;
+  createdAt: number;
+}
+
 export interface ReelyouSignalSources {
   starpathResourceState: StarPathResourceState | null;
   homeFeed: AroundYourSkyHomeFeed | null;
+  contributionBeacons?: ContributionBeaconSignalSource[];
 }
 
 export function starpathOpportunitySignalsFromState(

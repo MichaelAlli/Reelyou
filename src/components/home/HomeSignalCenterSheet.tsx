@@ -5,36 +5,16 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
-import type { ReelyouSignal } from '@/signals/reelyouSignalTypes';
+import { navigateReelyouSignal } from '@/signals/navigateReelyouSignal';
 
 interface HomeSignalCenterSheetProps {
   visible: boolean;
   onClose: () => void;
 }
 
-function navigateSignal(router: ReturnType<typeof useRouter>, signal: ReelyouSignal) {
-  if (signal.destinationParams?.threadId) {
-    router.push(`/messages/${signal.destinationParams.threadId}` as never);
-    return;
-  }
-  if (signal.destinationParams?.opportunityNodeId) {
-    router.push(
-      `/starpath?opportunityNodeId=${signal.destinationParams.opportunityNodeId}` as never,
-    );
-    return;
-  }
-  if (signal.destinationParams?.id && signal.destinationRoute === '/community') {
-    router.push(`/community?id=${signal.destinationParams.id}` as never);
-    return;
-  }
-  if (signal.destinationRoute.startsWith('/')) {
-    router.push(signal.destinationRoute as never);
-  }
-}
-
 function HomeSignalCenterSheetComponent({ visible, onClose }: HomeSignalCenterSheetProps) {
   const router = useRouter();
-  const { signals, dismissSignal, acknowledgeSignal, markThreadRead } = useReelyouConnect();
+  const { signals, dismissSignal, presentHomeSignal } = useReelyouConnect();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -50,11 +30,8 @@ function HomeSignalCenterSheetComponent({ visible, onClose }: HomeSignalCenterSh
                 key={signal.signalId}
                 style={({ pressed }) => [styles.row, pressed && styles.pressed]}
                 onPress={() => {
-                  if (signal.type === 'messages' && signal.destinationParams?.threadId) {
-                    markThreadRead(signal.destinationParams.threadId);
-                  }
-                  acknowledgeSignal(signal.signalId);
-                  navigateSignal(router, signal);
+                  presentHomeSignal(signal);
+                  navigateReelyouSignal(router, signal);
                   onClose();
                 }}
                 accessibilityRole="button"
@@ -66,7 +43,10 @@ function HomeSignalCenterSheetComponent({ visible, onClose }: HomeSignalCenterSh
                 </Text>
                 {signal.dismissible ? (
                   <Pressable
-                    onPress={() => dismissSignal(signal.signalId)}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      dismissSignal(signal.signalId);
+                    }}
                     accessibilityLabel="Dismiss signal"
                     hitSlop={8}
                   >

@@ -1,254 +1,268 @@
 import { Image } from 'expo-image';
-import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { HomePalette } from '@/constants/homeLayout';
-import { SkywriteCopy } from '@/constants/skywriteCopy';
-import { Fonts } from '@/constants/theme';
-import { formatDurationMs } from '@/skywrite/mediaActions';
-import type { SkywriteAudioMedia, SkywritePhotoMedia } from '@/skywrite/types';
+import { SkywriteAudioWaveform } from '@/components/skywrite/SkywriteAudioWaveform';
+import { Fonts, Radius } from '@/constants/theme';
+import {
+  formatSkywriteAudioDuration,
+  pickSkywriteMediaSource,
+  skywritePreviewExcerpt,
+} from '@/skywrite/media/skywriteMediaPreviewUtils';
+import type { SkywriteRecord } from '@/skywrite/types';
+
+export type SkywriteMediaPreviewVariant = 'library' | 'invitationCard' | 'invitationList';
 
 interface SkywriteMediaPreviewProps {
-  photo: SkywritePhotoMedia | null;
-  audio: SkywriteAudioMedia | null;
-  isPhotoVoiceover: boolean;
-  isPlaying: boolean;
-  onRemovePhoto: () => void;
-  onRemoveAudio: () => void;
-  onTogglePlayback: () => void;
+  skywrite: Pick<SkywriteRecord, 'id' | 'text' | 'media' | 'mediaMode'>;
+  variant: SkywriteMediaPreviewVariant;
+  previewIdPrefix?: string;
+  excerpt?: string;
+  onToggleAudio?: (previewId: string, uri: string) => void;
+  isAudioPlaying?: (previewId: string) => boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
-function AudioPlayer({
-  audio,
-  isPhotoVoiceover,
-  isPlaying,
-  onTogglePlayback,
-  onRemoveAudio,
-  attached,
-}: {
-  audio: SkywriteAudioMedia;
-  isPhotoVoiceover: boolean;
-  isPlaying: boolean;
-  onTogglePlayback: () => void;
-  onRemoveAudio: () => void;
-  attached?: boolean;
-}) {
-  return (
-    <View style={[styles.audioRow, attached && styles.audioAttached]}>
-      {isPhotoVoiceover ? (
-        <Text style={styles.audioKind}>{SkywriteCopy.voiceoverBadge}</Text>
-      ) : null}
-      <View style={styles.audioControls}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isPlaying ? 'Pause voice note' : 'Play voice note'}
-          onPress={onTogglePlayback}
-          style={styles.playBtn}>
-          <Text style={styles.playIcon}>{isPlaying ? '❚❚' : '▶'}</Text>
-        </Pressable>
-        <View style={styles.waveTrack} accessibilityElementsHidden>
-          <View style={[styles.waveFill, { width: isPlaying ? '72%' : '38%' }]} />
-        </View>
-        <Text style={styles.duration}>{formatDurationMs(audio.durationMs ?? 0)}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isPhotoVoiceover ? SkywriteCopy.removeVoiceover : 'Remove voice note'}
-          onPress={onRemoveAudio}
-          style={styles.audioRemove}>
-          <Text style={styles.audioRemoveText}>{SkywriteCopy.removeMedia}</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
+function thumbnailSize(variant: SkywriteMediaPreviewVariant): { width: number; height: number } | null {
+  if (variant === 'invitationCard') return null;
+  if (variant === 'invitationList') return { width: 52, height: 52 };
+  return { width: 76, height: 76 };
 }
 
 function SkywriteMediaPreviewComponent({
-  photo,
-  audio,
-  isPhotoVoiceover,
-  isPlaying,
-  onRemovePhoto,
-  onRemoveAudio,
-  onTogglePlayback,
+  skywrite,
+  variant,
+  previewIdPrefix = 'sw-preview',
+  excerpt,
+  onToggleAudio,
+  isAudioPlaying,
+  style,
 }: SkywriteMediaPreviewProps) {
-  if (!photo && !audio) return null;
+  const media = useMemo(() => pickSkywriteMediaSource(skywrite), [skywrite]);
+  const [imageFailed, setImageFailed] = useState(false);
+  const previewId = `${previewIdPrefix}-${skywrite.id}`;
+  const playing = isAudioPlaying?.(previewId) ?? false;
+  const textExcerpt = excerpt ?? skywritePreviewExcerpt(skywrite.text, variant === 'invitationList' ? 80 : 140);
 
-  if (photo && audio && isPhotoVoiceover) {
+  if (media.kind === 'text') {
+    if (!textExcerpt) return null;
     return (
-      <View style={styles.wrap}>
-        <View style={styles.comboGroup}>
-          <View style={styles.photoWrap}>
-            <Image
-              source={{ uri: photo.uri }}
-              style={styles.photo}
-              contentFit="cover"
-              accessibilityLabel="Attached photo"
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Remove photo"
-              onPress={onRemovePhoto}
-              style={styles.removeBtn}>
-              <Text style={styles.removeText}>×</Text>
-            </Pressable>
-          </View>
-          <AudioPlayer
-            audio={audio}
-            isPhotoVoiceover
-            isPlaying={isPlaying}
-            onTogglePlayback={onTogglePlayback}
-            onRemoveAudio={onRemoveAudio}
-            attached
-          />
-        </View>
-      </View>
+      <Text
+        style={[styles.textOnly, variant === 'invitationCard' && styles.textOnlyCard]}
+        numberOfLines={variant === 'invitationList' ? 2 : 3}>
+        {textExcerpt}
+      </Text>
     );
   }
 
+  const showPhoto =
+    (media.kind === 'photo' || media.kind === 'photo_audio') && media.photoUri && !imageFailed;
+  const showAudio = (media.kind === 'audio' || media.kind === 'photo_audio') && media.audioUri;
+  const thumb = thumbnailSize(variant);
+  const listLayout = variant === 'library' || variant === 'invitationList';
+
   return (
-    <View style={styles.wrap}>
-      {photo ? (
-        <View style={styles.photoWrap}>
+    <View style={[listLayout ? styles.rowLayout : styles.stackLayout, style]}>
+      {showPhoto ? (
+        <View
+          style={[
+            styles.thumbWrap,
+            variant === 'invitationCard' && styles.thumbWrapCard,
+            thumb ? { width: thumb.width, height: thumb.height } : null,
+          ]}>
           <Image
-            source={{ uri: photo.uri }}
-            style={styles.photo}
+            source={{ uri: media.photoUri! }}
+            style={styles.thumbImage}
             contentFit="cover"
-            accessibilityLabel="Attached photo"
+            transition={120}
+            onError={() => setImageFailed(true)}
+            accessibilityIgnoresInvertColors
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Remove photo"
-            onPress={onRemovePhoto}
-            style={styles.removeBtn}>
-            <Text style={styles.removeText}>×</Text>
-          </Pressable>
+          {media.kind === 'photo_audio' && media.audioUri ? (
+            <View style={styles.audioBadge}>
+              <Text style={styles.audioBadgeIcon}>♪</Text>
+              <Text style={styles.audioBadgeDuration}>
+                {formatSkywriteAudioDuration(media.audioDurationMs)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : media.kind === 'photo' || media.kind === 'photo_audio' ? (
+        <View
+          style={[
+            styles.fallbackThumb,
+            variant === 'invitationCard' ? styles.thumbWrapCard : null,
+            thumb ? { width: thumb.width, height: thumb.height } : null,
+          ]}>
+          <Text style={styles.fallbackIcon}>◻</Text>
         </View>
       ) : null}
 
-      {audio ? (
-        <AudioPlayer
-          audio={audio}
-          isPhotoVoiceover={false}
-          isPlaying={isPlaying}
-          onTogglePlayback={onTogglePlayback}
-          onRemoveAudio={onRemoveAudio}
-        />
-      ) : null}
+      <View style={styles.textColumn}>
+        {textExcerpt && media.kind !== 'audio' ? (
+          <Text style={styles.excerpt} numberOfLines={variant === 'invitationList' ? 2 : 2}>
+            {textExcerpt}
+          </Text>
+        ) : null}
+
+        {showAudio ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={playing ? 'Pause audio preview' : 'Play audio preview'}
+            onPress={(event) => {
+              event.stopPropagation();
+              onToggleAudio?.(previewId, media.audioUri!);
+            }}
+            style={({ pressed }) => [styles.audioStrip, pressed && styles.pressed]}>
+            <View style={styles.playBtn}>
+              <Text style={styles.playBtnText}>{playing ? '❚❚' : '▶'}</Text>
+            </View>
+            <SkywriteAudioWaveform active={playing} seed={skywrite.id.length} barCount={12} />
+            <Text style={styles.duration}>
+              {formatSkywriteAudioDuration(media.audioDurationMs)}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {media.kind === 'audio' && !textExcerpt ? (
+          <Text style={styles.audioOnlyHint} numberOfLines={1}>
+            Voice Skywrite
+          </Text>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 export const SkywriteMediaPreview = memo(SkywriteMediaPreviewComponent);
 
+export function skywriteHasMediaPreview(record: Pick<SkywriteRecord, 'media' | 'mediaMode'>): boolean {
+  return pickSkywriteMediaSource(record).kind !== 'text';
+}
+
 const styles = StyleSheet.create({
-  wrap: {
-    marginTop: 12,
+  rowLayout: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-start',
   },
-  comboGroup: {
+  stackLayout: {
     gap: 8,
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
   },
-  photoWrap: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(167, 139, 250, 0.24)',
-  },
-  photo: {
-    width: 168,
-    height: 168,
-    backgroundColor: 'rgba(8, 8, 24, 0.6)',
-  },
-  removeBtn: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(6, 8, 22, 0.78)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(167, 139, 250, 0.28)',
-  },
-  removeText: {
-    fontFamily: Fonts.sans,
-    fontSize: 18,
-    lineHeight: 20,
-    color: HomePalette.textPrimary,
-  },
-  audioRow: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(167, 139, 250, 0.22)',
-    backgroundColor: 'rgba(8, 8, 24, 0.55)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  textColumn: {
+    flex: 1,
+    minWidth: 0,
     gap: 6,
   },
-  audioAttached: {
-    width: 168,
+  thumbWrap: {
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(232, 200, 114, 0.28)',
-    backgroundColor: 'rgba(8, 8, 24, 0.68)',
+    backgroundColor: 'rgba(8, 10, 24, 0.5)',
   },
-  audioKind: {
+  thumbWrapCard: {
+    width: '100%',
+    height: 132,
+    alignSelf: 'stretch',
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fallbackThumb: {
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(167, 139, 250, 0.25)',
+    backgroundColor: 'rgba(12, 10, 28, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fallbackIcon: {
+    fontSize: 18,
+    color: 'rgba(235,228,248,0.45)',
+  },
+  audioBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(8, 10, 24, 0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(232, 200, 114, 0.35)',
+  },
+  audioBadgeIcon: {
+    fontSize: 10,
+    color: '#E8C872',
+  },
+  audioBadgeDuration: {
     fontFamily: Fonts.sans,
     fontSize: 10,
     fontWeight: '600',
-    color: HomePalette.gold,
-    letterSpacing: 0.3,
+    color: '#F5F0FF',
   },
-  audioControls: {
+  excerpt: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(235,228,248,0.88)',
+  },
+  textOnly: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(235,228,248,0.88)',
+  },
+  textOnlyCard: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#F5F0FF',
+  },
+  audioStrip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(167, 139, 250, 0.28)',
+    backgroundColor: 'rgba(12, 10, 28, 0.45)',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    minHeight: 44,
   },
   playBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 200, 114, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(232, 200, 114, 0.12)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(232, 200, 114, 0.35)',
   },
-  playIcon: {
+  playBtnText: {
     fontFamily: Fonts.sans,
     fontSize: 11,
     fontWeight: '700',
-    color: HomePalette.gold,
-  },
-  waveTrack: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(167, 139, 250, 0.18)',
-    overflow: 'hidden',
-  },
-  waveFill: {
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: 'rgba(232, 200, 114, 0.72)',
+    color: '#E8C872',
   },
   duration: {
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    color: 'rgba(235, 228, 248, 0.72)',
-    minWidth: 36,
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(235,228,248,0.62)',
+    minWidth: 32,
     textAlign: 'right',
   },
-  audioRemove: {
-    minHeight: 32,
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  audioRemoveText: {
+  audioOnlyHint: {
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(235, 228, 248, 0.55)',
+    fontSize: 12,
+    color: 'rgba(235,228,248,0.65)',
   },
+  pressed: { opacity: 0.88 },
 });

@@ -84,6 +84,26 @@ export function buildReelyouSignals(
     }
   }
 
+  if (prefs.opportunities && discoveryPrefs.showOpportunityDiscovery && !quiet) {
+    for (const beacon of sources.contributionBeacons ?? []) {
+      if (meta.dismissedSignalIds.includes(beacon.signalId)) continue;
+      if ((meta.snoozedUntil[beacon.signalId] ?? 0) > now) continue;
+      out.push({
+        signalId: beacon.signalId,
+        type: 'contribution_beacon',
+        title: beacon.title,
+        description: beacon.description,
+        createdAt: beacon.createdAt,
+        sourceId: beacon.skywriteId,
+        destinationRoute: `/skywrite/${beacon.skywriteId}`,
+        destinationParams: { skywriteId: beacon.skywriteId, source: 'beacon' },
+        read: meta.acknowledgedSignalIds.includes(beacon.signalId),
+        priority: 'normal',
+        dismissible: true,
+      });
+    }
+  }
+
   if (
     prefs.opportunities &&
     discoveryPrefs.showOpportunityDiscovery &&
@@ -129,6 +149,7 @@ export function buildReelyouSignals(
       if (item.destination !== 'skywrite') continue;
       const signalId = `sig-sky-${item.id}`;
       if (meta.dismissedSignalIds.includes(signalId)) continue;
+      const skywriteId = item.contentId ?? item.id;
       out.push({
         signalId,
         type: 'sky_activity',
@@ -137,6 +158,7 @@ export function buildReelyouSignals(
         createdAt: new Date(item.timestamp).getTime() || now,
         sourceId: item.id,
         destinationRoute: '/skywrite',
+        destinationParams: { skywriteId },
         read: meta.acknowledgedSignalIds.includes(signalId),
         priority: 'normal',
         dismissible: true,
@@ -170,4 +192,13 @@ export function buildReelyouSignals(
 
 export function hasMeaningfulUnread(signals: ReelyouSignal[]): boolean {
   return signals.some((s) => !s.read);
+}
+
+/** Unread signals that still deserve Home Guiding Light — same canonical list as Signal Center. */
+export function guidingLightQualifyingSignals(signals: readonly ReelyouSignal[]): ReelyouSignal[] {
+  return signals.filter((signal) => !signal.read);
+}
+
+export function shouldShowHomeGuidingLight(signals: readonly ReelyouSignal[]): boolean {
+  return guidingLightQualifyingSignals(signals).length > 0;
 }
