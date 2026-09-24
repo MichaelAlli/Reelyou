@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomNav } from '@/components/BottomNav';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { HomeBellIcon } from '@/components/home/HomeIcons';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
@@ -25,9 +26,11 @@ import { SkywriteMediaRow } from '@/components/skywrite/SkywriteMediaRow';
 import { SkywritePhotoSourceSheet } from '@/components/skywrite/SkywritePhotoSourceSheet';
 import { SkywriteShootingStar } from '@/components/skywrite/SkywriteShootingStar';
 import { SkywriteToggleRow } from '@/components/skywrite/SkywriteToggleRow';
+import { SkyAreaSuggestionBanner } from '@/components/skywrite/SkyAreaSuggestionBanner';
 import { SkywriteSkyAreaPicker } from '@/components/skywrite/SkywriteSkyAreaPicker';
 import { SkywriteVisibilityControl } from '@/components/skywrite/SkywriteVisibilityControl';
-import type { SkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
+import { detectSkyAreaSuggestionFromHashtags } from '@/skyAreas/skyAreaHashtagSuggestion';
+import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
 import { inferSkywriteIntentFromShowingUp } from '@/skywrite/skywriteIntent';
 import {
   SKYWRITE_REFLECTION_PROMPTS,
@@ -39,8 +42,9 @@ import {
   getSkywriteWriteInputStyle,
 } from '@/constants/skywriteTextStyles';
 import { HomeLayout, HomePalette, measureHomeAvatarSize, measureHomePadH } from '@/constants/homeLayout';
-import { Fonts, Radius } from '@/constants/theme';
+import { Fonts, Radius, Spacing, TabBarHeight } from '@/constants/theme';
 import { useOnboarding } from '@/onboarding';
+import { SKYWRITE_COMPOSE_REQUIRES_CANONICAL_BOTTOM_NAV } from '@/skywrite/skywriteComposerNavPolicy';
 import { takeFocusedSkywriteComposeStars } from '@/skywrite/focusedSkyComposeSnapshot';
 import { submitSkywriteToFocusedSky } from '@/skywrite/submitToFocusedSkywrite';
 import {
@@ -56,6 +60,9 @@ import {
 } from '@/skywrite';
 import type { SkywritePhotoMedia } from '@/skywrite/types';
 import type { Privacy } from '@/types';
+
+/** LOCKED NAV — /skywrite/compose must keep canonical BottomNav (Skywrite active). Do not remove or replace. */
+void SKYWRITE_COMPOSE_REQUIRES_CANONICAL_BOTTOM_NAV;
 
 type AccordionKey = 'showingUp' | 'textStyle' | 'hashtags' | 'more';
 
@@ -80,6 +87,7 @@ export function SkywriteScreen() {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const padH = measureHomePadH(screenWidth);
+  const navContentInset = TabBarHeight + Math.max(insets.bottom, Spacing.sm);
   const avatarSize = Math.min(measureHomeAvatarSize(screenWidth), 88);
   const { createSkywrite, mySkyView, setSkyArrivalHandoff, state } = useOnboarding();
 
@@ -99,6 +107,8 @@ export function SkywriteScreen() {
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const [voiceCaptureOpen, setVoiceCaptureOpen] = useState(false);
   const [mediaFeedback, setMediaFeedback] = useState<string | null>(null);
+  const [dismissedSuggestionKey, setDismissedSuggestionKey] = useState<string | null>(null);
+  const { catalog, addCustomArea, selectedIds } = useSkyAreaPreferences();
 
   const voice = useSkywriteVoice();
 
@@ -115,10 +125,20 @@ export function SkywriteScreen() {
   const textStyle = draft.textStyle ?? 'plain';
   const writeInputStyle = useMemo(() => getSkywriteWriteInputStyle(textStyle), [textStyle]);
   const charCount = draft.text.length;
-  const hashtagCount = useMemo(
-    () => mergeHashtags(draft.text, manualHashtags).length,
+  const mergedHashtags = useMemo(
+    () => mergeHashtags(draft.text, manualHashtags),
     [draft.text, manualHashtags],
   );
+  const hashtagCount = mergedHashtags.length;
+
+  const areaSuggestion = useMemo(() => {
+    if (draft.visibility === 'private') return null;
+    return detectSkyAreaSuggestionFromHashtags(mergedHashtags, catalog, selectedIds);
+  }, [catalog, draft.visibility, mergedHashtags, selectedIds]);
+
+  const showAreaSuggestion =
+    areaSuggestion != null &&
+    dismissedSuggestionKey !== areaSuggestion.suggestedLabel.toLowerCase();
 
   const updateDraft = useCallback((patch: Partial<SkywriteDraft>) => {
     setDraft((current) => {
@@ -315,7 +335,7 @@ export function SkywriteScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.scroll,
-              { paddingHorizontal: padH, paddingBottom: insets.bottom + 28 },
+              { paddingHorizontal: padH, paddingBottom: navContentInset + 12 },
             ]}
             keyboardShouldPersistTaps="handled">
             <View style={styles.topNav}>
@@ -572,8 +592,22 @@ export function SkywriteScreen() {
 
             <SkywriteSkyAreaPicker
               value={draft.skyAreaId}
-              onChange={(skyAreaId: SkyAreaCategoryId) => updateDraft({ skyAreaId })}
+              recentIds={selectedIds}
+              onChange={(skyAreaId) => updateDraft({ skyAreaId })}
             />
+            {showAreaSuggestion && areaSuggestion ? (
+              <SkyAreaSuggestionBanner
+                suggestion={areaSuggestion}
+                onDismiss={() => setDismissedSuggestionKey(areaSuggestion.suggestedLabel.toLowerCase())}
+                onAdd={() => {
+                  const result = addCustomArea(areaSuggestion.suggestedLabel);
+                  if (!result.error && result.areaId) {
+                    updateDraft({ skyAreaId: result.areaId });
+                  }
+                  setDismissedSuggestionKey(areaSuggestion.suggestedLabel.toLowerCase());
+                }}
+              />
+            ) : null}
 
             <SkywriteVisibilityControl
               value={draft.visibility}
@@ -616,6 +650,8 @@ export function SkywriteScreen() {
         onTakePhoto={handleTakePhoto}
         onCancel={() => setPhotoSourceOpen(false)}
       />
+
+      <BottomNav />
     </View>
   );
 }

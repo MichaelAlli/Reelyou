@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
+import { AddCustomSkyAreaInline } from '@/components/skyAreas/AddCustomSkyAreaInline';
 import { SkyAreaSelectChip } from '@/components/skyAreas/SkyAreaSelectChip';
 import {
   OnboardingBackButton,
@@ -37,7 +38,7 @@ export function OnboardingWhereYouLiveScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { markStep } = useOnboarding();
-  const { filterCatalog, isAreaSelected, toggleAreaSelection, setDiscovering, record } =
+  const { filterCatalog, isAreaSelected, toggleAreaSelection, setDiscovering, record, addCustomArea } =
     useSkyAreaPreferences();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -153,6 +154,7 @@ export function OnboardingWhereYouLiveScreen() {
             accessibilityLabel={OnboardingWhereYouLiveCopy.searchPlaceholder}
           />
 
+          <Text style={styles.sectionLabel}>{OnboardingWhereYouLiveCopy.suggestedAreas}</Text>
           <Text style={styles.softHint}>{OnboardingWhereYouLiveCopy.softSelectionHint}</Text>
 
           <View style={styles.chipGrid}>
@@ -170,6 +172,13 @@ export function OnboardingWhereYouLiveScreen() {
               />
             ))}
           </View>
+
+          <AddCustomSkyAreaInline
+            onAdd={(label) => {
+              const result = addCustomArea(label);
+              return result.error;
+            }}
+          />
         </ScrollView>
 
         <View style={styles.footer}>
@@ -253,6 +262,14 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 14,
     color: layout.titleColor,
+  },
+  sectionLabel: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(235,228,248,0.72)',
+    textAlign: 'center',
+    marginTop: 4,
   },
   softHint: {
     fontFamily: Fonts.sans,

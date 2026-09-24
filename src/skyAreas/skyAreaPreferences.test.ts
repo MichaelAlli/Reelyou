@@ -50,7 +50,7 @@ function testDiscoveringClearsSelections() {
 
 function testCustomAreaUsesCanonicalPrefix() {
   let record = emptySkyAreaPreferences('user-michael');
-  const result = addCustomSkyArea(record, 'Dance Training');
+  const result = addCustomSkyArea(record, 'Dance Training', [], []);
   assert(result.area != null, 'custom area');
   assert(result.area!.id.startsWith('custom-'), 'custom id prefix');
   assert(selectedSkyAreaIds(result.record).length === 1, 'auto-select custom');

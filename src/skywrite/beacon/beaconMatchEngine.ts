@@ -1,4 +1,5 @@
 import { currentUser } from '@/data/mockData';
+import { resolveSkyAreaLabel } from '@/skyAreas/skyAreaDefinition';
 import { getSkyAreaCategory, isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import type { SkyAreaPreferencesRecord } from '@/skyAreas/skyAreaPreferencesTypes';
 import {
@@ -41,7 +42,9 @@ export interface BeaconEligibleSkywrite {
   rematchCycle: number;
 }
 
-function resolveAreaLabel(skyAreaId: string): string {
+function resolveAreaLabel(skyAreaId: string, prefs: SkyAreaPreferencesRecord): string {
+  const fromCatalog = resolveSkyAreaLabel(skyAreaId, prefs.customAreas);
+  if (fromCatalog) return fromCatalog;
   if (isSkyAreaCategoryId(skyAreaId)) {
     return getSkyAreaCategory(skyAreaId).label;
   }
@@ -305,7 +308,7 @@ export function buildViewerBeaconQueue(input: {
       skywrite,
       authorId: skywrite.authorId,
       skyAreaId,
-      areaLabel: resolveAreaLabel(skyAreaId),
+      areaLabel: resolveAreaLabel(skyAreaId, input.prefs),
       intentLabel: intentHumanLabel(skywrite),
       createdAtMs,
       beaconMatchId: match.beaconMatchId,

@@ -7,6 +7,7 @@ export const OnboardingWhereYouLiveCopy = {
   continue: 'Continue',
   skip: 'Skip for now',
   discovering: 'I’m still discovering',
-  searchPlaceholder: 'Search areas',
+  searchPlaceholder: 'Search areas…',
+  suggestedAreas: 'Suggested areas',
   softSelectionHint: 'Many people choose 3–5 — pick what feels true for you.',
 } as const;

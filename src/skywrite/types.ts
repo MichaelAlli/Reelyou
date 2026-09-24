@@ -41,8 +41,8 @@ export interface SkywriteRecord {
   animateToSky: boolean;
   /** Per-Skywrite consent for AI personalization signals. */
   allowAIContext: boolean;
-  /** Canonical Where You Live / beacon / profile category id. */
-  skyAreaId?: SkyAreaCategoryId;
+  /** Explicit primary Sky Area id (default category or custom-*). User-selected only. */
+  skyAreaId?: string;
   /** Lightweight intent for beacon routing — explicit choice wins over showingUp inference. */
   intent?: SkywriteIntentId;
   createdAt: string;
@@ -58,7 +58,7 @@ export interface SkywriteDraft {
   userHashtags: string[];
   animateToSky?: boolean;
   allowAIContext?: boolean;
-  skyAreaId?: SkyAreaCategoryId;
+  skyAreaId?: string;
   intent?: SkywriteIntentId;
 }
 

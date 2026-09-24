@@ -28,6 +28,15 @@ import {
   emptySkyAreaPreferences,
   type SkyAreaPreferencesRecord,
 } from '@/skyAreas/skyAreaPreferencesTypes';
+import {
+  loadSharedSkyAreas,
+  registerSharedSkyArea,
+} from '@/skyAreas/skyAreaSharedCatalog';
+
+interface AddCustomAreaResult {
+  error: string | null;
+  areaId: string | null;
+}
 
 interface SkyAreaPreferencesContextValue {
   isLoaded: boolean;
@@ -39,7 +48,7 @@ interface SkyAreaPreferencesContextValue {
   setBeaconEnabled: (skyAreaId: string, enabled: boolean) => void;
   setPauseAllBeacons: (paused: boolean) => void;
   setDiscovering: (discovering: boolean) => void;
-  addCustomArea: (label: string) => string | null;
+  addCustomArea: (label: string) => AddCustomAreaResult;
   filterCatalog: (query: string) => SkyArea[];
 }
 
@@ -50,16 +59,20 @@ export function SkyAreaPreferencesProvider({ children }: { children: ReactNode }
   const [record, setRecord] = useState<SkyAreaPreferencesRecord>(() =>
     emptySkyAreaPreferences(userId),
   );
+  const [sharedAreas, setSharedAreas] = useState<SkyArea[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    void loadSkyAreaPreferences(userId).then((loaded) => {
-      if (mounted) {
-        setRecord(loaded);
-        setIsLoaded(true);
-      }
-    });
+    void Promise.all([loadSkyAreaPreferences(userId), loadSharedSkyAreas()]).then(
+      ([loaded, shared]) => {
+        if (mounted) {
+          setRecord(loaded);
+          setSharedAreas(shared);
+          setIsLoaded(true);
+        }
+      },
+    );
     return () => {
       mounted = false;
     };
@@ -70,7 +83,10 @@ export function SkyAreaPreferencesProvider({ children }: { children: ReactNode }
     void saveSkyAreaPreferences(next);
   }, []);
 
-  const catalog = useMemo(() => mergeSkyAreaCatalog(record.customAreas), [record.customAreas]);
+  const catalog = useMemo(
+    () => mergeSkyAreaCatalog(record.customAreas, sharedAreas),
+    [record.customAreas, sharedAreas],
+  );
 
   const toggleAreaSelection = useCallback(
     (skyAreaId: string) => {
@@ -101,15 +117,18 @@ export function SkyAreaPreferencesProvider({ children }: { children: ReactNode }
   );
 
   const addCustomArea = useCallback(
-    (label: string) => {
-      const result = addCustomSkyArea(record, label);
+    (label: string): AddCustomAreaResult => {
+      const result = addCustomSkyArea(record, label, catalog, sharedAreas, userId);
       if (result.error || !result.area) {
-        return result.error ?? 'Unable to add area.';
+        return { error: result.error ?? 'Unable to add area.', areaId: null };
       }
       persist(result.record);
-      return null;
+      if (!result.reused && result.area.source === 'custom') {
+        void registerSharedSkyArea(result.area).then(setSharedAreas);
+      }
+      return { error: null, areaId: result.area.id };
     },
-    [persist, record],
+    [catalog, persist, record, sharedAreas, userId],
   );
 
   const filterCatalog = useCallback(

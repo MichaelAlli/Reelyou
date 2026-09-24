@@ -1,5 +1,10 @@
 import type { SkyArea } from '@/skyAreas/skyAreaDefinition';
-import { buildCustomSkyArea } from '@/skyAreas/skyAreaDefinition';
+import {
+  DEFAULT_SKY_AREAS,
+  buildCustomSkyArea,
+  findAreaByNormalizedLabel,
+} from '@/skyAreas/skyAreaDefinition';
+import { normalizeSkyAreaLabel } from '@/skyAreas/skyAreaNormalization';
 import type {
   SkyAreaPreferencesRecord,
   UserSkyAreaPreference,
@@ -126,7 +131,15 @@ export function setStillDiscovering(
 export function addCustomSkyArea(
   record: SkyAreaPreferencesRecord,
   label: string,
-): { record: SkyAreaPreferencesRecord; area: SkyArea | null; error?: string } {
+  catalog: readonly SkyArea[],
+  sharedAreas: readonly SkyArea[],
+  createdByUserId?: string,
+): {
+  record: SkyAreaPreferencesRecord;
+  area: SkyArea | null;
+  error?: string;
+  reused?: boolean;
+} {
   const trimmed = label.trim();
   if (trimmed.length < 2) {
     return { record, area: null, error: 'Name must be at least 2 characters.' };
@@ -134,25 +147,57 @@ export function addCustomSkyArea(
   if (trimmed.length > 48) {
     return { record, area: null, error: 'Keep the name under 48 characters.' };
   }
-  const duplicate = record.customAreas.some(
-    (area) => area.label.localeCompare(trimmed, undefined, { sensitivity: 'accent' }) === 0,
-  );
-  if (duplicate) {
-    return { record, area: null, error: 'You already have an area with this name.' };
+
+  const existingInCatalog = findAreaByNormalizedLabel(catalog, trimmed);
+  if (existingInCatalog) {
+    const ts = nowMs();
+    const next: SkyAreaPreferencesRecord = {
+      ...record,
+      stillDiscovering: false,
+      preferences: upsertPreference(record.preferences, existingInCatalog.id, {
+        selected: true,
+        beaconEnabled: true,
+      }),
+      updatedAt: ts,
+    };
+    return { record: next, area: existingInCatalog, reused: true };
   }
-  const area = buildCustomSkyArea(trimmed);
+
+  const defaultMatch = DEFAULT_SKY_AREAS.find(
+    (area) => normalizeSkyAreaLabel(area.label) === normalizeSkyAreaLabel(trimmed),
+  );
+  if (defaultMatch) {
+    const ts = nowMs();
+    const next: SkyAreaPreferencesRecord = {
+      ...record,
+      stillDiscovering: false,
+      preferences: upsertPreference(record.preferences, defaultMatch.id, {
+        selected: true,
+        beaconEnabled: true,
+      }),
+      updatedAt: ts,
+    };
+    return { record: next, area: defaultMatch, reused: true };
+  }
+
+  const sharedMatch = findAreaByNormalizedLabel(sharedAreas, trimmed);
   const ts = nowMs();
+  const area = sharedMatch
+    ? sharedMatch
+    : buildCustomSkyArea(trimmed, { createdByUserId, now: ts });
+
+  const alreadyOwned = record.customAreas.some((entry) => entry.id === area.id);
   const next: SkyAreaPreferencesRecord = {
     ...record,
     stillDiscovering: false,
-    customAreas: [...record.customAreas, area],
+    customAreas: alreadyOwned ? record.customAreas : [...record.customAreas, area],
     preferences: upsertPreference(record.preferences, area.id, {
       selected: true,
       beaconEnabled: true,
     }),
     updatedAt: ts,
   };
-  return { record: next, area };
+  return { record: next, area, reused: Boolean(sharedMatch) };
 }
 
 export function filterCatalogByQuery(areas: readonly SkyArea[], query: string): SkyArea[] {

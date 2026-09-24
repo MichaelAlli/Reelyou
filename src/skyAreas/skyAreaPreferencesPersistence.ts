@@ -29,17 +29,32 @@ function parseCustomArea(raw: unknown): SkyArea | null {
   if (typeof entry.id !== 'string' || entry.id.length === 0) return null;
   if (typeof entry.label !== 'string' || entry.label.trim().length === 0) return null;
   if (entry.source !== 'custom') return null;
+  const label = entry.label.trim();
+  const createdAt = typeof entry.createdAt === 'number' ? entry.createdAt : Date.now();
+  const normalizedLabel =
+    typeof entry.normalizedLabel === 'string' && entry.normalizedLabel.length > 0
+      ? entry.normalizedLabel
+      : label.toLowerCase();
+  const slug =
+    typeof entry.slug === 'string' && entry.slug.length > 0
+      ? entry.slug
+      : entry.id.replace(/^custom-/, '').split('-')[0] ?? 'area';
   return {
     id: entry.id,
-    label: entry.label.trim(),
+    label,
+    normalizedLabel,
+    slug,
     icon: entry.icon === 'briefcase' || entry.icon === 'creative' || entry.icon === 'leaf'
       ? entry.icon
       : 'community',
     source: 'custom',
     createdByUser: true,
+    createdByUserId: typeof entry.createdByUserId === 'string' ? entry.createdByUserId : undefined,
+    moderationStatus: entry.moderationStatus ?? 'active',
     sortOrder: typeof entry.sortOrder === 'number' ? entry.sortOrder : 900,
     active: entry.active !== false,
-    createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : Date.now(),
+    createdAt,
+    updatedAt: typeof entry.updatedAt === 'number' ? entry.updatedAt : createdAt,
   };
 }
 

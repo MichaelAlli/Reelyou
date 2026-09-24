@@ -116,6 +116,6 @@ export function buildSkywriteRecord(
 
   return {
     ...base,
-    skyAreaId: draft.skyAreaId ?? resolveSkywriteSkyAreaId({ ...base, skyAreaId: draft.skyAreaId }),
+    skyAreaId: resolveSkywriteSkyAreaId({ ...base, skyAreaId: draft.skyAreaId }),
   };
 }

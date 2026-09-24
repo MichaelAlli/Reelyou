@@ -1,8 +1,8 @@
 import {
   getSkyAreaCategory,
+  isSkyAreaCategoryId,
   PROFILE_BETA_PREVIEW_CATEGORY_IDS,
   SKY_AREA_TAB_ALL,
-  type SkyAreaCategoryId,
   type SkyAreaTabId,
 } from '@/skyAreas/skyAreaCategory';
 import { resolveSkywriteSkyAreaId } from '@/skyAreas/resolveSkywriteSkyAreaId';
@@ -28,7 +28,7 @@ export function buildProfileBetaSkywritingTabs(): ProfileSkywritingTab[] {
 export interface ProfileSkywritingItem {
   id: string;
   label: string;
-  skyAreaId: SkyAreaCategoryId;
+  skyAreaId: string;
   tone: ProfileSkywritingTone;
 }
 
@@ -43,7 +43,8 @@ export interface ProfileSkywritingsSection {
   viewerMode: 'owner' | 'visitor';
 }
 
-function toneForArea(areaId: SkyAreaCategoryId): ProfileSkywritingTone {
+function toneForArea(areaId: string): ProfileSkywritingTone {
+  if (!isSkyAreaCategoryId(areaId)) return 'leaf';
   switch (areaId) {
     case 'career':
     case 'learning':

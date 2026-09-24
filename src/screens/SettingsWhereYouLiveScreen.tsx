@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddCustomSkyAreaInline } from '@/components/skyAreas/AddCustomSkyAreaInline';
 import { SkyAreaSelectChip } from '@/components/skyAreas/SkyAreaSelectChip';
 import { Fonts } from '@/constants/theme';
 import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
@@ -29,8 +30,6 @@ export function SettingsWhereYouLiveScreen() {
     addCustomArea,
   } = useSkyAreaPreferences();
   const [searchQuery, setSearchQuery] = useState('');
-  const [customLabel, setCustomLabel] = useState('');
-  const [customError, setCustomError] = useState<string | null>(null);
 
   const visibleAreas = useMemo(() => filterCatalog(searchQuery), [filterCatalog, searchQuery]);
 
@@ -38,16 +37,6 @@ export function SettingsWhereYouLiveScreen() {
     () => catalog.filter((area) => isAreaSelected(area.id)),
     [catalog, isAreaSelected],
   );
-
-  const handleAddCustom = () => {
-    const error = addCustomArea(customLabel);
-    if (error) {
-      setCustomError(error);
-      return;
-    }
-    setCustomError(null);
-    setCustomLabel('');
-  };
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
@@ -131,32 +120,10 @@ export function SettingsWhereYouLiveScreen() {
           ))}
         </View>
 
-        <View style={styles.customBlock}>
-          <Text style={styles.sectionTitle}>Create a custom area</Text>
-          <Text style={styles.customHint}>
-            For lived experiences that don’t fit a starter label — you stay in control.
-          </Text>
-          <TextInput
-            value={customLabel}
-            onChangeText={(text) => {
-              setCustomLabel(text);
-              setCustomError(null);
-            }}
-            placeholder="e.g. Single fatherhood"
-            placeholderTextColor="rgba(235,228,248,0.45)"
-            style={styles.search}
-          />
-          {customError ? (
-            <Text accessibilityRole="alert" style={styles.error}>
-              {customError}
-            </Text>
-          ) : null}
-          <Pressable
-            onPress={handleAddCustom}
-            style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.88 }]}>
-            <Text style={styles.addButtonText}>Add custom area</Text>
-          </Pressable>
-        </View>
+        <AddCustomSkyAreaInline
+          buttonLabel="+ Add your own area"
+          onAdd={(label) => addCustomArea(label).error}
+        />
       </ScrollView>
     </SafeAreaView>
   );

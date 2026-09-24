@@ -1,43 +1,19 @@
-import {
-  isSkyAreaCategoryId,
-  resolveSkyAreaIdFromTag,
-  type SkyAreaCategoryId,
-} from '@/skyAreas/skyAreaCategory';
+import { isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import type { SkywriteRecord } from '@/skywrite/types';
 
-/** Resolve canonical sky area for a Skywrite — explicit id wins, then hashtags/text. */
-export function resolveSkywriteSkyAreaId(record: SkywriteRecord): SkyAreaCategoryId {
-  if (record.skyAreaId && isSkyAreaCategoryId(record.skyAreaId)) {
+const FALLBACK_DEFAULT = 'growth' as const;
+
+/**
+ * Primary Sky Area is explicit user choice only.
+ * Hashtags, text, and AI must NOT infer or override this field.
+ */
+export function resolveSkywriteSkyAreaId(record: SkywriteRecord): string {
+  if (record.skyAreaId && record.skyAreaId.length > 0) {
     return record.skyAreaId;
   }
+  return FALLBACK_DEFAULT;
+}
 
-  for (const tag of record.userHashtags) {
-    const mapped = resolveSkyAreaIdFromTag(tag);
-    if (mapped) return mapped;
-  }
-
-  const words = record.text.toLowerCase();
-  const keywordOrder: SkyAreaCategoryId[] = [
-    'growth',
-    'purpose',
-    'creativity',
-    'career',
-    'entrepreneurship',
-    'health',
-    'faith-meaning',
-    'learning',
-    'contribution',
-    'community',
-    'relationships',
-  ];
-
-  for (const id of keywordOrder) {
-    const label = id.replace('-', ' ');
-    if (words.includes(label) || words.includes(id)) return id;
-  }
-
-  if (record.showingUp === 'question') return 'purpose';
-  if (record.showingUp === 'reflection') return 'growth';
-
-  return 'growth';
+export function isKnownSkyAreaId(value: string): boolean {
+  return isSkyAreaCategoryId(value) || value.startsWith('custom-');
 }

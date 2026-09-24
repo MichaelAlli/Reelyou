@@ -2,7 +2,6 @@ import {
   getSkyAreaCategory,
   PROFILE_BETA_PREVIEW_CATEGORY_IDS,
   SKY_AREA_TAB_ALL,
-  type SkyAreaCategoryId,
 } from '@/skyAreas/skyAreaCategory';
 
 import type { ProfileSkywritingItem, ProfileSkywritingTab } from '@/profile/buildProfileSkywritingsSection';
@@ -22,9 +21,7 @@ export function isVisitorProfileBlocked(
 export function buildVisitorSkywritingTabsFromVisibleItems(
   visibleItems: ProfileSkywritingItem[],
 ): ProfileSkywritingTab[] {
-  const visibleCategories = new Set<SkyAreaCategoryId>(
-    visibleItems.map((item) => item.skyAreaId),
-  );
+  const visibleCategories = new Set<string>(visibleItems.map((item) => item.skyAreaId));
 
   const categoryTabs = PROFILE_BETA_PREVIEW_CATEGORY_IDS.filter((id) =>
     visibleCategories.has(id),
