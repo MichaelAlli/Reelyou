@@ -23,6 +23,7 @@ export async function loadMessagesState(): Promise<MessagesState> {
       unreadThreadIds: parsed.unreadThreadIds ?? [],
       mutedThreadIds: parsed.mutedThreadIds ?? [],
       blockedUserIds: parsed.blockedUserIds ?? [],
+      limitedUserIds: parsed.limitedUserIds ?? [],
       messageRequests: parsed.messageRequests ?? [],
     };
   } catch {

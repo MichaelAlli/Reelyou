@@ -3,6 +3,7 @@ import { buildVisitorProfileView } from '@/profile/buildVisitorProfileView';
 import { resolveProfileRouteOwnerId } from '@/profile/resolveProfileRouteOwnerId';
 import { VISITOR_PROFILE_QA_OWNER_ID } from '@/profile/visitorProfileRoute';
 import { filterVisitorVisibleSkywrites } from '@/profile/buildSkywritingPreviews';
+import { EMPTY_SKY_FOLLOW_GRAPH } from '@/social/skyFollow/skyFollowTypes';
 import { resolveVisitorSkyConnectionStatus } from '@/social/skyFollow/resolveVisitorSkyConnection';
 import type { SkywriteRecord } from '@/skywrite/types';
 
@@ -13,7 +14,10 @@ function assert(condition: boolean, message: string) {
 function testVisitorProfileJordan() {
   const view = buildVisitorProfileView({
     ownerId: 'orbit-jordan',
+    viewerId: currentUser.id,
     connectionStatus: 'none',
+    followGraph: EMPTY_SKY_FOLLOW_GRAPH,
+    blockedUserIds: [],
   });
   assert(view !== null, 'orbit-jordan profile');
   assert(view!.identity.name === 'Jordan', 'identity name');
@@ -56,7 +60,12 @@ function testSkywriteVisibilityFilter() {
       createdAt: new Date().toISOString(),
     },
   ];
-  const visible = filterVisitorVisibleSkywrites(rows, false);
+  const visible = filterVisitorVisibleSkywrites(rows, {
+    viewerId: currentUser.id,
+    authorId: 'orbit-jordan',
+    followGraph: EMPTY_SKY_FOLLOW_GRAPH,
+    blockedUserIds: [],
+  });
   assert(visible.length === 1 && visible[0].id === 'a', 'private hidden');
 }
 

@@ -76,7 +76,7 @@ export function normalizeSkyVisibilitySettings(
     'impact',
   ] as const) {
     const value = overrides[key];
-    if (value === 'private' || value === 'orbit' || value === 'public') {
+    if (value === 'private' || value === 'orbit' || value === 'sky_friends' || value === 'public') {
       contentOverrides[key] = value;
     }
   }
@@ -93,7 +93,12 @@ export function normalizeSkyVisibilitySettings(
 }
 
 function isVisibilityLevel(value: unknown): value is SkyVisibilityLevel {
-  return value === 'private' || value === 'orbit' || value === 'public';
+  return (
+    value === 'private' ||
+    value === 'orbit' ||
+    value === 'sky_friends' ||
+    value === 'public'
+  );
 }
 
 /** Resolve settings for an owner — catalog for orbit users, caller-supplied for self. */
@@ -111,7 +116,9 @@ export function canViewPublicSky(
   isConnected: boolean,
 ): boolean {
   if (settings.skyVisibility === 'private') return false;
-  if (settings.skyVisibility === 'orbit') return isConnected;
+  if (settings.skyVisibility === 'orbit' || settings.skyVisibility === 'sky_friends') {
+    return isConnected;
+  }
   return true;
 }
 
@@ -152,11 +159,13 @@ export function resolveEffectiveNodeVisibility(
 export const SKY_VISIBILITY_LABELS: Record<SkyVisibilityLevel, string> = {
   private: 'Private',
   orbit: 'Connections',
+  sky_friends: 'Sky Friends',
   public: 'Public',
 };
 
 export const SKY_VISIBILITY_ICONS: Record<SkyVisibilityLevel, string> = {
   private: '🔒',
   orbit: '👥',
+  sky_friends: '✨',
   public: '🌐',
 };

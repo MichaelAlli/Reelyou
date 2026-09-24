@@ -13,6 +13,8 @@ import {
   filterProfileSkywritingItems,
 } from '@/profile/buildProfileSkywritingsSection';
 import { visitorCanShowImpactMetrics } from '@/profile/buildSkywritingPreviews';
+import { isMutualSkyFriends } from '@/social/skyFollow/skyFollowLogic';
+import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
 import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
 import type { OwnerProfileMetrics, OwnerProfileView } from '@/profile/ownerProfileTypes';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
@@ -42,7 +44,10 @@ function formatBio(raw: string): string {
 
 export function buildVisitorProfileView(input: {
   ownerId: string;
+  viewerId: string;
   connectionStatus: SkyConnectionStatus;
+  followGraph: SkyFollowGraph;
+  blockedUserIds: readonly string[];
   ownerSkywrites?: SkywriteRecord[];
 }): VisitorProfileView | null {
   const ownerProfile = resolvePublicSkyOwnerProfile(input.ownerId, input.connectionStatus);
@@ -51,8 +56,9 @@ export function buildVisitorProfileView(input: {
   const orbitUser = orbitUsers.find((entry) => entry.id === input.ownerId);
   const visibility = resolveSkyVisibilitySettingsForOwner(input.ownerId);
   const isConnected = input.connectionStatus === 'connected';
+  const isSkyFriend = isMutualSkyFriends(input.followGraph, input.viewerId, input.ownerId);
   const showSkyPreview = canViewPublicSky(visibility, isConnected);
-  const showImpactMetrics = visitorCanShowImpactMetrics(visibility.skyVisibility, isConnected);
+  const showImpactMetrics = visitorCanShowImpactMetrics(visibility.skyVisibility, isSkyFriend);
 
   const sourceSkywrites =
     input.ownerSkywrites ?? resolveOrbitOwnerSkywrites(input.ownerId);
@@ -60,7 +66,12 @@ export function buildVisitorProfileView(input: {
   const skywritings = buildProfileSkywritingsSection({
     skywrites: sourceSkywrites,
     viewerMode: 'visitor',
-    isConnected,
+    visitorAccess: {
+      viewerId: input.viewerId,
+      authorId: input.ownerId,
+      followGraph: input.followGraph,
+      blockedUserIds: input.blockedUserIds,
+    },
   });
 
   const skywritingPreviews = filterProfileSkywritingItems(

@@ -1,3 +1,3 @@
-import { LegacyScreen } from '@/screens';
+import { LegacyExperienceScreen } from '@/screens/LegacyExperienceScreen';
 
-export default LegacyScreen;
+export default LegacyExperienceScreen;

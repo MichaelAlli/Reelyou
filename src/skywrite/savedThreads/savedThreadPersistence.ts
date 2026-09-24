@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { HumanPotentialEvidenceRecord } from '@/humanPotential/humanPotentialEvidenceTypes';
+import { ensureLegacyDemoSeed } from '@/legacy/ensureLegacyDemoSeed';
 import {
   EMPTY_SAVED_THREADS_STATE,
   type GrowthEmotionalTag,
@@ -29,6 +30,7 @@ function parseSavedThread(raw: unknown): SavedThreadRecord | null {
     visibilitySnapshot:
       entry.visibilitySnapshot === 'private' ||
       entry.visibilitySnapshot === 'orbit' ||
+      entry.visibilitySnapshot === 'sky_friends' ||
       entry.visibilitySnapshot === 'public'
         ? entry.visibilitySnapshot
         : 'public',
@@ -159,6 +161,7 @@ export function parseSavedThreadsState(raw: string | null): SavedThreadsState {
 }
 
 export async function loadSavedThreadsState(): Promise<SavedThreadsState> {
+  await ensureLegacyDemoSeed();
   const raw = await AsyncStorage.getItem(KEY);
   return parseSavedThreadsState(raw);
 }

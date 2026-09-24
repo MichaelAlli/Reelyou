@@ -1,5 +1,7 @@
 export type Mood = 'hopeful' | 'grateful' | 'reflective' | 'determined' | 'peaceful';
-export type Privacy = 'private' | 'orbit' | 'public';
+/** Canonical Skywrite visibility — `orbit` is legacy alias for `sky_friends`. */
+export type SkywriteVisibility = 'private' | 'sky_friends' | 'public';
+export type Privacy = SkywriteVisibility | 'orbit';
 export type SkywriteTag =
   | 'Growth'
   | 'Purpose'

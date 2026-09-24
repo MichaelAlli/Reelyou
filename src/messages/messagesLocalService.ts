@@ -201,10 +201,35 @@ export function unmuteThreadLocal(state: MessagesState, threadId: string): Messa
   return { ...state, mutedThreadIds: state.mutedThreadIds.filter((id) => id !== threadId) };
 }
 
+export function limitUserLocal(state: MessagesState, userId: string): MessagesState {
+  if (state.limitedUserIds.includes(userId)) return state;
+  return { ...state, limitedUserIds: [...state.limitedUserIds, userId] };
+}
+
+export function removeLimitUserLocal(state: MessagesState, userId: string): MessagesState {
+  if (!state.limitedUserIds.includes(userId)) return state;
+  return {
+    ...state,
+    limitedUserIds: state.limitedUserIds.filter((id) => id !== userId),
+  };
+}
+
+export function unblockUserLocal(state: MessagesState, userId: string): MessagesState {
+  if (!state.blockedUserIds.includes(userId)) return state;
+  return {
+    ...state,
+    blockedUserIds: state.blockedUserIds.filter((id) => id !== userId),
+  };
+}
+
 export function blockUserLocal(state: MessagesState, userId: string): MessagesState {
   if (state.blockedUserIds.includes(userId)) return state;
   const threadId = canonicalThreadId(currentUser.id, userId);
-  let next = { ...state, blockedUserIds: [...state.blockedUserIds, userId] };
+  let next: MessagesState = {
+    ...state,
+    blockedUserIds: [...state.blockedUserIds, userId],
+    limitedUserIds: state.limitedUserIds.filter((id) => id !== userId),
+  };
   next = declineMessageRequestLocal(next, threadId);
   return next;
 }

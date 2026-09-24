@@ -98,6 +98,10 @@ export function BottomNav() {
     }),
   );
 
+  const isLegacyProfileContext =
+    pathname === '/legacy' ||
+    (pathname.startsWith('/legacy/') && !pathname.includes('/legacy/reel-you'));
+
   const isActive = (tab: TabItem) => {
     const segment = tab.href.split('/').pop() ?? '';
     if (tab.name === 'home') {
@@ -126,7 +130,8 @@ export function BottomNav() {
         pathname === '/profile' ||
         pathname.endsWith('/profile') ||
         pathname === '/visitor-profile' ||
-        pathname.endsWith('/visitor-profile')
+        pathname.endsWith('/visitor-profile') ||
+        isLegacyProfileContext
       );
     }
     return pathname === `/${segment}` || pathname.endsWith(`/${segment}`);
@@ -151,6 +156,10 @@ export function BottomNav() {
                   } else {
                     router.push(tab.href as never);
                   }
+                  return;
+                }
+                if (tab.name === 'me' && isLegacyProfileContext) {
+                  router.push(tab.href as never);
                   return;
                 }
                 if (active) return;

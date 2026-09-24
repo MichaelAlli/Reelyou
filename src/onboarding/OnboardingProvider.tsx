@@ -183,6 +183,10 @@ interface OnboardingContextValue {
   /** User-authored Skywrites — local-first, explicit hashtags parsed from text */
   skywrites: SkywriteRecord[];
   createSkywrite: (draft: SkywriteDraft) => SkywriteRecord;
+  updateSkywrite: (
+    skywriteId: string,
+    patch: Partial<Pick<SkywriteRecord, 'visibility' | 'text' | 'userHashtags' | 'skyAreaId'>>,
+  ) => void;
   /** Remove renderable body/media for a skywrite id — pairs with library tombstone on delete. */
   stripSkywriteContentForDeletion: (skywriteId: string) => void;
   /** Transient handoff for Skywrite → My Sky animation and arrival. */
@@ -639,6 +643,27 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return record;
   }, [recordSkyEvolution]);
 
+  const updateSkywrite = useCallback(
+    (
+      skywriteId: string,
+      patch: Partial<Pick<SkywriteRecord, 'visibility' | 'text' | 'userHashtags' | 'skyAreaId'>>,
+    ) => {
+      setSkywritesState((current) => {
+        let changed = false;
+        const posts = current.posts.map((post) => {
+          if (post.id !== skywriteId) return post;
+          changed = true;
+          return { ...post, ...patch };
+        });
+        if (!changed) return current;
+        const next: SkywritesState = { posts };
+        void saveSkywrites(next);
+        return next;
+      });
+    },
+    [],
+  );
+
   const stripSkywriteContentForDeletion = useCallback((skywriteId: string) => {
     setSkywritesState((current) => {
       let changed = false;
@@ -724,6 +749,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       dismissGuidingLight,
       skywrites: skywritesState.posts,
       createSkywrite,
+      updateSkywrite,
       stripSkywriteContentForDeletion,
       skyArrivalHandoff,
       setSkyArrivalHandoff,
@@ -790,6 +816,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       dismissGuidingLight,
       skywritesState.posts,
       createSkywrite,
+      updateSkywrite,
       stripSkywriteContentForDeletion,
       skyArrivalHandoff,
       setSkyArrivalHandoff,

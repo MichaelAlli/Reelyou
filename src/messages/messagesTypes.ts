@@ -37,6 +37,8 @@ export interface MessagesState {
   unreadThreadIds: string[];
   mutedThreadIds: string[];
   blockedUserIds: string[];
+  /** Soft boundary — distinct from block; Beta stores user ids only. */
+  limitedUserIds: string[];
   messageRequests: MessageRequest[];
 }
 
@@ -48,5 +50,6 @@ export const EMPTY_MESSAGES_STATE: MessagesState = {
   unreadThreadIds: [],
   mutedThreadIds: [],
   blockedUserIds: [],
+  limitedUserIds: [],
   messageRequests: [],
 };

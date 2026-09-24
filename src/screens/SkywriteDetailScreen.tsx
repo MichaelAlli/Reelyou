@@ -26,7 +26,10 @@ import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
 import { getSkyAreaCategory, isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import { useOnboarding } from '@/onboarding';
+import { resolveSkywriteViewerAccess } from '@/skywrite/access/resolveSkywriteViewerAccess';
 import { beaconSignalIdForSkywrite } from '@/skywrite/beacon/skywriteBeaconEligibility';
+import { resolveVisibilityOptionId } from '@/skywrite/skywriteVisibility';
+import type { Privacy } from '@/types';
 import { markReturnToSkyInvitationsAfterResponse } from '@/skywrite/invitations/skyInvitationFlow';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
@@ -55,8 +58,8 @@ export function SkywriteDetailScreen() {
     source?: string;
     returnTo?: string;
   }>();
-  const { skywrites } = useOnboarding();
-  const { dismissSignal, messages } = useReelyouConnect();
+  const { skywrites, updateSkywrite } = useOnboarding();
+  const { dismissSignal, messages, skyFollowGraph } = useReelyouConnect();
   const { saveThread, isThreadSaved, getSavedForSkywrite } = useSavedThreads();
   const {
     getResponses,
@@ -98,6 +101,18 @@ export function SkywriteDetailScreen() {
   const [responseDraft, setResponseDraft] = useState('');
   const [respondMode, setRespondMode] = useState(fromBeacon);
   const [responseSendError, setResponseSendError] = useState<string | null>(null);
+  const [visibilityPickerOpen, setVisibilityPickerOpen] = useState(false);
+
+  const viewerCanView = useMemo(() => {
+    if (!record) return false;
+    return resolveSkywriteViewerAccess({
+      viewerId: currentUser.id,
+      authorId: record.authorId ?? currentUser.id,
+      visibility: record.visibility,
+      followGraph: skyFollowGraph,
+      blockedUserIds: messages.blockedUserIds,
+    });
+  }, [messages.blockedUserIds, record, skyFollowGraph]);
 
   const areaLabel = useMemo(() => {
     if (!record?.skyAreaId) return null;
@@ -322,8 +337,9 @@ export function SkywriteDetailScreen() {
   }, [addResponse, dismissSignal, fromBeacon, responseDraft, returnToInvitations, router, skywriteId]);
 
   const visibilityLabel =
-    SKYWRITE_VISIBILITY_OPTIONS.find((option) => option.id === record?.visibility)?.title ??
-    record?.visibility;
+    SKYWRITE_VISIBILITY_OPTIONS.find(
+      (option) => option.id === resolveVisibilityOptionId(record?.visibility ?? 'public'),
+    )?.title ?? record?.visibility;
 
   return (
     <View style={styles.root}>
@@ -338,7 +354,11 @@ export function SkywriteDetailScreen() {
             <Text style={styles.backText}>{MySkyCopy.skywriteDetailBack}</Text>
           </Pressable>
 
-          {record ? (
+          {record && !viewerCanView ? (
+            <Text style={styles.backText}>This Skywrite isn&apos;t available to you.</Text>
+          ) : null}
+
+          {record && viewerCanView ? (
             <>
               {fromBeacon && !isAuthor ? (
                 <View style={styles.beaconBanner}>
@@ -388,6 +408,34 @@ export function SkywriteDetailScreen() {
                       : SkywriteCopy.saveThread}
                   </Text>
                 </Pressable>
+              ) : null}
+
+              {isAuthor ? (
+                <Pressable
+                  style={styles.saveBtn}
+                  onPress={() => setVisibilityPickerOpen((open) => !open)}
+                  accessibilityLabel="Change visibility">
+                  <Text style={styles.saveBtnText}>Change visibility</Text>
+                </Pressable>
+              ) : null}
+
+              {isAuthor && visibilityPickerOpen ? (
+                <View style={{ gap: 8, marginBottom: Spacing.sm }}>
+                  {SKYWRITE_VISIBILITY_OPTIONS.map((option) => (
+                    <Pressable
+                      key={option.id}
+                      style={styles.saveBtn}
+                      onPress={() => {
+                        if (!skywriteId) return;
+                        updateSkywrite(skywriteId, { visibility: option.id as Privacy });
+                        setVisibilityPickerOpen(false);
+                      }}>
+                      <Text style={styles.saveBtnText}>
+                        {option.title} — {option.subtitle}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               ) : null}
 
               {isAuthor && record.visibility === 'public' ? (

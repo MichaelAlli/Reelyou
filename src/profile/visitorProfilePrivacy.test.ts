@@ -5,7 +5,9 @@ import {
   buildVisitorSkywritingTabsFromVisibleItems,
   isVisitorProfileBlocked,
 } from '@/profile/resolveVisitorProfilePrivacy';
+import { currentUser } from '@/data/mockData';
 import { filterVisitorVisibleSkywrites } from '@/profile/buildSkywritingPreviews';
+import { EMPTY_SKY_FOLLOW_GRAPH } from '@/social/skyFollow/skyFollowTypes';
 
 function assert(condition: boolean, message: string) {
   if (!condition) throw new Error(message);
@@ -15,7 +17,12 @@ function testVisitorTabsHidePrivateOnlyCategories() {
   const section = buildProfileSkywritingsSection({
     skywrites: ORBIT_PROFILE_SKYWRITE_FIXTURES['orbit-jordan'],
     viewerMode: 'visitor',
-    isConnected: false,
+    visitorAccess: {
+      viewerId: currentUser.id,
+      authorId: 'orbit-jordan',
+      followGraph: EMPTY_SKY_FOLLOW_GRAPH,
+      blockedUserIds: [],
+    },
   });
   const labels = section.tabs.map((tab) => tab.label);
   assert(labels.includes('All'), 'all tab');
@@ -39,10 +46,12 @@ function testBlockHelper() {
 }
 
 function testPrivateSkywriteFilteredBeforeTabs() {
-  const visible = filterVisitorVisibleSkywrites(
-    ORBIT_PROFILE_SKYWRITE_FIXTURES['orbit-jordan'],
-    false,
-  );
+  const visible = filterVisitorVisibleSkywrites(ORBIT_PROFILE_SKYWRITE_FIXTURES['orbit-jordan'], {
+    viewerId: currentUser.id,
+    authorId: 'orbit-jordan',
+    followGraph: EMPTY_SKY_FOLLOW_GRAPH,
+    blockedUserIds: [],
+  });
   const tabs = buildVisitorSkywritingTabsFromVisibleItems(
     visible.map((record) => ({
       id: record.id,
@@ -57,7 +66,10 @@ function testPrivateSkywriteFilteredBeforeTabs() {
 function testVisitorViewUsesFilteredSection() {
   const view = buildVisitorProfileView({
     ownerId: 'orbit-jordan',
+    viewerId: currentUser.id,
     connectionStatus: 'none',
+    followGraph: EMPTY_SKY_FOLLOW_GRAPH,
+    blockedUserIds: [],
   });
   assert(view !== null, 'view');
   assert(

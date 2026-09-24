@@ -52,7 +52,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const { library, archiveSkywrite, restoreSkywrite } = useSkywriteLibrary();
   const { threadState, contributions } = useSkywriteThreads();
   const { state: savedThreadsState, archiveThread, restoreThread } = useSavedThreads();
-  const { messages } = useReelyouConnect();
+  const { messages, skyFollowGraph } = useReelyouConnect();
   const [tab, setTab] = useState<MySkywritesTabId>('recent');
   const [query, setQuery] = useState('');
   const audioPreview = useOverlayAudioPreviewScope(visible);
@@ -65,6 +65,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
         responses: threadState.responses,
         contributions,
         blockedUserIds: messages.blockedUserIds,
+        followGraph: skyFollowGraph,
         query,
       });
     }
@@ -106,6 +107,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
     contributions,
     library,
     messages.blockedUserIds,
+    skyFollowGraph,
     query,
     savedThreadsState,
     skywrites,

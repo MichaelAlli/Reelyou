@@ -20,6 +20,9 @@ import { canonicalThreadId } from '@/messages/messagesCanonical';
 import {
   acceptMessageRequestLocal,
   blockUserLocal,
+  limitUserLocal,
+  removeLimitUserLocal,
+  unblockUserLocal,
   declineMessageRequestLocal,
   inboxThreadIds,
   markThreadReadLocal,
@@ -56,9 +59,21 @@ import type { StarPathResourceState } from '@/starpath/starpathOpportunityTypes'
 import { EMPTY_RESOURCE_STATE } from '@/starpath/starpathOpportunityTypes';
 import { personalizeAroundYourSkyFeed } from '@/social/aroundYourSky/personalizeHomeFeed';
 import {
-  loadFollowedSkyUserIds,
-  saveFollowedSkyUserIds,
+  addSkyFollowEdge,
+  countSkyFriends,
+  isFollowingSkyUser,
+  isMutualSkyFriends,
+  listFollowers,
+  listFollowing,
+  listSkyFriendUserIds,
+  removeSkyFollowEdge,
+} from '@/social/skyFollow/skyFollowLogic';
+import {
+  loadSkyFollowGraph,
+  saveSkyFollowGraph,
 } from '@/social/skyFollow/skyFollowPersistence';
+import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
+import { EMPTY_SKY_FOLLOW_GRAPH } from '@/social/skyFollow/skyFollowTypes';
 import { isFollowingSky } from '@/social/skyFollow/resolveVisitorSkyConnection';
 
 interface ReelyouConnectContextValue {
@@ -85,6 +100,15 @@ interface ReelyouConnectContextValue {
   declineMessageRequest: (threadId: string) => void;
   muteThread: (threadId: string) => void;
   blockUser: (userId: string) => void;
+  unblockUser: (userId: string) => void;
+  limitUser: (userId: string) => void;
+  removeLimitUser: (userId: string) => void;
+  skyFollowGraph: SkyFollowGraph;
+  skyFriendsCount: number;
+  skyFriendUserIds: string[];
+  listFollowingUserIds: () => string[];
+  listFollowerUserIds: () => string[];
+  isMutualSkyFriend: (userId: string) => boolean;
   reportUser: (params: {
     reportedUserId: string;
     threadId?: string;
@@ -116,12 +140,13 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
     unreadThreadIds: [],
     mutedThreadIds: [],
     blockedUserIds: [],
+    limitedUserIds: [],
     messageRequests: [],
     messagingVersion: 'beta-v1',
   });
   const [signalsMeta, setSignalsMeta] = useState<ReelyouSignalsMetaState>(EMPTY_SIGNALS_META);
   const [starpathResources, setStarpathResources] = useState<StarPathResourceState>(EMPTY_RESOURCE_STATE);
-  const [followedSkyUserIds, setFollowedSkyUserIds] = useState<string[]>([]);
+  const [skyFollowGraph, setSkyFollowGraph] = useState<SkyFollowGraph>(EMPTY_SKY_FOLLOW_GRAPH);
   const prefTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const followTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const msgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -132,19 +157,19 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      const [prefs, msgs, meta, resources, followed] = await Promise.all([
+      const [prefs, msgs, meta, resources, followGraph] = await Promise.all([
         loadUserPreferences(),
         loadMessagesState(),
         loadReelyouSignalsMeta(),
         loadStarPathResourceState(),
-        loadFollowedSkyUserIds(),
+        loadSkyFollowGraph(),
       ]);
       if (!mounted) return;
       setPreferences(prefs);
       setMessages(msgs);
       setSignalsMeta(meta);
       setStarpathResources(resources);
-      setFollowedSkyUserIds(followed);
+      setSkyFollowGraph(followGraph);
       setReady(true);
     })();
     return () => {
@@ -175,51 +200,78 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
     metaTimer.current = setTimeout(() => void saveReelyouSignalsMeta(next), 280);
   }, []);
 
-  const scheduleFollowSave = useCallback((next: string[]) => {
+  const scheduleFollowGraphSave = useCallback((next: SkyFollowGraph) => {
     if (followTimer.current) clearTimeout(followTimer.current);
-    followTimer.current = setTimeout(() => void saveFollowedSkyUserIds(next), 280);
+    followTimer.current = setTimeout(() => void saveSkyFollowGraph(next), 280);
   }, []);
+
+  const followedSkyUserIds = useMemo(
+    () => listFollowing(skyFollowGraph, currentUser.id),
+    [skyFollowGraph],
+  );
+
+  const skyFriendsCount = useMemo(
+    () => countSkyFriends(skyFollowGraph, currentUser.id),
+    [skyFollowGraph],
+  );
+
+  const skyFriendUserIds = useMemo(
+    () => listSkyFriendUserIds(skyFollowGraph, currentUser.id),
+    [skyFollowGraph],
+  );
 
   const followSky = useCallback(
     (userId: string) => {
-      setFollowedSkyUserIds((prev) => {
-        if (prev.includes(userId)) return prev;
-        const next = [...prev, userId];
-        scheduleFollowSave(next);
+      if (messages.blockedUserIds.includes(userId)) return;
+      setSkyFollowGraph((prev) => {
+        const next = addSkyFollowEdge(prev, currentUser.id, userId);
+        scheduleFollowGraphSave(next);
         return next;
       });
     },
-    [scheduleFollowSave],
+    [messages.blockedUserIds, scheduleFollowGraphSave],
   );
 
   const unfollowSky = useCallback(
     (userId: string) => {
-      setFollowedSkyUserIds((prev) => {
-        if (!prev.includes(userId)) return prev;
-        const next = prev.filter((id) => id !== userId);
-        scheduleFollowSave(next);
+      setSkyFollowGraph((prev) => {
+        const next = removeSkyFollowEdge(prev, currentUser.id, userId);
+        scheduleFollowGraphSave(next);
         return next;
       });
     },
-    [scheduleFollowSave],
+    [scheduleFollowGraphSave],
   );
 
   const toggleFollowSky = useCallback(
     (userId: string) => {
-      setFollowedSkyUserIds((prev) => {
-        const next = prev.includes(userId)
-          ? prev.filter((id) => id !== userId)
-          : [...prev, userId];
-        scheduleFollowSave(next);
-        return next;
-      });
+      if (isFollowingSkyUser(skyFollowGraph, currentUser.id, userId)) {
+        unfollowSky(userId);
+      } else {
+        followSky(userId);
+      }
     },
-    [scheduleFollowSave],
+    [followSky, skyFollowGraph, unfollowSky],
   );
 
-  const isFollowingSkyUser = useCallback(
+  const isFollowingSkyUserCb = useCallback(
     (userId: string) => isFollowingSky(userId, followedSkyUserIds),
     [followedSkyUserIds],
+  );
+
+  const isMutualSkyFriend = useCallback(
+    (userId: string) => isMutualSkyFriends(skyFollowGraph, currentUser.id, userId),
+    [skyFollowGraph],
+  );
+
+  const listFollowingUserIds = useCallback(
+    () => listFollowing(skyFollowGraph, currentUser.id),
+    [skyFollowGraph],
+  );
+
+  const listFollowerUserIds = useCallback(
+    () => listFollowers(skyFollowGraph, currentUser.id),
+    [skyFollowGraph],
   );
 
   const updatePreferences = useCallback(
@@ -506,6 +558,45 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
         scheduleMsgSave(next);
         return next;
       });
+      setSkyFollowGraph((prev) => {
+        let next = removeSkyFollowEdge(prev, currentUser.id, userId);
+        next = removeSkyFollowEdge(next, userId, currentUser.id);
+        scheduleFollowGraphSave(next);
+        return next;
+      });
+    },
+    [scheduleFollowGraphSave, scheduleMsgSave],
+  );
+
+  const unblockUser = useCallback(
+    (userId: string) => {
+      setMessages((prev) => {
+        const next = unblockUserLocal(prev, userId);
+        scheduleMsgSave(next);
+        return next;
+      });
+    },
+    [scheduleMsgSave],
+  );
+
+  const limitUser = useCallback(
+    (userId: string) => {
+      setMessages((prev) => {
+        const next = limitUserLocal(prev, userId);
+        scheduleMsgSave(next);
+        return next;
+      });
+    },
+    [scheduleMsgSave],
+  );
+
+  const removeLimitUser = useCallback(
+    (userId: string) => {
+      setMessages((prev) => {
+        const next = removeLimitUserLocal(prev, userId);
+        scheduleMsgSave(next);
+        return next;
+      });
     },
     [scheduleMsgSave],
   );
@@ -557,10 +648,19 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       canMessageUser,
       connectedUserIds,
       followedSkyUserIds,
-      isFollowingSkyUser,
+      isFollowingSkyUser: isFollowingSkyUserCb,
       followSky,
       unfollowSky,
       toggleFollowSky,
+      unblockUser,
+      limitUser,
+      removeLimitUser,
+      skyFollowGraph,
+      skyFriendsCount,
+      skyFriendUserIds,
+      listFollowingUserIds,
+      listFollowerUserIds,
+      isMutualSkyFriend,
       searchableUsers: orbitUsers,
     }),
     [
@@ -592,10 +692,19 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       canMessageUser,
       connectedUserIds,
       followedSkyUserIds,
-      isFollowingSkyUser,
+      isFollowingSkyUserCb,
       followSky,
       unfollowSky,
       toggleFollowSky,
+      unblockUser,
+      limitUser,
+      removeLimitUser,
+      skyFollowGraph,
+      skyFriendsCount,
+      skyFriendUserIds,
+      listFollowingUserIds,
+      listFollowerUserIds,
+      isMutualSkyFriend,
     ],
   );
 

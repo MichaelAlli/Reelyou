@@ -62,7 +62,9 @@
     "test:saved-threads": "npx tsx src/skywrite/savedThreads/savedThreadLogic.test.ts",
     "test:human-potential-evidence": "npx tsx src/humanPotential/humanPotentialEvidenceLogic.test.ts",
     "test:human-potential-metrics": "npx tsx src/humanPotential/humanPotentialMetricsEngine.test.ts",
-    "test:skywrite-lifecycle": "npx tsx src/skywrite/lifecycle/skywriteContentLifecycle.test.ts"
+    "test:skywrite-lifecycle": "npx tsx src/skywrite/lifecycle/skywriteContentLifecycle.test.ts",
+    "test:legacy-moments": "npx tsx src/legacy/buildLegacyMoments.test.ts",
+    "test:reel-playback": "npx tsx src/legacy/reelYouPlayback.test.ts"
   },
   "private": true
 }

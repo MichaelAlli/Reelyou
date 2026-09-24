@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { ensureLegacyDemoSeed } from '@/legacy/ensureLegacyDemoSeed';
 import type { SkywriteDeletionTombstone } from '@/skywrite/lifecycle/skywriteContentLifecycleTypes';
 import {
   EMPTY_SKYWRITE_LIBRARY_STATE,
@@ -29,6 +30,7 @@ function normalize(raw: unknown): SkywriteLibraryState {
         visibilitySnapshot:
           tomb.visibilitySnapshot === 'private' ||
           tomb.visibilitySnapshot === 'orbit' ||
+          tomb.visibilitySnapshot === 'sky_friends' ||
           tomb.visibilitySnapshot === 'public'
             ? tomb.visibilitySnapshot
             : undefined,
@@ -44,6 +46,7 @@ function normalize(raw: unknown): SkywriteLibraryState {
 }
 
 export async function loadSkywriteLibraryState(): Promise<SkywriteLibraryState> {
+  await ensureLegacyDemoSeed();
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return EMPTY_SKYWRITE_LIBRARY_STATE;

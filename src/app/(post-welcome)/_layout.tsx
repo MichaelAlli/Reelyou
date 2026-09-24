@@ -11,6 +11,7 @@ import { SkyAreaPreferencesProvider } from '@/skyAreas/SkyAreaPreferencesProvide
 import { SkywriteBeaconProvider } from '@/skywrite/beacon/SkywriteBeaconProvider';
 import { SkywriteLibraryProvider } from '@/skywrite/library/SkywriteLibraryProvider';
 import { HumanPotentialMetricsProvider } from '@/humanPotential/HumanPotentialMetricsProvider';
+import { LegacyProvider } from '@/legacy/LegacyProvider';
 import { SavedThreadsProvider } from '@/skywrite/savedThreads/SavedThreadsProvider';
 import { SkywriteThreadProvider } from '@/skywrite/threads/SkywriteThreadProvider';
 import { ThemeProvider, useTheme } from '@/theme';
@@ -80,6 +81,10 @@ function PostWelcomeStack() {
         <Stack.Screen name="companion" options={{ presentation: 'modal' }} />
         <Stack.Screen name="process" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="visitor-profile" options={{ animation: 'fade' }} />
+        <Stack.Screen
+          name="legacy/reel-you"
+          options={{ animation: 'fade', presentation: 'fullScreenModal' }}
+        />
       </Stack>
     </>
   );
@@ -93,13 +98,15 @@ export default function PostWelcomeLayout() {
           <SkywriteLibraryProvider>
             <SkywriteBeaconProvider>
               <SkywriteThreadProvider>
-                <SavedThreadsProvider>
-                  <HumanPotentialMetricsProvider>
-                    <ReelyouConnectProvider>
-                      <PostWelcomeStack />
-                    </ReelyouConnectProvider>
-                  </HumanPotentialMetricsProvider>
-                </SavedThreadsProvider>
+                <ReelyouConnectProvider>
+                  <SavedThreadsProvider>
+                    <HumanPotentialMetricsProvider>
+                      <LegacyProvider>
+                        <PostWelcomeStack />
+                      </LegacyProvider>
+                    </HumanPotentialMetricsProvider>
+                  </SavedThreadsProvider>
+                </ReelyouConnectProvider>
               </SkywriteThreadProvider>
             </SkywriteBeaconProvider>
           </SkywriteLibraryProvider>

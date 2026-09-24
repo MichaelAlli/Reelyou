@@ -12,6 +12,7 @@ import {
   type HumanPotentialMetricsState,
 } from '@/humanPotential/humanPotentialMetricsState';
 import { dedupeUniqueImpactRelationships } from '@/humanPotential/humanPotentialMetricsEngine';
+import { ensureLegacyDemoSeed } from '@/legacy/ensureLegacyDemoSeed';
 
 const KEY = '@reellyou/human-potential-metrics';
 
@@ -48,6 +49,7 @@ export function parseHumanPotentialMetricsState(raw: string | null): HumanPotent
 }
 
 export async function loadHumanPotentialMetricsState(): Promise<HumanPotentialMetricsState> {
+  await ensureLegacyDemoSeed();
   const raw = await AsyncStorage.getItem(KEY);
   return parseHumanPotentialMetricsState(raw);
 }

@@ -19,6 +19,9 @@ export const DEV_SCREEN_PREVIEW_STARTUP = true;
  */
 export const CONTRIBUTION_BEACON_DEMO_ENABLED = true;
 
+/** When true in __DEV__, seeds canonical Legacy + human-potential demo history for Michael. */
+export const LEGACY_DEMO_ENABLED = true;
+
 declare const __DEV__: boolean | undefined;
 
 function isDevRuntime(): boolean {
@@ -28,6 +31,10 @@ function isDevRuntime(): boolean {
 /** True when contribution beacon demo fixtures are active. */
 export function isContributionBeaconDemoEnabled(): boolean {
   return isDevRuntime() && CONTRIBUTION_BEACON_DEMO_ENABLED;
+}
+
+export function isLegacyDemoEnabled(): boolean {
+  return isDevRuntime() && LEGACY_DEMO_ENABLED;
 }
 
 /** True when Screen Preview route and launcher are active. */

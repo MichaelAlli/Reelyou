@@ -6,6 +6,7 @@ import { Fonts } from '@/constants/theme';
 
 interface OwnerProfileVisitorActionRowProps {
   isFollowing: boolean;
+  followLabel?: string;
   canMessage: boolean;
   onFollowPress: () => void;
   onMessagePress: () => void;
@@ -13,10 +14,12 @@ interface OwnerProfileVisitorActionRowProps {
 
 function OwnerProfileVisitorActionRowComponent({
   isFollowing,
+  followLabel,
   canMessage,
   onFollowPress,
   onMessagePress,
 }: OwnerProfileVisitorActionRowProps) {
+  const label = followLabel ?? (isFollowing ? 'Following' : 'Follow Sky');
   return (
     <View style={styles.row}>
       <Pressable
@@ -25,7 +28,7 @@ function OwnerProfileVisitorActionRowComponent({
         onPress={onFollowPress}
         style={({ pressed }) => [styles.follow, isFollowing && styles.followActive, pressed && styles.pressed]}>
         <Text style={[styles.followText, isFollowing && styles.followTextActive]}>
-          {isFollowing ? 'Following' : 'Follow Sky'}
+          {label}
         </Text>
       </Pressable>
       {canMessage ? (

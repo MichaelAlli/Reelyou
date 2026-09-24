@@ -16,6 +16,10 @@ interface OwnerProfileMetricsStripProps {
   onLegacyPress?: () => void;
   legacyPressEnabled?: boolean;
   legacySubtitle?: string;
+  onLivesImpactedPress?: () => void;
+  onContributionsPress?: () => void;
+  livesPressEnabled?: boolean;
+  contributionsPressEnabled?: boolean;
 }
 
 function OwnerProfileMetricsStripComponent({
@@ -23,20 +27,58 @@ function OwnerProfileMetricsStripComponent({
   onLegacyPress,
   legacyPressEnabled = true,
   legacySubtitle = OWNER_PROFILE_LEGACY_SUBTITLE,
+  onLivesImpactedPress,
+  onContributionsPress,
+  livesPressEnabled = Boolean(onLivesImpactedPress),
+  contributionsPressEnabled = Boolean(onContributionsPress),
 }: OwnerProfileMetricsStripProps) {
+  const livesCell = (
+    <>
+      <Text style={styles.icon}>♥</Text>
+      <Text style={styles.value}>{metrics.livesImpacted}</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>Lives Impacted</Text>
+        {livesPressEnabled ? <Text style={styles.chevron}>›</Text> : null}
+      </View>
+    </>
+  );
+
+  const contributionsCell = (
+    <>
+      <Text style={styles.iconGold}>★</Text>
+      <Text style={styles.value}>{metrics.contributionsMade}</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>Contributions Made</Text>
+        {contributionsPressEnabled ? <Text style={styles.chevron}>›</Text> : null}
+      </View>
+    </>
+  );
+
   return (
     <View style={styles.panel}>
-      <View style={styles.column}>
-        <Text style={styles.icon}>♥</Text>
-        <Text style={styles.value}>{metrics.livesImpacted}</Text>
-        <Text style={styles.label}>Lives Impacted</Text>
-      </View>
+      {livesPressEnabled && onLivesImpactedPress ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Lives Impacted details"
+          onPress={onLivesImpactedPress}
+          style={({ pressed }) => [styles.column, pressed && styles.pressed]}>
+          {livesCell}
+        </Pressable>
+      ) : (
+        <View style={styles.column}>{livesCell}</View>
+      )}
       <View style={styles.divider} />
-      <View style={styles.column}>
-        <Text style={styles.iconGold}>★</Text>
-        <Text style={styles.value}>{metrics.contributionsMade}</Text>
-        <Text style={styles.label}>Contributions Made</Text>
-      </View>
+      {contributionsPressEnabled && onContributionsPress ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Contributions Made details"
+          onPress={onContributionsPress}
+          style={({ pressed }) => [styles.column, pressed && styles.pressed]}>
+          {contributionsCell}
+        </Pressable>
+      ) : (
+        <View style={styles.column}>{contributionsCell}</View>
+      )}
       <View style={styles.divider} />
       {legacyPressEnabled && onLegacyPress ? (
         <Pressable
@@ -123,6 +165,18 @@ const styles = StyleSheet.create({
     lineHeight: 13,
     textAlign: 'center',
     color: 'rgba(248, 244, 236, 0.72)',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  chevron: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: 'rgba(248, 244, 236, 0.45)',
+    marginTop: 1,
   },
   legacyIconWrap: {
     width: 30,

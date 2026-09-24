@@ -9,6 +9,7 @@ import { resolveSkywriteSkyAreaId } from '@/skyAreas/resolveSkywriteSkyAreaId';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 import { filterVisitorVisibleSkywrites } from '@/profile/buildSkywritingPreviews';
+import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
 import { buildVisitorSkywritingTabsFromVisibleItems } from '@/profile/resolveVisitorProfilePrivacy';
 import type { OwnerProfileSkywritingPreview } from '@/profile/ownerProfileTypes';
 
@@ -75,12 +76,19 @@ function recordToItem(record: SkywriteRecord): ProfileSkywritingItem {
 export function buildProfileSkywritingsSection(input: {
   skywrites: SkywriteRecord[];
   viewerMode: 'owner' | 'visitor';
-  isConnected?: boolean;
+  visitorAccess?: {
+    viewerId: string;
+    authorId: string;
+    followGraph: SkyFollowGraph;
+    blockedUserIds: readonly string[];
+  };
 }): ProfileSkywritingsSection {
   const eligible =
     input.viewerMode === 'owner'
       ? input.skywrites
-      : filterVisitorVisibleSkywrites(input.skywrites, Boolean(input.isConnected));
+      : input.visitorAccess
+        ? filterVisitorVisibleSkywrites(input.skywrites, input.visitorAccess)
+        : [];
 
   const items = eligible.map(recordToItem);
   const tabs =

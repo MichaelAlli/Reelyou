@@ -1,5 +1,8 @@
+import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
+import { resolveSkywriteViewerAccess } from '@/skywrite/access/resolveSkywriteViewerAccess';
 import type { SkywriteRecord } from '@/skywrite/types';
 import type { Privacy } from '@/types';
+import { normalizeSkywriteVisibility } from '@/skywrite/skywriteVisibility';
 
 import type { OwnerProfileSkywritingPreview } from '@/profile/ownerProfileTypes';
 
@@ -29,16 +32,25 @@ export function buildSkywritingPreviewsFromRecords(
   }));
 }
 
-/** Visitor-safe Skywrites — public only; orbit when viewer is connected. */
+/** Visitor-safe Skywrites — enforced via mutual Sky Friends, not one-way follow. */
 export function filterVisitorVisibleSkywrites(
   skywrites: SkywriteRecord[],
-  isConnected: boolean,
+  input: {
+    viewerId: string;
+    authorId: string;
+    followGraph: SkyFollowGraph;
+    blockedUserIds: readonly string[];
+  },
 ): SkywriteRecord[] {
-  return skywrites.filter((entry) => {
-    if (entry.visibility === 'public') return true;
-    if (entry.visibility === 'orbit' && isConnected) return true;
-    return false;
-  });
+  return skywrites.filter((entry) =>
+    resolveSkywriteViewerAccess({
+      viewerId: input.viewerId,
+      authorId: input.authorId,
+      visibility: entry.visibility,
+      followGraph: input.followGraph,
+      blockedUserIds: input.blockedUserIds,
+    }),
+  );
 }
 
 export function buildVisitorSkywritingPreviews(
@@ -51,9 +63,10 @@ export function buildVisitorSkywritingPreviews(
 
 export function visitorCanShowImpactMetrics(
   skyVisibility: Privacy,
-  isConnected: boolean,
+  isSkyFriend: boolean,
 ): boolean {
-  if (skyVisibility === 'public') return true;
-  if (skyVisibility === 'orbit' && isConnected) return true;
+  const level = normalizeSkywriteVisibility(skyVisibility);
+  if (level === 'public') return true;
+  if (level === 'sky_friends' && isSkyFriend) return true;
   return false;
 }

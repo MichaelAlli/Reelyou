@@ -13,6 +13,7 @@ import type {
   SkywriteRecord,
   SkywritesState,
 } from '@/skywrite/types';
+import { ensureLegacyDemoSeed } from '@/legacy/ensureLegacyDemoSeed';
 import { EMPTY_SKYWRITE_MEDIA, EMPTY_SKYWRITES } from '@/skywrite/types';
 import type { Mood, Privacy } from '@/types';
 
@@ -22,7 +23,12 @@ const MEDIA_MODES = new Set<SkywriteMediaMode>(['text', 'photo', 'voice', 'photo
 const STORAGE_KEY = '@reellyou/skywrites';
 
 function isPrivacy(value: unknown): value is Privacy {
-  return value === 'private' || value === 'orbit' || value === 'public';
+  return (
+    value === 'private' ||
+    value === 'orbit' ||
+    value === 'sky_friends' ||
+    value === 'public'
+  );
 }
 
 function isMood(value: unknown): value is Mood {
@@ -133,6 +139,7 @@ function parseState(raw: string | null): SkywritesState {
 }
 
 export async function loadSkywrites(): Promise<SkywritesState> {
+  await ensureLegacyDemoSeed();
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
     return parseState(stored);

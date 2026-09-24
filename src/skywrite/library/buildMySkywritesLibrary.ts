@@ -1,6 +1,7 @@
 import { currentUser, orbitUsers } from '@/data/mockData';
 import type { ContributionRecord } from '@/contributions/contributionTypes';
-import { BETA_CONNECTED_USER_IDS } from '@/messages/messagesConnections';
+import { resolveSkywriteViewerAccess } from '@/skywrite/access/resolveSkywriteViewerAccess';
+import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
 import {
   buildSkywriteLifecycleView,
   isSkywriteDeleted,
@@ -58,14 +59,19 @@ function authoredByViewer(record: SkywriteRecord & { authorId: string }): boolea
 
 function contributorMayViewSkywrite(
   skywrite: SkywriteRecord & { authorId: string },
-  blockedUserIds: readonly string[],
+  input: {
+    viewerId: string;
+    followGraph: SkyFollowGraph;
+    blockedUserIds: readonly string[];
+  },
 ): boolean {
-  if (blockedUserIds.includes(skywrite.authorId)) return false;
-  if (skywrite.visibility === 'public') return true;
-  if (skywrite.visibility === 'orbit') {
-    return BETA_CONNECTED_USER_IDS.includes(skywrite.authorId);
-  }
-  return false;
+  return resolveSkywriteViewerAccess({
+    viewerId: input.viewerId,
+    authorId: skywrite.authorId,
+    visibility: skywrite.visibility,
+    followGraph: input.followGraph,
+    blockedUserIds: input.blockedUserIds,
+  });
 }
 
 export function buildAuthoredLibraryRows(input: {
@@ -234,6 +240,7 @@ export function buildContributedLibraryRows(input: {
   responses: readonly SkywriteResponseRecord[];
   contributions: readonly ContributionRecord[];
   blockedUserIds: readonly string[];
+  followGraph: SkyFollowGraph;
   query?: string;
 }): MySkywriteLibraryRow[] {
   const q = input.query?.trim().toLowerCase() ?? '';
@@ -256,7 +263,15 @@ export function buildContributedLibraryRows(input: {
     }
     const skywrite = resolveSkywriteById(input.localPosts, response.skywriteId, lifecycle);
     if (!skywrite || skywrite.authorId === currentUser.id) continue;
-    if (!contributorMayViewSkywrite(skywrite, input.blockedUserIds)) continue;
+    if (
+      !contributorMayViewSkywrite(skywrite, {
+        viewerId: currentUser.id,
+        followGraph: input.followGraph,
+        blockedUserIds: input.blockedUserIds,
+      })
+    ) {
+      continue;
+    }
 
     seenSkywrites.add(response.skywriteId);
     const areaLabel = areaLabelFor(skywrite.skyAreaId);

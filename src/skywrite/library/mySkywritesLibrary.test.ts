@@ -3,6 +3,8 @@ import {
   buildAuthoredLibraryRows,
   buildContributedLibraryRows,
 } from '@/skywrite/library/buildMySkywritesLibrary';
+import { ORBIT_PROFILE_SKYWRITE_FIXTURES } from '@/profile/orbitProfileSkywriteFixtures';
+import { EMPTY_SKY_FOLLOW_GRAPH } from '@/social/skyFollow/skyFollowTypes';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 function assert(condition: boolean, message: string) {
@@ -46,8 +48,9 @@ const archived = buildAuthoredLibraryRows({
 assert(archived.length === 1, 'archived tab lists archived item');
 
 const contributed = buildContributedLibraryRows({
-  localPosts: [],
+  localPosts: ORBIT_PROFILE_SKYWRITE_FIXTURES['orbit-jordan'] ?? [],
   library: EMPTY_SKYWRITE_LIBRARY_STATE,
+  followGraph: EMPTY_SKY_FOLLOW_GRAPH,
   responses: [
     {
       responseId: 'resp-1',

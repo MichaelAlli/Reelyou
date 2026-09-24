@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SKYWRITE_VISIBILITY_OPTIONS } from '@/constants/skywriteCopy';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
+import { resolveVisibilityOptionId } from '@/skywrite/skywriteVisibility';
 import type { Privacy } from '@/types';
 
 interface SkywriteVisibilityControlProps {
@@ -19,7 +20,8 @@ function SkywriteVisibilityControlComponent({
   onToggleExpanded,
   onSelect,
 }: SkywriteVisibilityControlProps) {
-  const active = SKYWRITE_VISIBILITY_OPTIONS.find((option) => option.id === value);
+  const activeId = resolveVisibilityOptionId(value);
+  const active = SKYWRITE_VISIBILITY_OPTIONS.find((option) => option.id === activeId);
 
   return (
     <View style={styles.wrap}>
@@ -39,7 +41,7 @@ function SkywriteVisibilityControlComponent({
       {expanded ? (
         <View style={styles.options}>
           {SKYWRITE_VISIBILITY_OPTIONS.map((option) => {
-            const selected = value === option.id;
+            const selected = activeId === option.id;
             return (
               <Pressable
                 key={option.id}

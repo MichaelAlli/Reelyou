@@ -97,24 +97,24 @@ export type SkywriteShowingUpId = (typeof SKYWRITE_SHOWING_UP_OPTIONS)[number]['
 
 export const SKYWRITE_VISIBILITY_OPTIONS = [
   {
-    id: 'public' as const,
-    title: 'Public Sky',
-    subtitle: 'Everyone',
-    collapsed: 'Public Sky · Everyone',
-    icon: '🌐',
-  },
-  {
-    id: 'orbit' as const,
-    title: 'Constellations Only',
-    subtitle: "Communities you're in",
-    collapsed: 'Constellations Only · Communities',
-    icon: '👥',
-  },
-  {
     id: 'private' as const,
-    title: 'Private Reflection',
+    title: 'Private',
     subtitle: 'Only you',
-    collapsed: 'Private Reflection · Only you',
+    collapsed: 'Private · Only you',
     icon: '🔒',
+  },
+  {
+    id: 'sky_friends' as const,
+    title: 'Sky Friends',
+    subtitle: 'People whose Sky you follow and who follow your Sky back',
+    collapsed: 'Sky Friends · Mutual follows',
+    icon: '✨',
+  },
+  {
+    id: 'public' as const,
+    title: 'Public',
+    subtitle: 'People across REELYOU may see this based on where you shared it',
+    collapsed: 'Public · REELYOU',
+    icon: '🌐',
   },
 ] as const;

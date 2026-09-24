@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { ContributionRecord } from '@/contributions/contributionTypes';
+import { ensureLegacyDemoSeed } from '@/legacy/ensureLegacyDemoSeed';
 import {
   EMPTY_SKYWRITE_THREAD_STATE,
   type SkywriteBeaconEngagement,
@@ -23,7 +24,12 @@ function parseResponse(raw: unknown): SkywriteResponseRecord | null {
     responderId: entry.responderId,
     body: entry.body,
     createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : Date.now(),
-    visibility: entry.visibility === 'private' || entry.visibility === 'orbit' ? entry.visibility : 'public',
+    visibility:
+      entry.visibility === 'private' ||
+      entry.visibility === 'orbit' ||
+      entry.visibility === 'sky_friends'
+        ? entry.visibility
+        : 'public',
     savedByAuthor: entry.savedByAuthor === true,
     savedAt: typeof entry.savedAt === 'number' ? entry.savedAt : null,
   };
@@ -77,6 +83,7 @@ function parseContribution(raw: unknown): ContributionRecord | null {
 }
 
 export async function loadSkywriteThreadState(): Promise<SkywriteThreadState> {
+  await ensureLegacyDemoSeed();
   try {
     const raw = await AsyncStorage.getItem(THREAD_KEY);
     return parseSkywriteThreadState(raw);
@@ -94,6 +101,7 @@ export async function saveSkywriteThreadState(state: SkywriteThreadState): Promi
 }
 
 export async function loadContributionRecords(): Promise<ContributionRecord[]> {
+  await ensureLegacyDemoSeed();
   try {
     const raw = await AsyncStorage.getItem(CONTRIBUTION_KEY);
     if (!raw) return [];

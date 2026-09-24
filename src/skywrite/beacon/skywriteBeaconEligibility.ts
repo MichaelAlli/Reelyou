@@ -1,5 +1,6 @@
 import { currentUser } from '@/data/mockData';
-import { isContributionBeaconDemoEnabled } from '@/constants/devFlags';
+import { isContributionBeaconDemoEnabled, isLegacyDemoEnabled } from '@/constants/devFlags';
+import { buildLegacyDemoSkywrites } from '@/legacy/legacyDemoFixtures';
 import { ORBIT_PROFILE_SKYWRITE_FIXTURES } from '@/profile/orbitProfileSkywriteFixtures';
 import { buildDemoContributionBeaconSkywrites } from '@/skywrite/beacon/contributionBeaconDemoFixtures';
 import type { SkywriteRecord } from '@/skywrite/types';
@@ -20,15 +21,23 @@ export function collectPublicSkywritesForBeacon(
   localPosts: readonly SkywriteRecord[],
   viewerId: string = currentUser.id,
 ): Array<SkywriteRecord & { authorId: string }> {
-  if (isContributionBeaconDemoEnabled()) {
-    return buildDemoContributionBeaconSkywrites();
-  }
-
   const byId = new Map<string, SkywriteRecord & { authorId: string }>();
 
-  for (const [ownerId, posts] of Object.entries(ORBIT_PROFILE_SKYWRITE_FIXTURES)) {
-    for (const post of posts) {
-      byId.set(post.id, withAuthorId(post, ownerId));
+  if (isContributionBeaconDemoEnabled()) {
+    for (const post of buildDemoContributionBeaconSkywrites()) {
+      byId.set(post.id, post);
+    }
+  } else {
+    for (const [ownerId, posts] of Object.entries(ORBIT_PROFILE_SKYWRITE_FIXTURES)) {
+      for (const post of posts) {
+        byId.set(post.id, withAuthorId(post, ownerId));
+      }
+    }
+  }
+
+  if (isLegacyDemoEnabled()) {
+    for (const post of buildLegacyDemoSkywrites()) {
+      byId.set(post.id, post);
     }
   }
 

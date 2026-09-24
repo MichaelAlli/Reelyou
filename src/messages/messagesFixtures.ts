@@ -48,6 +48,7 @@ export function buildFixtureMessagesState(): MessagesState {
     unreadThreadIds: a.thread.unreadCount ? [a.thread.id] : [],
     mutedThreadIds: [],
     blockedUserIds: [],
+    limitedUserIds: [],
     messageRequests: [],
   };
   state = receiveIncomingRequestLocal(
