@@ -1,4 +1,6 @@
+import { listCommunityMeaningfulSignalsForUser } from '@/emergingConstellations/communityMeaningfulSignalOutbox';
 import { stableOpportunityNodeId } from '@/starpath/starpathOpportunityOrganizer';
+import { currentUser } from '@/data/mockData';
 import type { StarPathResourceState } from '@/starpath/starpathOpportunityTypes';
 import type { AroundYourSkyHomeFeed } from '@/social/aroundYourSky/types';
 
@@ -58,6 +60,28 @@ export function starpathOpportunitySignalsFromState(
     });
   }
   return out;
+}
+
+export function communityMeaningfulSignalsFromOutbox(
+  viewerUserId: string = currentUser.id,
+): Array<{
+  signalId: string;
+  communityId: string;
+  title: string;
+  description: string;
+  createdAt: number;
+  destinationRoute: string;
+  destinationParams: Record<string, string>;
+}> {
+  return listCommunityMeaningfulSignalsForUser(viewerUserId).map((item) => ({
+    signalId: item.signalId,
+    communityId: item.communityId,
+    title: item.title,
+    description: item.description,
+    createdAt: item.createdAt,
+    destinationRoute: item.destinationRoute,
+    destinationParams: item.destinationParams,
+  }));
 }
 
 export function communitySignalsFromFeed(

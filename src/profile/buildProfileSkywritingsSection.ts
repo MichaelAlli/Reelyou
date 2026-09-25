@@ -8,6 +8,7 @@ import {
 import { resolveSkywriteSkyAreaId } from '@/skyAreas/resolveSkywriteSkyAreaId';
 import type { SkywriteRecord } from '@/skywrite/types';
 
+import { isModerationContentSuppressedSync } from '@/moderation/moderationContentRegistry';
 import { filterVisitorVisibleSkywrites } from '@/profile/buildSkywritingPreviews';
 import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
 import { buildVisitorSkywritingTabsFromVisibleItems } from '@/profile/resolveVisitorProfilePrivacy';
@@ -90,7 +91,9 @@ export function buildProfileSkywritingsSection(input: {
         ? filterVisitorVisibleSkywrites(input.skywrites, input.visitorAccess)
         : [];
 
-  const items = eligible.map(recordToItem);
+  const items = eligible
+    .filter((record) => !isModerationContentSuppressedSync('skywrite', record.id))
+    .map(recordToItem);
   const tabs =
     input.viewerMode === 'visitor'
       ? buildVisitorSkywritingTabsFromVisibleItems(items)

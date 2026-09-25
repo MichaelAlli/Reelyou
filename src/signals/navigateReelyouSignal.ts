@@ -32,7 +32,21 @@ export function navigateReelyouSignal(
     );
     return;
   }
+  if (signal.destinationRoute.startsWith('/emerging-constellation')) {
+    const params = signal.destinationParams ?? {};
+    const query = Object.entries(params)
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&');
+    router.push(`${signal.destinationRoute}${query ? `?${query}` : ''}` as never);
+    return;
+  }
   if (signal.destinationRoute.startsWith('/')) {
-    router.push(signal.destinationRoute as never);
+    const params = signal.destinationParams ?? {};
+    const query = Object.entries(params)
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&');
+    router.push(
+      `${signal.destinationRoute}${query ? (signal.destinationRoute.includes('?') ? '&' : '?') + query : ''}` as never,
+    );
   }
 }

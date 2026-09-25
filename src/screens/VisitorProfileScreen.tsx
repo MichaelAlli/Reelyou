@@ -2,7 +2,7 @@
 import { ImageBackground } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/BottomNav';
@@ -20,6 +20,8 @@ import {
   OWNER_PROFILE_PANEL_BORDER,
   OWNER_PROFILE_SECTION_GAP,
 } from '@/components/profile/owner/ownerProfileLayout';
+import { ModerationReportSheet } from '@/components/safety/ModerationReportSheet';
+import { EmotionAiCopy } from '@/constants/emotionAiCopy';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { currentUser } from '@/data/mockData';
 import { Fonts, TabBarHeight } from '@/constants/theme';
@@ -84,7 +86,12 @@ export function VisitorProfileScreen({
     messages,
     skyFollowGraph,
     isMutualSkyFriend,
+    submitModerationReport,
+    blockUser,
+    limitUser,
   } = useReelyouConnect();
+  const [safetyMenuOpen, setSafetyMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const connectionActivities = useMemo(
     () => resolveSkyConnectionActivities(aroundYourSkyFeed),
@@ -257,7 +264,13 @@ export function VisitorProfileScreen({
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
-          <OwnerProfileTopChrome variant="visitor" onBack={handleBack} />
+          <OwnerProfileTopChrome
+            variant="visitor"
+            onBack={handleBack}
+            onVisitorOverflow={
+              hideVisitorActions ? undefined : () => setSafetyMenuOpen(true)
+            }
+          />
           <OwnerProfileHero identity={visitorView.identity} />
           {hideVisitorActions ? null : (
             <OwnerProfileVisitorActionRow
@@ -317,6 +330,77 @@ export function VisitorProfileScreen({
           />
         </ScrollView>
       </View>
+      <Modal
+        visible={safetyMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSafetyMenuOpen(false)}>
+        <Pressable style={styles.menuBackdrop} onPress={() => setSafetyMenuOpen(false)} />
+        <View style={styles.menuSheet}>
+          <Pressable
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="Report profile"
+            onPress={() => {
+              setSafetyMenuOpen(false);
+              setReportOpen(true);
+            }}>
+            <Text style={styles.menuRowText}>Report</Text>
+          </Pressable>
+          <Pressable
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="Block user"
+            onPress={() => {
+              if (!ownerId) return;
+              setSafetyMenuOpen(false);
+              Alert.alert(EmotionAiCopy.blockConfirmTitle, EmotionAiCopy.blockConfirmBody, [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Block',
+                  style: 'destructive',
+                  onPress: () => {
+                    blockUser(ownerId);
+                    handleBack();
+                  },
+                },
+              ]);
+            }}>
+            <Text style={styles.menuRowText}>Block</Text>
+          </Pressable>
+          <Pressable
+            style={styles.menuRow}
+            accessibilityRole="button"
+            accessibilityLabel="Limit user"
+            onPress={() => {
+              if (ownerId) limitUser(ownerId);
+              setSafetyMenuOpen(false);
+            }}>
+            <Text style={styles.menuRowText}>Limit</Text>
+          </Pressable>
+        </View>
+      </Modal>
+      {ownerId ? (
+        <ModerationReportSheet
+          visible={reportOpen}
+          onClose={() => setReportOpen(false)}
+          title="Report profile"
+          reportInput={{
+            targetType: 'user',
+            targetId: ownerId,
+            targetOwnerUserId: ownerId,
+            visibilityContext: 'visitor_profile',
+            provenanceIds: [ownerId],
+          }}
+          onSubmit={submitModerationReport}
+          followUp={{
+            showBlock: true,
+            showLimit: true,
+            onBlock: () => blockUser(ownerId),
+            onLimit: () => limitUser(ownerId),
+          }}
+        />
+      ) : null}
       <BottomNav />
     </View>
   );
@@ -369,4 +453,16 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: 'rgba(248, 244, 236, 0.68)',
   },
+  menuBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  menuSheet: {
+    position: 'absolute',
+    right: 16,
+    top: 96,
+    backgroundColor: '#1A2240',
+    borderRadius: 12,
+    minWidth: 200,
+    paddingVertical: 6,
+  },
+  menuRow: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 16 },
+  menuRowText: { fontFamily: Fonts.sans, fontSize: 14, color: '#FFF8F0' },
 });

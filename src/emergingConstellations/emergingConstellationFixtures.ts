@@ -2,16 +2,23 @@ import type { EmergingConstellation } from '@/emergingConstellations/emergingCon
 import { isEmergenceCredible } from '@/emergingConstellations/emergingConstellationRubric';
 
 /** Dev-only credible constellation — not shown unless demo flag enabled. */
+export const DEV_EMERGING_CONSTELLATION_ID = 'dev-constellation-career-transition';
+
 export const DEV_EMERGING_CONSTELLATION: EmergingConstellation = {
-  id: 'dev-constellation-career-transition',
+  id: DEV_EMERGING_CONSTELLATION_ID,
   name: 'Career Transition',
+  description:
+    'A place for people navigating career change to share perspective, encourage one another, and move forward together.',
   sharedTheme: 'People growing through similar things may be beginning to find one another.',
+  primaryThemes: ['direction', 'courage', 'next steps'],
   relatedSkyAreaIds: ['career', 'growth'],
+  emergenceEvidenceIds: ['evidence-career-patterns-1', 'evidence-like-hearted-affinity-1'],
   status: 'forming',
   aiSuggested: true,
   humanExplanation:
-    'Your Guide noticed repeated meaningful patterns around direction, courage, and next steps — not a label, just a possibility worth exploring.',
+    'Your Guide noticed a theme that may be showing up around direction, courage, and next steps — a possibility worth exploring, not a label.',
   createdAt: Date.now(),
+  updatedAt: Date.now(),
   signals: {
     likeHeartedness: 0.88,
     sharedSkyAreas: 0.55,
@@ -27,4 +34,13 @@ export const DEV_EMERGING_CONSTELLATION: EmergingConstellation = {
 export function devEmergingConstellationIfEligible(): EmergingConstellation | null {
   if (!isEmergenceCredible(DEV_EMERGING_CONSTELLATION.signals)) return null;
   return DEV_EMERGING_CONSTELLATION;
+}
+
+export function resolveEmergingConstellationById(
+  constellationId?: string | null,
+): EmergingConstellation | null {
+  const dev = devEmergingConstellationIfEligible();
+  if (!dev) return null;
+  if (constellationId && constellationId !== dev.id) return null;
+  return dev;
 }

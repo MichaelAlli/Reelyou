@@ -4,6 +4,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 
+import { EmotionAiCopy } from '@/constants/emotionAiCopy';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
 import { useEmergingConstellations } from '@/emergingConstellations/EmergingConstellationsProvider';
@@ -30,6 +31,8 @@ function HomeEmergingConstellationSectionComponent({
         <Text style={styles.eyebrow}>A constellation may be forming</Text>
         <Text style={styles.title}>{activeSuggestion.name}</Text>
         <Text style={styles.body}>{activeSuggestion.sharedTheme}</Text>
+        <Text style={styles.transparency}>{EmotionAiCopy.aiTransparencyShort}</Text>
+        <Text style={styles.transparencyMuted}>{EmotionAiCopy.aiSuggestionControl}</Text>
         <View style={styles.row}>
           <Pressable
             style={styles.primary}
@@ -80,6 +83,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     color: 'rgba(248, 244, 236, 0.78)',
+    marginBottom: 4,
+  },
+  transparency: {
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    lineHeight: 14,
+    color: 'rgba(248, 244, 236, 0.55)',
+  },
+  transparencyMuted: {
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    lineHeight: 14,
+    color: 'rgba(248, 244, 236, 0.45)',
     marginBottom: 6,
   },
   row: { flexDirection: 'row', gap: 10, marginTop: 4 },

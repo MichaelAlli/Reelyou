@@ -21,9 +21,13 @@ function signalForNode(
   signalsById: Record<string, StarPathAmbientSignal>,
   activeSignalIds: string[],
 ): StarPathAmbientSignal | undefined {
-  const id = `sig-${nodeId}`;
-  if (!activeSignalIds.includes(id)) return undefined;
-  return signalsById[id];
+  const preferred = [`sig-${nodeId}`, `cws-growth-${nodeId}`];
+  for (const id of preferred) {
+    if (activeSignalIds.includes(id)) return signalsById[id];
+  }
+  return activeSignalIds
+    .map((id) => signalsById[id])
+    .find((signal) => signal?.sourceNodeId === nodeId);
 }
 
 function StarPathOpportunityLayerComponent({
@@ -47,9 +51,17 @@ function StarPathOpportunityLayerComponent({
         const { x, y } = refPointToWorldPx({ x: node.refX, y: node.refY }, metrics);
         const signal = signalForNode(node.nodeId, signalsById, activeSignalIds);
         const level = signal?.signalLevel ?? 'whisper';
-        const softPulse = level === 'notice' || level === 'guide' || level === 'priority';
+        const softPulse =
+          level === 'notice' ||
+          level === 'guide' ||
+          level === 'priority' ||
+          signal?.signalType === 'branch_shimmer';
         const revealPulse = level === 'priority' || highlightNodeId === node.nodeId;
-        const halo = level === 'guide' || level === 'priority' || signal?.signalType === 'halo';
+        const halo =
+          level === 'guide' ||
+          level === 'priority' ||
+          signal?.signalType === 'halo' ||
+          signal?.signalType === 'branch_shimmer';
 
         return (
           <SymbolicJourneyNode

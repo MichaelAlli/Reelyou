@@ -203,11 +203,52 @@ export function emitBelongingSignal(store: CanonicalSignalStore, userId: string,
   });
 }
 
+export function emitCommunityReplySignal(
+  store: CanonicalSignalStore,
+  userId: string,
+  communityId: string,
+  postId: string,
+  replyId: string,
+  fromUserId: string,
+) {
+  return store.emit({
+    userId,
+    type: 'community_reply',
+    sourceType: 'community',
+    sourceId: replyId,
+    dedupeKey: `community_reply:${replyId}`,
+    relatedUserIds: [fromUserId],
+    provenanceIds: [postId, replyId],
+    metadata: { communityId, postId },
+    significanceLevel: 'meaningful',
+    surfaceEligibility: ['home'],
+  });
+}
+
+export function emitCommunityBelongingSignal(
+  store: CanonicalSignalStore,
+  userId: string,
+  communityId: string,
+) {
+  return store.emit({
+    userId,
+    type: 'community_belonging',
+    sourceType: 'community',
+    sourceId: communityId,
+    dedupeKey: `community_belonging:${communityId}`,
+    provenanceIds: [communityId],
+    significanceLevel: 'meaningful',
+    privacyScope: 'owner_only',
+    surfaceEligibility: ['home'],
+  });
+}
+
 export function emitGrowthMomentumSignal(
   store: CanonicalSignalStore,
   userId: string,
   skyAreaId: string,
   provenanceIds: string[],
+  options?: { relatedStarPathNodeId?: string },
 ) {
   return store.emit({
     userId,
@@ -216,8 +257,14 @@ export function emitGrowthMomentumSignal(
     sourceId: skyAreaId,
     dedupeKey: `growth_momentum:${skyAreaId}`,
     relatedSkyAreaIds: [skyAreaId],
+    relatedStarPathIds: options?.relatedStarPathNodeId ? [options.relatedStarPathNodeId] : [],
     provenanceIds,
-    significanceLevel: 'strong',
+    significanceLevel: 'meaningful',
+    metadata: options?.relatedStarPathNodeId
+      ? { nodeId: options.relatedStarPathNodeId }
+      : {},
+    surfaceEligibility: ['starpath_internal'],
+    privacyScope: 'owner_only',
   });
 }
 
@@ -272,6 +319,7 @@ export function emitStarpathMetaphorSignal(
   userId: string,
   kind: 'door_opening' | 'mist' | 'clear_skies' | 'reflection_rain' | 'aurora' | 'new_star_candidate',
   sourceId: string,
+  metadata?: Record<string, string | number | boolean | string[]>,
 ) {
   return store.emit({
     userId,
@@ -279,6 +327,26 @@ export function emitStarpathMetaphorSignal(
     sourceType: 'starpath',
     sourceId,
     dedupeKey: `${kind}:${sourceId}`,
+    metadata: metadata ?? {},
+    surfaceEligibility: ['starpath_internal'],
+    privacyScope: 'owner_only',
+  });
+}
+
+export function emitStarpathOpportunitySignal(
+  store: CanonicalSignalStore,
+  userId: string,
+  opportunityId: string,
+  nodeId: string,
+) {
+  return store.emit({
+    userId,
+    type: 'starpath_opportunity',
+    sourceType: 'starpath',
+    sourceId: opportunityId,
+    dedupeKey: `starpath_opportunity:${opportunityId}`,
+    relatedStarPathIds: [nodeId],
+    metadata: { opportunityNodeId: nodeId },
     surfaceEligibility: ['starpath_internal'],
     privacyScope: 'owner_only',
   });

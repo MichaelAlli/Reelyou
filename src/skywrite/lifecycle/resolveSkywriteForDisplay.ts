@@ -1,3 +1,4 @@
+import { isModerationContentSuppressedSync } from '@/moderation/moderationContentRegistry';
 import { collectPublicSkywritesForBeacon } from '@/skywrite/beacon/skywriteBeaconEligibility';
 import type { SkywriteContentLifecycleView } from '@/skywrite/lifecycle/skywriteContentLifecycleTypes';
 import type { SkywriteRecord } from '@/skywrite/types';
@@ -13,6 +14,9 @@ export function resolveSkywriteForDisplay(
 ): (SkywriteRecord & { authorId: string }) | null {
   if (!skywriteId) return null;
   if (lifecycle?.isContentDeleted(skywriteId)) {
+    return null;
+  }
+  if (isModerationContentSuppressedSync('skywrite', skywriteId)) {
     return null;
   }
   const catalog = collectPublicSkywritesForBeacon(localPosts);

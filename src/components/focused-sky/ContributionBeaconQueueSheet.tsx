@@ -11,7 +11,6 @@ import { Fonts, Radius } from '@/constants/theme';
 import { CONTRIBUTION_BEACON_BATCH_SIZE } from '@/skywrite/beacon/beaconLifecycleConfig';
 import { beaconSignalIdForSkywrite } from '@/skywrite/beacon/skywriteBeaconEligibility';
 import type { BeaconEligibleSkywrite } from '@/skywrite/beacon/beaconMatchEngine';
-import { resolveSkywriteIntent, SKYWRITE_INTENT_OPTIONS } from '@/skywrite/skywriteIntent';
 import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
 
 type SheetMode = 'card' | 'list';
@@ -31,12 +30,6 @@ function previewText(text: string): string {
   if (!trimmed) return ContributionBeaconCopy.previewFallback;
   if (trimmed.length <= 140) return trimmed;
   return `${trimmed.slice(0, 137)}…`;
-}
-
-function intentChipLabel(entry: BeaconEligibleSkywrite): string {
-  const intent = resolveSkywriteIntent(entry.skywrite);
-  const found = SKYWRITE_INTENT_OPTIONS.find((option) => option.id === intent);
-  return found?.label ?? 'Skywrite';
 }
 
 function ContributionBeaconQueueSheetComponent({
@@ -195,11 +188,11 @@ function ContributionBeaconQueueSheetComponent({
 
             {current ? (
               <View style={styles.card}>
+                <Text style={styles.invitationEyebrow}>{ContributionBeaconCopy.invitationEyebrow}</Text>
                 <Text style={styles.areaLabel}>{current.areaLabel}</Text>
-                <Text style={styles.contextLine}>
-                  {ContributionBeaconCopy.invitationContext(current.areaLabel)}
+                <Text style={styles.invitationQuote}>
+                  “{previewText(current.skywrite.text)}”
                 </Text>
-                <Text style={styles.intentChip}>{intentChipLabel(current)}</Text>
                 <SkywriteMediaPreview
                   skywrite={current.skywrite}
                   variant="invitationCard"
@@ -331,13 +324,26 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
-  areaLabel: {
+  invitationEyebrow: {
     fontFamily: Fonts.sans,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    color: '#E8C872',
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: 'rgba(235,228,248,0.72)',
+    textAlign: 'center',
+  },
+  invitationQuote: {
+    fontFamily: Fonts.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#F5F0FF',
+    textAlign: 'center',
+  },
+  areaLabel: {
+    fontFamily: Fonts.serif,
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#F5F0FF',
+    textAlign: 'center',
   },
   contextLine: {
     fontFamily: Fonts.sans,

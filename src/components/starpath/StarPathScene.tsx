@@ -22,6 +22,7 @@ import { StarPathOffscreenGrowthIndicator } from '@/components/starpath/StarPath
 import { StarPathOffscreenSignalIndicator } from '@/components/starpath/StarPathOffscreenSignalIndicator';
 import { StarPathOpportunityDetailSheet } from '@/components/starpath/StarPathOpportunityDetailSheet';
 import { StarPathOpportunityLayer } from '@/components/starpath/StarPathOpportunityLayer';
+import { StarPathWorldGrowthHint } from '@/components/starpath/StarPathWorldGrowthHint';
 import { opportunityByNodeId } from '@/starpath/starpathResourceActions';
 import {
   applyDynamicWorldExpansion,
@@ -442,6 +443,18 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
           experience.acknowledgeSignal(`sig-${nodeId}`);
         }}
       />
+
+      {experience.worldGrowthCue ? (
+        <StarPathWorldGrowthHint
+          body={experience.worldGrowthCue.body}
+          onView={() => {
+            const nodeId = experience.worldGrowthCue?.nodeId;
+            experience.viewWorldGrowthCue();
+            if (nodeId) scrollToOpportunityNode(nodeId);
+          }}
+          onDismiss={experience.dismissWorldGrowthCue}
+        />
+      ) : null}
 
       <View style={styles.overlay} pointerEvents="box-none">
         <View

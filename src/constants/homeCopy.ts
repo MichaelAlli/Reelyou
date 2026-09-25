@@ -5,7 +5,7 @@ export const HomeCopy = {
   starpathTitle: 'My StarPath',
   starpathSubtitle: 'What is my next meaningful direction?',
   starpathCta: 'Continue your StarPath →',
-  starpathMilestones: ['Build Discipline', 'Level Up Skills', 'Create Impact'] as const,
+  starpathMilestones: ['Build Discipline', 'Grow Your Craft', 'Create Impact'] as const,
   mySkyTitle: 'My Sky',
   mySkySupport: 'See how your journey is taking shape.',
   mySkyCta: 'View My Sky →',

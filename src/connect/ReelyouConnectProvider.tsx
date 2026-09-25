@@ -43,8 +43,14 @@ import {
   type UserPreferencesUpdate,
 } from '@/preferences/userPreferencesTypes';
 import { loadUserPreferences, saveUserPreferences } from '@/preferences/userPreferencesPersistence';
-import type { SafetyReportReason } from '@/safety/safetyActions';
-import { reportUserSafety } from '@/safety/safetyActions';
+import { ensureModerationBootstrap } from '@/moderation/moderationBootstrap';
+import { filterHomeFeedBlockedActors } from '@/moderation/moderationEnforcement';
+import { submitModerationReport } from '@/moderation/moderationReportService';
+import type {
+  ModerationReportReason,
+  SubmitModerationReportInput,
+  SubmitModerationReportResult,
+} from '@/moderation/moderationTypes';
 import { isHomePresentationHandled as isHomePresentationHandledMeta } from '@/signals/homeSignalPresentation';
 import { buildReelyouSignals, hasMeaningfulUnread } from '@/signals/reelyouSignalEngine';
 import type { ReelyouSignalSources } from '@/signals/reelyouSignalSources';
@@ -109,11 +115,17 @@ interface ReelyouConnectContextValue {
   listFollowingUserIds: () => string[];
   listFollowerUserIds: () => string[];
   isMutualSkyFriend: (userId: string) => boolean;
+  submitModerationReport: (
+    input: Omit<SubmitModerationReportInput, 'reporterUserId'>,
+  ) => Promise<SubmitModerationReportResult>;
+  /** @deprecated Use submitModerationReport via ModerationReportSheet. */
   reportUser: (params: {
     reportedUserId: string;
     threadId?: string;
-    reason?: SafetyReportReason;
-  }) => Promise<{ ok: boolean; localOnly: boolean; reportId: string }>;
+    messageId?: string;
+    reason?: ModerationReportReason;
+    optionalNote?: string;
+  }) => Promise<{ ok: boolean; localOnly: boolean; reportId: string; duplicate?: boolean }>;
   getThreadMessages: (threadId: string) => ReturnType<typeof threadMessages>;
   canMessageUser: (userId: string) => boolean;
   connectedUserIds: string[];
@@ -163,6 +175,7 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
         loadReelyouSignalsMeta(),
         loadStarPathResourceState(),
         loadSkyFollowGraph(),
+        ensureModerationBootstrap(),
       ]);
       if (!mounted) return;
       setPreferences(prefs);
@@ -304,10 +317,17 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
     [schedulePrefSave],
   );
 
-  const personalizedHomeFeed = useMemo(
-    () => personalizeAroundYourSkyFeed(aroundYourSkyFeed, preferences),
-    [aroundYourSkyFeed, preferences],
-  );
+  const personalizedHomeFeed = useMemo(() => {
+    const personalized = personalizeAroundYourSkyFeed(aroundYourSkyFeed, preferences);
+    return {
+      ...personalized,
+      items: filterHomeFeedBlockedActors(
+        personalized.items,
+        messages.blockedUserIds,
+        messages.limitedUserIds,
+      ),
+    };
+  }, [aroundYourSkyFeed, messages.blockedUserIds, messages.limitedUserIds, preferences]);
 
   const contributionBeacons = useMemo(() => {
     const queue = buildQueueForViewer(
@@ -466,8 +486,14 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
         preferences.messagingPreferences,
         connectedUserIds,
         messages.blockedUserIds,
+        messages.limitedUserIds,
       ),
-    [connectedUserIds, messages.blockedUserIds, preferences.messagingPreferences],
+    [
+      connectedUserIds,
+      messages.blockedUserIds,
+      messages.limitedUserIds,
+      preferences.messagingPreferences,
+    ],
   );
 
   const openOrCreateThreadWith = useCallback(
@@ -601,16 +627,45 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
     [scheduleMsgSave],
   );
 
+  const submitModerationReportCb = useCallback(
+    async (input: Omit<SubmitModerationReportInput, 'reporterUserId'>) =>
+      submitModerationReport({
+        ...input,
+        reporterUserId: currentUser.id,
+      }),
+    [],
+  );
+
   const reportUser = useCallback(
     async (params: {
       reportedUserId: string;
       threadId?: string;
-      reason?: SafetyReportReason;
+      messageId?: string;
+      reason?: ModerationReportReason;
+      optionalNote?: string;
     }) => {
-      const result = await reportUserSafety(params);
-      return { ok: result.ok, localOnly: result.localOnly, reportId: result.reportId };
+      const result = await submitModerationReportCb({
+        targetType: params.messageId ? 'message' : 'user',
+        targetId: params.messageId ?? params.reportedUserId,
+        targetOwnerUserId: params.reportedUserId,
+        reason: params.reason ?? 'other',
+        optionalNote: params.optionalNote,
+        threadId: params.threadId,
+        messageId: params.messageId,
+        provenanceIds: params.messageId ? [params.messageId] : [params.reportedUserId],
+        visibilityContext: params.threadId ? 'direct_message' : 'profile',
+      });
+      if (!result.ok) {
+        return { ok: false, localOnly: true as const, reportId: '' };
+      }
+      return {
+        ok: true,
+        localOnly: true as const,
+        reportId: result.reportId,
+        duplicate: result.duplicate,
+      };
     },
-    [],
+    [submitModerationReportCb],
   );
 
   const getThreadMessages = useCallback(
@@ -643,6 +698,7 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       declineMessageRequest,
       muteThread,
       blockUser,
+      submitModerationReport: submitModerationReportCb,
       reportUser,
       getThreadMessages,
       canMessageUser,
@@ -687,6 +743,7 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       declineMessageRequest,
       muteThread,
       blockUser,
+      submitModerationReportCb,
       reportUser,
       getThreadMessages,
       canMessageUser,

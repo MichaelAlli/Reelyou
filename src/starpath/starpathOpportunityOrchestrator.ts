@@ -4,9 +4,25 @@ import { discoverResourceCandidates, filterStaleAndUnverified } from '@/starpath
 import { organizeOpportunities } from '@/starpath/starpathOpportunityOrganizer';
 import { siftOpportunityCandidates } from '@/starpath/starpathOpportunitySifting';
 import type { StarPathResourceState } from '@/starpath/starpathOpportunityTypes';
+import type { CanonicalSignalPreferenceContext } from '@/signals/canonical/canonicalSignalModels';
+import type { CanonicalSignalStore } from '@/signals/canonical/canonicalSignalStore';
+import type { SignalPrivacyContext } from '@/signals/canonical/canonicalSignalPrivacy';
+import {
+  computeStarPathSignalsWithCanonicalWorld,
+  type StarPathWorldGrowthCue,
+} from '@/starpath/starpathCanonicalWorldSignals';
 import { computeAmbientSignals } from '@/starpath/starpathSignalEngine';
 import type { StarPathSignalState } from '@/starpath/starpathSignalTypes';
 import { OPPORTUNITY_ESCALATION } from '@/starpath/starpathResourceConfig';
+
+export interface OpportunityOrchestratorWorldBridge {
+  canonicalStore: CanonicalSignalStore;
+  userId: string;
+  signalPrefs: CanonicalSignalPreferenceContext;
+  privacy: SignalPrivacyContext;
+  allowOpportunityWorldCue: boolean;
+  reduceMotion: boolean;
+}
 
 export interface OpportunityOrchestratorInput {
   now: number;
@@ -15,11 +31,13 @@ export interface OpportunityOrchestratorInput {
   signalState: StarPathSignalState;
   supportState: UserSupportState;
   viewport: { scrollY: number; viewportHeight: number; paddingTop: number; contentBandHeight: number };
+  worldBridge?: OpportunityOrchestratorWorldBridge;
 }
 
 export interface OpportunityOrchestratorOutput {
   resourceState: StarPathResourceState;
   signalState: StarPathSignalState;
+  worldGrowthCue: StarPathWorldGrowthCue | null;
   primaryOpportunityNodeId: string | null;
   primaryOpportunityCandidateId: string | null;
   escalateGuideForOpportunity: boolean;
@@ -50,7 +68,7 @@ export async function runOpportunityOrchestrator(
     providerStatus: discovery.providerStatus,
   }, input.now);
 
-  const signalState = computeAmbientSignals({
+  const ambientBase = {
     now: input.now,
     placedNodes: resourceState.placedNodes,
     resourcesById: resourceState.resourcesById,
@@ -61,7 +79,25 @@ export async function runOpportunityOrchestrator(
     contentBandHeight: input.viewport.contentBandHeight,
     supportState: input.supportState,
     previous: input.signalState,
-  });
+  };
+
+  const merged = input.worldBridge
+    ? computeStarPathSignalsWithCanonicalWorld({
+        ...ambientBase,
+        canonicalStore: input.worldBridge.canonicalStore,
+        userId: input.worldBridge.userId,
+        signalPrefs: input.worldBridge.signalPrefs,
+        privacy: input.worldBridge.privacy,
+        allowOpportunityWorldCue: input.worldBridge.allowOpportunityWorldCue,
+        reduceMotion: input.worldBridge.reduceMotion,
+      })
+    : {
+        signalState: computeAmbientSignals(ambientBase),
+        growthCue: null as StarPathWorldGrowthCue | null,
+      };
+
+  const signalState = merged.signalState;
+  const worldGrowthCue = merged.growthCue;
 
   const primary = resourceState.placedNodes.find((n) => n.prominence === 'primary') ?? resourceState.placedNodes[0];
   const primaryResource = primary ? resourceState.resourcesById[primary.candidateId] : undefined;
@@ -97,6 +133,7 @@ export async function runOpportunityOrchestrator(
   return {
     resourceState,
     signalState,
+    worldGrowthCue,
     primaryOpportunityNodeId: primary?.nodeId ?? null,
     primaryOpportunityCandidateId: primary?.candidateId ?? null,
     escalateGuideForOpportunity,

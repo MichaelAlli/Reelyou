@@ -59,9 +59,16 @@ import {
   saveResource,
   snoozeResource,
 } from '@/starpath/starpathResourceActions';
-import { computeAmbientSignals } from '@/starpath/starpathSignalEngine';
+import { isStarpathWorldSignalDemoEnabled } from '@/constants/devFlags';
+import { canonicalSignalStore } from '@/signals/canonical/canonicalSignalStore';
+import {
+  computeStarPathSignalsWithCanonicalWorld,
+  findCanonicalEventForOpportunityNode,
+  type StarPathWorldGrowthCue,
+} from '@/starpath/starpathCanonicalWorldSignals';
 import { EMPTY_SIGNAL_STATE, type StarPathSignalState } from '@/starpath/starpathSignalTypes';
 import { saveStarPathSignalState } from '@/starpath/starpathSignalPersistence';
+import { maybeSeedStarpathWorldSignalDemo } from '@/starpath/starpathWorldSignalDevSeed';
 import type { StarPathUiChromeSnapshot, StarPathViewportSnapshot } from '@/starpath/starpathPersistenceTypes';
 import { saveStarPathUiChrome } from '@/starpath/starpathUiChromePersistence';
 import type { StarPathNextStepType } from '@/starpath/starpathGuidanceTypes';
@@ -119,6 +126,9 @@ interface StarPathExperienceContextValue {
   setUiChrome: (patch: Partial<StarPathUiChromeSnapshot>) => void;
   savedViewport: StarPathViewportSnapshot | null;
   acknowledgeSignal: (signalId: string) => void;
+  worldGrowthCue: StarPathWorldGrowthCue | null;
+  dismissWorldGrowthCue: () => void;
+  viewWorldGrowthCue: () => void;
 }
 
 const StarPathExperienceContext = createContext<StarPathExperienceContextValue | null>(null);
@@ -130,7 +140,7 @@ export function StarPathExperienceProvider({
   children: ReactNode;
   todayFocusText?: string | null;
 }) {
-  const { preferences: userPreferences } = useReelyouConnect();
+  const { preferences: userPreferences, messages } = useReelyouConnect();
   const [ready, setReady] = useState(false);
   const [interactions, setInteractions] = useState<StarPathInteractionSnapshot>({
     version: 1,
@@ -155,6 +165,8 @@ export function StarPathExperienceProvider({
   const dynamicSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [resourceState, setResourceState] = useState<StarPathResourceState>(EMPTY_RESOURCE_STATE);
   const [signalState, setSignalState] = useState<StarPathSignalState>(EMPTY_SIGNAL_STATE);
+  const [worldGrowthCue, setWorldGrowthCue] = useState<StarPathWorldGrowthCue | null>(null);
+  const [canonicalSignalTail, setCanonicalSignalTail] = useState(0);
   const [supportState, setSupportState] = useState<UserSupportState>('unknown');
   const [highlightOpportunityNodeId, setHighlightOpportunityNodeId] = useState<string | null>(null);
   const [opportunityContext, setOpportunityContext] = useState({
@@ -208,6 +220,28 @@ export function StarPathExperienceProvider({
   const focusForGuidance = useMemo(
     () => gateTodayFocusText(todayFocusText, userPreferences.personalizationPreferences),
     [todayFocusText, userPreferences.personalizationPreferences],
+  );
+
+  const worldSignalBridge = useMemo(
+    () => ({
+      canonicalStore: canonicalSignalStore,
+      userId: currentUser.id,
+      signalPrefs: { quietMode: userPreferences.signalPreferences.quietMode },
+      privacy: {
+        viewerUserId: currentUser.id,
+        ownerUserId: currentUser.id,
+        blockedUserIds: messages.blockedUserIds,
+        isMutualSkyFriend: false,
+      },
+      allowOpportunityWorldCue: userPreferences.discoveryPreferences.showOpportunityDiscovery,
+      reduceMotion: userPreferences.accessibilityPreferences.preferReducedMotion,
+    }),
+    [
+      userPreferences.signalPreferences.quietMode,
+      userPreferences.discoveryPreferences.showOpportunityDiscovery,
+      userPreferences.accessibilityPreferences.preferReducedMotion,
+      messages.blockedUserIds,
+    ],
   );
 
   const signalsForSifting = useMemo(
@@ -294,10 +328,12 @@ export function StarPathExperienceProvider({
         signalState,
         supportState: mergedSupport,
         viewport: viewportRef.current,
+        worldBridge: worldSignalBridge,
       });
       if (gen !== orchestratorGen.current) return;
       setResourceState(result.resourceState);
       setSignalState(result.signalState);
+      setWorldGrowthCue(result.worldGrowthCue);
       if (userPreferences.discoveryPreferences.showOpportunityDiscovery) {
         setOpportunityContext({
           primaryOpportunityNodeId: result.primaryOpportunityNodeId,
@@ -334,7 +370,19 @@ export function StarPathExperienceProvider({
     userPreferences.guidePreferences.opportunityNudges,
     userPreferences.guidePreferences.timeSensitiveGuidance,
     userPreferences.emotionalContextPreference.adjustGuidanceIntensity,
+    worldSignalBridge,
+    canonicalSignalTail,
   ]);
+
+  useEffect(() => {
+    if (!ready || !resourceState.placedNodes.length) return;
+    maybeSeedStarpathWorldSignalDemo(
+      canonicalSignalStore,
+      resourceState.placedNodes,
+      isStarpathWorldSignalDemoEnabled(),
+    );
+    setCanonicalSignalTail(canonicalSignalStore.getState().events.length);
+  }, [ready, resourceState.placedNodes]);
 
   useEffect(() => {
     if (!ready || !resourceState.placedNodes.length) return;
@@ -343,7 +391,7 @@ export function StarPathExperienceProvider({
       : 'unknown';
     const mergedSupport: UserSupportState = parsed !== 'unknown' ? parsed : supportState;
     setSignalState((prev) => {
-      const nextSignals = computeAmbientSignals({
+      const merged = computeStarPathSignalsWithCanonicalWorld({
         now: Date.now(),
         placedNodes: resourceState.placedNodes,
         resourcesById: resourceState.resourcesById,
@@ -354,9 +402,16 @@ export function StarPathExperienceProvider({
         contentBandHeight: viewportRef.current.contentBandHeight,
         supportState: mergedSupport,
         previous: prev,
+        canonicalStore: worldSignalBridge.canonicalStore,
+        userId: worldSignalBridge.userId,
+        signalPrefs: worldSignalBridge.signalPrefs,
+        privacy: worldSignalBridge.privacy,
+        allowOpportunityWorldCue: worldSignalBridge.allowOpportunityWorldCue,
+        reduceMotion: worldSignalBridge.reduceMotion,
       });
-      scheduleSignalSave(nextSignals);
-      return nextSignals;
+      setWorldGrowthCue(merged.growthCue);
+      scheduleSignalSave(merged.signalState);
+      return merged.signalState;
     });
   }, [
     ready,
@@ -368,6 +423,8 @@ export function StarPathExperienceProvider({
     supportState,
     userPreferences.emotionalContextPreference.adjustGuidanceIntensity,
     scheduleSignalSave,
+    worldSignalBridge,
+    canonicalSignalTail,
   ]);
 
   useEffect(() => {
@@ -656,16 +713,54 @@ export function StarPathExperienceProvider({
     });
   }, [scheduleManifestTouch]);
 
+  const dismissWorldGrowthCue = useCallback(() => {
+    setWorldGrowthCue((active) => {
+      if (!active) return null;
+      canonicalSignalStore.dismissPresentation(active.signalEventId);
+      setSignalState((prev) => {
+        const growthId = `cws-growth-${active.nodeId}`;
+        const { [growthId]: _removed, ...signalsById } = prev.signalsById;
+        const next = {
+          ...prev,
+          signalsById,
+          activeSignalIds: prev.activeSignalIds.filter((id) => id !== growthId),
+        };
+        scheduleSignalSave(next);
+        return next;
+      });
+      return null;
+    });
+  }, [scheduleSignalSave]);
+
+  const viewWorldGrowthCue = useCallback(() => {
+    setWorldGrowthCue((active) => {
+      if (!active) return null;
+      canonicalSignalStore.setPresentationStatus(active.signalEventId, 'opened');
+      setHighlightOpportunityNodeId(active.nodeId);
+      acknowledgeSignal(`cws-growth-${active.nodeId}`);
+      return null;
+    });
+  }, [acknowledgeSignal]);
+
   const openOpportunityNode = useCallback(
     (nodeId: string) => {
       setHighlightOpportunityNodeId(nodeId);
       acknowledgeSignal(`sig-${nodeId}`);
+      const match = opportunityByNodeId(resourceStateRef.current, nodeId);
+      const canonical = findCanonicalEventForOpportunityNode(
+        canonicalSignalStore,
+        currentUser.id,
+        nodeId,
+        match?.candidate.id,
+      );
+      if (canonical) {
+        canonicalSignalStore.setPresentationStatus(canonical.id, 'opened');
+      }
       setResourceState((prev) => {
         const next = markOpportunityOpened(prev, nodeId, Date.now());
         scheduleResourceSave(next);
         return next;
       });
-      const match = opportunityByNodeId(resourceStateRef.current, nodeId);
       if (match) feedbackOpportunitySignal(match.candidate.id, 'viewed');
     },
     [acknowledgeSignal, feedbackOpportunitySignal, scheduleResourceSave],
@@ -695,6 +790,16 @@ export function StarPathExperienceProvider({
         scheduleResourceSave(next);
         return next;
       });
+      const node = resourceStateRef.current.resourcesById[candidateId]?.relatedNodeIds[0];
+      if (node) {
+        const canonical = findCanonicalEventForOpportunityNode(
+          canonicalSignalStore,
+          currentUser.id,
+          node,
+          candidateId,
+        );
+        if (canonical) canonicalSignalStore.dismissPresentation(canonical.id);
+      }
       feedbackOpportunitySignal(candidateId, 'dismissed');
       setGuidancePulse((n) => n + 1);
     },
@@ -789,6 +894,9 @@ export function StarPathExperienceProvider({
       setUiChrome,
       savedViewport,
       acknowledgeSignal,
+      worldGrowthCue,
+      dismissWorldGrowthCue,
+      viewWorldGrowthCue,
     }),
     [
       ready,
@@ -825,6 +933,9 @@ export function StarPathExperienceProvider({
       setUiChrome,
       savedViewport,
       acknowledgeSignal,
+      worldGrowthCue,
+      dismissWorldGrowthCue,
+      viewWorldGrowthCue,
     ],
   );
 

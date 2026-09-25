@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ModerationReportSheet } from '@/components/safety/ModerationReportSheet';
 import { currentUser } from '@/data/mockData';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { otherParticipantId } from '@/messages/messagesCanonical';
@@ -29,11 +30,12 @@ export function MessageThreadScreen() {
     searchableUsers,
     muteThread,
     blockUser,
-    reportUser,
+    limitUser,
+    submitModerationReport,
   } = useReelyouConnect();
   const [draft, setDraft] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [reportQueued, setReportQueued] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const thread = threadId ? inbox.threadsById[threadId] : undefined;
 
@@ -96,23 +98,43 @@ export function MessageThreadScreen() {
             style={styles.menuRow}
             onPress={() => {
               if (!otherId) return;
-              void reportUser({ reportedUserId: otherId, threadId, reason: 'other' }).then(() => {
-                setReportQueued(true);
-                setMenuOpen(false);
-              });
+              setMenuOpen(false);
+              setReportOpen(true);
             }}
-            accessibilityLabel="Report user"
+            accessibilityLabel="Report conversation"
           >
             <Text style={styles.menuRowText}>Report</Text>
           </Pressable>
-          {reportQueued ? (
-            <Text style={styles.reportNote}>Report saved locally (Beta). Not sent to a live server yet.</Text>
-          ) : null}
           <Pressable onPress={() => setMenuOpen(false)} accessibilityLabel="Close menu">
             <Text style={styles.menuClose}>Close</Text>
           </Pressable>
         </View>
       </Modal>
+      {otherId && threadId ? (
+        <ModerationReportSheet
+          visible={reportOpen}
+          onClose={() => setReportOpen(false)}
+          title="Report message"
+          reportInput={{
+            targetType: 'message',
+            targetId: messages[messages.length - 1]?.id ?? threadId,
+            targetOwnerUserId: otherId,
+            threadId,
+            messageId: messages[messages.length - 1]?.id,
+            provenanceIds: messages.slice(-3).map((entry) => entry.id),
+            visibilityContext: 'direct_message',
+          }}
+          onSubmit={submitModerationReport}
+          followUp={{
+            showBlock: true,
+            showLimit: true,
+            showMuteThread: true,
+            onBlock: () => blockUser(otherId),
+            onLimit: () => limitUser(otherId),
+            onMuteThread: () => muteThread(threadId),
+          }}
+        />
+      ) : null}
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

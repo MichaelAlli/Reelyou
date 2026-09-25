@@ -11,7 +11,7 @@ export const DEV_SCREEN_PREVIEW_ENABLED = true;
  * When true (and preview is enabled), dev builds open to Screen Preview on launch
  * instead of Splash. Set to false to restore normal Splash startup in development.
  */
-export const DEV_SCREEN_PREVIEW_STARTUP = true;
+export const DEV_SCREEN_PREVIEW_STARTUP = false;
 
 /**
  * When true in __DEV__, seeds 12 canonical contribution beacons for the demo user
@@ -24,6 +24,9 @@ export const LEGACY_DEMO_ENABLED = true;
 
 /** Dev-only Emerging Constellation suggestion + community infrastructure QA. */
 export const EMERGING_CONSTELLATION_DEMO_ENABLED = true;
+
+/** Dev-only StarPath door glow + growth world-signal QA on `/starpath`. */
+export const STARPATH_WORLD_SIGNAL_DEMO_ENABLED = false;
 
 declare const __DEV__: boolean | undefined;
 
@@ -42,6 +45,10 @@ export function isLegacyDemoEnabled(): boolean {
 
 export function isEmergingConstellationDemoEnabled(): boolean {
   return isDevRuntime() && EMERGING_CONSTELLATION_DEMO_ENABLED;
+}
+
+export function isStarpathWorldSignalDemoEnabled(): boolean {
+  return isDevRuntime() && STARPATH_WORLD_SIGNAL_DEMO_ENABLED;
 }
 
 /** True when Screen Preview route and launcher are active. */

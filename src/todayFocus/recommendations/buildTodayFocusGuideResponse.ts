@@ -1,3 +1,4 @@
+import { EmotionAiCopy } from '@/constants/emotionAiCopy';
 import type {
   FocusRecommendation,
   FocusRecommendationUiItem,
@@ -46,14 +47,14 @@ export function buildTodayFocusGuideResponse(input: {
   const messageFromGuide =
     recommendations.length > 0
       ? input.aiAssisted
-        ? 'Your Guide found a few things that may help with today’s focus.'
-        : 'Here are a few REELYOU-native matches for what you chose today.'
-      : 'No strong matches yet.';
+        ? EmotionAiCopy.focusGuideIntro
+        : EmotionAiCopy.focusGuideIntroManual
+      : EmotionAiCopy.focusEmptyPeace;
 
   const transparencyNote =
     recommendations.length > 0
-      ? 'Suggested from patterns in what you’ve shared and chosen. These are suggestions — you’re always in control.'
-      : 'Try refining what would help most today.';
+      ? `${EmotionAiCopy.aiTransparencyShort} ${EmotionAiCopy.aiSuggestionControl}`
+      : 'You don’t have to work through today alone — refine focus when you’re ready.';
 
   return {
     focus: {
@@ -65,10 +66,10 @@ export function buildTodayFocusGuideResponse(input: {
     messageFromGuide,
     transparencyNote,
     recommendations,
-    emptyState: recommendations.length === 0 ? 'No strong matches yet.' : undefined,
+    emptyState: recommendations.length === 0 ? EmotionAiCopy.focusEmptyPeace : undefined,
     refineFocusHint:
       recommendations.length < 2
-        ? 'Refining your focus (for example, “Prepare for my sales interview”) can improve matches.'
+        ? 'A clearer focus (for example, “Prepare for my interview”) can help Your Guide suggest what fits.'
         : undefined,
   };
 }

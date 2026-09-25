@@ -39,7 +39,7 @@ export function buildPrivateStewardshipRecognition(
     message = `People have been putting some of what you shared into practice in ${label}.`;
   }
   if (recognitionType === 'CONTRIBUTION_STEWARDSHIP_ESTABLISHED') {
-    message = `Your perspective is becoming trusted in ${label}.`;
+    message = `Your perspective has been especially helpful in ${label}.`;
   }
 
   const contributionAvailabilityPrompt =
@@ -59,5 +59,5 @@ export function buildPrivateStewardshipRecognition(
 export function buildMoreInvitationsGuideCopy(state: ContributionStewardshipState): string | null {
   if (state.routingTrustBand === 'new') return null;
   const label = areaLabel(state.skyAreaId);
-  return `Your perspective has been especially useful in ${label}, so REELYOU may bring you more opportunities to contribute here.`;
+  return `Your Guide noticed your perspective has been useful in ${label}. You may see more invitations here — always optional.`;
 }

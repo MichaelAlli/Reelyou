@@ -17,7 +17,7 @@ export function SettingsSectionScreen() {
     section === 'messaging'
       ? 'Messaging'
       : section === 'guide'
-        ? 'AI Guide'
+        ? 'Your Guide'
         : section === 'discovery'
           ? 'Discovery'
           : section === 'personalization'

@@ -7,6 +7,7 @@ import type {
   SignalCategoryPreferences,
 } from '@/preferences/userPreferencesTypes';
 import {
+  communityMeaningfulSignalsFromOutbox,
   communitySignalsFromFeed,
   connectionSignalsFromFeed,
   savedStarpathRevisitSignal,
@@ -167,9 +168,24 @@ export function buildReelyouSignals(
   }
 
   if (prefs.communities && !quiet) {
-    for (const item of communitySignalsFromFeed(sources.homeFeed, now)) {
+    const communitySeen = new Set<string>();
+    for (const item of [
+      ...communityMeaningfulSignalsFromOutbox(),
+      ...communitySignalsFromFeed(sources.homeFeed, now),
+    ]) {
+      if (communitySeen.has(item.signalId)) continue;
+      communitySeen.add(item.signalId);
       if (meta.dismissedSignalIds.includes(item.signalId)) continue;
       if ((meta.snoozedUntil[item.signalId] ?? 0) > now) continue;
+      const route: string =
+        'destinationRoute' in item && typeof item.destinationRoute === 'string'
+          ? item.destinationRoute
+          : '/community';
+      const rawParams = 'destinationParams' in item ? item.destinationParams : undefined;
+      const params: Record<string, string> =
+        rawParams && typeof rawParams === 'object' && !Array.isArray(rawParams)
+          ? (rawParams as Record<string, string>)
+          : { id: item.communityId };
       out.push({
         signalId: item.signalId,
         type: 'communities',
@@ -177,8 +193,8 @@ export function buildReelyouSignals(
         description: item.description,
         createdAt: item.createdAt,
         sourceId: item.communityId,
-        destinationRoute: '/community',
-        destinationParams: { id: item.communityId },
+        destinationRoute: route,
+        destinationParams: params,
         read: meta.acknowledgedSignalIds.includes(item.signalId),
         priority: 'normal',
         dismissible: true,

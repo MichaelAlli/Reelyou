@@ -1,46 +1,85 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+/**
+ * @deprecated Import from `@/moderation/moderationReportService` — kept for transitional imports.
+ */
+import { submitModerationReport } from '@/moderation/moderationReportService';
+import type {
+  ModerationReportReason,
+  ModerationReportTargetType,
+  SubmitModerationReportResult,
+} from '@/moderation/moderationTypes';
+import { currentUser } from '@/data/mockData';
 
-const REPORTS_KEY = '@reellyou/safety-reports-local';
-
-export type SafetyReportReason = 'harassment' | 'spam' | 'other';
-
-export interface LocalSafetyReport {
-  id: string;
-  reportedUserId: string;
-  threadId?: string;
-  reason: SafetyReportReason;
-  createdAt: number;
-  /** LOCAL queue only — not sent to a live backend in Beta. */
-  status: 'queued_local';
-}
+export type SafetyReportReason = ModerationReportReason;
+export type SafetyReportTargetType = ModerationReportTargetType;
 
 export interface SafetyReportResult {
   ok: boolean;
   localOnly: true;
   reportId: string;
+  duplicate?: boolean;
 }
 
-/** Canonical Beta report action — persists locally until backend exists. */
 export async function reportUserSafety(params: {
   reportedUserId: string;
   threadId?: string;
-  reason?: SafetyReportReason;
+  messageId?: string;
+  reason?: ModerationReportReason;
+  optionalNote?: string;
 }): Promise<SafetyReportResult> {
-  const report: LocalSafetyReport = {
-    id: `report-${params.reportedUserId}-${Date.now()}`,
-    reportedUserId: params.reportedUserId,
-    threadId: params.threadId,
+  const result = await submitModerationReport({
+    reporterUserId: currentUser.id,
+    targetType: 'user',
+    targetId: params.reportedUserId,
+    targetOwnerUserId: params.reportedUserId,
     reason: params.reason ?? 'other',
-    createdAt: Date.now(),
-    status: 'queued_local',
-  };
-  try {
-    const raw = await AsyncStorage.getItem(REPORTS_KEY);
-    const list = raw ? (JSON.parse(raw) as LocalSafetyReport[]) : [];
-    list.push(report);
-    await AsyncStorage.setItem(REPORTS_KEY, JSON.stringify(list.slice(-50)));
-  } catch {
-    /* still return queued id for UX continuity */
+    optionalNote: params.optionalNote,
+    threadId: params.threadId,
+    messageId: params.messageId,
+    provenanceIds: params.messageId ? [params.messageId] : [],
+    visibilityContext: 'profile_or_message',
+  });
+  return mapResult(result);
+}
+
+export async function reportCommunityTargetSafety(params: {
+  targetType: Exclude<ModerationReportTargetType, 'user' | 'skywrite' | 'message'>;
+  communityId: string;
+  postId?: string;
+  replyId?: string;
+  reportedUserId?: string;
+  reason?: ModerationReportReason;
+  optionalNote?: string;
+}): Promise<SafetyReportResult> {
+  const targetId =
+    params.targetType === 'community'
+      ? params.communityId
+      : params.targetType === 'community_post'
+        ? (params.postId ?? params.communityId)
+        : (params.replyId ?? params.postId ?? params.communityId);
+  const result = await submitModerationReport({
+    reporterUserId: currentUser.id,
+    targetType: params.targetType,
+    targetId,
+    targetOwnerUserId: params.reportedUserId,
+    reason: params.reason ?? 'other',
+    optionalNote: params.optionalNote,
+    communityId: params.communityId,
+    postId: params.postId,
+    replyId: params.replyId,
+    provenanceIds: [params.communityId, params.postId, params.replyId].filter(Boolean) as string[],
+    visibilityContext: 'community',
+  });
+  return mapResult(result);
+}
+
+function mapResult(result: SubmitModerationReportResult): SafetyReportResult {
+  if (!result.ok) {
+    return { ok: false, localOnly: true, reportId: '' };
   }
-  return { ok: true, localOnly: true, reportId: report.id };
+  return {
+    ok: true,
+    localOnly: true,
+    reportId: result.reportId,
+    duplicate: result.duplicate,
+  };
 }

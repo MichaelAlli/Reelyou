@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { EmotionAiCopy } from '@/constants/emotionAiCopy';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTodayFocusRecommendations } from '@/todayFocus/recommendations/TodayFocusRecommendationsProvider';
 
@@ -14,7 +15,7 @@ function TodayFocusResourcesSectionComponent() {
       <View style={styles.empty}>
         <Text style={styles.emptyTitle}>Resources for today&apos;s focus</Text>
         <Text style={styles.emptyBody}>
-          {guideResponse?.emptyState ?? 'No strong matches yet. You can refine your focus anytime.'}
+          {guideResponse?.emptyState ?? EmotionAiCopy.focusEmptyPeace}
         </Text>
       </View>
     );

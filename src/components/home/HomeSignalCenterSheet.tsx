@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { memo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { EmotionAiCopy } from '@/constants/emotionAiCopy';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
@@ -23,7 +24,7 @@ function HomeSignalCenterSheetComponent({ visible, onClose }: HomeSignalCenterSh
         <Text style={styles.title}>Signals</Text>
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           {signals.length === 0 ? (
-            <Text style={styles.peace}>You&apos;re caught up ✨</Text>
+            <Text style={styles.peace}>{EmotionAiCopy.signalPeace}</Text>
           ) : (
             signals.map((signal) => (
               <Pressable

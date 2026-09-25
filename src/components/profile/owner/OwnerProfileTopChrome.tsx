@@ -9,8 +9,9 @@ interface OwnerProfileTopChromeProps {
   onBack: () => void;
   onShare?: () => void;
   onOverflow?: () => void;
-  /** Visitor profile — back only at top-left. */
+  /** Visitor profile — back + optional safety overflow. */
   variant?: 'owner' | 'visitor';
+  onVisitorOverflow?: () => void;
 }
 
 function OwnerProfileTopChromeComponent({
@@ -18,6 +19,7 @@ function OwnerProfileTopChromeComponent({
   onShare,
   onOverflow,
   variant = 'owner',
+  onVisitorOverflow,
 }: OwnerProfileTopChromeProps) {
   const insets = useSafeAreaInsets();
 
@@ -29,6 +31,12 @@ function OwnerProfileTopChromeComponent({
           <OwnerProfileChromeButton accessibilityLabel="Share profile" onPress={onShare} glyph="↗" />
           <OwnerProfileChromeButton accessibilityLabel="More options" onPress={onOverflow} glyph="⋮" />
         </View>
+      ) : onVisitorOverflow ? (
+        <OwnerProfileChromeButton
+          accessibilityLabel="Safety and report options"
+          onPress={onVisitorOverflow}
+          glyph="⋮"
+        />
       ) : (
         <View style={styles.rightSpacer} />
       )}

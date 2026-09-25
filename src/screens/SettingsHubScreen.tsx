@@ -69,7 +69,7 @@ export function SettingsHubScreen() {
           />
         </Section>
 
-        <Section title="AI Guide">
+        <Section title="Your Guide">
           <LinkRow label="Guide intensity" hint={preferences.guidePreferences.mode} onPress={() => router.push('/settings/guide' as never)} />
           <ToggleRow
             label="Opportunity nudges"

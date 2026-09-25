@@ -10,8 +10,10 @@ export function canInitiateMessage(
   prefs: MessagingPreferences,
   connectedIds: string[],
   blockedUserIds: string[],
+  limitedUserIds: readonly string[] = [],
 ): boolean {
   if (blockedUserIds.includes(targetUserId)) return false;
+  if (limitedUserIds.includes(targetUserId)) return false;
   if (prefs.whoCanMessage === 'nobody') return false;
   const connected = isConnectedUser(targetUserId, connectedIds);
   if (connected) return true;

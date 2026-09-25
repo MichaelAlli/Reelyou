@@ -1,6 +1,7 @@
 import {
   emitApplicationMoment,
   emitConnectedSkiesSignal,
+  emitGrowthMomentumSignal,
   emitRepeatedThemeSignal,
   emitRippleSignal,
 } from '@/signals/canonical/canonicalSignalEmitters';
@@ -54,5 +55,17 @@ testDedupe();
 testPresentationDismissPreservesEvent();
 testCoalesceApplications();
 testConnectedSkiesDedupe();
+
+function testGrowthMomentumStarpathSurface() {
+  const store = createCanonicalSignalStore();
+  const event = emitGrowthMomentumSignal(store, 'user-michael', 'learning', ['p1'], {
+    relatedStarPathNodeId: 'node-learning-1',
+  });
+  assert(Boolean(event), 'growth emit');
+  const presentation = store.getState().presentations.find((p) => p.signalEventId === event?.id);
+  assert(presentation?.surfaceEligibility.includes('starpath_internal'), 'starpath surface');
+}
+
+testGrowthMomentumStarpathSurface();
 
 console.log('canonicalSignalEngine.test.ts — OK');

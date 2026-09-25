@@ -81,7 +81,7 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
   const { skywrites } = useOnboarding();
   const { contributions } = useSkywriteThreads();
   const { state: metricsState, isLoaded: metricsLoaded } = useHumanPotentialMetrics();
-  const { messages, skyFollowGraph } = useReelyouConnect();
+  const { messages, skyFollowGraph, preferences } = useReelyouConnect();
   const { lifecycle, isLoaded: libraryLoaded } = useSkywriteLibrary();
 
   const [persisted, setPersisted] = useState<FocusRecommendationPersistedState>({
@@ -228,7 +228,11 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
         previouslyOpenedKeys: storeSnapshot.openedKeys,
         northStarText: personalizationProfile.northStar.originalVision,
         focusReflectionText: todayFocus.reflection,
-        emergingConstellationAvailable: isEmergingConstellationDemoEnabled(),
+        emergingConstellationAvailable:
+          isEmergingConstellationDemoEnabled() &&
+          preferences.discoveryPreferences.showOpportunityDiscovery &&
+          (preferences.personalizationPreferences.useActivityPatterns ||
+            preferences.personalizationPreferences.useExplicitInterests),
       });
     } catch {
       recommendations = [];
@@ -275,16 +279,22 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
     skywrites,
     storeLoaded,
     todayFocus.reflection,
+    preferences.discoveryPreferences.showOpportunityDiscovery,
+    preferences.personalizationPreferences.useActivityPatterns,
+    preferences.personalizationPreferences.useExplicitInterests,
   ]);
 
   const guideResponse = useMemo(() => {
     if (!focusSession || !bundle) return null;
+    const aiAssisted =
+      preferences.personalizationPreferences.useActivityPatterns ||
+      preferences.personalizationPreferences.useExplicitInterests;
     return buildTodayFocusGuideResponse({
       session: focusSession,
       recommendations: bundle.recommendations,
-      aiAssisted: true,
+      aiAssisted,
     });
-  }, [bundle, focusSession]);
+  }, [bundle, focusSession, preferences.personalizationPreferences]);
 
   const dismissRecommendation = useCallback(
     (recommendationId: string) => {
