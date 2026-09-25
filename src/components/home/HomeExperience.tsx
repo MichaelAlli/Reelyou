@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
@@ -11,12 +12,13 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { HomeAroundYourSkySection } from '@/components/home/HomeAroundYourSkySection';
 import { HomeArrivalHeader } from '@/components/home/HomeArrivalHeader';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
+import { HomeEmergingConstellationSection } from '@/components/home/HomeEmergingConstellationSection';
 import { HomeGuidingLightSection } from '@/components/home/HomeGuidingLightSection';
 import { HomeGrowingInSection } from '@/components/home/HomeGrowingInSection';
 import { HomeMySkyCard } from '@/components/home/HomeMySkyCard';
 import { HomeSkywriteBar } from '@/components/home/HomeSkywriteBar';
 import { HomeStarpathCard } from '@/components/home/HomeStarpathCard';
-import { HomeTodayFocusSection } from '@/components/home/HomeTodayFocusSection';
+import { HomeTodayFocusHomeSection } from '@/components/home/HomeTodayFocusHomeSection';
 import { HomeGlobalMenuSheet } from '@/components/home/HomeGlobalMenuSheet';
 import { HomeSignalCenterSheet } from '@/components/home/HomeSignalCenterSheet';
 import { HomeTopNav } from '@/components/home/HomeTopNav';
@@ -25,12 +27,33 @@ import { HomeCopy } from '@/constants/homeCopy';
 import { TabBarHeight } from '@/constants/theme';
 import { HomeLayout, HomeMotion, measureHomePadH } from '@/constants/homeLayout';
 import { consumeHomeArrivalPending } from '@/home';
+import {
+  showTodayFocusQuickPreview,
+  useTodayFocusHomePresentation,
+} from '@/todayFocus/useTodayFocusHomePresentation';
 
 interface HomeExperienceProps {
   calmEntry?: boolean;
 }
 
 function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
+  const router = useRouter();
+  const { presentation, focusPreview, dismissReady } = useTodayFocusHomePresentation();
+  const showFocusQuickAccess = dismissReady && presentation === 'set';
+  const showFocusHomeCard = dismissReady && presentation === 'available';
+
+  const openTodayFocus = useCallback(() => {
+    router.push('/today-focus' as never);
+  }, [router]);
+
+  const openTodayFocusEdit = useCallback(() => {
+    router.push('/today-focus-edit' as never);
+  }, [router]);
+
+  const onTodayFocusLongPress = useCallback(() => {
+    showTodayFocusQuickPreview(focusPreview, openTodayFocus, openTodayFocusEdit);
+  }, [focusPreview, openTodayFocus, openTodayFocusEdit]);
+
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const padH = measureHomePadH(screenWidth);
@@ -61,6 +84,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
   const zone3 = useSharedValue(isArrival ? 0 : 1);
   const zone4 = useSharedValue(isArrival ? 0 : 1);
   const zone5 = useSharedValue(isArrival ? 0 : 1);
+  const zone6 = useSharedValue(isArrival ? 0 : 1);
 
   useEffect(() => {
     let live = true;
@@ -79,7 +103,14 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
       supportOp.value = 1;
       profileOp.value = 1;
       greetingY.value = 0;
-      zone0.value = zone1.value = zone2.value = zone3.value = zone4.value = zone5.value = 1;
+      zone0.value =
+        zone1.value =
+        zone2.value =
+        zone3.value =
+        zone4.value =
+        zone5.value =
+        zone6.value =
+          1;
       return;
     }
 
@@ -94,7 +125,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
     supportOp.value = withDelay(200, withTiming(1, { duration: fadeMs, easing: ReelyouEasing.out }));
     profileOp.value = withDelay(160, withTiming(1, { duration: fadeMs, easing: ReelyouEasing.out }));
 
-    [zone0, zone1, zone2, zone3, zone4, zone5].forEach((zone, i) => {
+    [zone0, zone1, zone2, zone3, zone4, zone5, zone6].forEach((zone, i) => {
       zone.value = withDelay(
         260 + i * stagger,
         withTiming(1, { duration: contentMs, easing: ReelyouEasing.out }),
@@ -114,6 +145,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
     zone3,
     zone4,
     zone5,
+    zone6,
   ]);
 
   const screenStyle = useAnimatedStyle(() => ({ opacity: screenOp.value }));
@@ -129,6 +161,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
   const zone3Style = useAnimatedStyle(() => ({ opacity: zone3.value }));
   const zone4Style = useAnimatedStyle(() => ({ opacity: zone4.value }));
   const zone5Style = useAnimatedStyle(() => ({ opacity: zone5.value }));
+  const zone6Style = useAnimatedStyle(() => ({ opacity: zone6.value }));
 
   return (
     <View style={[styles.root, { marginBottom: -tabContentInset }]}>
@@ -148,7 +181,13 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
             showsVerticalScrollIndicator={false}
             bounces
             nestedScrollEnabled>
-            <HomeTopNav onOpenMenu={openMenu} onOpenSignals={openSignals} />
+            <HomeTopNav
+              onOpenMenu={openMenu}
+              onOpenSignals={openSignals}
+              showTodayFocusQuickAccess={showFocusQuickAccess}
+              onOpenTodayFocus={openTodayFocus}
+              onTodayFocusLongPress={onTodayFocusLongPress}
+            />
             <HomeArrivalHeader
               greetingStyle={greetingStyle}
               supportStyle={supportStyle}
@@ -161,7 +200,10 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
             <HomeStarpathCard animatedStyle={zone2Style} />
             <HomeMySkyCard animatedStyle={zone3Style} />
             <HomeGrowingInSection animatedStyle={zone4Style} />
-            <HomeTodayFocusSection animatedStyle={zone5Style} />
+            {showFocusHomeCard ? (
+              <HomeTodayFocusHomeSection animatedStyle={zone5Style} />
+            ) : null}
+            <HomeEmergingConstellationSection animatedStyle={zone6Style} />
           </ScrollView>
         </SafeAreaView>
       </Animated.View>

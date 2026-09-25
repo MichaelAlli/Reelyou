@@ -9,7 +9,8 @@ export type DevScreenPreviewId =
   | 'onboarding-3'
   | 'onboarding-4'
   | 'process'
-  | 'home';
+  | 'home'
+  | 'visitor-profile-jordan';
 
 export interface DevScreenPreviewTarget {
   id: DevScreenPreviewId;
@@ -72,6 +73,12 @@ export const DEV_SCREEN_PREVIEW_TARGETS: DevScreenPreviewTarget[] = [
     label: 'Process Screen',
     description: 'Post-onboarding transition',
     href: '/process',
+  },
+  {
+    id: 'visitor-profile-jordan',
+    label: 'Visitor Profile (Jordan)',
+    description: 'QA — another user’s profile as viewer',
+    href: '/visitor-profile?id=orbit-jordan',
   },
   {
     id: 'home',

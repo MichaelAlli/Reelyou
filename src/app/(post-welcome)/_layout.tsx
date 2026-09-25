@@ -11,8 +11,10 @@ import { SkyAreaPreferencesProvider } from '@/skyAreas/SkyAreaPreferencesProvide
 import { SkywriteBeaconProvider } from '@/skywrite/beacon/SkywriteBeaconProvider';
 import { SkywriteLibraryProvider } from '@/skywrite/library/SkywriteLibraryProvider';
 import { HumanPotentialMetricsProvider } from '@/humanPotential/HumanPotentialMetricsProvider';
+import { EmergingConstellationsProvider } from '@/emergingConstellations/EmergingConstellationsProvider';
 import { LegacyProvider } from '@/legacy/LegacyProvider';
 import { SavedThreadsProvider } from '@/skywrite/savedThreads/SavedThreadsProvider';
+import { TodayFocusRecommendationsProvider } from '@/todayFocus/recommendations/TodayFocusRecommendationsProvider';
 import { SkywriteThreadProvider } from '@/skywrite/threads/SkywriteThreadProvider';
 import { ThemeProvider, useTheme } from '@/theme';
 import { Asset } from 'expo-asset';
@@ -78,6 +80,10 @@ function PostWelcomeStack() {
         <Stack.Screen name="my-sky-arrival" options={{ animation: 'fade' }} />
         <Stack.Screen name="today-focus-edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="today-focus-reflection" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="today-focus" options={{ animation: 'fade' }} />
+        <Stack.Screen name="visitor-skywritings" options={{ animation: 'fade' }} />
+        <Stack.Screen name="growth-area/[id]" options={{ animation: 'fade' }} />
+        <Stack.Screen name="emerging-constellation" options={{ animation: 'fade' }} />
         <Stack.Screen name="companion" options={{ presentation: 'modal' }} />
         <Stack.Screen name="process" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="visitor-profile" options={{ animation: 'fade' }} />
@@ -100,11 +106,15 @@ export default function PostWelcomeLayout() {
               <SkywriteThreadProvider>
                 <ReelyouConnectProvider>
                   <SavedThreadsProvider>
-                    <HumanPotentialMetricsProvider>
-                      <LegacyProvider>
-                        <PostWelcomeStack />
-                      </LegacyProvider>
-                    </HumanPotentialMetricsProvider>
+                    <TodayFocusRecommendationsProvider>
+                      <HumanPotentialMetricsProvider>
+                        <LegacyProvider>
+                          <EmergingConstellationsProvider>
+                            <PostWelcomeStack />
+                          </EmergingConstellationsProvider>
+                        </LegacyProvider>
+                      </HumanPotentialMetricsProvider>
+                    </TodayFocusRecommendationsProvider>
                   </SavedThreadsProvider>
                 </ReelyouConnectProvider>
               </SkywriteThreadProvider>

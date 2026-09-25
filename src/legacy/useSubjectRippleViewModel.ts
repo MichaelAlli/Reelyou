@@ -14,7 +14,11 @@ import { buildRippleUserDirectory } from '@/legacy/rippleUserDirectory';
 import { useOnboarding } from '@/onboarding';
 import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
 
-export function useSubjectRippleViewModel(subjectUserId: string) {
+export function useSubjectRippleViewModel(
+  subjectUserId: string,
+  options?: { visitorPreview?: boolean },
+) {
+  const visitorPreview = options?.visitorPreview === true;
   const { state: metrics, isLoaded: metricsLoaded } = useHumanPotentialMetrics();
   const { contributions, isLoaded: threadsLoaded } = useSkywriteThreads();
   const { messages, skyFollowGraph } = useReelyouConnect();
@@ -50,7 +54,7 @@ export function useSubjectRippleViewModel(subjectUserId: string) {
       userDirectory,
       blockedUserIds: messages.blockedUserIds,
     });
-    if (viewerUserId === subjectUserId) return ownerModel;
+    if (viewerUserId === subjectUserId && !visitorPreview) return ownerModel;
     return filterLegacyRippleViewModelForVisitor({
       model: ownerModel,
       ctx: viewerContext,
@@ -66,6 +70,7 @@ export function useSubjectRippleViewModel(subjectUserId: string) {
     userDirectory,
     viewerContext,
     viewerUserId,
+    visitorPreview,
   ]);
 
   return {

@@ -15,6 +15,25 @@ export function HomeMenuIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+/** Small target — Today’s Focus quick access when focus is set. */
+export function HomeFocusQuickIcon({ size = 18, active = false }: { size?: number; active?: boolean }) {
+  const r = size * 0.36;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18">
+      <Circle
+        cx={9}
+        cy={9}
+        r={r}
+        fill="none"
+        stroke={GOLD}
+        strokeWidth={1.35}
+        opacity={active ? 1 : 0.85}
+      />
+      <Circle cx={9} cy={9} r={1.1} fill={GOLD} opacity={active ? 1 : 0.75} />
+    </Svg>
+  );
+}
+
 export function HomeBellIcon({ size = 18 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18">

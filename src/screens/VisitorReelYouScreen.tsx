@@ -6,14 +6,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
 import { BottomNav } from '@/components/BottomNav';
+import { GlowButton } from '@/components/GlowButton';
 import { LegacyCopy } from '@/constants/legacyCopy';
 import { Fonts, Spacing } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
-import { useLegacy } from '@/legacy/LegacyProvider';
 import {
   canViewerAccessVisitorLegacyRoutes,
-  filterReelMomentIdsForViewer,
+  canViewerSeeLegacyItem,
 } from '@/legacy/legacyViewerAccess';
+import { useSubjectLegacyContent } from '@/legacy/useSubjectLegacyContent';
 import { buildVisitorProfileHref } from '@/profile/visitorProfileRoute';
 import { visitorLegacyRoute } from '@/profile/visitorLegacyRoutes';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
@@ -24,7 +25,7 @@ interface VisitorReelYouScreenProps {
 
 export function VisitorReelYouScreen({ ownerId }: VisitorReelYouScreenProps) {
   const router = useRouter();
-  const { reelSequence, moments } = useLegacy();
+  const { reelSequence, moments } = useSubjectLegacyContent(ownerId ?? '');
   const { skyFollowGraph, messages } = useReelyouConnect();
   const subjectId = ownerId ?? '';
 
@@ -41,9 +42,11 @@ export function VisitorReelYouScreen({ ownerId }: VisitorReelYouScreenProps) {
   const accessAllowed = subjectId ? canViewerAccessVisitorLegacyRoutes(viewerContext) : false;
 
   const sharedSceneCount = useMemo(() => {
-    if (subjectId !== currentUser.id) return 0;
-    return filterReelMomentIdsForViewer(reelSequence.momentIds, moments, viewerContext).length;
-  }, [moments, reelSequence.momentIds, subjectId, viewerContext]);
+    return reelSequence.momentIds.filter((id) => {
+      const moment = moments.find((m) => m.legacyMomentId === id);
+      return moment ? canViewerSeeLegacyItem(moment, viewerContext) : false;
+    }).length;
+  }, [moments, reelSequence.momentIds, viewerContext]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -56,6 +59,13 @@ export function VisitorReelYouScreen({ ownerId }: VisitorReelYouScreenProps) {
     }
     router.replace(buildVisitorProfileHref(subjectId) as never);
   }, [router, subjectId]);
+
+  const handlePlay = useCallback(() => {
+    if (sharedSceneCount === 0) return;
+    router.push(
+      `/legacy/reel-you?visitorOwnerId=${encodeURIComponent(subjectId)}` as never,
+    );
+  }, [router, sharedSceneCount, subjectId]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -89,10 +99,12 @@ export function VisitorReelYouScreen({ ownerId }: VisitorReelYouScreenProps) {
         </Pressable>
         <Text style={styles.title}>REEL-YOU</Text>
         {sharedSceneCount > 0 ? (
-          <Text style={styles.body}>
-            Shared playback is available for {sharedSceneCount} scene
-            {sharedSceneCount === 1 ? '' : 's'}. Open Legacy to browse shared moments.
-          </Text>
+          <>
+            <Text style={styles.body}>
+              Playback includes only moments shared with you — no private scenes are included.
+            </Text>
+            <GlowButton label="Play shared REEL-YOU" onPress={handlePlay} />
+          </>
         ) : (
           <>
             <Text style={styles.emptyTitle}>No shared REEL-YOU moments yet.</Text>
@@ -129,6 +141,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: 'rgba(248, 244, 236, 0.72)',
     marginTop: 12,
+    marginBottom: 20,
   },
   emptyTitle: {
     fontFamily: Fonts.serif,

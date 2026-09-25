@@ -34,7 +34,7 @@ export function resolveSkyRelationship(
   if (isMutualSkyFriends(graph, viewerId, otherUserId)) {
     return {
       kind: 'sky_friend',
-      label: 'Sky Friend',
+      label: 'Connected Sky',
       detail: 'Mutual Sky follow',
     };
   }
@@ -43,7 +43,7 @@ export function resolveSkyRelationship(
     return {
       kind: 'following',
       label: 'Following',
-      detail: 'They don’t currently follow your Sky',
+      detail: 'Following their Sky',
     };
   }
 

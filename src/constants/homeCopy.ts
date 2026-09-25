@@ -3,15 +3,15 @@ export const HomeCopy = {
   skywriteHint: 'What’s on your mind today?',
   skywritePlaceholder: 'Write your sky...',
   starpathTitle: 'My StarPath',
-  starpathSubtitle: 'Your journey. Your growth. Your future.',
-  starpathCta: 'View Path →',
+  starpathSubtitle: 'What is my next meaningful direction?',
+  starpathCta: 'Continue your StarPath →',
   starpathMilestones: ['Build Discipline', 'Level Up Skills', 'Create Impact'] as const,
   mySkyTitle: 'My Sky',
   mySkySupport: 'See how your journey is taking shape.',
   mySkyCta: 'View My Sky →',
-  growingInTitle: 'Growing In',
-  growingInSubtitle: 'Communities shaping my growth and journey.',
-  growingInCta: 'See All →',
+  growingInTitle: 'Areas You’re Growing In',
+  growingInSubtitle: 'Personal growth spaces — the living story of each part of your journey.',
+  growingInCta: 'Where I Live →',
   growingInPills: [
     { label: 'Entrepreneurship', icon: '💼', bg: 'rgba(91, 62, 140, 0.72)', border: 'rgba(167, 139, 250, 0.45)' },
     { label: 'Personal Growth', icon: '🪶', bg: 'rgba(120, 88, 48, 0.68)', border: 'rgba(232, 200, 114, 0.42)' },
@@ -20,8 +20,8 @@ export const HomeCopy = {
   ] as const,
   todayFocusTitle: 'Today’s Focus',
   todayFocusPrompt: 'What habit or belief are you building today?',
-  todayFocusEdit: 'Edit',
-  todayFocusAction: 'Answer your reflection prompt →',
+  todayFocusEdit: 'Open',
+  todayFocusAction: 'Open Today’s Focus →',
 } as const;
 
 export function getTimeGreeting(date = new Date()): string {

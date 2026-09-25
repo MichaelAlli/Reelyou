@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { AppState } from 'react-native';
 
 import {
   EMPTY_ONBOARDING_STATE,
@@ -36,6 +37,12 @@ import {
   type TodayFocusSource,
   type UserPersonalizationProfile,
 } from '@/onboarding/personalization';
+import { notifyTodayFocusChanged } from '@/todayFocus/recommendations/todayFocusChangeBridge';
+import {
+  clearTodayFocusDismiss,
+  hydrateTodayFocusDismissState,
+  reconcileTodayFocusDismissForDate,
+} from '@/todayFocus/todayFocusSession';
 import { MAX_NORTH_STAR_VISION_LENGTH } from '@/onboarding/northStar';
 import {
   buildGuidingLightView,
@@ -250,9 +257,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let live = true;
+    void hydrateTodayFocusDismissState();
     loadTodayFocus().then((record) => {
       if (live) {
-        setTodayFocusState(record);
+        setTodayFocusState(reconcileTodayFocusForToday(record));
       }
     });
     loadCommunities().then((record) => {
@@ -283,6 +291,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return () => {
       live = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      const dateKey = getLocalDateKey();
+      reconcileTodayFocusDismissForDate(dateKey);
+      setTodayFocusState((current) => reconcileTodayFocusForToday(current));
+    });
+    return () => subscription.remove();
   }, []);
 
   const recordSkyEvolution = useCallback(
@@ -520,6 +538,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         reflectionUpdatedAt: focusChanged ? null : current.reflectionUpdatedAt,
       };
       void saveTodayFocus(next);
+      clearTodayFocusDismiss();
+      notifyTodayFocusChanged(next);
       recordSkyEvolution(
         createEvolutionEntry('FOCUS_SELECTED', {
           summary: 'Today’s Focus was chosen.',

@@ -64,6 +64,20 @@ export function resolvePublicSkyOwnerProfile(
   userId: string,
   connectionStatus: SkyConnectionStatus = 'none',
 ): SkyOwnerProfile | null {
+  if (userId === currentUser.id) {
+    return {
+      id: currentUser.id,
+      name: currentUser.name,
+      subtitle: currentUser.subtitle,
+      bio: currentUser.bio,
+      avatarInitials: currentUser.avatarInitials,
+      avatarColor: currentUser.avatarColor,
+      avatarUri: currentUser.avatarUri ?? null,
+      connectionStatus,
+      isSelf: false,
+    };
+  }
+
   const user = orbitUsers.find((entry) => entry.id === userId);
   if (!user) return null;
 

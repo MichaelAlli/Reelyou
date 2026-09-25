@@ -53,11 +53,13 @@ function formatSkywriteDate(iso: string): string {
 
 export function SkywriteDetailScreen() {
   const router = useRouter();
-  const { id, source, returnTo } = useLocalSearchParams<{
+  const { id, source, returnTo, visitor } = useLocalSearchParams<{
     id?: string;
     source?: string;
     returnTo?: string;
+    visitor?: string;
   }>();
+  const visitorPlaybackOnly = visitor === '1';
   const { skywrites, updateSkywrite } = useOnboarding();
   const { dismissSignal, messages, skyFollowGraph } = useReelyouConnect();
   const { saveThread, isThreadSaved, getSavedForSkywrite } = useSavedThreads();
@@ -391,7 +393,7 @@ export function SkywriteDetailScreen() {
                 {areaLabel ? ` · ${areaLabel}` : ''}
               </Text>
 
-              {canSaveThread ? (
+              {canSaveThread && !visitorPlaybackOnly ? (
                 <Pressable
                   style={styles.saveBtn}
                   onPress={
@@ -410,7 +412,7 @@ export function SkywriteDetailScreen() {
                 </Pressable>
               ) : null}
 
-              {isAuthor ? (
+              {isAuthor && !visitorPlaybackOnly ? (
                 <Pressable
                   style={styles.saveBtn}
                   onPress={() => setVisibilityPickerOpen((open) => !open)}
@@ -531,7 +533,7 @@ export function SkywriteDetailScreen() {
                 </View>
               ) : null}
 
-              {!isAuthor && (respondMode || fromBeacon) ? (
+              {!isAuthor && !visitorPlaybackOnly && (respondMode || fromBeacon) ? (
                 <View style={{ marginTop: Spacing.md }}>
                   <Text style={styles.label}>{SkywriteCopy.respond}</Text>
                   <TextInput

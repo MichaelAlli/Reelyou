@@ -22,9 +22,12 @@ export const CONTRIBUTION_BEACON_DEMO_ENABLED = true;
 /** When true in __DEV__, seeds canonical Legacy + human-potential demo history for Michael. */
 export const LEGACY_DEMO_ENABLED = true;
 
+/** Dev-only Emerging Constellation suggestion + community infrastructure QA. */
+export const EMERGING_CONSTELLATION_DEMO_ENABLED = true;
+
 declare const __DEV__: boolean | undefined;
 
-function isDevRuntime(): boolean {
+export function isDevRuntime(): boolean {
   return typeof __DEV__ !== 'undefined' && __DEV__;
 }
 
@@ -35,6 +38,10 @@ export function isContributionBeaconDemoEnabled(): boolean {
 
 export function isLegacyDemoEnabled(): boolean {
   return isDevRuntime() && LEGACY_DEMO_ENABLED;
+}
+
+export function isEmergingConstellationDemoEnabled(): boolean {
+  return isDevRuntime() && EMERGING_CONSTELLATION_DEMO_ENABLED;
 }
 
 /** True when Screen Preview route and launcher are active. */

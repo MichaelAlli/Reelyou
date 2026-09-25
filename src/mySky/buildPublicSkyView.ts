@@ -1,4 +1,4 @@
-import { orbitUsers } from '@/data/mockData';
+import { currentUser, orbitUsers } from '@/data/mockData';
 import { applyPatternVisibility, applyVisibilityToNodes } from '@/mySky/applySkyNodeVisibility';
 import { EMPTY_SKY_EVOLUTION } from '@/mySky/skyEvolution';
 import { buildMySkyViewFromSources, type MySkySources } from '@/mySky/mySkyState';
@@ -53,6 +53,7 @@ export function buildPublicSkyView(
   userId: string,
   connectionStatus: SkyConnectionStatus = 'none',
   ownerVisibilitySettings?: SkyVisibilitySettings | null,
+  previewNorthStarVision?: string | null,
 ): MySkyView | null {
   const owner = resolvePublicSkyOwnerProfile(userId, connectionStatus);
   if (!owner) return null;
@@ -64,8 +65,11 @@ export function buildPublicSkyView(
   const isConnected = connectionStatus === 'connected';
   if (!canViewPublicSky(visibilitySettings, isConnected)) return null;
 
+  const northStarVision =
+    previewNorthStarVision?.trim() || resolveNorthStarVision(userId);
+
   const sources: MySkySources = {
-    northStarVision: resolveNorthStarVision(userId),
+    northStarVision,
     skywrites: [],
     joinedCommunities: [],
     connectionActivities: [],
@@ -110,6 +114,10 @@ export function isPublicSkyAvailable(
   userId: string,
   ownerVisibilitySettings?: SkyVisibilitySettings | null,
 ): boolean {
+  if (userId === currentUser.id) {
+    const settings = resolveSkyVisibilitySettingsForOwner(userId, ownerVisibilitySettings);
+    return settings.skyVisibility !== 'private';
+  }
   if (!orbitUsers.some((user) => user.id === userId)) return false;
   const settings = resolveSkyVisibilitySettingsForOwner(userId, ownerVisibilitySettings);
   return settings.skyVisibility !== 'private';

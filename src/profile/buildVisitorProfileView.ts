@@ -19,6 +19,13 @@ import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtur
 import type { OwnerProfileMetrics, OwnerProfileView } from '@/profile/ownerProfileTypes';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
 import { SKY_AREA_TAB_ALL } from '@/skyAreas/skyAreaCategory';
+import {
+  buildPreviewGuestViewerId,
+  buildPreviewSimulatedFollowGraph,
+  isPreviewSimulatedConnectedSky,
+  resolvePreviewConnectionStatus,
+  type VisitorPreviewAs,
+} from '@/profile/visitorProfilePreview';
 
 export interface VisitorProfileView extends OwnerProfileView {
   ownerId: string;
@@ -49,14 +56,29 @@ export function buildVisitorProfileView(input: {
   followGraph: SkyFollowGraph;
   blockedUserIds: readonly string[];
   ownerSkywrites?: SkywriteRecord[];
+  /** Dev self-preview — simulate public stranger or Connected Sky (never shows private). */
+  previewAccessMode?: VisitorPreviewAs;
 }): VisitorProfileView | null {
-  const ownerProfile = resolvePublicSkyOwnerProfile(input.ownerId, input.connectionStatus);
+  const previewAs = input.previewAccessMode;
+  const effectiveViewerId = previewAs
+    ? buildPreviewGuestViewerId(input.viewerId)
+    : input.viewerId;
+  const effectiveFollowGraph = previewAs
+    ? buildPreviewSimulatedFollowGraph(effectiveViewerId, input.ownerId, previewAs)
+    : input.followGraph;
+  const effectiveConnectionStatus = previewAs
+    ? resolvePreviewConnectionStatus(previewAs)
+    : input.connectionStatus;
+
+  const ownerProfile = resolvePublicSkyOwnerProfile(input.ownerId, effectiveConnectionStatus);
   if (!ownerProfile) return null;
 
   const orbitUser = orbitUsers.find((entry) => entry.id === input.ownerId);
   const visibility = resolveSkyVisibilitySettingsForOwner(input.ownerId);
-  const isConnected = input.connectionStatus === 'connected';
-  const isSkyFriend = isMutualSkyFriends(input.followGraph, input.viewerId, input.ownerId);
+  const isConnected = effectiveConnectionStatus === 'connected';
+  const isSkyFriend = previewAs
+    ? isPreviewSimulatedConnectedSky(previewAs)
+    : isMutualSkyFriends(input.followGraph, input.viewerId, input.ownerId);
   const showSkyPreview = canViewPublicSky(visibility, isConnected);
   const showImpactMetrics = visitorCanShowImpactMetrics(visibility.skyVisibility, isSkyFriend);
 
@@ -67,9 +89,9 @@ export function buildVisitorProfileView(input: {
     skywrites: sourceSkywrites,
     viewerMode: 'visitor',
     visitorAccess: {
-      viewerId: input.viewerId,
+      viewerId: effectiveViewerId,
       authorId: input.ownerId,
-      followGraph: input.followGraph,
+      followGraph: effectiveFollowGraph,
       blockedUserIds: input.blockedUserIds,
     },
   });
@@ -90,7 +112,7 @@ export function buildVisitorProfileView(input: {
 
   return {
     ownerId: input.ownerId,
-    connectionStatus: input.connectionStatus,
+    connectionStatus: effectiveConnectionStatus,
     skyVisibility: visibility,
     showSkyPreview,
     showImpactMetrics,

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -21,8 +21,11 @@ import { SymbolView } from 'expo-symbols';
 import { ReelYouControlChip, ReelYouIcons } from '@/components/legacy/ReelYouControlChip';
 import { LegacyCopy } from '@/constants/legacyCopy';
 import { Fonts, Spacing } from '@/constants/theme';
+import { currentUser } from '@/data/mockData';
 import { useLegacy } from '@/legacy/LegacyProvider';
+import { filterReelMomentIdsForViewer } from '@/legacy/legacyViewerAccess';
 import { leaveReelYouRoute } from '@/legacy/reelYouLeaveNavigation';
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useReelYouPlaybackEngine } from '@/legacy/useReelYouPlaybackEngine';
 import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPreviewScope';
 import { useThemedStyles } from '@/theme/useTheme';
@@ -37,24 +40,45 @@ function formatSceneDate(ms: number): string {
 
 export function ReelYouPlaybackScreen() {
   const router = useRouter();
+  const { visitorOwnerId } = useLocalSearchParams<{ visitorOwnerId?: string }>();
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const { skyFollowGraph, messages } = useReelyouConnect();
   const {
     reelSequence,
+    moments,
     momentById,
     markReelReviewed,
     editMomentCopy,
     hideMomentFromReel,
     setMomentPrivacy,
   } = useLegacy();
+  const visitorSubjectId =
+    typeof visitorOwnerId === 'string' && visitorOwnerId.length > 0 ? visitorOwnerId : undefined;
+  const isVisitorPlayback = Boolean(visitorSubjectId);
   const { stopAll, togglePreview, isPreviewPlaying } = useOverlayAudioPreviewScope(true);
   const [reviewOpen, setReviewOpen] = useState(false);
   const exitingRef = useRef(false);
 
-  const sceneIds = useMemo(
-    () => [...reelSequence.momentIds],
-    [reelSequence.momentIds.join('\u0000')],
-  );
+  const sceneIds = useMemo(() => {
+    if (!isVisitorPlayback || !visitorSubjectId) {
+      return [...reelSequence.momentIds];
+    }
+    const ctx = {
+      subjectUserId: visitorSubjectId,
+      viewerUserId: currentUser.id,
+      followGraph: skyFollowGraph,
+      blockedUserIds: messages.blockedUserIds,
+    };
+    return filterReelMomentIdsForViewer(reelSequence.momentIds, moments, ctx);
+  }, [
+    isVisitorPlayback,
+    messages.blockedUserIds,
+    moments,
+    reelSequence.momentIds,
+    skyFollowGraph,
+    visitorSubjectId,
+  ]);
 
   const momentForIndex = useCallback(
     (sceneIndex: number) => {
@@ -273,12 +297,12 @@ export function ReelYouPlaybackScreen() {
       pause();
       cleanup();
       await stopAll();
-      if (options.markReviewed) {
+      if (options.markReviewed && !isVisitorPlayback) {
         markReelReviewed();
       }
       leaveReelYouRoute(router);
     },
-    [cleanup, markReelReviewed, pause, router, stopAll],
+    [cleanup, isVisitorPlayback, markReelReviewed, pause, router, stopAll],
   );
 
   const handleBack = useCallback(() => {
@@ -286,8 +310,8 @@ export function ReelYouPlaybackScreen() {
   }, [exitReelYou]);
 
   const handleClose = useCallback(() => {
-    void exitReelYou({ markReviewed: true });
-  }, [exitReelYou]);
+    void exitReelYou({ markReviewed: !isVisitorPlayback });
+  }, [exitReelYou, isVisitorPlayback]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -548,21 +572,23 @@ export function ReelYouPlaybackScreen() {
               </View>
             ) : null}
 
-            <Pressable style={styles.reviewButton} onPress={openReview} hitSlop={8} accessibilityRole="button">
-              <SymbolView
-                name={ReelYouIcons.review}
-                size={18}
-                tintColor="#C4B5FD"
-                weight="semibold"
-                accessibilityElementsHidden
-                importantForAccessibility="no"
-              />
-              <Text style={styles.reviewButtonText}>
-                {reviewOpen ? LegacyCopy.reelReviewClose : LegacyCopy.reelReviewOpen}
-              </Text>
-            </Pressable>
+            {!isVisitorPlayback ? (
+              <Pressable style={styles.reviewButton} onPress={openReview} hitSlop={8} accessibilityRole="button">
+                <SymbolView
+                  name={ReelYouIcons.review}
+                  size={18}
+                  tintColor="#C4B5FD"
+                  weight="semibold"
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                />
+                <Text style={styles.reviewButtonText}>
+                  {reviewOpen ? LegacyCopy.reelReviewClose : LegacyCopy.reelReviewOpen}
+                </Text>
+              </Pressable>
+            ) : null}
 
-            {reviewOpen ? (
+            {!isVisitorPlayback && reviewOpen ? (
               <View style={styles.reviewPanel}>
                 <View style={styles.reviewRow}>
                   <Pressable style={styles.reviewAction} onPress={promptEdit}>

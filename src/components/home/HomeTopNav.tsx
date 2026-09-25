@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { HomeBellIcon, HomeMenuIcon } from '@/components/home/HomeIcons';
+import { HomeBellIcon, HomeFocusQuickIcon, HomeMenuIcon } from '@/components/home/HomeIcons';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
@@ -9,14 +9,29 @@ import { HomeLayout, HomePalette } from '@/constants/homeLayout';
 interface HomeTopNavProps {
   onOpenMenu: () => void;
   onOpenSignals: () => void;
+  onOpenTodayFocus?: () => void;
+  onTodayFocusLongPress?: () => void;
+  showTodayFocusQuickAccess?: boolean;
 }
 
-function HomeTopNavComponent({ onOpenMenu, onOpenSignals }: HomeTopNavProps) {
+function HomeTopNavComponent({
+  onOpenMenu,
+  onOpenSignals,
+  onOpenTodayFocus,
+  onTodayFocusLongPress,
+  showTodayFocusQuickAccess = false,
+}: HomeTopNavProps) {
   const { hasUnreadSignals } = useReelyouConnect();
 
   return (
     <View style={styles.row} collapsable={false}>
-      <View style={styles.sideSlot}>
+      <View
+        style={[
+          styles.sideSlot,
+          styles.sideSlotLeft,
+          showTodayFocusQuickAccess ? { width: slot * 2 + 6 } : null,
+        ]}
+      >
         <Pressable
           style={styles.iconBtn}
           hitSlop={HIT_SLOP}
@@ -27,6 +42,21 @@ function HomeTopNavComponent({ onOpenMenu, onOpenSignals }: HomeTopNavProps) {
         >
           <HomeMenuIcon size={16} />
         </Pressable>
+        {showTodayFocusQuickAccess && onOpenTodayFocus ? (
+          <Pressable
+            style={[styles.iconBtn, styles.focusBtn]}
+            hitSlop={HIT_SLOP}
+            onPress={onOpenTodayFocus}
+            onLongPress={onTodayFocusLongPress}
+            accessibilityRole="button"
+            accessibilityLabel="Today's Focus"
+            accessibilityHint="Opens your focus for today. Long press for a quick preview."
+            testID="home-today-focus-quick"
+          >
+            <HomeFocusQuickIcon size={16} active />
+            <View style={styles.focusDot} />
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.logoWrap} pointerEvents="none">
@@ -72,6 +102,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 21,
+  },
+  sideSlotLeft: {
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'flex-start',
+  },
+  focusBtn: {
+    borderColor: 'rgba(232, 200, 114, 0.55)',
+    backgroundColor: 'rgba(232, 200, 114, 0.1)',
+  },
+  focusDot: {
+    position: 'absolute',
+    top: 7,
+    right: 8,
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: HomePalette.goldBright,
+    borderWidth: 1,
+    borderColor: 'rgba(6, 8, 22, 0.92)',
   },
   iconBtn: {
     minWidth: 44,

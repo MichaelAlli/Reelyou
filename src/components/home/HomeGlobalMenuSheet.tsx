@@ -5,6 +5,11 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
+import { isDevRuntime } from '@/constants/devFlags';
+import {
+  buildVisitorProfileHref,
+  VISITOR_PROFILE_QA_OWNER_ID,
+} from '@/profile/visitorProfileRoute';
 interface HomeGlobalMenuSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -34,6 +39,12 @@ function HomeGlobalMenuSheetComponent({ visible, onClose }: HomeGlobalMenuSheetP
         <MenuRow label="Privacy & Visibility" onPress={() => go('/settings/privacy')} />
         <MenuRow label="Theme / Appearance" onPress={() => go('/settings')} />
         <MenuRow label="Help / Support" onPress={() => go('/settings/help')} />
+        {isDevRuntime() ? (
+          <MenuRow
+            label="QA: Visitor Profile (Jordan)"
+            onPress={() => go(buildVisitorProfileHref(VISITOR_PROFILE_QA_OWNER_ID))}
+          />
+        ) : null}
         <MenuRow label="Account / Sign out" onPress={() => go('/login')} muted />
         <Pressable onPress={onClose} accessibilityLabel="Close menu" style={styles.done}>
           <Text style={styles.doneText}>Close</Text>

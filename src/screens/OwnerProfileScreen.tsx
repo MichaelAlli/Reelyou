@@ -10,6 +10,7 @@ import { OwnerProfileSkyFriendsEntry } from '@/components/profile/owner/OwnerPro
 import { OwnerProfileMetricsStrip } from '@/components/profile/owner/OwnerProfileMetricsStrip';
 import { OwnerProfileMySkyPreviewCard } from '@/components/profile/owner/OwnerProfileMySkyPreviewCard';
 import { OwnerProfileSkywritingsCard } from '@/components/profile/owner/OwnerProfileSkywritingsCard';
+import { OwnerProfileOptionsSheet } from '@/components/profile/owner/OwnerProfileOptionsSheet';
 import { OwnerProfileTopChrome } from '@/components/profile/owner/OwnerProfileTopChrome';
 import { RippleMetricDetailSheet } from '@/components/legacy/ripple/RippleMetricDetailSheet';
 import {
@@ -20,6 +21,11 @@ import { useLegacyRippleViewModel } from '@/legacy/useLegacyRippleViewModel';
 import { buildOwnerProfileView } from '@/profile/buildOwnerProfileView';
 import { profileOwnerCelestialBackground } from '@/profile/profileOwnerAssets';
 import { useOnboarding } from '@/onboarding';
+import {
+  buildVisitorProfileHref,
+  buildVisitorSelfPreviewHref,
+  VISITOR_PROFILE_QA_OWNER_ID,
+} from '@/profile/visitorProfileRoute';
 
 export function OwnerProfileScreen() {
   const router = useRouter();
@@ -30,6 +36,7 @@ export function OwnerProfileScreen() {
   const { ownerUserId, metrics, contributions, userDirectory, blockedUserIds } =
     useLegacyRippleViewModel();
   const [metricKind, setMetricKind] = useState<RippleMetricDetailKind | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const metricDetailView = useMemo(() => {
     if (!metricKind) return null;
@@ -56,8 +63,24 @@ export function OwnerProfileScreen() {
     router.push('/legacy' as never);
   }, [router]);
 
+  const openOptions = useCallback(() => setOptionsOpen(true), []);
+  const closeOptions = useCallback(() => setOptionsOpen(false), []);
+
   return (
     <View style={styles.root}>
+      <OwnerProfileOptionsSheet
+        visible={optionsOpen}
+        onClose={closeOptions}
+        onPreviewProfile={() =>
+          router.push(buildVisitorSelfPreviewHref(undefined, { previewAs: 'public' }) as never)
+        }
+        onPreviewProfileConnectedSky={() =>
+          router.push(buildVisitorSelfPreviewHref(undefined, { previewAs: 'connected' }) as never)
+        }
+        onPreviewDemoVisitor={() =>
+          router.push(buildVisitorProfileHref(VISITOR_PROFILE_QA_OWNER_ID) as never)
+        }
+      />
       <ImageBackground
         source={profileOwnerCelestialBackground}
         style={StyleSheet.absoluteFill}
@@ -68,7 +91,7 @@ export function OwnerProfileScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <OwnerProfileTopChrome onBack={handleBack} />
+        <OwnerProfileTopChrome onBack={handleBack} onOverflow={openOptions} />
         <OwnerProfileHero identity={ownerView.identity} />
         <OwnerProfileMetricsStrip
           metrics={ownerView.metrics}

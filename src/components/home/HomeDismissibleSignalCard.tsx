@@ -1,4 +1,4 @@
-import { memo, useCallback, type ReactNode } from 'react';
+import { memo, useCallback, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -30,11 +30,13 @@ function HomeDismissibleSignalCardComponent({
   style,
   showDismissButton = true,
 }: HomeDismissibleSignalCardProps) {
+  const [mounted, setMounted] = useState(true);
   const dismissed = useSharedValue(false);
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
 
   const finishDismiss = useCallback(() => {
+    setMounted(false);
     onDismiss();
   }, [onDismiss]);
 
@@ -69,6 +71,10 @@ function HomeDismissibleSignalCardComponent({
     opacity: opacity.value,
     transform: [{ translateX: translateX.value }],
   }));
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <GestureDetector gesture={pan}>

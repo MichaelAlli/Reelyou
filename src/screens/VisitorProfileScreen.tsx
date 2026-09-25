@@ -37,21 +37,34 @@ import {
   visitorReelYouRoute,
   visitorRippleRoute,
 } from '@/profile/visitorLegacyRoutes';
+import {
+  visitorSkywriteDetailRoute,
+  visitorSkywritingsRoute,
+} from '@/profile/visitorSkywritingsRoute';
 import { useOnboarding } from '@/onboarding';
 import { VISITOR_PROFILE_LEGACY_SUBTITLE } from '@/profile/profileLegacyCopy';
 import { profileOwnerCelestialBackground } from '@/profile/profileOwnerAssets';
 import { isVisitorProfileBlocked } from '@/profile/resolveVisitorProfilePrivacy';
 import { resolveVisitorSkyConnectionStatus } from '@/social/skyFollow/resolveVisitorSkyConnection';
+import type { VisitorPreviewAs } from '@/profile/visitorProfilePreview';
+import { resolvePreviewConnectionStatus } from '@/profile/visitorProfilePreview';
 
 interface VisitorProfileScreenProps {
   ownerId?: string;
+  /** Owner viewing their own profile with visitor-safe UI (canonical route + preview=1). */
+  visitorPreview?: boolean;
+  previewAccessMode?: VisitorPreviewAs;
 }
 
-export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
+export function VisitorProfileScreen({
+  ownerId,
+  visitorPreview = false,
+  previewAccessMode,
+}: VisitorProfileScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tabContentInset = TabBarHeight + Math.max(insets.bottom, 8);
-  const { aroundYourSkyFeed, skywrites } = useOnboarding();
+  const { aroundYourSkyFeed, skywrites, northStar } = useOnboarding();
   const [metricKind, setMetricKind] = useState<RippleMetricDetailKind | null>(null);
   const rippleSubject = ownerId ?? '';
   const {
@@ -61,7 +74,7 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
     userDirectory,
     blockedUserIds,
     viewerContext,
-  } = useSubjectRippleViewModel(rippleSubject);
+  } = useSubjectRippleViewModel(rippleSubject, { visitorPreview });
   const {
     canMessageUser,
     openOrCreateThreadWith,
@@ -85,8 +98,17 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
 
   const connectionStatus = useMemo(() => {
     if (!ownerId) return 'none' as const;
+    if (visitorPreview && previewAccessMode) {
+      return resolvePreviewConnectionStatus(previewAccessMode);
+    }
     return resolveVisitorSkyConnectionStatus(ownerId, feedConnectedActorIds, followedSkyUserIds);
-  }, [feedConnectedActorIds, followedSkyUserIds, ownerId]);
+  }, [
+    feedConnectedActorIds,
+    followedSkyUserIds,
+    ownerId,
+    previewAccessMode,
+    visitorPreview,
+  ]);
 
   const visitorView = useMemo(() => {
     if (!ownerId) return null;
@@ -96,8 +118,18 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
       connectionStatus,
       followGraph: skyFollowGraph,
       blockedUserIds: messages.blockedUserIds,
+      ownerSkywrites: skywrites,
+      previewAccessMode: visitorPreview ? previewAccessMode ?? 'public' : undefined,
     });
-  }, [connectionStatus, messages.blockedUserIds, ownerId, skyFollowGraph]);
+  }, [
+    connectionStatus,
+    messages.blockedUserIds,
+    ownerId,
+    previewAccessMode,
+    skyFollowGraph,
+    skywrites,
+    visitorPreview,
+  ]);
 
   const metricsDetailEligible = visitorView
     ? resolveVisitorMetricDetailEligible(visitorView.skyVisibility.skyVisibility, viewerContext)
@@ -130,26 +162,43 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
 
   const publicSkyPreview = useMemo(() => {
     if (!ownerId || !visitorView?.showSkyPreview) return null;
-    return buildPublicSkyView(ownerId, connectionStatus);
-  }, [connectionStatus, ownerId, visitorView?.showSkyPreview]);
+    const northStarOverride =
+      visitorPreview && ownerId === currentUser.id ? northStar.originalVision : undefined;
+    return buildPublicSkyView(
+      ownerId,
+      connectionStatus,
+      undefined,
+      northStarOverride,
+    );
+  }, [
+    connectionStatus,
+    northStar.originalVision,
+    ownerId,
+    visitorPreview,
+    visitorView?.showSkyPreview,
+  ]);
 
   const isBlocked = ownerId ? isVisitorProfileBlocked(ownerId, messages.blockedUserIds) : false;
   const isFollowing = ownerId ? isFollowingSkyUser(ownerId) : false;
   const isSkyFriend = ownerId ? isMutualSkyFriend(ownerId) : false;
   const followButtonLabel = isSkyFriend
-    ? 'Sky Friend'
+    ? 'Connected Sky'
     : isFollowing
       ? 'Following'
       : 'Follow Sky';
   const canMessage = ownerId ? canMessageUser(ownerId) && !isBlocked : false;
 
   const handleBack = useCallback(() => {
+    if (visitorPreview) {
+      router.replace('/(tabs)/profile' as never);
+      return;
+    }
     if (router.canGoBack()) {
       router.back();
       return;
     }
     router.replace('/(tabs)/home' as never);
-  }, [router]);
+  }, [router, visitorPreview]);
 
   const handleFollow = useCallback(() => {
     if (!ownerId || isBlocked) return;
@@ -163,14 +212,17 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
   }, [canMessage, openOrCreateThreadWith, ownerId, router]);
 
   useEffect(() => {
-    if (ownerId === currentUser.id) {
+    if (ownerId === currentUser.id && !visitorPreview) {
       router.replace('/(tabs)/profile' as never);
     }
-  }, [ownerId, router]);
+  }, [ownerId, router, visitorPreview]);
 
-  if (ownerId === currentUser.id) {
+  if (ownerId === currentUser.id && !visitorPreview) {
     return null;
   }
+
+  const hideVisitorActions =
+    visitorPreview && ownerId === currentUser.id;
 
   if (!ownerId || !visitorView || isBlocked) {
     return (
@@ -207,13 +259,15 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
           showsVerticalScrollIndicator={false}>
           <OwnerProfileTopChrome variant="visitor" onBack={handleBack} />
           <OwnerProfileHero identity={visitorView.identity} />
-          <OwnerProfileVisitorActionRow
-            isFollowing={isFollowing}
-            followLabel={followButtonLabel}
-            canMessage={canMessage}
-            onFollowPress={handleFollow}
-            onMessagePress={handleMessage}
-          />
+          {hideVisitorActions ? null : (
+            <OwnerProfileVisitorActionRow
+              isFollowing={isFollowing}
+              followLabel={followButtonLabel}
+              canMessage={canMessage}
+              onFollowPress={handleFollow}
+              onMessagePress={handleMessage}
+            />
+          )}
           <OwnerProfileMetricsStrip
             metrics={visitorView.metrics}
             legacyPressEnabled
@@ -254,7 +308,13 @@ export function VisitorProfileScreen({ ownerId }: VisitorProfileScreenProps) {
               </Text>
             </View>
           )}
-          <OwnerProfileSkywritingsCard section={visitorView.skywritings} />
+          <OwnerProfileSkywritingsCard
+            section={visitorView.skywritings}
+            onExplorePress={() => router.push(visitorSkywritingsRoute(ownerId) as never)}
+            onItemPress={(skywriteId) =>
+              router.push(visitorSkywriteDetailRoute(skywriteId, ownerId) as never)
+            }
+          />
         </ScrollView>
       </View>
       <BottomNav />

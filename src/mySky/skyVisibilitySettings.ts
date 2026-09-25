@@ -159,7 +159,7 @@ export function resolveEffectiveNodeVisibility(
 export const SKY_VISIBILITY_LABELS: Record<SkyVisibilityLevel, string> = {
   private: 'Private',
   orbit: 'Connections',
-  sky_friends: 'Sky Friends',
+  sky_friends: 'Connected Skies',
   public: 'Public',
 };
 

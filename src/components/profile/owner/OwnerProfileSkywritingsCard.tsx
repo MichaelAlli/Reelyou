@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import {
   OWNER_PROFILE_CARD_RADIUS,
@@ -10,23 +11,51 @@ import {
 import { Fonts } from '@/constants/theme';
 import type { ProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
 import { SKY_AREA_TAB_ALL, type SkyAreaTabId } from '@/skyAreas/skyAreaCategory';
+import { filterProfileSkywritingItems } from '@/profile/buildProfileSkywritingsSection';
 
 interface OwnerProfileSkywritingsCardProps {
   section: ProfileSkywritingsSection;
+  onExplorePress?: () => void;
+  onItemPress?: (skywriteId: string) => void;
 }
 
-function OwnerProfileSkywritingsCardComponent({ section }: OwnerProfileSkywritingsCardProps) {
+function OwnerProfileSkywritingsCardComponent({
+  section,
+  onExplorePress,
+  onItemPress,
+}: OwnerProfileSkywritingsCardProps) {
   const [selectedTabId, setSelectedTabId] = useState<SkyAreaTabId>(SKY_AREA_TAB_ALL);
+  const router = useRouter();
+  const isVisitor = section.viewerMode === 'visitor';
+  const previewItems = filterProfileSkywritingItems(section.items, selectedTabId).slice(0, 4);
+
+  const header = (
+    <View style={styles.header}>
+      <View style={styles.titleBlock}>
+        <Text style={styles.title}>Skywritings</Text>
+        <Text style={styles.subtitle}>
+          {isVisitor
+            ? 'Reflections they have chosen to share.'
+            : 'Reflections, questions, and threads you’ve shared.'}
+        </Text>
+      </View>
+      {onExplorePress ? <Text style={styles.chevronExplore}>›</Text> : <Text style={styles.chevron}>⌄</Text>}
+    </View>
+  );
 
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.titleBlock}>
-          <Text style={styles.title}>Skywritings</Text>
-          <Text style={styles.subtitle}>Reflections, questions, and threads you’ve shared.</Text>
-        </View>
-        <Text style={styles.chevron}>⌄</Text>
-      </View>
+      {onExplorePress ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Explore Skywritings"
+          onPress={onExplorePress}
+          style={({ pressed }) => [pressed && styles.headerPressed]}>
+          {header}
+        </Pressable>
+      ) : (
+        header
+      )}
 
       <ScrollView
         horizontal
@@ -46,6 +75,33 @@ function OwnerProfileSkywritingsCardComponent({ section }: OwnerProfileSkywritin
           );
         })}
       </ScrollView>
+
+      {previewItems.length > 0 ? (
+        <View style={styles.previewList}>
+          {previewItems.map((item) => (
+            <Pressable
+              key={item.id}
+              accessibilityRole="button"
+              onPress={() => {
+                if (onItemPress) {
+                  onItemPress(item.id);
+                  return;
+                }
+                if (!isVisitor) {
+                  router.push(`/skywrite/${item.id}` as never);
+                }
+              }}
+              style={({ pressed }) => [styles.previewRow, pressed && styles.previewRowPressed]}>
+              <Text style={styles.previewLabel} numberOfLines={1}>
+                {item.label}
+              </Text>
+              {(onItemPress || !isVisitor) ? <Text style={styles.previewChevron}>›</Text> : null}
+            </Pressable>
+          ))}
+        </View>
+      ) : isVisitor ? (
+        <Text style={styles.emptyHint}>No shared Skywrites in this view yet.</Text>
+      ) : null}
     </View>
   );
 }
@@ -91,6 +147,36 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: 'rgba(248, 244, 236, 0.55)',
     marginTop: 2,
+  },
+  chevronExplore: {
+    fontSize: 22,
+    color: 'rgba(232, 200, 114, 0.75)',
+    marginTop: 2,
+  },
+  headerPressed: { opacity: 0.92 },
+  previewList: { marginTop: 10, gap: 6 },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 40,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    gap: 8,
+  },
+  previewRowPressed: { opacity: 0.9 },
+  previewLabel: {
+    flex: 1,
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    color: 'rgba(248, 244, 236, 0.88)',
+  },
+  previewChevron: { fontSize: 18, color: 'rgba(232, 200, 114, 0.65)' },
+  emptyHint: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: 'rgba(248, 244, 236, 0.55)',
+    marginTop: 8,
+    marginBottom: 4,
   },
   tabRow: {
     gap: 7,

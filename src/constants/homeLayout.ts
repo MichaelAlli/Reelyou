@@ -15,9 +15,10 @@ export const HomeLayout = {
   logoWidth: 172,
   logoHeight: 48,
   /** Reference heights — cards grow from content + aspect ratio on narrow devices. */
-  starpathHeight: 192,
-  starpathVisual: 128,
-  starpathAspect: 320 / 128,
+  starpathHeight: 218,
+  starpathVisual: 148,
+  starpathAspect: 320 / 148,
+  /** Retained for My Sky tab card (not shown on Home). */
   mySkyHeight: 168,
   mySkyVisual: 108,
   mySkyAspect: 320 / 108,
