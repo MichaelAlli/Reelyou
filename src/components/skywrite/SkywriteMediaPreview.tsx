@@ -20,6 +20,8 @@ interface SkywriteMediaPreviewProps {
   excerpt?: string;
   onToggleAudio?: (previewId: string, uri: string) => void;
   isAudioPlaying?: (previewId: string) => boolean;
+  /** When false, audio rows are static (avoids nested buttons inside list row pressables). */
+  allowAudioPreview?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -36,6 +38,7 @@ function SkywriteMediaPreviewComponent({
   excerpt,
   onToggleAudio,
   isAudioPlaying,
+  allowAudioPreview = true,
   style,
 }: SkywriteMediaPreviewProps) {
   const media = useMemo(() => pickSkywriteMediaSource(skywrite), [skywrite]);
@@ -106,22 +109,34 @@ function SkywriteMediaPreviewComponent({
         ) : null}
 
         {showAudio ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={playing ? 'Pause audio preview' : 'Play audio preview'}
-            onPress={(event) => {
-              event.stopPropagation();
-              onToggleAudio?.(previewId, media.audioUri!);
-            }}
-            style={({ pressed }) => [styles.audioStrip, pressed && styles.pressed]}>
-            <View style={styles.playBtn}>
-              <Text style={styles.playBtnText}>{playing ? '❚❚' : '▶'}</Text>
+          allowAudioPreview ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={playing ? 'Pause audio preview' : 'Play audio preview'}
+              onPress={(event) => {
+                event.stopPropagation();
+                onToggleAudio?.(previewId, media.audioUri!);
+              }}
+              style={({ pressed }) => [styles.audioStrip, pressed && styles.pressed]}>
+              <View style={styles.playBtn}>
+                <Text style={styles.playBtnText}>{playing ? '❚❚' : '▶'}</Text>
+              </View>
+              <SkywriteAudioWaveform active={playing} seed={skywrite.id.length} barCount={12} />
+              <Text style={styles.duration}>
+                {formatSkywriteAudioDuration(media.audioDurationMs)}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.audioStrip}>
+              <View style={styles.playBtn}>
+                <Text style={styles.playBtnText}>♪</Text>
+              </View>
+              <SkywriteAudioWaveform active={false} seed={skywrite.id.length} barCount={12} />
+              <Text style={styles.duration}>
+                {formatSkywriteAudioDuration(media.audioDurationMs)}
+              </Text>
             </View>
-            <SkywriteAudioWaveform active={playing} seed={skywrite.id.length} barCount={12} />
-            <Text style={styles.duration}>
-              {formatSkywriteAudioDuration(media.audioDurationMs)}
-            </Text>
-          </Pressable>
+          )
         ) : null}
 
         {media.kind === 'audio' && !textExcerpt ? (

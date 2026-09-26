@@ -154,6 +154,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
       <View style={styles.panel}>
         <Text style={styles.title}>{MySkywritesCopy.sheetTitle}</Text>
         <Text style={styles.subtitle}>{MySkywritesCopy.sheetSubtitle}</Text>
+        <Text style={styles.hint}>{MySkywritesCopy.listHint}</Text>
 
         <View style={styles.tabRow}>
           {tabs.map((entry) => {
@@ -198,8 +199,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                       variant="library"
                       excerpt={row.excerpt}
                       previewIdPrefix="my-skywrites"
-                      onToggleAudio={audioPreview.togglePreview}
-                      isAudioPlaying={audioPreview.isPreviewPlaying}
+                      allowAudioPreview={false}
                     />
                     <View style={styles.rowMeta}>
                       {row.areaLabel ? <Text style={styles.area}>{row.areaLabel}</Text> : null}
@@ -274,7 +274,15 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 12.5,
     lineHeight: 18,
-    color: 'rgba(235,228,248,0.65)',
+    color: 'rgba(235,228,248,0.72)',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  hint: {
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    lineHeight: 16,
+    color: 'rgba(235,228,248,0.48)',
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 12,
@@ -316,8 +324,8 @@ const styles = StyleSheet.create({
     color: '#F5F0FF',
     marginBottom: 10,
   },
-  listScroll: { maxHeight: 300 },
-  listContent: { gap: 8, paddingBottom: 4 },
+  listScroll: { maxHeight: 360 },
+  listContent: { gap: 10, paddingBottom: 8 },
   empty: {
     fontFamily: Fonts.sans,
     fontSize: 13,
@@ -332,7 +340,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(167, 139, 250, 0.22)',
     overflow: 'hidden',
   },
-  rowMain: { padding: 10, gap: 4 },
+  rowMain: { padding: 12, gap: 6 },
   pressed: { opacity: 0.88 },
   rowMeta: {
     flexDirection: 'row',

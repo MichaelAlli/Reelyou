@@ -214,6 +214,26 @@ function createSkywriteDetailStyles(tokens: ThemeTokens, skyInvitationReply: boo
       fontWeight: '600',
       color: tertiary,
     },
+    actionGroup: {
+      marginTop: Spacing.sm,
+      marginBottom: Spacing.md,
+      padding: Spacing.sm,
+      borderRadius: Radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: 'rgba(167, 139, 250, 0.22)',
+      backgroundColor: 'rgba(8, 10, 28, 0.4)',
+      gap: 4,
+    },
+    actionGroupLabel: {
+      fontFamily: Fonts.sans,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      color: tertiary,
+      marginBottom: 4,
+      paddingHorizontal: 4,
+    },
     invitationContextLabel: {
       fontFamily: Fonts.sans,
       fontSize: 12,
@@ -557,98 +577,136 @@ export function SkywriteDetailScreen() {
                 </>
               )}
 
-              {!isAuthor && !visitorPlaybackOnly ? (
-                <Pressable
-                  style={styles.saveBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Report Skywrite"
-                  onPress={() =>
-                    setReportInput({
-                      targetType: 'skywrite',
-                      targetId: record.id,
-                      targetOwnerUserId: record.authorId,
-                      skywriteId: record.id,
-                      visibilityContext: record.visibility,
-                      provenanceIds: [record.id],
-                    })
-                  }>
-                  <Text
-                    style={skyInvitationReply ? styles.saveBtnTextSecondary : styles.saveBtnText}>
-                    Report
+              {!skyInvitationReply && !visitorPlaybackOnly ? (
+                <View style={styles.actionGroup}>
+                  <Text style={styles.actionGroupLabel}>
+                    {isAuthor ? 'Your Skywrite' : 'Options'}
                   </Text>
-                </Pressable>
-              ) : null}
-
-              {canSaveThread && !visitorPlaybackOnly ? (
-                <Pressable
-                  style={styles.saveBtn}
-                  onPress={
-                    isThreadSaved(record.id) ? handleOpenSavedThread : handleSaveThread
-                  }
-                  accessibilityLabel={
-                    isThreadSaved(record.id)
-                      ? SkywriteCopy.openSavedThread
-                      : SkywriteCopy.saveThread
-                  }>
-                  <Text
-                    style={skyInvitationReply ? styles.saveBtnTextSecondary : styles.saveBtnText}>
-                    {isThreadSaved(record.id)
-                      ? SkywriteCopy.openSavedThread
-                      : SkywriteCopy.saveThread}
-                  </Text>
-                </Pressable>
-              ) : null}
-
-              {isAuthor && !visitorPlaybackOnly ? (
-                <Pressable
-                  style={styles.saveBtn}
-                  onPress={() => setVisibilityPickerOpen((open) => !open)}
-                  accessibilityLabel="Change visibility">
-                  <Text style={styles.saveBtnText}>Change visibility</Text>
-                </Pressable>
-              ) : null}
-
-              {isAuthor && visibilityPickerOpen ? (
-                <View style={{ gap: 8, marginBottom: Spacing.sm }}>
-                  {SKYWRITE_VISIBILITY_OPTIONS.map((option) => (
+                  {!isAuthor ? (
                     <Pressable
-                      key={option.id}
+                      style={styles.saveBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Report Skywrite"
+                      onPress={() =>
+                        setReportInput({
+                          targetType: 'skywrite',
+                          targetId: record.id,
+                          targetOwnerUserId: record.authorId,
+                          skywriteId: record.id,
+                          visibilityContext: record.visibility,
+                          provenanceIds: [record.id],
+                        })
+                      }>
+                      <Text style={styles.saveBtnTextSecondary}>Report</Text>
+                    </Pressable>
+                  ) : null}
+
+                  {canSaveThread ? (
+                    <Pressable
+                      style={styles.saveBtn}
+                      onPress={
+                        isThreadSaved(record.id) ? handleOpenSavedThread : handleSaveThread
+                      }
+                      accessibilityLabel={
+                        isThreadSaved(record.id)
+                          ? SkywriteCopy.openSavedThread
+                          : SkywriteCopy.saveThread
+                      }>
+                      <Text style={styles.saveBtnText}>
+                        {isThreadSaved(record.id)
+                          ? SkywriteCopy.openSavedThread
+                          : SkywriteCopy.saveThread}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {isAuthor ? (
+                    <Pressable
+                      style={styles.saveBtn}
+                      onPress={() => setVisibilityPickerOpen((open) => !open)}
+                      accessibilityLabel="Change visibility">
+                      <Text style={styles.saveBtnText}>Change visibility</Text>
+                    </Pressable>
+                  ) : null}
+
+                  {isAuthor && visibilityPickerOpen ? (
+                    <View style={{ gap: 4 }}>
+                      {SKYWRITE_VISIBILITY_OPTIONS.map((option) => (
+                        <Pressable
+                          key={option.id}
+                          style={styles.saveBtn}
+                          onPress={() => {
+                            if (!skywriteId) return;
+                            updateSkywrite(skywriteId, { visibility: option.id as Privacy });
+                            setVisibilityPickerOpen(false);
+                          }}>
+                          <Text style={styles.saveBtnText}>
+                            {option.title} — {option.subtitle}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+
+                  {isAuthor && record.visibility === 'public' ? (
+                    <Pressable
                       style={styles.saveBtn}
                       onPress={() => {
                         if (!skywriteId) return;
-                        updateSkywrite(skywriteId, { visibility: option.id as Privacy });
-                        setVisibilityPickerOpen(false);
-                      }}>
+                        if (beaconResolved) {
+                          reactivateAuthorBeacon(skywriteId);
+                          return;
+                        }
+                        resolveAuthorBeacon(skywriteId);
+                      }}
+                      accessibilityLabel={
+                        beaconResolved
+                          ? SkywriteCopy.authorBeaconReopen
+                          : SkywriteCopy.authorBeaconResolved
+                      }>
                       <Text style={styles.saveBtnText}>
-                        {option.title} — {option.subtitle}
+                        {beaconResolved
+                          ? SkywriteCopy.authorBeaconReopen
+                          : SkywriteCopy.authorBeaconResolved}
                       </Text>
                     </Pressable>
-                  ))}
+                  ) : null}
                 </View>
               ) : null}
 
-              {isAuthor && record.visibility === 'public' ? (
-                <Pressable
-                  style={styles.saveBtn}
-                  onPress={() => {
-                    if (!skywriteId) return;
-                    if (beaconResolved) {
-                      reactivateAuthorBeacon(skywriteId);
-                      return;
-                    }
-                    resolveAuthorBeacon(skywriteId);
-                  }}
-                  accessibilityLabel={
-                    beaconResolved
-                      ? SkywriteCopy.authorBeaconReopen
-                      : SkywriteCopy.authorBeaconResolved
-                  }>
-                  <Text style={styles.saveBtnText}>
-                    {beaconResolved
-                      ? SkywriteCopy.authorBeaconReopen
-                      : SkywriteCopy.authorBeaconResolved}
-                  </Text>
-                </Pressable>
+              {skyInvitationReply && !isAuthor && !visitorPlaybackOnly ? (
+                <View style={styles.actionGroup}>
+                  <Text style={styles.actionGroupLabel}>Options</Text>
+                  <Pressable
+                    style={styles.saveBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Report Skywrite"
+                    onPress={() =>
+                      setReportInput({
+                        targetType: 'skywrite',
+                        targetId: record.id,
+                        targetOwnerUserId: record.authorId,
+                        skywriteId: record.id,
+                        visibilityContext: record.visibility,
+                        provenanceIds: [record.id],
+                      })
+                    }>
+                    <Text style={styles.saveBtnTextSecondary}>Report</Text>
+                  </Pressable>
+                  {canSaveThread ? (
+                    <Pressable
+                      style={styles.saveBtn}
+                      onPress={
+                        isThreadSaved(record.id) ? handleOpenSavedThread : handleSaveThread
+                      }>
+                      <Text style={styles.saveBtnTextSecondary}>
+                        {isThreadSaved(record.id)
+                          ? SkywriteCopy.openSavedThread
+                          : SkywriteCopy.saveThread}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               ) : null}
 
               {!(fromBeacon && !isAuthor) ? (

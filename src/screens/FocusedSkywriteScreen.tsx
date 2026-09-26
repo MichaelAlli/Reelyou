@@ -8,6 +8,9 @@ import { ContributionBeaconQueueSheet } from '@/components/focused-sky/Contribut
 import { FocusedSkyQuickLauncher } from '@/components/focused-sky/FocusedSkyQuickLauncher';
 import { MySkywritesIndicator } from '@/components/focused-sky/MySkywritesIndicator';
 import { MySkywritesSheet } from '@/components/focused-sky/MySkywritesSheet';
+import { PlaySkyCue } from '@/components/skywrite/PlaySkyCue';
+import { SkywriteSequenceEditorSheet } from '@/components/skywrite/SkywriteSequenceEditorSheet';
+import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
@@ -21,6 +24,11 @@ import { useOnboarding } from '@/onboarding';
 import { useContributionBeaconOverlayQueue } from '@/skywrite/beacon/useActiveContributionBeacons';
 import { consumeReturnToSkyInvitationsAfterResponse } from '@/skywrite/invitations/skyInvitationFlow';
 import { stageFocusedSkywriteComposeStars } from '@/skywrite/focusedSkyComposeSnapshot';
+import {
+  defaultFocusedSkywriteIds,
+  resolveFocusedSkyPlaySteps,
+} from '@/skywrite/play/skywritePlayLogic';
+import { useSkywritePlaySequence } from '@/skywrite/play/useSkywritePlaySequence';
 import { useSharedSky } from '@/sharedSky/useSharedSky';
 import { buildFocusedSkywriteFocusCandidates } from '@/spatialFocus/adapters/mySkyStarFocusAdapter';
 import { SpatialFocusHost } from '@/spatialFocus/SpatialFocusHost';
@@ -56,7 +64,25 @@ export function FocusedSkywriteScreen() {
   const [beaconQueueIndex, setBeaconQueueIndex] = useState(0);
   const [invitationResponseAck, setInvitationResponseAck] = useState(false);
   const [mySkywritesOpen, setMySkywritesOpen] = useState(false);
+  const [sequenceEditorOpen, setSequenceEditorOpen] = useState(false);
+  const { state: playSequenceState, updateFocusedConfig } = useSkywritePlaySequence();
   const activeContributionBeacons = useContributionBeaconOverlayQueue();
+
+  const canPlaySky = useMemo(() => {
+    const steps = resolveFocusedSkyPlaySteps(
+      mySkyView.stars,
+      skywrites,
+      playSequenceState.focusedSky,
+      playSequenceState.singleBySkywriteId,
+    );
+    return steps.length > 0;
+  }, [mySkyView.stars, playSequenceState, skywrites]);
+
+  const hasSkywriteStars = useMemo(
+    () => defaultFocusedSkywriteIds(mySkyView.stars, skywrites).length > 0,
+    [mySkyView.stars, skywrites],
+  );
+  const showPlayCue = canPlaySky;
 
   useFocusEffect(
     useCallback(() => {
@@ -102,6 +128,10 @@ export function FocusedSkywriteScreen() {
     router.push('/skywrite/compose' as never);
   }, [mySkyView.stars, router]);
 
+  const openPlaySky = useCallback(() => {
+    router.push('/skywrite/play?scope=focused' as never);
+  }, [router]);
+
   const openMySky = useCallback(() => {
     router.push('/(tabs)/sky' as never);
   }, [router]);
@@ -129,7 +159,17 @@ export function FocusedSkywriteScreen() {
         <View style={styles.header}>
           <HomeHeaderLogo />
           <Text style={styles.title}>Your Skywrite Sky</Text>
+          <Text style={styles.subtitle}>{SkywritePlayCopy.skySubtitle}</Text>
+          <Text style={styles.hint}>{SkywritePlayCopy.playHint}</Text>
         </View>
+
+        {showPlayCue ? (
+          <PlaySkyCue
+            onPress={openPlaySky}
+            showEditSequence={hasSkywriteStars}
+            onEditSequence={() => setSequenceEditorOpen(true)}
+          />
+        ) : null}
 
         <ScrollView
           style={styles.scroll}
@@ -242,6 +282,13 @@ export function FocusedSkywriteScreen() {
 
       <MySkywritesSheet visible={mySkywritesOpen} onClose={() => setMySkywritesOpen(false)} />
 
+      <SkywriteSequenceEditorSheet
+        visible={sequenceEditorOpen}
+        config={playSequenceState.focusedSky}
+        onClose={() => setSequenceEditorOpen(false)}
+        onChange={updateFocusedConfig}
+      />
+
       {arrivalOverlayActive ? (
         <View style={styles.arrivalOverlay} pointerEvents="none">
           <SkywriteToSkyTransition presentation="overlay" onComplete={handleArrivalComplete} />
@@ -279,6 +326,23 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.serif,
     fontSize: 20,
     color: '#FFF8F0',
+  },
+  subtitle: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(248,244,236,0.78)',
+    textAlign: 'center',
+    paddingHorizontal: Spacing.lg,
+  },
+  hint: {
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    lineHeight: 16,
+    color: 'rgba(248,244,236,0.52)',
+    textAlign: 'center',
+    paddingHorizontal: Spacing.lg,
+    marginTop: 2,
   },
   scroll: {
     flex: 1,
