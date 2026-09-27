@@ -87,7 +87,7 @@ function testAuthorNeverReceivesOwnBeacon() {
     authorId: 'user-michael',
     text: 'Help?',
     textStyle: 'plain',
-    media: { photo: null, audio: null },
+    media: { photo: null, video: null, audio: null },
     mediaMode: 'text',
     visibility: 'public',
     mood: null,

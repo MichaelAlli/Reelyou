@@ -26,6 +26,7 @@ import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { currentUser } from '@/data/mockData';
 import { Fonts, TabBarHeight } from '@/constants/theme';
 import { buildPublicSkyView } from '@/mySky/buildPublicSkyView';
+import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import {
   buildRippleMetricDetailView,
@@ -33,6 +34,7 @@ import {
 } from '@/legacy/buildRippleMetricDetails';
 import { resolveVisitorMetricDetailEligible } from '@/legacy/legacyViewerAccess';
 import { useSubjectRippleViewModel } from '@/legacy/useSubjectRippleViewModel';
+import { useUserAvatar } from '@/identity/UserAvatarProvider';
 import { buildVisitorProfileView } from '@/profile/buildVisitorProfileView';
 import {
   visitorLegacyRoute,
@@ -90,6 +92,7 @@ export function VisitorProfileScreen({
     blockUser,
     limitUser,
   } = useReelyouConnect();
+  const { profilePhotoDisplayUri } = useUserAvatar();
   const [safetyMenuOpen, setSafetyMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -136,6 +139,7 @@ export function VisitorProfileScreen({
     skyFollowGraph,
     skywrites,
     visitorPreview,
+    profilePhotoDisplayUri,
   ]);
 
   const metricsDetailEligible = visitorView
@@ -171,16 +175,20 @@ export function VisitorProfileScreen({
     if (!ownerId || !visitorView?.showSkyPreview) return null;
     const northStarOverride =
       visitorPreview && ownerId === currentUser.id ? northStar.originalVision : undefined;
+    const ownerSkywrites =
+      ownerId === currentUser.id ? skywrites : resolveOrbitOwnerSkywrites(ownerId);
     return buildPublicSkyView(
       ownerId,
       connectionStatus,
       undefined,
       northStarOverride,
+      ownerSkywrites,
     );
   }, [
     connectionStatus,
     northStar.originalVision,
     ownerId,
+    skywrites,
     visitorPreview,
     visitorView?.showSkyPreview,
   ]);

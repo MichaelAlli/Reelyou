@@ -1,5 +1,6 @@
 import type { ContributionRecord } from '@/contributions/contributionTypes';
 import { currentUser, orbitUsers } from '@/data/mockData';
+import { getCanonicalProfilePhotoDisplayUri } from '@/identity/canonicalUserProfilePhoto';
 import {
   deriveLivesImpacted,
   deriveImpactEventCount,
@@ -109,7 +110,7 @@ function resolveAvatar(userId: string): {
 } {
   if (userId === currentUser.id) {
     return {
-      avatarUri: currentUser.avatarUri ?? null,
+      avatarUri: getCanonicalProfilePhotoDisplayUri() ?? currentUser.avatarUri ?? null,
       avatarInitials: currentUser.avatarInitials,
       avatarColor: currentUser.avatarColor,
     };

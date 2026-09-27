@@ -1,4 +1,5 @@
 import { currentUser, orbitUsers } from '@/data/mockData';
+import { getCanonicalProfilePhotoDisplayUri } from '@/identity/canonicalUserProfilePhoto';
 import { stableSlotIndexForId } from '@/mySky/skyLayout';
 import type { SkyNodePosition } from '@/mySky/skyNodeTypes';
 
@@ -55,6 +56,7 @@ export function resolveCurrentSkyOwnerProfile(northStarVision: string): SkyOwner
     bio: currentUser.bio,
     avatarInitials: currentUser.avatarInitials,
     avatarColor: currentUser.avatarColor,
+    avatarUri: getCanonicalProfilePhotoDisplayUri(),
     northStarSummary: northStarVision.trim() || undefined,
     isSelf: true,
   };
@@ -72,7 +74,7 @@ export function resolvePublicSkyOwnerProfile(
       bio: currentUser.bio,
       avatarInitials: currentUser.avatarInitials,
       avatarColor: currentUser.avatarColor,
-      avatarUri: currentUser.avatarUri ?? null,
+      avatarUri: getCanonicalProfilePhotoDisplayUri() ?? currentUser.avatarUri ?? null,
       connectionStatus,
       isSelf: false,
     };

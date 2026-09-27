@@ -1,9 +1,7 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { MySkyVisibilityBadge } from '@/components/my-sky/MySkyVisibilityBadge';
 import type { MySkyStarDisplay } from '@/mySky/types';
-import type { SkyVisibilityLevel } from '@/mySky/skyVisibilitySettings';
 
 interface MySkyMeaningfulStarHitTargetsProps {
   stars: MySkyStarDisplay[];
@@ -36,9 +34,6 @@ function MySkyMeaningfulStarHitTargetsComponent({
             },
           ]}>
           <View style={styles.hitTarget} />
-          {!visitorMode && (star.visibility === 'private' || star.visibility === 'orbit') ? (
-            <MySkyVisibilityBadge visibility={star.visibility as SkyVisibilityLevel} compact />
-          ) : null}
         </Pressable>
       ))}
     </View>

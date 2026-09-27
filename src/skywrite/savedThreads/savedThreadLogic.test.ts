@@ -16,7 +16,7 @@ const skywrite: SkywriteRecord & { authorId: string } = {
   authorId: 'orbit-jordan',
   text: 'Help with interviews',
   textStyle: 'plain',
-  media: { photo: null, audio: null },
+  media: { photo: null, video: null, audio: null },
   mediaMode: 'text',
   visibility: 'public',
   mood: null,

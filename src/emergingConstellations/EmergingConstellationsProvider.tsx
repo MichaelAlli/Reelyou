@@ -38,6 +38,7 @@ import type {
 import {
   EMPTY_EMERGING_CONSTELLATIONS_STATE,
   loadEmergingConstellationsState,
+  mergeEmergingConstellationsPersistedState,
   saveEmergingConstellationsState,
   type EmergingConstellationsPersistedState,
 } from '@/emergingConstellations/emergingConstellationPersistence';
@@ -120,8 +121,11 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
     let mounted = true;
     void loadEmergingConstellationsState().then((loaded) => {
       if (!mounted) return;
-      setState(loaded);
-      syncCommunityMuteRegistry(loaded.memberships, currentUser.id);
+      setState((previous) => {
+        const merged = mergeEmergingConstellationsPersistedState(loaded, previous);
+        syncCommunityMuteRegistry(merged.memberships, currentUser.id);
+        return merged;
+      });
       setReady(true);
     });
     return () => {

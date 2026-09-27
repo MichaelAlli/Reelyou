@@ -1,4 +1,6 @@
 import { currentUser, orbitUsers } from '@/data/mockData';
+import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
+import type { SkywriteRecord } from '@/skywrite/types';
 import { applyPatternVisibility, applyVisibilityToNodes } from '@/mySky/applySkyNodeVisibility';
 import { EMPTY_SKY_EVOLUTION } from '@/mySky/skyEvolution';
 import { buildMySkyViewFromSources, type MySkySources } from '@/mySky/mySkyState';
@@ -49,11 +51,25 @@ function resolveNorthStarVision(userId: string): string {
   return PUBLIC_NORTH_STARS[userId]?.trim() ?? '';
 }
 
+function resolvePublicSkyOwnerSkywrites(
+  userId: string,
+  ownerSkywrites?: readonly SkywriteRecord[] | null,
+): SkywriteRecord[] {
+  if (ownerSkywrites && ownerSkywrites.length > 0) {
+    return [...ownerSkywrites];
+  }
+  if (userId === currentUser.id) {
+    return ownerSkywrites ? [...ownerSkywrites] : [];
+  }
+  return resolveOrbitOwnerSkywrites(userId);
+}
+
 export function buildPublicSkyView(
   userId: string,
   connectionStatus: SkyConnectionStatus = 'none',
   ownerVisibilitySettings?: SkyVisibilitySettings | null,
   previewNorthStarVision?: string | null,
+  ownerSkywrites?: readonly SkywriteRecord[] | null,
 ): MySkyView | null {
   const owner = resolvePublicSkyOwnerProfile(userId, connectionStatus);
   if (!owner) return null;
@@ -70,7 +86,7 @@ export function buildPublicSkyView(
 
   const sources: MySkySources = {
     northStarVision,
-    skywrites: [],
+    skywrites: resolvePublicSkyOwnerSkywrites(userId, ownerSkywrites),
     joinedCommunities: [],
     connectionActivities: [],
     participatingCommunityIds: [],

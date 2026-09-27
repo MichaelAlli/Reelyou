@@ -12,11 +12,12 @@ import {
   View,
 } from 'react-native';
 
+import { MySkyContentStarTapOverlay } from '@/components/my-sky/MySkyContentStarTapOverlay';
+import { MySkyEmergingConstellationTapLayer } from '@/components/my-sky/MySkyEmergingConstellationTapLayer';
 import { MySkyExplorableViewport } from '@/components/my-sky/MySkyExplorableViewport';
 import { MySkyBackdrop } from '@/components/my-sky/MySkyBackdrop';
 import { MySkyIdentityProfileBubble } from '@/components/my-sky/MySkyIdentityProfileBubble';
 import { MySkyIdentityStar } from '@/components/my-sky/MySkyIdentityStar';
-import { MySkyVisibilityBadge } from '@/components/my-sky/MySkyVisibilityBadge';
 import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
 import { MySkyNearbySkiesLayer } from '@/components/my-sky/MySkyNearbySkiesLayer';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
@@ -33,14 +34,15 @@ import type { SkyProximityPhase } from '@/mySky/skyProximity';
 import type { SkyOwnerProfile } from '@/mySky/skyIdentity';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
 import type { SkyNode } from '@/mySky/skyNodeTypes';
-import { resolveStarNavigation } from '@/mySky/resolveStarNavigation';
+import {
+  pushStarNavigationTarget,
+  resolveCanonicalSkywriteIdForStar,
+  resolveStarNavigation,
+} from '@/mySky/resolveStarNavigation';
 import { resolveVisitorStarNavigation } from '@/mySky/resolveVisitorStarNavigation';
 import type { MySkyLayerId } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
-import {
-  resolveSkyVisibilitySettingsForOwner,
-  type SkyVisibilityLevel,
-} from '@/mySky/skyVisibilitySettings';
+import { resolveSkyVisibilitySettingsForOwner } from '@/mySky/skyVisibilitySettings';
 import { useOnboarding } from '@/onboarding';
 import { buildMySkyStarFocusCandidates } from '@/spatialFocus/adapters/mySkyStarFocusAdapter';
 import { SpatialFocusHost } from '@/spatialFocus/SpatialFocusHost';
@@ -71,6 +73,8 @@ interface MySkyStarCanvasProps {
   constellationRevealPatternId?: string | null;
   onConstellationRevealComplete?: () => void;
   onPatternStarPress?: (star: MySkyStarDisplay) => void;
+  emergingConstellationTapEnabled?: boolean;
+  onEmergingGroupPress?: (communityId: string) => void;
   immersive?: boolean;
   showLayerControls?: boolean;
   cleanSky?: boolean;
@@ -104,6 +108,8 @@ function MySkyStarCanvasComponent({
   constellationRevealPatternId = null,
   onConstellationRevealComplete,
   onPatternStarPress,
+  emergingConstellationTapEnabled = false,
+  onEmergingGroupPress,
   immersive = false,
   showLayerControls = true,
   cleanSky = false,
@@ -126,7 +132,7 @@ function MySkyStarCanvasComponent({
   onConnect,
   spatialFocusSuspended = false,
 }: MySkyStarCanvasProps) {
-  const { stars, viewState, skyOwner, identityStar } = view;
+  const { stars, viewState, skyOwner, identityStar, nodes } = view;
   const spatialClearRef = useRef<(() => void) | null>(null);
   const registerSpatialClear = useCallback((clear: (() => void) | null) => {
     spatialClearRef.current = clear;
@@ -169,6 +175,11 @@ function MySkyStarCanvasComponent({
             borderColor: 'rgba(167, 139, 250, 0.22)',
           },
       world: {
+        flex: 1,
+        width: '100%',
+        height: '100%',
+      },
+      immersiveStack: {
         flex: 1,
         width: '100%',
         height: '100%',
@@ -356,11 +367,13 @@ function MySkyStarCanvasComponent({
             skywrites,
             joinedCommunityIds,
             guidanceActive,
+            nodes,
           });
     },
     [
       guidanceActive,
       joinedCommunityIds,
+      nodes,
       publicSkyConnectionStatus,
       publicSkyNodes,
       publicSkyOwnerId,
@@ -377,38 +390,15 @@ function MySkyStarCanvasComponent({
 
       const target = resolveNavigationTarget(star);
 
-      switch (target.kind) {
-        case 'skywrite-detail':
-          router.push(`/skywrite/${target.skywriteId}` as never);
-          return;
-        case 'skywrite-compose':
-          router.push('/skywrite/compose' as never);
-          return;
-        case 'public-sky':
-          router.push(`/public-sky?id=${target.param}` as never);
-          return;
-        case 'community-detail':
-          router.push(`/community?id=${target.communityId}` as never);
-          return;
-        case 'starpath':
-          router.push('/starpath' as never);
-          return;
-        case 'impact-tab':
-          router.push('/(tabs)/impact' as never);
-          return;
-        case 'star-detail':
-          router.push(
-            visitorMode
-              ? (`/my-sky-star/${target.nodeId}?ownerId=${publicSkyOwnerId ?? skyOwner.id}` as never)
-              : (`/my-sky-star/${target.nodeId}` as never),
-          );
-          return;
-        case 'none':
-          setMissingHint(visitorMode ? MySkyCopy.publicStarUnavailable : MySkyCopy.starMissingToast);
-          return;
-        default:
-          return;
+      if (target.kind === 'none') {
+        setMissingHint(visitorMode ? MySkyCopy.publicStarUnavailable : MySkyCopy.starMissingToast);
+        return;
       }
+      pushStarNavigationTarget(router, target, {
+        visitorMode,
+        publicSkyOwnerId,
+        skyOwnerId: skyOwner.id,
+      });
     },
     [resolveNavigationTarget, router, visitorMode, publicSkyOwnerId, skyOwner.id],
   );
@@ -448,15 +438,37 @@ function MySkyStarCanvasComponent({
     }
   }, []);
 
+  /** Same route as Focused Skywrite `focusedSkywriteImmersiveTap` / Play Sky single scope. */
+  const openImmersiveSkywriteById = useCallback(
+    (skywriteId: string) => {
+      closeInsightBubble();
+      router.push(`/skywrite/play?scope=single&id=${skywriteId}` as never);
+    },
+    [closeInsightBubble, router],
+  );
+
+  const handleContentStarTap = useCallback(
+    (star: MySkyStarDisplay) => {
+      if (star.isIdentityStar) return;
+      spatialClearRef.current?.();
+      const skywriteId = resolveCanonicalSkywriteIdForStar(star, nodes);
+      if (skywriteId) {
+        openImmersiveSkywriteById(skywriteId);
+        return;
+      }
+      openInsightForStar(star);
+    },
+    [nodes, openImmersiveSkywriteById, openInsightForStar],
+  );
+
   const handleStarPress = useCallback(
     (star: MySkyStarDisplay) => {
       if (skyGestureActive || Date.now() - lastGestureEndRef.current < 120) {
         return;
       }
-      spatialClearRef.current?.();
-      openInsightForStar(star);
+      handleContentStarTap(star);
     },
-    [openInsightForStar, skyGestureActive],
+    [handleContentStarTap, skyGestureActive],
   );
 
   const handleOwnIdentityPress = useCallback(() => {
@@ -568,6 +580,18 @@ function MySkyStarCanvasComponent({
           onConstellationRevealComplete={onConstellationRevealComplete}
         />
 
+        {emergingConstellationTapEnabled && onEmergingGroupPress ? (
+          <MySkyEmergingConstellationTapLayer
+            worldWidth={world.width}
+            worldHeight={world.height}
+            patterns={view.patterns}
+            relationships={view.relationships}
+            nodes={view.nodes}
+            interactive={emergingConstellationTapEnabled}
+            onEmergingGroupPress={(communityId) => onEmergingGroupPress(communityId)}
+          />
+        ) : null}
+
         {showNearbySkies && nearbyAnchors.length > 0 ? (
           <MySkyNearbySkiesLayer
             anchors={nearbyAnchors}
@@ -590,29 +614,24 @@ function MySkyStarCanvasComponent({
           onPress={handleOwnIdentityPress}
         />
 
-        {stars.map((star) => (
-          <Pressable
-            key={star.id}
-            accessibilityRole="button"
-            accessibilityLabel={accessibilityLabel(star)}
-            onPress={() => handleStarPress(star)}
-            style={[
-              styles.starHit,
-              {
-                left: `${star.x * 100}%`,
-                top: `${star.y * 100}%`,
-              },
-            ]}>
-            <View style={styles.hitGlow} />
-            {!visitorMode &&
-            (star.visibility === 'private' || star.visibility === 'orbit') ? (
-              <MySkyVisibilityBadge
-                visibility={star.visibility as SkyVisibilityLevel}
-                compact
-              />
-            ) : null}
-          </Pressable>
-        ))}
+        {!immersive
+          ? stars.map((star) => (
+              <Pressable
+                key={star.id}
+                accessibilityRole="button"
+                accessibilityLabel={accessibilityLabel(star)}
+                onPress={() => handleStarPress(star)}
+                style={[
+                  styles.starHit,
+                  {
+                    left: star.x * world.width,
+                    top: star.y * world.height,
+                  },
+                ]}>
+                <View style={styles.hitGlow} />
+              </Pressable>
+            ))
+          : null}
 
         <MySkyIdentityProfileBubble
           owner={activeBubbleOwner}
@@ -672,10 +691,13 @@ function MySkyStarCanvasComponent({
       constellationRevealActive,
       constellationRevealCount,
       constellationRevealPatternId,
+      emergingConstellationTapEnabled,
+      onEmergingGroupPress,
       handleConnect,
       handleJumpToSkyFromBubble,
       handleNearbyIdentityPress,
       handleOwnIdentityPress,
+      handleContentStarTap,
       handleStarPress,
       handleViewFullSky,
       handleViewProfile,
@@ -724,15 +746,34 @@ function MySkyStarCanvasComponent({
               insightOpen ||
               bubbleOpen
             }>
-            <MySkyExplorableViewport
-              initialSnapshot={viewportSnapshot}
-              jumpSnapshot={jumpSnapshot}
-              onSnapshotChange={onViewportChange}
-              onViewportLiveChange={handleFocusViewportLiveChange}
-              onWorldSizeChange={handleWorldSizeChange}
-              onGestureActiveChange={handleGestureActiveChange}
-              renderWorld={renderWorld}
-            />
+            <View style={styles.immersiveStack} pointerEvents="box-none">
+              <MySkyExplorableViewport
+                initialSnapshot={viewportSnapshot}
+                jumpSnapshot={jumpSnapshot}
+                onSnapshotChange={onViewportChange}
+                onViewportLiveChange={handleFocusViewportLiveChange}
+                onWorldSizeChange={handleWorldSizeChange}
+                onGestureActiveChange={handleGestureActiveChange}
+                renderWorld={renderWorld}
+              />
+              {viewportShell.width > 0 &&
+              viewportShell.height > 0 &&
+              worldSize.width > 0 &&
+              worldSize.height > 0 ? (
+                <MySkyContentStarTapOverlay
+                  stars={stars}
+                  layoutWidth={viewportShell.width}
+                  layoutHeight={viewportShell.height}
+                  worldWidth={worldSize.width}
+                  worldHeight={worldSize.height}
+                  viewport={focusViewport}
+                  originLeft={viewportOrigin.originLeft}
+                  originTop={viewportOrigin.originTop}
+                  accessibilityLabel={accessibilityLabel}
+                  onStarPress={handleContentStarTap}
+                />
+              ) : null}
+            </View>
           </SpatialFocusHost>
         ) : (
           <>

@@ -10,10 +10,10 @@ import {
 } from 'react';
 
 import { currentUser } from '@/data/mockData';
-import { saveUserAvatarIdentity } from '@/identity/userAvatarPersistence';
+import { useUserAvatar } from '@/identity/UserAvatarProvider';
+import { resolveProfilePhotoUri } from '@/identity/resolveProfilePhotoUri';
 import {
   DEFAULT_CUSTOM_AVATAR,
-  DEFAULT_USER_AVATAR_IDENTITY,
   type CustomAvatarConfig,
   type UserAvatarIdentity,
 } from '@/identity/userAvatarTypes';
@@ -141,6 +141,7 @@ export function StarPathExperienceProvider({
   todayFocusText?: string | null;
 }) {
   const { preferences: userPreferences, messages } = useReelyouConnect();
+  const userAvatar = useUserAvatar();
   const [ready, setReady] = useState(false);
   const [interactions, setInteractions] = useState<StarPathInteractionSnapshot>({
     version: 1,
@@ -148,7 +149,6 @@ export function StarPathExperienceProvider({
     softHighlightNodeIds: [],
     activeBranchIds: [],
   });
-  const [avatarIdentity, setAvatarIdentity] = useState<UserAvatarIdentity>(DEFAULT_USER_AVATAR_IDENTITY);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const siftingRef = useRef<StarPathSiftingState | null>(null);
   const [dynamicWorld, setDynamicWorld] = useState<StarPathDynamicWorldState>(EMPTY_DYNAMIC_WORLD);
@@ -193,7 +193,6 @@ export function StarPathExperienceProvider({
       const { bundle } = await hydrateStarPathAuthoritativeState();
       if (!mounted) return;
       setInteractions(bundle.interactions);
-      setAvatarIdentity(bundle.avatarIdentity);
       setDynamicWorld(bundle.dynamicWorld);
       setGuidanceMeta(bundle.guidance);
       guidancePersistRef.current = bundle.guidance;
@@ -249,11 +248,10 @@ export function StarPathExperienceProvider({
     [interactions.signals, userPreferences.personalizationPreferences],
   );
 
-  const scheduleSave = useCallback((next: StarPathInteractionSnapshot, avatar: UserAvatarIdentity) => {
+  const scheduleSave = useCallback((next: StarPathInteractionSnapshot) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       void saveStarPathInteractions(next);
-      void saveUserAvatarIdentity(avatar);
       scheduleManifestTouch();
     }, 280);
   }, [scheduleManifestTouch]);
@@ -574,7 +572,7 @@ export function StarPathExperienceProvider({
         }
 
         const next = { ...prev, signals, softHighlightNodeIds };
-        scheduleSave(next, avatarIdentity);
+        scheduleSave(next);
         if (type === 'explored') {
           exploreTriggerRef.current = nodeId;
           setExplorePulse((n) => n + 1);
@@ -585,7 +583,7 @@ export function StarPathExperienceProvider({
         return next;
       });
     },
-    [avatarIdentity, scheduleSave],
+    [scheduleSave],
   );
 
   const undoDismiss = useCallback(
@@ -605,65 +603,23 @@ export function StarPathExperienceProvider({
           source: 'node_detail',
         });
         const next = { ...prev, signals: appendSignalDeduped(appendSignalDeduped(prev.signals, reversed), explored) };
-        scheduleSave(next, avatarIdentity);
+        scheduleSave(next);
         return next;
       });
     },
-    [avatarIdentity, scheduleSave],
+    [scheduleSave],
   );
 
   const setProfilePhotoAvatar = useCallback(
     (uri?: string | null) => {
-      setAvatarIdentity((prev) => {
-        const next: UserAvatarIdentity = {
-          ...prev,
-          avatarSourceType: 'profilePhoto',
-          profilePhotoUri: uri ?? null,
-        };
-        scheduleSave(interactions, next);
-        return next;
-      });
+      userAvatar.setProfilePhotoUri(uri ?? null);
     },
-    [interactions, scheduleSave],
+    [userAvatar],
   );
-
-  const setPresetAvatar = useCallback(
-    (presetId: string) => {
-      setAvatarIdentity((prev) => {
-        const next: UserAvatarIdentity = {
-          ...prev,
-          avatarSourceType: 'presetAvatar',
-          avatarAssetId: presetId,
-        };
-        scheduleSave(interactions, next);
-        return next;
-      });
-    },
-    [interactions, scheduleSave],
-  );
-
-  const setCustomAvatar = useCallback(
-    (config: CustomAvatarConfig) => {
-      setAvatarIdentity((prev) => {
-        const next: UserAvatarIdentity = {
-          ...prev,
-          avatarSourceType: 'customAvatar',
-          customAvatarConfig: config,
-        };
-        scheduleSave(interactions, next);
-        return next;
-      });
-    },
-    [interactions, scheduleSave],
-  );
-
-  const useDefaultSilhouette = useCallback(() => {
-    setAvatarIdentity((prev) => {
-      const next: UserAvatarIdentity = { ...prev, avatarSourceType: 'defaultSilhouette' };
-      scheduleSave(interactions, next);
-      return next;
-    });
-  }, [interactions, scheduleSave]);
+  const setPresetAvatar = userAvatar.setPresetAvatar;
+  const setCustomAvatar = userAvatar.setCustomAvatar;
+  const useDefaultSilhouette = userAvatar.useDefaultSilhouette;
+  const avatarIdentity = userAvatar.identity;
 
   const feedbackOpportunitySignal = useCallback(
     (candidateId: string, type: StarPathInteractionType) => {
@@ -950,11 +906,7 @@ export function useStarPathExperience(): StarPathExperienceContextValue {
   return ctx;
 }
 
-/** Profile photo fallback when user selects profile source without URI yet. */
-export function resolveProfilePhotoUri(identity: UserAvatarIdentity): string | null {
-  if (identity.profilePhotoUri) return identity.profilePhotoUri;
-  return null;
-}
+export { resolveProfilePhotoUri } from '@/identity/resolveProfilePhotoUri';
 
 export function getDefaultProfilePhotoCandidate(): string | null {
   return null;

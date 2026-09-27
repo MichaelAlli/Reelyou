@@ -145,6 +145,8 @@ function MySkyExplorableViewportComponent({
 
   const pan = Gesture.Pan()
     .minDistance(MY_SKY_PAN_MIN_DISTANCE)
+    .activeOffsetX([-MY_SKY_PAN_MIN_DISTANCE, MY_SKY_PAN_MIN_DISTANCE])
+    .activeOffsetY([-MY_SKY_PAN_MIN_DISTANCE, MY_SKY_PAN_MIN_DISTANCE])
     .maxPointers(1)
     .onBegin(() => {
       panStartX.value = offsetX.value;

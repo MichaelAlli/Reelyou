@@ -13,19 +13,15 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 interface MySkyInsightOverlayProps {
-  view: Pick<MySkyView, 'constellations' | 'connections' | 'contributions' | 'evolution'>;
+  view: Pick<MySkyView, 'connections' | 'contributions' | 'evolution'>;
   visibleLayers: MySkyVisibleLayers;
   hidden?: boolean;
-  showConstellations?: boolean;
-  onPatternPress?: (patternId: string) => void;
 }
 
 function MySkyInsightOverlayComponent({
   view,
   visibleLayers,
   hidden = false,
-  showConstellations = false,
-  onPatternPress,
 }: MySkyInsightOverlayProps) {
   const [open, setOpen] = useState(false);
 
@@ -135,18 +131,16 @@ function MySkyInsightOverlayComponent({
   const showConnections = visibleLayers.connections && view.connections.length > 0;
   const showImpact = visibleLayers.impact && view.contributions.length > 0;
   const showHistory = visibleLayers.temporal;
-  const showPatterns = showConstellations && view.constellations.length > 0;
-
   const summaryLabel = useMemo(() => {
     const parts: string[] = [];
-    if (showPatterns) parts.push('Patterns');
     if (showConnections) parts.push('Connections');
     if (showImpact) parts.push('Impact');
     if (showHistory) parts.push('History');
     return parts.join(' · ');
-  }, [showConnections, showHistory, showImpact, showPatterns]);
+  }, [showConnections, showHistory, showImpact]);
 
-  const hasOverlay = showConnections || showImpact || showHistory || showPatterns;
+  /** Constellation lines render in the starfield — no bottom-left “Patterns” chip. */
+  const hasOverlay = showConnections || showImpact || showHistory;
 
   if (hidden || !hasOverlay) {
     return null;
@@ -177,23 +171,6 @@ function MySkyInsightOverlayComponent({
           </Pressable>
           <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
             <View style={styles.panelBody}>
-              {showPatterns ? (
-                <View style={styles.section}>
-                  <Text style={styles.sectionLabel}>{MySkyCopy.constellationsTitle}</Text>
-                  {view.constellations.map((pattern) => (
-                    <Pressable
-                      key={pattern.id}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Reveal constellation: ${pattern.label}`}
-                      onPress={() => onPatternPress?.(pattern.id)}
-                      style={styles.row}>
-                      <Text style={styles.rowLabel}>{pattern.label}</Text>
-                      <Text style={styles.rowNote}>{pattern.note}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-
               {showConnections ? (
                 <View style={styles.section}>
                   <Text style={styles.sectionLabel}>{MySkyCopy.connectionsTitle}</Text>

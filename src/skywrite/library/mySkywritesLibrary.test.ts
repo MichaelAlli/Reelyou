@@ -16,7 +16,7 @@ const authored: SkywriteRecord = {
   authorId: 'user-michael',
   text: 'My growth reflection',
   textStyle: 'plain',
-  media: { photo: null, audio: null },
+  media: { photo: null, video: null, audio: null },
   mediaMode: 'text',
   visibility: 'public',
   mood: null,

@@ -8,6 +8,7 @@ import { Fonts } from '@/constants/theme';
 interface OwnerProfileOptionsSheetProps {
   visible: boolean;
   onClose: () => void;
+  onShareProfile?: () => void;
   onPreviewProfile: () => void;
   onPreviewProfileConnectedSky?: () => void;
   onPreviewDemoVisitor?: () => void;
@@ -16,6 +17,7 @@ interface OwnerProfileOptionsSheetProps {
 function OwnerProfileOptionsSheetComponent({
   visible,
   onClose,
+  onShareProfile,
   onPreviewProfile,
   onPreviewProfileConnectedSky,
   onPreviewDemoVisitor,
@@ -29,6 +31,9 @@ function OwnerProfileOptionsSheetComponent({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close menu" />
       <View style={styles.sheet} testID="owner-profile-options">
+        {onShareProfile ? (
+          <MenuRow label="Share profile" hint="Visitor link" onPress={() => run(onShareProfile)} />
+        ) : null}
         <MenuRow
           label="Preview profile"
           hint="Public visitor"

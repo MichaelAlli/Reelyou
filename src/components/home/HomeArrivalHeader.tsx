@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Platform, StyleSheet, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 
 import { HomeSparkleIcon } from '@/components/home/HomeIcons';
@@ -8,12 +8,14 @@ import { HomeLayout, HomePalette, measureHomeAvatarSize } from '@/constants/home
 import { getFirstName, getTimeGreeting } from '@/constants/homeCopy';
 import { Fonts } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
+import { useUserAvatar } from '@/identity/UserAvatarProvider';
 
 interface HomeArrivalHeaderProps {
   greetingStyle?: AnimatedStyle<ViewStyle>;
   supportStyle?: AnimatedStyle<ViewStyle>;
   profileStyle?: AnimatedStyle<ViewStyle>;
   supportLine?: string;
+  onAvatarPress?: () => void;
 }
 
 function HomeArrivalHeaderComponent({
@@ -21,9 +23,12 @@ function HomeArrivalHeaderComponent({
   supportStyle,
   profileStyle,
   supportLine,
+  onAvatarPress,
 }: HomeArrivalHeaderProps) {
   const { width } = useWindowDimensions();
+  const { profilePhotoDisplayUri, profilePhotoRevision } = useUserAvatar();
   const avatarSize = measureHomeAvatarSize(width);
+  const portraitSource = profilePhotoDisplayUri ? { uri: profilePhotoDisplayUri } : undefined;
   const ringOuter = avatarSize + HomeLayout.avatarGlowPad * 2;
   const firstName = getFirstName(currentUser.name);
 
@@ -50,17 +55,31 @@ function HomeArrivalHeaderComponent({
       </View>
 
       <Animated.View style={[styles.avatarWrap, profileStyle, { width: ringOuter }]}>
-        <View style={[styles.avatarGlow, { width: ringOuter, height: ringOuter, borderRadius: ringOuter / 2 }]}>
-          <View
-            style={[
-              styles.avatar,
-              { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
-            ]}
-            accessibilityLabel={`${firstName}'s profile photo`}
-            accessibilityRole="image">
-            <HomeProfilePortrait size={avatarSize} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open profile options"
+          onPress={onAvatarPress}
+          disabled={!onAvatarPress}>
+          <View style={[styles.avatarGlow, { width: ringOuter, height: ringOuter, borderRadius: ringOuter / 2 }]}>
+            <View
+              style={[
+                styles.avatar,
+                { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
+              ]}
+              accessibilityLabel={
+                portraitSource
+                  ? `Profile picture for ${firstName}`
+                  : `${firstName}'s profile photo`
+              }
+              accessibilityRole="image">
+              <HomeProfilePortrait
+                size={avatarSize}
+                source={portraitSource}
+                recyclingKey={profilePhotoRevision}
+              />
+            </View>
           </View>
-        </View>
+        </Pressable>
       </Animated.View>
     </View>
   );

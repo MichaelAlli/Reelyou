@@ -9,6 +9,7 @@ import Animated, {
 
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { useUserAvatar } from '@/identity/UserAvatarProvider';
 import type { SkyOwnerProfile } from '@/mySky/skyIdentity';
 import type { MySkyStarDisplay } from '@/mySky/types';
 import { useThemedStyles } from '@/theme/useTheme';
@@ -36,6 +37,11 @@ function MySkyIdentityProfileBubbleComponent({
   onJumpToSky,
   onConnect,
 }: MySkyIdentityProfileBubbleProps) {
+  const { profilePhotoDisplayUri } = useUserAvatar();
+  const displayOwner =
+    owner.isSelf && profilePhotoDisplayUri
+      ? { ...owner, avatarUri: profilePhotoDisplayUri }
+      : owner;
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.92);
 
@@ -194,7 +200,7 @@ function MySkyIdentityProfileBubbleComponent({
 
   const bubbleLeft = Math.min(Math.max(anchorStar.x * 100 - 12, 4), 62);
   const bubbleTop = Math.min(Math.max(anchorStar.y * 100 - 18, 8), 72);
-  const connected = owner.connectionStatus === 'connected';
+  const connected = displayOwner.connectionStatus === 'connected';
 
   return (
     <>
@@ -207,20 +213,24 @@ function MySkyIdentityProfileBubbleComponent({
           </Pressable>
 
           <View style={styles.header}>
-            {owner.avatarUri ? (
-              <Image source={{ uri: owner.avatarUri }} style={styles.avatarImage} />
+            {displayOwner.avatarUri ? (
+              <Image
+                source={{ uri: displayOwner.avatarUri }}
+                style={styles.avatarImage}
+                accessibilityLabel={`Profile picture for ${displayOwner.name}`}
+              />
             ) : (
-              <View style={[styles.avatar, { backgroundColor: owner.avatarColor }]}>
-                <Text style={styles.avatarText}>{owner.avatarInitials}</Text>
+              <View style={[styles.avatar, { backgroundColor: displayOwner.avatarColor }]}>
+                <Text style={styles.avatarText}>{displayOwner.avatarInitials}</Text>
               </View>
             )}
             <View style={{ flex: 1 }}>
               <Text style={styles.name} numberOfLines={1}>
-                {owner.isSelf ? MySkyCopy.identityStarTitle : owner.name}
+                {displayOwner.isSelf ? MySkyCopy.identityStarTitle : displayOwner.name}
               </Text>
-              {owner.subtitle ? (
+              {displayOwner.subtitle ? (
                 <Text style={styles.subtitle} numberOfLines={1}>
-                  {owner.subtitle}
+                  {displayOwner.subtitle}
                 </Text>
               ) : null}
             </View>

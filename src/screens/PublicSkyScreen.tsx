@@ -16,6 +16,7 @@ import { resolveVisitorSkyConnectionStatus } from '@/social/skyFollow/resolveVis
 import { DEFAULT_MY_SKY_VIEWPORT, type MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
 import { resolvePublicSkyVisitorContext } from '@/mySky/resolvePublicSkyContext';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
+import { pushStarNavigationTarget, resolveStarNavigation } from '@/mySky/resolveStarNavigation';
 import type { MySkyStarDisplay } from '@/mySky/types';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
@@ -26,7 +27,7 @@ interface PublicSkyScreenProps {
 
 export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
   const router = useRouter();
-  const { aroundYourSkyFeed, communities } = useOnboarding();
+  const { aroundYourSkyFeed, communities, skywrites } = useOnboarding();
   const { canMessageUser, openOrCreateThreadWith, followedSkyUserIds, toggleFollowSky } =
     useReelyouConnect();
   const [viewport, setViewport] = useState<MySkyViewportSnapshot>({ ...DEFAULT_MY_SKY_VIEWPORT });
@@ -119,11 +120,19 @@ export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
 
   const handleConstellationStarSelect = useCallback(
     (nodeId: string) => {
-      if (!userId) return;
+      if (!userId || !publicSkyView) return;
       setConstellationDetailVisible(false);
-      router.push(`/my-sky-star/${nodeId}?ownerId=${userId}` as never);
+      const star = publicSkyView.stars.find((entry) => entry.id === nodeId);
+      if (!star) return;
+      const target = resolveStarNavigation(star, skywrites);
+      if (target.kind === 'none') return;
+      pushStarNavigationTarget(router, target, {
+        visitorMode: true,
+        publicSkyOwnerId: userId,
+        skyOwnerId: publicSkyView.skyOwner.id,
+      });
     },
-    [router, userId],
+    [publicSkyView, router, skywrites, userId],
   );
 
   if (!publicSkyView) {

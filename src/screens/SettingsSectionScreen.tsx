@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { Fonts } from '@/constants/theme';
 import type { WhoCanMessage } from '@/preferences/userPreferencesTypes';
+import { MySkyPrivacyControls } from '@/components/my-sky/MySkyPrivacyControls';
+import { MySkyCopy } from '@/constants/mySkyCopy';
 import { useOnboarding } from '@/onboarding';
 
 export function SettingsSectionScreen() {
@@ -23,7 +25,7 @@ export function SettingsSectionScreen() {
           : section === 'personalization'
             ? 'Personalization'
             : section === 'privacy'
-              ? 'Privacy & Visibility'
+              ? 'Privacy'
               : section === 'help'
                 ? 'Help & Support'
                 : 'Settings';
@@ -226,10 +228,13 @@ export function SettingsSectionScreen() {
         ) : null}
 
         {section === 'privacy' ? (
-          <Text style={styles.body}>
-            My Sky visibility: {onboarding.mySkyVisibilitySettings.skyVisibility}. Adjust visibility from My Sky
-            privacy controls.
-          </Text>
+          <>
+            <Text style={styles.body}>{MySkyCopy.privacySubtitle}</Text>
+            <MySkyPrivacyControls
+              settings={onboarding.mySkyVisibilitySettings}
+              onChange={onboarding.setMySkyVisibilitySettings}
+            />
+          </>
         ) : null}
 
         {section === 'help' ? (

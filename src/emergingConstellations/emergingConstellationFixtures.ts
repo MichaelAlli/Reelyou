@@ -39,8 +39,13 @@ export function devEmergingConstellationIfEligible(): EmergingConstellation | nu
 export function resolveEmergingConstellationById(
   constellationId?: string | null,
 ): EmergingConstellation | null {
+  const targetId = constellationId?.trim() || null;
+  // Joined members keep canonical access even when discovery/demo suggestion gates are off.
+  if (targetId === DEV_EMERGING_CONSTELLATION_ID) {
+    return DEV_EMERGING_CONSTELLATION;
+  }
   const dev = devEmergingConstellationIfEligible();
   if (!dev) return null;
-  if (constellationId && constellationId !== dev.id) return null;
-  return dev;
+  if (!targetId || targetId === dev.id) return dev;
+  return null;
 }

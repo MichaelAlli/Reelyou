@@ -2,7 +2,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
 import { SkywriteCopy } from '@/constants/skywriteCopy';
-import type { SkywriteAudioMedia, SkywritePhotoMedia } from '@/skywrite/types';
+import type { SkywriteAudioMedia, SkywritePhotoMedia, SkywriteVideoMedia } from '@/skywrite/types';
+
+/** Beta ceiling — reuse at upload boundary; production transcoding may tighten further. */
+export const SKYWRITE_VIDEO_MAX_DURATION_MS = 120_000;
 
 export type PhotoPickFailureReason = 'cancelled' | 'denied' | 'unavailable';
 
@@ -98,6 +101,140 @@ function pickPhotoWeb(useCamera: boolean): Promise<PhotoPickResult> {
         return;
       }
       resolve({ ok: true, photo: { uri: URL.createObjectURL(file) } });
+    };
+
+    input.oncancel = () => {
+      cleanup();
+      resolve({ ok: false, reason: 'cancelled' });
+    };
+
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
+export type VideoPickFailureReason = 'cancelled' | 'denied' | 'unavailable' | 'too_long' | 'unsupported';
+
+export type VideoPickResult =
+  | { ok: true; video: SkywriteVideoMedia }
+  | { ok: false; reason: VideoPickFailureReason; message?: string };
+
+function assetToVideo(asset: ImagePicker.ImagePickerAsset): SkywriteVideoMedia {
+  const durationMs =
+    typeof asset.duration === 'number' ? Math.round(asset.duration * 1000) : undefined;
+  return {
+    uri: asset.uri,
+    width: asset.width,
+    height: asset.height,
+    durationMs,
+  };
+}
+
+function validateVideoDuration(durationMs: number | undefined): VideoPickResult | null {
+  if (durationMs != null && durationMs > SKYWRITE_VIDEO_MAX_DURATION_MS) {
+    return {
+      ok: false,
+      reason: 'too_long',
+      message: SkywriteCopy.videoTooLong,
+    };
+  }
+  return null;
+}
+
+export async function pickSkywriteVideoFromLibrary(): Promise<VideoPickResult> {
+  if (Platform.OS === 'web') {
+    return pickVideoWeb(false);
+  }
+
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    return {
+      ok: false,
+      reason: 'denied',
+      message: SkywriteCopy.videoLibraryDenied,
+    };
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['videos'],
+    allowsEditing: false,
+    videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+  });
+
+  if (result.canceled || !result.assets[0]) {
+    return { ok: false, reason: 'cancelled' };
+  }
+
+  const video = assetToVideo(result.assets[0]);
+  const durationError = validateVideoDuration(video.durationMs);
+  if (durationError) return durationError;
+
+  return { ok: true, video };
+}
+
+export async function recordSkywriteVideo(): Promise<VideoPickResult> {
+  if (Platform.OS === 'web') {
+    return pickVideoWeb(true);
+  }
+
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permission.granted) {
+    return {
+      ok: false,
+      reason: 'denied',
+      message: SkywriteCopy.videoCameraDenied,
+    };
+  }
+
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['videos'],
+    videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+    videoMaxDuration: Math.floor(SKYWRITE_VIDEO_MAX_DURATION_MS / 1000),
+  });
+
+  if (result.canceled || !result.assets[0]) {
+    return { ok: false, reason: 'cancelled' };
+  }
+
+  const video = assetToVideo(result.assets[0]);
+  const durationError = validateVideoDuration(video.durationMs);
+  if (durationError) return durationError;
+
+  return { ok: true, video };
+}
+
+function pickVideoWeb(useCamera: boolean): Promise<VideoPickResult> {
+  return new Promise((resolve) => {
+    if (typeof document === 'undefined') {
+      resolve({ ok: false, reason: 'unavailable', message: SkywriteCopy.videoWebUnavailable });
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    if (useCamera) {
+      input.setAttribute('capture', 'environment');
+    }
+    input.style.display = 'none';
+
+    const cleanup = () => {
+      if (input.parentNode) document.body.removeChild(input);
+    };
+
+    input.onchange = () => {
+      const file = input.files?.[0];
+      cleanup();
+      if (!file) {
+        resolve({ ok: false, reason: 'cancelled' });
+        return;
+      }
+      if (!file.type.startsWith('video/')) {
+        resolve({ ok: false, reason: 'unsupported', message: SkywriteCopy.videoUnsupported });
+        return;
+      }
+      const uri = URL.createObjectURL(file);
+      resolve({ ok: true, video: { uri } });
     };
 
     input.oncancel = () => {

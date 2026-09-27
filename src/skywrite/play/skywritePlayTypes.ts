@@ -1,4 +1,4 @@
-export type SkywritePlayStepKind = 'text' | 'photo' | 'audio';
+export type SkywritePlayStepKind = 'text' | 'photo' | 'audio' | 'video';
 
 export interface SkywritePlayStep {
   stepId: string;

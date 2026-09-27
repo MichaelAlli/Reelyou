@@ -22,7 +22,8 @@ function SpatialFocusFloatingNavComponent({
     <View
       style={[styles.wrap, { bottom }]}
       pointerEvents="box-none"
-      accessibilityElementsHidden={false}>
+      accessibilityElementsHidden={false}
+      testID="starpath-spatial-focus-nav">
       <View style={styles.row}>
         <Pressable
           accessibilityRole="button"

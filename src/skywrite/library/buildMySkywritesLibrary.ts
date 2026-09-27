@@ -177,7 +177,7 @@ function buildSavedThreadRows(input: {
           visibility: saved.visibilitySnapshot,
           authorId: saved.originalAuthorId,
           createdAt: new Date(saved.savedAt).toISOString(),
-          media: { photo: null, audio: null },
+          media: { photo: null, video: null, audio: null },
           mediaMode: 'text',
           mood: null,
           showingUp: null,

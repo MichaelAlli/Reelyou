@@ -9,6 +9,8 @@ export const HomeCopy = {
   mySkyTitle: 'My Sky',
   mySkySupport: 'See how your journey is taking shape.',
   mySkyCta: 'View My Sky →',
+  emergingGroupsTitle: 'Emerging Groups',
+  emergingGroupsSubtitle: 'People whose journeys are beginning to align with yours.',
   growingInTitle: 'Areas You’re Growing In',
   growingInSubtitle: 'Personal growth spaces — the living story of each part of your journey.',
   growingInCta: 'Where I Live →',

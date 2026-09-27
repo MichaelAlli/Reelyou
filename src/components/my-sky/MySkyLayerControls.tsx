@@ -18,6 +18,8 @@ interface MySkyLayerControlsProps {
   constellationRevealActive?: boolean;
   compact?: boolean;
   minimal?: boolean;
+  /** Defaults to full layer strip; My Sky second row passes `MY_SKY_SECOND_ROW_LAYER_ORDER`. */
+  layerOrder?: readonly MySkyLayerId[];
 }
 
 function MySkyLayerControlsComponent({
@@ -27,6 +29,7 @@ function MySkyLayerControlsComponent({
   constellationRevealActive = false,
   compact = false,
   minimal = false,
+  layerOrder = MY_SKY_LAYER_CONTROL_ORDER,
 }: MySkyLayerControlsProps) {
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -88,7 +91,7 @@ function MySkyLayerControlsComponent({
         style={styles.scroll}
         contentContainerStyle={styles.row}
         accessibilityRole="tablist">
-        {MY_SKY_LAYER_CONTROL_ORDER.map((layer) => {
+        {layerOrder.map((layer) => {
           const isTemporary = MY_SKY_TEMPORARY_REVEAL_LAYERS.has(layer);
           const isActive = isTemporary
             ? constellationRevealActive

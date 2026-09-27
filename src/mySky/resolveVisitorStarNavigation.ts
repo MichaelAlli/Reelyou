@@ -22,8 +22,8 @@ export function resolveVisitorStarNavigation(
     return { kind: 'none', reason: 'missing-skywrite' };
   }
 
-  if (star.type === 'skywrite') {
-    return { kind: 'star-detail', nodeId: star.id };
+  if (star.type === 'skywrite' && star.sourceId) {
+    return { kind: 'skywrite-play', skywriteId: star.sourceId };
   }
 
   if (star.destination === 'community' && star.destinationParam) {

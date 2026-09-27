@@ -1,5 +1,7 @@
 import { currentUser } from '@/data/mockData';
 
+const APP_SCHEME = 'reellyou';
+
 /** Beta QA — Jordan (not the logged-in owner `user-michael`). */
 export const VISITOR_PROFILE_QA_OWNER_ID = 'orbit-jordan';
 
@@ -39,6 +41,28 @@ export function resolveVisitorPreviewAsFromParams(
   if (raw === 'connected') return 'connected';
   if (raw === 'public') return 'public';
   return undefined;
+}
+
+/**
+ * Absolute URL for sharing — visitor-safe `/visitor-profile` route (no owner preview params).
+ * Uses current web origin, optional EXPO_PUBLIC_APP_ORIGIN, or app scheme via expo-linking.
+ */
+export function buildShareableVisitorProfileUrl(
+  ownerId: string = currentUser.id,
+): string {
+  const path = buildVisitorProfileHref(ownerId);
+  const configuredOrigin = process.env.EXPO_PUBLIC_APP_ORIGIN?.replace(/\/$/, '');
+  if (configuredOrigin) {
+    return `${configuredOrigin}${path}`;
+  }
+  if (typeof globalThis !== 'undefined') {
+    const origin = (globalThis as { location?: { origin?: string } }).location?.origin;
+    if (origin && origin !== 'null') {
+      return `${origin}${path}`;
+    }
+  }
+  const normalized = path.replace(/^\//, '');
+  return `${APP_SCHEME}://${normalized}`;
 }
 
 /** Paste into Chrome during `npm run web` (default port 8090). */

@@ -1,4 +1,5 @@
 import { currentUser, impactMetrics, profileStats } from '@/data/mockData';
+import { getCanonicalProfilePhotoDisplayUri } from '@/identity/canonicalUserProfilePhoto';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 import { buildProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
@@ -10,6 +11,7 @@ export function buildOwnerProfileView(input: {
   skywrites: SkywriteRecord[];
   roleLineOverride?: string;
   bioOverride?: string;
+  avatarUriOverride?: string | null;
 }): OwnerProfileView {
   const roleLine =
     input.roleLineOverride?.trim() ||
@@ -37,7 +39,11 @@ export function buildOwnerProfileView(input: {
       name: currentUser.name,
       roleLine,
       bio: bio.startsWith('“') ? bio : `“${bio.replace(/^"|"$/g, '')}”`,
-      avatarUri: currentUser.avatarUri ?? null,
+      avatarUri:
+        input.avatarUriOverride ??
+        getCanonicalProfilePhotoDisplayUri() ??
+        currentUser.avatarUri ??
+        null,
       avatarInitials: currentUser.avatarInitials,
       avatarColor: currentUser.avatarColor,
     },

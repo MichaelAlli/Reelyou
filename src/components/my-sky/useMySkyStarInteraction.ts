@@ -6,6 +6,7 @@ import { MySkyCopy } from '@/constants/mySkyCopy';
 import { buildStarInsightBubble } from '@/mySky/buildStarInsightBubble';
 import type { SkyOwnerProfile } from '@/mySky/skyIdentity';
 import {
+  pushStarNavigationTarget,
   resolveStarNavigation,
   type StarNavigationTarget,
 } from '@/mySky/resolveStarNavigation';
@@ -28,6 +29,8 @@ export interface MySkyStarInteractionOptions {
   /** When true, skip pan/zoom debounce (Skywrite full-screen sky). */
   allowTapDuringGesture?: boolean;
   isGestureBlocked?: () => boolean;
+  /** Focused Skywrite sky only — one tap opens immersive moment (no insight preview card). */
+  focusedSkywriteImmersiveTap?: boolean;
 }
 
 export function useMySkyStarInteraction({
@@ -42,6 +45,7 @@ export function useMySkyStarInteraction({
   publicSkyOwnerId,
   allowTapDuringGesture = false,
   isGestureBlocked,
+  focusedSkywriteImmersiveTap = false,
 }: MySkyStarInteractionOptions) {
   const router = useRouter();
   const { stars, nodes, patterns, skyOwner, identityStar } = view;
@@ -88,38 +92,15 @@ export function useMySkyStarInteraction({
     (star: MySkyStarDisplay) => {
       setMissingHint(null);
       const target = resolveNavigationTarget(star);
-      switch (target.kind) {
-        case 'skywrite-detail':
-          router.push(`/skywrite/${target.skywriteId}` as never);
-          return;
-        case 'skywrite-compose':
-          router.push('/skywrite/compose' as never);
-          return;
-        case 'public-sky':
-          router.push(`/public-sky?id=${target.param}` as never);
-          return;
-        case 'community-detail':
-          router.push(`/community?id=${target.communityId}` as never);
-          return;
-        case 'starpath':
-          router.push('/starpath' as never);
-          return;
-        case 'impact-tab':
-          router.push('/(tabs)/impact' as never);
-          return;
-        case 'star-detail':
-          router.push(
-            visitorMode
-              ? (`/my-sky-star/${target.nodeId}?ownerId=${publicSkyOwnerId ?? skyOwner.id}` as never)
-              : (`/my-sky-star/${target.nodeId}` as never),
-          );
-          return;
-        case 'none':
-          setMissingHint(visitorMode ? MySkyCopy.publicStarUnavailable : MySkyCopy.starMissingToast);
-          return;
-        default:
-          return;
+      if (target.kind === 'none') {
+        setMissingHint(visitorMode ? MySkyCopy.publicStarUnavailable : MySkyCopy.starMissingToast);
+        return;
       }
+      pushStarNavigationTarget(router, target, {
+        visitorMode,
+        publicSkyOwnerId,
+        skyOwnerId: skyOwner.id,
+      });
     },
     [resolveNavigationTarget, router, visitorMode, publicSkyOwnerId, skyOwner.id],
   );
@@ -172,9 +153,33 @@ export function useMySkyStarInteraction({
   const handleStarPress = useCallback(
     (star: MySkyStarDisplay) => {
       if (!tapAllowed()) return;
+      const target = resolveNavigationTarget(star);
+      if (
+        (focusedSkywriteImmersiveTap || star.type === 'skywrite') &&
+        target.kind === 'skywrite-play'
+      ) {
+        setMissingHint(null);
+        closeInsightBubble();
+        pushStarNavigationTarget(router, target, {
+          visitorMode,
+          publicSkyOwnerId,
+          skyOwnerId: skyOwner.id,
+        });
+        return;
+      }
       openInsightForStar(star);
     },
-    [openInsightForStar, tapAllowed],
+    [
+      closeInsightBubble,
+      focusedSkywriteImmersiveTap,
+      openInsightForStar,
+      publicSkyOwnerId,
+      resolveNavigationTarget,
+      router,
+      skyOwner.id,
+      tapAllowed,
+      visitorMode,
+    ],
   );
 
   const handleOwnIdentityPress = useCallback(() => {

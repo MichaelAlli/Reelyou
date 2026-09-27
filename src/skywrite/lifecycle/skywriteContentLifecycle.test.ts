@@ -30,7 +30,11 @@ const post: SkywriteRecord & { authorId: string } = {
   authorId: 'user-michael',
   text: 'Had coffee today.',
   textStyle: 'plain',
-  media: { photo: { uri: 'file://photo.jpg', width: 100, height: 100 }, audio: null },
+  media: {
+    photo: { uri: 'file://photo.jpg', width: 100, height: 100 },
+    video: null,
+    audio: null,
+  },
   mediaMode: 'photo',
   visibility: 'public',
   mood: null,

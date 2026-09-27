@@ -18,6 +18,7 @@ assert(
   resolveSkywriteMediaPreviewKind(
     {
       photo: { uri: 'https://example.com/a.jpg' },
+      video: null,
       audio: null,
     },
     'photo',
@@ -28,6 +29,7 @@ assert(
   pickSkywriteMediaSource({
     media: {
       photo: { uri: 'https://example.com/a.jpg' },
+      video: null,
       audio: { uri: 'file://audio.m4a', durationMs: 12000 },
     },
     mediaMode: 'photo_voiceover',

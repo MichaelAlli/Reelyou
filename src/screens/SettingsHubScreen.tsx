@@ -112,13 +112,17 @@ export function SettingsHubScreen() {
         </Section>
 
         <Section title="Privacy & Safety">
-          <LinkRow label="Privacy & Visibility" onPress={() => router.push('/settings/privacy' as never)} />
+          <LinkRow label="Privacy" onPress={() => router.push('/settings/privacy' as never)} />
           <LinkRow
             label="Connected Skies"
             onPress={() => router.push('/sky-friends' as never)}
           />
           <LinkRow label="Blocked people" onPress={() => router.push('/settings/blocked' as never)} />
           <LinkRow label="Limited people" onPress={() => router.push('/settings/limited' as never)} />
+          <LinkRow
+            label="Perspectives & safety"
+            onPress={() => router.push('/settings/perspectives-safety' as never)}
+          />
         </Section>
 
         <Section title="Support">

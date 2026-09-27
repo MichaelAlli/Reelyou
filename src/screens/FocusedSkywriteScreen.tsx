@@ -243,6 +243,8 @@ export function FocusedSkywriteScreen() {
                   guidanceActive={guidanceActive}
                   showIdentityStar={index === 0}
                   allowTapDuringGesture
+                  focusedSkywriteImmersiveTap={index === 0}
+                  suppressInsightPreview={index === 0}
                   onSpatialFocusBlockingChange={
                     index === 0 ? setSpatialFocusBlocked : undefined
                   }

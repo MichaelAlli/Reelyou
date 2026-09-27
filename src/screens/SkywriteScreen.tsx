@@ -24,6 +24,7 @@ import { SkywriteTextStylePicker } from '@/components/skywrite/SkywriteTextStyle
 import { SkywriteMediaAttachments } from '@/components/skywrite/SkywriteMediaAttachments';
 import { SkywriteMediaRow } from '@/components/skywrite/SkywriteMediaRow';
 import { SkywritePhotoSourceSheet } from '@/components/skywrite/SkywritePhotoSourceSheet';
+import { SkywriteVideoSourceSheet } from '@/components/skywrite/SkywriteVideoSourceSheet';
 import { SkywriteShootingStar } from '@/components/skywrite/SkywriteShootingStar';
 import { SkywriteToggleRow } from '@/components/skywrite/SkywriteToggleRow';
 import { SkyAreaSuggestionBanner } from '@/components/skywrite/SkyAreaSuggestionBanner';
@@ -43,6 +44,7 @@ import {
 } from '@/constants/skywriteTextStyles';
 import { HomeLayout, HomePalette, measureHomeAvatarSize, measureHomePadH } from '@/constants/homeLayout';
 import { Fonts, Radius, Spacing, TabBarHeight } from '@/constants/theme';
+import { useUserAvatar } from '@/identity/UserAvatarProvider';
 import { useOnboarding } from '@/onboarding';
 import { SKYWRITE_COMPOSE_REQUIRES_CANONICAL_BOTTOM_NAV } from '@/skywrite/skywriteComposerNavPolicy';
 import { takeFocusedSkywriteComposeStars } from '@/skywrite/focusedSkyComposeSnapshot';
@@ -53,12 +55,15 @@ import {
   hasSkywriteContent,
   parseUserHashtags,
   pickSkywritePhotoFromLibrary,
+  pickSkywriteVideoFromLibrary,
+  recordSkywriteVideo,
   takeSkywritePhoto,
   useSkywriteVoice,
   type PhotoPickResult,
   type SkywriteDraft,
+  type VideoPickResult,
 } from '@/skywrite';
-import type { SkywritePhotoMedia } from '@/skywrite/types';
+import type { SkywritePhotoMedia, SkywriteVideoMedia, SkywriteVideoOriginalAudioState } from '@/skywrite/types';
 import type { Privacy } from '@/types';
 
 /** LOCKED NAV — /skywrite/compose must keep canonical BottomNav (Skywrite active). Do not remove or replace. */
@@ -90,6 +95,8 @@ export function SkywriteScreen() {
   const navContentInset = TabBarHeight + Math.max(insets.bottom, Spacing.sm);
   const avatarSize = Math.min(measureHomeAvatarSize(screenWidth), 88);
   const { createSkywrite, mySkyView, setSkyArrivalHandoff, state } = useOnboarding();
+  const { profilePhotoDisplayUri, profilePhotoRevision } = useUserAvatar();
+  const composerPortraitSource = profilePhotoDisplayUri ? { uri: profilePhotoDisplayUri } : undefined;
 
   const [draft, setDraft] = useState<SkywriteDraft>(() =>
     createEmptySkywriteDraft({
@@ -105,6 +112,7 @@ export function SkywriteScreen() {
   const [visibilityExpanded, setVisibilityExpanded] = useState(false);
   const [validationHint, setValidationHint] = useState<string | null>(null);
   const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
+  const [videoSourceOpen, setVideoSourceOpen] = useState(false);
   const [voiceCaptureOpen, setVoiceCaptureOpen] = useState(false);
   const [mediaFeedback, setMediaFeedback] = useState<string | null>(null);
   const [dismissedSuggestionKey, setDismissedSuggestionKey] = useState<string | null>(null);
@@ -114,12 +122,13 @@ export function SkywriteScreen() {
 
   const reflectionPrompt = SKYWRITE_REFLECTION_PROMPTS[promptIndex] ?? SkywriteCopy.reflectionDefault;
   const showingUpOption = SKYWRITE_SHOWING_UP_OPTIONS.find((o) => o.id === draft.showingUp);
-  const hasPhoto = Boolean(draft.media.photo);
-  const hasVoice = Boolean(draft.media.audio);
+  const hasPhoto = Boolean(draft.media.photo?.uri);
+  const hasVideo = Boolean(draft.media.video?.uri);
+  const hasVoice = Boolean(draft.media.audio?.uri);
   const canShare = hasSkywriteContent(draft);
   const mediaActions = useMemo(
-    () => getSkywriteMediaActionLabels(hasPhoto, hasVoice),
-    [hasPhoto, hasVoice],
+    () => getSkywriteMediaActionLabels(hasPhoto, hasVoice, hasVideo),
+    [hasPhoto, hasVideo, hasVoice],
   );
 
   const textStyle = draft.textStyle ?? 'plain';
@@ -177,7 +186,9 @@ export function SkywriteScreen() {
       ...current,
       media: {
         photo,
+        video: null,
         audio: current.media.audio,
+        originalVideoAudio: current.media.originalVideoAudio,
       },
     }));
     setValidationHint(null);
@@ -197,8 +208,39 @@ export function SkywriteScreen() {
     [applyPhoto],
   );
 
+  const applyVideo = useCallback((video: SkywriteVideoMedia) => {
+    setDraft((current) => ({
+      ...current,
+      media: {
+        photo: null,
+        video,
+        audio: current.media.audio,
+        originalVideoAudio: current.media.originalVideoAudio ?? 'on',
+      },
+    }));
+    setValidationHint(null);
+    setMediaFeedback(null);
+  }, []);
+
+  const handleVideoPickResult = useCallback(
+    (result: VideoPickResult) => {
+      if (result.ok) {
+        applyVideo(result.video);
+        return;
+      }
+      if (result.message) {
+        setMediaFeedback(result.message);
+      }
+    },
+    [applyVideo],
+  );
+
   const handlePhotoPress = useCallback(() => {
     setPhotoSourceOpen(true);
+  }, []);
+
+  const handleVideoPress = useCallback(() => {
+    setVideoSourceOpen(true);
   }, []);
 
   const handleChooseLibrary = useCallback(async () => {
@@ -211,12 +253,42 @@ export function SkywriteScreen() {
     handlePhotoPickResult(await takeSkywritePhoto());
   }, [handlePhotoPickResult]);
 
+  const handleChooseVideoLibrary = useCallback(async () => {
+    setVideoSourceOpen(false);
+    handleVideoPickResult(await pickSkywriteVideoFromLibrary());
+  }, [handleVideoPickResult]);
+
+  const handleRecordVideo = useCallback(async () => {
+    setVideoSourceOpen(false);
+    handleVideoPickResult(await recordSkywriteVideo());
+  }, [handleVideoPickResult]);
+
+  const cycleOriginalVideoAudio = useCallback(() => {
+    setDraft((current) => {
+      if (!current.media.video?.uri) return current;
+      const order: SkywriteVideoOriginalAudioState[] = ['on', 'lower', 'off'];
+      const currentState = current.media.originalVideoAudio ?? 'on';
+      const next = order[(order.indexOf(currentState) + 1) % order.length];
+      return {
+        ...current,
+        media: { ...current.media, originalVideoAudio: next },
+      };
+    });
+  }, []);
+
+  const originalVideoAudioLabel = useMemo(() => {
+    const state = draft.media.originalVideoAudio ?? 'on';
+    if (state === 'lower') return SkywriteCopy.videoOriginalAudioLower;
+    if (state === 'off') return SkywriteCopy.videoOriginalAudioOff;
+    return SkywriteCopy.videoOriginalAudioOn;
+  }, [draft.media.originalVideoAudio]);
+
   const handleReRecord = useCallback(async () => {
     await voice.removeAudio();
     setDraft((current) => ({
       ...current,
       media: {
-        photo: current.media.photo,
+        ...current.media,
         audio: null,
       },
     }));
@@ -237,7 +309,7 @@ export function SkywriteScreen() {
   const handleStartRecord = useCallback(async () => {
     const started = await voice.startRecording();
     if (!started) {
-      setMediaFeedback(SkywriteCopy.microphoneDenied);
+      setMediaFeedback(`${SkywriteCopy.microphoneDenied} ${SkywriteCopy.microphoneDeniedHint}`);
       setVoiceCaptureOpen(false);
     }
   }, [voice]);
@@ -249,7 +321,7 @@ export function SkywriteScreen() {
     setDraft((current) => ({
       ...current,
       media: {
-        photo: current.media.photo,
+        ...current.media,
         audio,
       },
     }));
@@ -267,8 +339,19 @@ export function SkywriteScreen() {
     setDraft((current) => ({
       ...current,
       media: {
+        ...current.media,
         photo: null,
-        audio: current.media.audio,
+      },
+    }));
+  }, []);
+
+  const handleRemoveVideo = useCallback(() => {
+    setDraft((current) => ({
+      ...current,
+      media: {
+        ...current.media,
+        video: null,
+        originalVideoAudio: undefined,
       },
     }));
   }, []);
@@ -278,7 +361,7 @@ export function SkywriteScreen() {
     setDraft((current) => ({
       ...current,
       media: {
-        photo: current.media.photo,
+        ...current.media,
         audio: null,
       },
     }));
@@ -383,7 +466,11 @@ export function SkywriteScreen() {
                     styles.avatarInner,
                     { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 },
                   ]}>
-                  <HomeProfilePortrait size={avatarSize} />
+                  <HomeProfilePortrait
+                    size={avatarSize}
+                    source={composerPortraitSource}
+                    recyclingKey={profilePhotoRevision}
+                  />
                 </View>
               </View>
             </View>
@@ -434,6 +521,7 @@ export function SkywriteScreen() {
 
                 <SkywriteMediaAttachments
                   photo={draft.media.photo}
+                  video={draft.media.video}
                   audio={draft.media.audio}
                   voiceCaptureOpen={voiceCaptureOpen}
                   isRecording={voice.isRecording}
@@ -442,6 +530,8 @@ export function SkywriteScreen() {
                   isPlaying={voice.isPlaying}
                   onReplacePhoto={handlePhotoPress}
                   onRemovePhoto={handleRemovePhoto}
+                  onReplaceVideo={handleVideoPress}
+                  onRemoveVideo={handleRemoveVideo}
                   onRecord={handleStartRecord}
                   onStopRecording={handleVoiceStop}
                   onCancelRecording={handleVoiceCancel}
@@ -452,14 +542,30 @@ export function SkywriteScreen() {
 
                 <SkywriteMediaRow
                   photoLabel={mediaActions.photoLabel}
+                  videoLabel={hasVideo ? SkywriteCopy.mediaChangeVideo : SkywriteCopy.mediaVideo}
                   voiceLabel={mediaActions.voiceLabel}
                   photoA11y={mediaActions.photoA11y}
+                  videoA11y="Add or change video"
                   voiceA11y={mediaActions.voiceA11y}
                   photoActive={hasPhoto}
+                  videoActive={hasVideo}
                   voiceActive={hasVoice}
+                  showPhoto={!hasVideo}
+                  showVideo={!hasPhoto}
                   onPhotoPress={handlePhotoPress}
+                  onVideoPress={handleVideoPress}
                   onVoicePress={handleVoicePress}
                 />
+
+                {hasVideo ? (
+                  <Pressable
+                    onPress={cycleOriginalVideoAudio}
+                    accessibilityRole="button"
+                    accessibilityLabel={originalVideoAudioLabel}
+                    style={{ marginTop: 8, minHeight: 44, justifyContent: 'center' }}>
+                    <Text style={styles.mediaFeedback}>{originalVideoAudioLabel}</Text>
+                  </Pressable>
+                ) : null}
 
                 {mediaFeedback ? <Text style={styles.mediaFeedback}>{mediaFeedback}</Text> : null}
 
@@ -649,6 +755,13 @@ export function SkywriteScreen() {
         onChooseLibrary={handleChooseLibrary}
         onTakePhoto={handleTakePhoto}
         onCancel={() => setPhotoSourceOpen(false)}
+      />
+
+      <SkywriteVideoSourceSheet
+        visible={videoSourceOpen}
+        onChooseLibrary={handleChooseVideoLibrary}
+        onRecordVideo={handleRecordVideo}
+        onCancel={() => setVideoSourceOpen(false)}
       />
 
       <BottomNav />

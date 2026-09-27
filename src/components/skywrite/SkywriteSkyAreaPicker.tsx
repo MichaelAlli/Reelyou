@@ -68,8 +68,14 @@ export function SkywriteSkyAreaPicker({ value, onChange, recentIds = [] }: Skywr
       </Pressable>
 
       <Modal visible={open} animationType="slide" transparent onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-          <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+        <View style={styles.backdrop}>
+          <Pressable
+            style={styles.backdropDismiss}
+            accessibilityRole="button"
+            accessibilityLabel="Close area picker"
+            onPress={() => setOpen(false)}
+          />
+          <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>Share this in…</Text>
             <TextInput
               value={query}
@@ -121,8 +127,8 @@ export function SkywriteSkyAreaPicker({ value, onChange, recentIds = [] }: Skywr
             <Pressable onPress={() => setOpen(false)} style={styles.done}>
               <Text style={styles.doneText}>Done</Text>
             </Pressable>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -198,7 +204,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'flex-end',
   },
+  backdropDismiss: {
+    ...StyleSheet.absoluteFill,
+  },
   sheet: {
+    zIndex: 1,
     maxHeight: '82%',
     backgroundColor: '#0C1018',
     borderTopLeftRadius: 20,

@@ -12,8 +12,11 @@ export interface SkywriteMediaActionLabels {
 }
 
 export function deriveMediaMode(media: SkywriteMedia, text: string): SkywriteMediaMode {
-  const hasPhoto = Boolean(media.photo);
-  const hasAudio = Boolean(media.audio);
+  const hasPhoto = Boolean(media.photo?.uri);
+  const hasVideo = Boolean(media.video?.uri);
+  const hasAudio = Boolean(media.audio?.uri);
+  if (hasVideo && hasAudio) return 'video_voiceover';
+  if (hasVideo) return 'video';
   if (hasPhoto && hasAudio) return 'photo_voiceover';
   if (hasPhoto) return 'photo';
   if (hasAudio) return 'voice';
@@ -25,7 +28,24 @@ export function deriveMediaMode(media: SkywriteMedia, text: string): SkywriteMed
 export function getSkywriteMediaActionLabels(
   hasPhoto: boolean,
   hasVoice: boolean,
+  hasVideo = false,
 ): SkywriteMediaActionLabels {
+  if (hasVideo && !hasVoice) {
+    return {
+      photoLabel: SkywriteCopy.mediaChangeVideo,
+      voiceLabel: SkywriteCopy.mediaAddVoiceover,
+      photoA11y: 'Change video',
+      voiceA11y: 'Add voiceover to this video',
+    };
+  }
+  if (hasVideo && hasVoice) {
+    return {
+      photoLabel: SkywriteCopy.mediaChangeVideo,
+      voiceLabel: SkywriteCopy.mediaReRecordVoiceover,
+      photoA11y: 'Change video',
+      voiceA11y: 'Re-record voiceover',
+    };
+  }
   if (!hasPhoto && !hasVoice) {
     return {
       photoLabel: SkywriteCopy.mediaPhoto,
@@ -61,8 +81,9 @@ export function getSkywriteMediaActionLabels(
 export function hasSkywriteContent(draft: Pick<SkywriteDraft, 'text' | 'media'>): boolean {
   return (
     draft.text.trim().length > 0 ||
-    Boolean(draft.media.photo) ||
-    Boolean(draft.media.audio)
+    Boolean(draft.media.photo?.uri) ||
+    Boolean(draft.media.video?.uri) ||
+    Boolean(draft.media.audio?.uri)
   );
 }
 
@@ -101,7 +122,9 @@ export function buildSkywriteRecord(
     textStyle: draft.textStyle ?? 'plain',
     media: {
       photo: draft.media.photo,
+      video: draft.media.video,
       audio: draft.media.audio,
+      originalVideoAudio: draft.media.originalVideoAudio,
     },
     mediaMode: deriveMediaMode(draft.media, text),
     visibility: draft.visibility,

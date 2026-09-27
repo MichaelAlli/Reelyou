@@ -133,7 +133,8 @@ export function deriveStarSemanticFromSkywrite(
     createdAt: record.createdAt,
     userMarkedMeaningfulGrowth: options?.userMarkedMeaningfulGrowth,
     legacyQualifiedGrowth: options?.legacyQualifiedGrowth,
-    hasVideoAttachment: options?.hasVideoAttachment,
+    hasVideoAttachment:
+      options?.hasVideoAttachment ?? Boolean(record.media.video?.uri),
   });
 }
 

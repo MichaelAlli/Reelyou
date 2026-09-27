@@ -132,7 +132,12 @@ export function resolveEffectiveNodeVisibility(
   node: { type: string; layer: string; visibility?: string },
   settings: SkyVisibilitySettings,
 ): SkyVisibilityLevel {
-  if (node.visibility === 'private' || node.visibility === 'orbit' || node.visibility === 'public') {
+  if (
+    node.visibility === 'private' ||
+    node.visibility === 'orbit' ||
+    node.visibility === 'sky_friends' ||
+    node.visibility === 'public'
+  ) {
     return node.visibility;
   }
 

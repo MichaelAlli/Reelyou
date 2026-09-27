@@ -7,7 +7,7 @@ import type {
   SkywritePlayStepKind,
 } from '@/skywrite/play/skywritePlayTypes';
 
-const STEP_KIND_ORDER: SkywritePlayStepKind[] = ['text', 'photo', 'audio'];
+const STEP_KIND_ORDER: SkywritePlayStepKind[] = ['text', 'photo', 'video', 'audio'];
 
 function stepIdFor(kind: SkywritePlayStepKind): string {
   return kind;
@@ -29,12 +29,24 @@ export function defaultStepsForSkywrite(skywrite: SkywriteRecord): SkywritePlayS
       kind: 'photo',
     });
   }
-  if (skywrite.media.audio?.uri) {
+  if (skywrite.media.video?.uri) {
     steps.push({
-      stepId: stepIdFor('audio'),
+      stepId: stepIdFor('video'),
       skywriteId: skywrite.id,
-      kind: 'audio',
+      kind: 'video',
     });
+  }
+  if (skywrite.media.audio?.uri) {
+    const videoVoiceover =
+      Boolean(skywrite.media.video?.uri) &&
+      (skywrite.mediaMode === 'video_voiceover' || skywrite.mediaMode === 'video');
+    if (!videoVoiceover) {
+      steps.push({
+        stepId: stepIdFor('audio'),
+        skywriteId: skywrite.id,
+        kind: 'audio',
+      });
+    }
   }
   if (steps.length === 0) {
     steps.push({

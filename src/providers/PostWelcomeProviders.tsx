@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { ReelyouConnectProvider } from '@/connect/ReelyouConnectProvider';
+import { UserAvatarProvider } from '@/identity/UserAvatarProvider';
 import { EmergingConstellationsProvider } from '@/emergingConstellations/EmergingConstellationsProvider';
 import { HumanPotentialMetricsProvider } from '@/humanPotential/HumanPotentialMetricsProvider';
 import { LegacyProvider } from '@/legacy/LegacyProvider';
@@ -25,6 +26,7 @@ export function PostWelcomeProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
       <OnboardingProvider>
+        <UserAvatarProvider>
         <SkyAreaPreferencesProvider>
           <SkywriteLibraryProvider>
             <SkywriteBeaconProvider>
@@ -44,6 +46,7 @@ export function PostWelcomeProviders({ children }: { children: ReactNode }) {
             </SkywriteBeaconProvider>
           </SkywriteLibraryProvider>
         </SkyAreaPreferencesProvider>
+        </UserAvatarProvider>
       </OnboardingProvider>
     </ThemeProvider>
   );

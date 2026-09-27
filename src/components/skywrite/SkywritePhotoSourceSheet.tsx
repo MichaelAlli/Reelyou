@@ -22,7 +22,13 @@ function SkywritePhotoSourceSheetComponent({
 
   return (
     <Modal animationType="fade" transparent visible={visible} onRequestClose={onCancel}>
-      <Pressable style={styles.backdrop} accessibilityRole="button" accessibilityLabel="Cancel" onPress={onCancel}>
+      <View style={styles.backdrop}>
+        <Pressable
+          style={styles.backdropDismiss}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+          onPress={onCancel}
+        />
         <View style={styles.sheet} accessibilityViewIsModal>
           <Text style={styles.title}>{SkywriteCopy.photoSourceTitle}</Text>
 
@@ -52,7 +58,7 @@ function SkywritePhotoSourceSheetComponent({
             <Text style={styles.cancelText}>{SkywriteCopy.cancel}</Text>
           </Pressable>
         </View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
@@ -66,7 +72,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     padding: 16,
   },
+  backdropDismiss: {
+    ...StyleSheet.absoluteFill,
+  },
   sheet: {
+    zIndex: 1,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(167, 139, 250, 0.28)',

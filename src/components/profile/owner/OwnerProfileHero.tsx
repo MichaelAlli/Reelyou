@@ -1,6 +1,7 @@
-import { Image } from 'expo-image';
 import { memo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { UserAvatarCircularImage } from '@/components/identity/UserAvatarCircularImage';
 
 import {
   OWNER_PROFILE_CARD_RADIUS,
@@ -10,24 +11,66 @@ import {
 import { Fonts } from '@/constants/theme';
 import type { OwnerProfileIdentity } from '@/profile/ownerProfileTypes';
 
+const OWNER_HERO_AVATAR_PX = 126;
+
 interface OwnerProfileHeroProps {
   identity: OwnerProfileIdentity;
+  onChangePhotoPress?: () => void;
+  /** Bust image cache when avatar revision changes (data URLs cannot take query params). */
+  avatarImageKey?: number;
 }
 
-function OwnerProfileHeroComponent({ identity }: OwnerProfileHeroProps) {
+function OwnerProfileHeroComponent({
+  identity,
+  onChangePhotoPress,
+  avatarImageKey = 0,
+}: OwnerProfileHeroProps) {
+  const showPhoto = Boolean(identity.avatarUri);
+
+  const photoLabel = identity.avatarUri
+    ? `Change profile picture for ${identity.name}`
+    : `Add profile picture for ${identity.name}`;
+
+  const avatarVisual = (
+    <>
+      <View style={styles.avatarGlow} />
+      <View style={styles.avatarRing}>
+        {showPhoto ? (
+          <UserAvatarCircularImage
+            uri={identity.avatarUri!}
+            size={OWNER_HERO_AVATAR_PX}
+            recyclingKey={`${avatarImageKey}-${identity.avatarUri}`}
+            accessibilityLabel={`Profile picture for ${identity.name}`}
+            style={styles.avatarImage}
+            fallback={
+              <View style={[styles.avatarFallback, { backgroundColor: identity.avatarColor }]}>
+                <Text style={styles.avatarInitials}>{identity.avatarInitials}</Text>
+              </View>
+            }
+          />
+        ) : (
+          <View style={[styles.avatarFallback, { backgroundColor: identity.avatarColor }]}>
+            <Text style={styles.avatarInitials}>{identity.avatarInitials}</Text>
+          </View>
+        )}
+      </View>
+    </>
+  );
+
   return (
     <View style={styles.row}>
       <View style={styles.avatarWrap}>
-        <View style={styles.avatarGlow} />
-        <View style={styles.avatarRing}>
-          {identity.avatarUri ? (
-            <Image source={{ uri: identity.avatarUri }} style={styles.avatarImage} contentFit="cover" />
-          ) : (
-            <View style={[styles.avatarFallback, { backgroundColor: identity.avatarColor }]}>
-              <Text style={styles.avatarInitials}>{identity.avatarInitials}</Text>
-            </View>
-          )}
-        </View>
+        {onChangePhotoPress ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={photoLabel}
+            onPress={onChangePhotoPress}
+            style={styles.avatarPress}>
+            {avatarVisual}
+          </Pressable>
+        ) : (
+          avatarVisual
+        )}
       </View>
 
       <View style={styles.identityCard}>
@@ -61,6 +104,10 @@ const styles = StyleSheet.create({
   },
   avatarWrap: {
     width: 132,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarPress: {
     alignItems: 'center',
     justifyContent: 'center',
   },

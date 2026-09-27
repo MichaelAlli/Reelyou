@@ -16,6 +16,8 @@ interface MySkyStarInteractionOverlayProps extends MySkyStarInteractionOptions {
   layoutWidth: number;
   layoutHeight: number;
   showIdentityStar?: boolean;
+  /** Focused Skywrite sky — never show the insight preview card. */
+  suppressInsightPreview?: boolean;
   onSpatialFocusBlockingChange?: (blocking: boolean) => void;
 }
 
@@ -43,6 +45,7 @@ function MySkyStarInteractionOverlayComponent({
   layoutWidth,
   layoutHeight,
   showIdentityStar = true,
+  suppressInsightPreview = false,
   onSpatialFocusBlockingChange,
   ...interactionOptions
 }: MySkyStarInteractionOverlayProps) {
@@ -118,13 +121,15 @@ function MySkyStarInteractionOverlayComponent({
         onViewProfile={handleViewProfile}
       />
 
-      <MySkyStarInsightBubble
-        star={insightStar}
-        detail={insightDetail}
-        visible={insightOpen}
-        onClose={closeInsightBubble}
-        onOpenDetail={insightActionAvailable ? handleOpenInsightDetail : undefined}
-      />
+      {!suppressInsightPreview ? (
+        <MySkyStarInsightBubble
+          star={insightStar}
+          detail={insightDetail}
+          visible={insightOpen}
+          onClose={closeInsightBubble}
+          onOpenDetail={insightActionAvailable ? handleOpenInsightDetail : undefined}
+        />
+      ) : null}
 
       {missingHint ? (
         <View style={styles.missingHintWrap} pointerEvents="none">

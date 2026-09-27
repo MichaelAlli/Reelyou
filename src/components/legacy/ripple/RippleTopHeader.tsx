@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { RippleHeaderLogo } from '@/components/legacy/ripple/RippleHeaderLogo';
 import { rippleGlass } from '@/components/legacy/ripple/rippleGlass';
-import { currentUser } from '@/data/mockData';
+import { useUserAvatar } from '@/identity/UserAvatarProvider';
 
 interface RippleTopHeaderProps {
   onBack: () => void;
@@ -12,6 +12,7 @@ interface RippleTopHeaderProps {
 }
 
 export function RippleTopHeader({ onBack, onOpenInfo }: RippleTopHeaderProps) {
+  const { profilePhotoDisplayUri } = useUserAvatar();
   return (
     <View style={styles.row}>
       <Pressable
@@ -41,8 +42,13 @@ export function RippleTopHeader({ onBack, onOpenInfo }: RippleTopHeaderProps) {
             tintColor="#4A5568"
           />
         </Pressable>
-        {currentUser.avatarUri ? (
-          <Image source={{ uri: currentUser.avatarUri }} style={styles.avatar} contentFit="cover" />
+        {profilePhotoDisplayUri ? (
+          <Image
+            source={{ uri: profilePhotoDisplayUri }}
+            style={styles.avatar}
+            contentFit="cover"
+            accessibilityLabel="Your profile picture"
+          />
         ) : null}
       </View>
     </View>

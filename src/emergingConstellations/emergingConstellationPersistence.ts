@@ -43,6 +43,62 @@ export async function loadEmergingConstellationsState(): Promise<EmergingConstel
   }
 }
 
+function membershipKey(entry: CommunityMembership): string {
+  return `${entry.userId}:${entry.communityId}`;
+}
+
+/** Prefer in-session joins when async hydration races a fresh join. */
+export function mergeEmergingConstellationsPersistedState(
+  loaded: EmergingConstellationsPersistedState,
+  active: EmergingConstellationsPersistedState,
+): EmergingConstellationsPersistedState {
+  if (active.memberships.length === 0) {
+    return { ...EMPTY_EMERGING_CONSTELLATIONS_STATE, ...loaded };
+  }
+
+  const mergedMemberships = new Map<string, CommunityMembership>();
+  for (const entry of loaded.memberships) {
+    mergedMemberships.set(membershipKey(entry), entry);
+  }
+  for (const entry of active.memberships) {
+    const key = membershipKey(entry);
+    const existing = mergedMemberships.get(key);
+    if (!existing) {
+      mergedMemberships.set(key, entry);
+      continue;
+    }
+    if (entry.status === 'joined' && existing.status !== 'joined') {
+      mergedMemberships.set(key, entry);
+      continue;
+    }
+    if ((entry.joinedAt ?? 0) > (existing.joinedAt ?? 0)) {
+      mergedMemberships.set(key, entry);
+    }
+  }
+
+  return {
+    ...EMPTY_EMERGING_CONSTELLATIONS_STATE,
+    ...loaded,
+    memberships: [...mergedMemberships.values()],
+    postsByCommunity: {
+      ...loaded.postsByCommunity,
+      ...active.postsByCommunity,
+    },
+    repliesByPost: {
+      ...loaded.repliesByPost,
+      ...active.repliesByPost,
+    },
+    encouragements:
+      active.encouragements.length > 0 ? active.encouragements : loaded.encouragements,
+    fixturesSeededForCommunityIds: [
+      ...new Set([
+        ...loaded.fixturesSeededForCommunityIds,
+        ...active.fixturesSeededForCommunityIds,
+      ]),
+    ],
+  };
+}
+
 export async function saveEmergingConstellationsState(
   state: EmergingConstellationsPersistedState,
 ): Promise<void> {

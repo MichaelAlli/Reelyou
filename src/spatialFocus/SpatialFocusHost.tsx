@@ -32,6 +32,7 @@ interface SpatialFocusHostProps {
   showFloatingNav?: boolean;
   floatingNavBottom?: number;
   onRegisterClear?: (clear: (() => void) | null) => void;
+  onSelectionChange?: (selectedId: string | null) => void;
 }
 
 function SpatialFocusHostComponent({
@@ -47,6 +48,7 @@ function SpatialFocusHostComponent({
   showFloatingNav = false,
   floatingNavBottom = 96,
   onRegisterClear,
+  onSelectionChange,
 }: SpatialFocusHostProps) {
   const layout = useMemo(
     () => ({ width: layoutWidth, height: layoutHeight }),
@@ -88,6 +90,10 @@ function SpatialFocusHostComponent({
     onRegisterClear(clearFocus);
     return () => onRegisterClear(null);
   }, [clearFocus, onRegisterClear]);
+
+  useEffect(() => {
+    onSelectionChange?.(selectedCandidate?.id ?? null);
+  }, [onSelectionChange, selectedCandidate?.id]);
 
   const dismissHint = useCallback(() => {
     setHintVisible(false);

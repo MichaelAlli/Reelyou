@@ -115,6 +115,8 @@ export interface SkyPattern {
   nodeIds: string[];
   label?: string;
   note?: string;
+  /** Canonical Emerging Group id when this pattern represents an Emerging Constellation. */
+  emergingCommunityId?: string;
   /** Optional constellation-level visibility — inherited from owner settings. */
   visibility?: string;
   source: 'explicit' | 'inferred';

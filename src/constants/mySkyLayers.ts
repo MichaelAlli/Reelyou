@@ -24,6 +24,9 @@ export const MY_SKY_LAYER_CONTROL_ORDER: MySkyLayerId[] = [
   'temporal',
 ];
 
+/** My Sky second row — Stars only; joined access is the Groups chip (not Constellations/Communities). */
+export const MY_SKY_SECOND_ROW_LAYER_ORDER: MySkyLayerId[] = ['stars'];
+
 /** Constellations use temporary reveal — not a sticky toggle. */
 export const MY_SKY_TEMPORARY_REVEAL_LAYERS: ReadonlySet<MySkyLayerId> = new Set(['constellations']);
 

@@ -1,3 +1,4 @@
+import { SymbolView } from 'expo-symbols';
 import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,7 +29,14 @@ function OwnerProfileTopChromeComponent({
       <OwnerProfileChromeButton accessibilityLabel="Go back" onPress={onBack} glyph="←" />
       {variant === 'owner' ? (
         <View style={styles.rightCluster}>
-          <OwnerProfileChromeButton accessibilityLabel="Share profile" onPress={onShare} glyph="↗" />
+          <OwnerProfileChromeButton accessibilityLabel="Share profile" onPress={onShare}>
+            <SymbolView
+              name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }}
+              size={17}
+              tintColor="#F8F4EC"
+              weight="medium"
+            />
+          </OwnerProfileChromeButton>
           <OwnerProfileChromeButton accessibilityLabel="More options" onPress={onOverflow} glyph="⋮" />
         </View>
       ) : onVisitorOverflow ? (

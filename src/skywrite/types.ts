@@ -4,12 +4,27 @@ import type { SkywriteTextStyleId } from '@/constants/skywriteTextStyles';
 import type { SkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import type { Mood, Privacy } from '@/types';
 
-export type SkywriteMediaMode = 'text' | 'photo' | 'voice' | 'photo_voiceover';
+export type SkywriteMediaMode =
+  | 'text'
+  | 'photo'
+  | 'voice'
+  | 'photo_voiceover'
+  | 'video'
+  | 'video_voiceover';
+
+export type SkywriteVideoOriginalAudioState = 'on' | 'lower' | 'off';
 
 export interface SkywritePhotoMedia {
   uri: string;
   width?: number;
   height?: number;
+}
+
+export interface SkywriteVideoMedia {
+  uri: string;
+  width?: number;
+  height?: number;
+  durationMs?: number;
 }
 
 export interface SkywriteAudioMedia {
@@ -19,7 +34,10 @@ export interface SkywriteAudioMedia {
 
 export interface SkywriteMedia {
   photo: SkywritePhotoMedia | null;
+  video: SkywriteVideoMedia | null;
   audio: SkywriteAudioMedia | null;
+  /** Beta: how original video audio mixes with a recorded voiceover. */
+  originalVideoAudio?: SkywriteVideoOriginalAudioState;
 }
 
 /** User-authored Skywrite — explicit hashtags stored separately from inferred themes. */
@@ -68,6 +86,7 @@ export interface SkywritesState {
 
 export const EMPTY_SKYWRITE_MEDIA: SkywriteMedia = {
   photo: null,
+  video: null,
   audio: null,
 };
 

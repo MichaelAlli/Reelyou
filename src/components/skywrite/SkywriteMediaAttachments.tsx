@@ -5,10 +5,11 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 import { SkywriteVoiceCapture } from '@/components/skywrite/SkywriteVoiceCapture';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
-import type { SkywriteAudioMedia, SkywritePhotoMedia } from '@/skywrite/types';
+import type { SkywriteAudioMedia, SkywritePhotoMedia, SkywriteVideoMedia } from '@/skywrite/types';
 
 interface SkywriteMediaAttachmentsProps {
   photo: SkywritePhotoMedia | null;
+  video?: SkywriteVideoMedia | null;
   audio: SkywriteAudioMedia | null;
   voiceCaptureOpen: boolean;
   isRecording: boolean;
@@ -17,6 +18,8 @@ interface SkywriteMediaAttachmentsProps {
   isPlaying: boolean;
   onReplacePhoto: () => void;
   onRemovePhoto: () => void;
+  onReplaceVideo?: () => void;
+  onRemoveVideo?: () => void;
   onRecord: () => void;
   onStopRecording: () => void;
   onCancelRecording: () => void;
@@ -27,6 +30,7 @@ interface SkywriteMediaAttachmentsProps {
 
 function SkywriteMediaAttachmentsComponent({
   photo,
+  video = null,
   audio,
   voiceCaptureOpen,
   isRecording,
@@ -35,6 +39,8 @@ function SkywriteMediaAttachmentsComponent({
   isPlaying,
   onReplacePhoto,
   onRemovePhoto,
+  onReplaceVideo,
+  onRemoveVideo,
   onRecord,
   onStopRecording,
   onCancelRecording,
@@ -44,7 +50,7 @@ function SkywriteMediaAttachmentsComponent({
 }: SkywriteMediaAttachmentsProps) {
   const { width: screenWidth } = useWindowDimensions();
   const previewWidth = Math.min(screenWidth - 80, 320);
-  const isVoiceover = Boolean(photo);
+  const isVoiceover = Boolean(photo || video);
 
   const photoAspect =
     photo?.width && photo?.height && photo.height > 0 ? photo.width / photo.height : 1;
@@ -52,10 +58,43 @@ function SkywriteMediaAttachmentsComponent({
 
   const voiceMode = audio ? 'playback' : isRecording ? 'recording' : voiceCaptureOpen ? 'idle' : null;
 
-  if (!photo && !audio && !voiceMode) return null;
+  if (!photo && !video && !audio && !voiceMode) return null;
 
   return (
     <View style={styles.wrap}>
+      {video ? (
+        <View style={[styles.photoBlock, { width: previewWidth }]}>
+          <View style={styles.photoFrame}>
+            <Text style={styles.videoLabel}>Video attached</Text>
+            {video.durationMs ? (
+              <Text style={styles.videoMeta}>
+                {Math.max(1, Math.round((video.durationMs ?? 0) / 1000))}s
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.photoActions}>
+            {onReplaceVideo ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Replace video"
+                onPress={onReplaceVideo}
+                style={styles.photoAction}>
+                <Text style={styles.photoActionText}>Replace</Text>
+              </Pressable>
+            ) : null}
+            {onRemoveVideo ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Remove video"
+                onPress={onRemoveVideo}
+                style={styles.photoAction}>
+                <Text style={styles.photoActionText}>Remove</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+
       {photo ? (
         <View style={[styles.photoBlock, { width: previewWidth }]}>
           <View style={styles.photoFrame}>
@@ -146,5 +185,19 @@ const styles = StyleSheet.create({
   },
   voiceWrapFull: {
     alignSelf: 'stretch',
+  },
+  videoLabel: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    fontWeight: '600',
+    color: HomePalette.textPrimary,
+    padding: 16,
+  },
+  videoMeta: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: 'rgba(235, 228, 248, 0.65)',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
 });

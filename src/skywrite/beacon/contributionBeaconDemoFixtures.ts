@@ -85,7 +85,7 @@ export function buildDemoContributionBeaconSkywrites(): Array<SkywriteRecord & {
           ? `Demo beacon ${i + 1}: What has helped you in ${skyAreaId.replace('-', ' ')} lately?`
           : `Demo beacon ${i + 1}: Looking for perspective on a ${skyAreaId.replace('-', ' ')} crossroad.`,
       textStyle: 'plain',
-      media: { photo: null, audio: null },
+      media: { photo: null, video: null, audio: null },
       mediaMode: 'text',
       visibility: 'public',
       mood: 'reflective',

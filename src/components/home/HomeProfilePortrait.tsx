@@ -1,28 +1,19 @@
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo } from 'react';
 import { StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import Svg, { Defs, Ellipse, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
 
+import { UserAvatarCircularImage } from '@/components/identity/UserAvatarCircularImage';
+
 interface HomeProfilePortraitProps {
   size: number;
   /** When a real portrait asset exists, pass it here — ring/crop treatment stays the same. */
   source?: ImageSourcePropType;
+  recyclingKey?: string | number;
 }
 
 /** Premium portrait placeholder — sunset silhouette until a real photo is wired in. */
-function HomeProfilePortraitComponent({ size, source }: HomeProfilePortraitProps) {
-  if (source) {
-    return (
-      <Image
-        source={source}
-        style={{ width: size, height: size, borderRadius: size / 2 }}
-        contentFit="cover"
-        contentPosition="center"
-      />
-    );
-  }
-
+function HomeProfilePortraitPlaceholder({ size }: { size: number }) {
   return (
     <View style={[styles.wrap, { width: size, height: size, borderRadius: size / 2 }]}>
       <LinearGradient
@@ -54,6 +45,35 @@ function HomeProfilePortraitComponent({ size, source }: HomeProfilePortraitProps
       />
     </View>
   );
+}
+
+function resolvePortraitUri(source: ImageSourcePropType): string | null {
+  if (typeof source === 'object' && source !== null && 'uri' in source) {
+    const uri = source.uri;
+    return typeof uri === 'string' && uri.length > 0 ? uri : null;
+  }
+  return null;
+}
+
+function HomeProfilePortraitComponent({ size, source, recyclingKey }: HomeProfilePortraitProps) {
+  const uri = source ? resolvePortraitUri(source) : null;
+  if (uri) {
+    return (
+      <UserAvatarCircularImage
+        uri={uri}
+        size={size}
+        recyclingKey={recyclingKey}
+        accessibilityLabel="Your profile picture"
+        fallback={<HomeProfilePortraitPlaceholder size={size} />}
+      />
+    );
+  }
+
+  if (source) {
+    return <HomeProfilePortraitPlaceholder size={size} />;
+  }
+
+  return <HomeProfilePortraitPlaceholder size={size} />;
 }
 
 export const HomeProfilePortrait = memo(HomeProfilePortraitComponent);

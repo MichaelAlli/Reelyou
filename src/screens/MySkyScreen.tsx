@@ -12,12 +12,15 @@ import { MySkyControlRow } from '@/components/my-sky/MySkyControlRow';
 import { MySkyInsightOverlay } from '@/components/my-sky/MySkyInsightOverlay';
 import { MySkyLayerControls } from '@/components/my-sky/MySkyLayerControls';
 import { MySkyProximityCue } from '@/components/my-sky/MySkyProximityCue';
-import { PrivacyGlyph } from '@/components/my-sky/MySkyControlIcons';
-import { MySkyControlColors } from '@/components/my-sky/mySkyControlColors';
-import { MySkyLabeledControl } from '@/components/my-sky/MySkyLabeledControl';
-import { MySkyPrivacySheet } from '@/components/my-sky/MySkyPrivacySheet';
+import { MySkyConstellationsCoachmark } from '@/components/my-sky/MySkyConstellationsCoachmark';
+import { MySkyConstellationsControl } from '@/components/my-sky/MySkyConstellationsControl';
+import { MySkyJoinedGroupsCoachmark } from '@/components/my-sky/MySkyJoinedGroupsCoachmark';
+import { MySkyJoinedGroupsControl } from '@/components/my-sky/MySkyJoinedGroupsControl';
+import { MySkyJoinedGroupsSheet } from '@/components/my-sky/MySkyJoinedGroupsSheet';
+import { buildMySkyConstellationFormations } from '@/emergingConstellations/buildMySkyConstellationFormations';
 import { MySkySearchSheet } from '@/components/my-sky/MySkySearchSheet';
 import { MySkyStarCanvas } from '@/components/my-sky/MySkyStarCanvas';
+import { MY_SKY_SECOND_ROW_LAYER_ORDER } from '@/constants/mySkyLayers';
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import { HomePalette } from '@/constants/homeLayout';
 import { SkyArrivalCopy } from '@/constants/skyArrivalCopy';
@@ -26,7 +29,23 @@ import {
   buildConstellationDetailView,
   type ConstellationDetailView,
 } from '@/mySky/buildConstellationDetailView';
-import { findPatternForNodeId } from '@/mySky/buildConstellationIntelligence';
+import {
+  findPatternById,
+  findPatternForNodeId,
+} from '@/mySky/buildConstellationIntelligence';
+import { augmentMySkyEmergingConstellation } from '@/emergingConstellations/augmentMySkyEmergingConstellation';
+import { devEmergingConstellationIfEligible } from '@/emergingConstellations/emergingConstellationFixtures';
+import { isEmergingConstellationDiscoveryEligible } from '@/emergingConstellations/emergingConstellationDiscoveryEligibility';
+import { useEmergingConstellations } from '@/emergingConstellations/EmergingConstellationsProvider';
+import { anyJoinedGroupHasUnseenActivity } from '@/emergingConstellations/joinedGroupActivityPresentation';
+import {
+  loadJoinedGroupsNavigationPreference,
+  saveJoinedGroupsNavigationPreference,
+  type JoinedGroupsNavigationPreference,
+  EMPTY_JOINED_GROUPS_NAV_PREFERENCE,
+} from '@/emergingConstellations/joinedGroupsNavigationPreference';
+import { listJoinedEmergingConstellations } from '@/emergingConstellations/listJoinedEmergingConstellations';
+import { resolveEmergingConstellationRoute } from '@/emergingConstellations/resolveEmergingConstellationRoute';
 import {
   buildNearbySkies,
   resolveJumpAnchor,
@@ -34,7 +53,7 @@ import {
 } from '@/mySky/buildNearbySkies';
 import { buildSkySearchResults } from '@/mySky/skySearchSources';
 import { computeSkyRegionContext } from '@/mySky/skyRegionContext';
-import { resolveStarNavigation } from '@/mySky/resolveStarNavigation';
+import { pushStarNavigationTarget, resolveStarNavigation } from '@/mySky/resolveStarNavigation';
 import type { MySkyStarDisplay } from '@/mySky/types';
 import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
 import { computeSkyProximity, viewportSnapshotForWorldPoint } from '@/mySky/skyProximity';
@@ -48,7 +67,9 @@ import { useOnboarding } from '@/onboarding';
 
 export function MySkyScreen() {
   const router = useRouter();
-  const { preferences } = useReelyouConnect();
+  const { preferences, signals, signalsMeta, presentHomeSignal } = useReelyouConnect();
+  const { activeSuggestion, membershipFor, joinedMemberships, resolveConstellation } =
+    useEmergingConstellations();
   const {
     mySkyView,
     toggleMySkyLayer,
@@ -57,6 +78,7 @@ export function MySkyScreen() {
     constellationRevealActive,
     constellationRevealPatternId,
     completeConstellationReveal,
+    setMySkyLayerVisible,
     mySkyViewport,
     setMySkyViewport,
     mySkyExploreEnabled,
@@ -65,15 +87,163 @@ export function MySkyScreen() {
     communities,
     skywrites,
     guidingLightView,
-    mySkyVisibilitySettings,
-    setMySkyVisibilitySettings,
   } = useOnboarding();
-  const { visibleLayers } = mySkyView.viewState;
-  const northStarText = mySkyView.northStar.originalVision.trim();
 
   const [cleanSkyActive, setCleanSkyActive] = useState(false);
-  const [privacyVisible, setPrivacyVisible] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
+  const [joinedGroupsSheetVisible, setJoinedGroupsSheetVisible] = useState(false);
+  const [constellationSkyViewActive, setConstellationSkyViewActive] = useState(false);
+  const [constellationEmptyHintVisible, setConstellationEmptyHintVisible] = useState(false);
+  const [joinedGroupsNavPref, setJoinedGroupsNavPref] =
+    useState<JoinedGroupsNavigationPreference>(EMPTY_JOINED_GROUPS_NAV_PREFERENCE);
+  const [joinedGroupsNavReady, setJoinedGroupsNavReady] = useState(false);
+
+  const emergingSkyCommunityId = useMemo(() => {
+    if (!isEmergingConstellationDiscoveryEligible(preferences)) return null;
+    const canonical = devEmergingConstellationIfEligible();
+    if (!canonical) return null;
+    if (activeSuggestion?.id === canonical.id) return canonical.id;
+    const joined = joinedMemberships.some(
+      (entry) => entry.communityId === canonical.id && entry.status === 'joined',
+    );
+    return joined ? canonical.id : null;
+  }, [activeSuggestion, joinedMemberships, preferences]);
+
+  const displayMySkyView = useMemo(
+    () => augmentMySkyEmergingConstellation(mySkyView, emergingSkyCommunityId),
+    [emergingSkyCommunityId, mySkyView],
+  );
+
+  const { visibleLayers } = displayMySkyView.viewState;
+  const northStarText = displayMySkyView.northStar.originalVision.trim();
+
+  /** Same canonical joined list as EmergingConstellationScreen / provider `joinedMemberships`. */
+  const joinedEmergingGroups = useMemo(
+    () => listJoinedEmergingConstellations(joinedMemberships, resolveConstellation),
+    [joinedMemberships, resolveConstellation],
+  );
+
+  const joinedEmergingGroupIds = useMemo(
+    () => joinedEmergingGroups.map((group) => group.id),
+    [joinedEmergingGroups],
+  );
+
+  const constellationFormations = useMemo(
+    () =>
+      buildMySkyConstellationFormations(
+        activeSuggestion,
+        joinedMemberships,
+        resolveConstellation,
+      ),
+    [activeSuggestion, joinedMemberships, resolveConstellation],
+  );
+
+  const hasJoinedEmergingGroups = joinedMemberships.some((entry) => entry.status === 'joined');
+
+  const joinedGroupsActivityHint = useMemo(
+    () => anyJoinedGroupHasUnseenActivity(joinedEmergingGroupIds, signals, signalsMeta),
+    [joinedEmergingGroupIds, signals, signalsMeta],
+  );
+
+  const showJoinedGroupsCoachmark =
+    hasJoinedEmergingGroups &&
+    joinedGroupsNavReady &&
+    !joinedGroupsNavPref.hasSeenCoachmark &&
+    !cleanSkyActive;
+
+  const showConstellationsCoachmark =
+    joinedGroupsNavReady &&
+    !joinedGroupsNavPref.hasSeenConstellationsCoachmark &&
+    !cleanSkyActive;
+
+  useEffect(() => {
+    let live = true;
+    void loadJoinedGroupsNavigationPreference().then((loaded) => {
+      if (live) {
+        setJoinedGroupsNavPref(loaded);
+        setJoinedGroupsNavReady(true);
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const persistJoinedGroupsNavPref = useCallback((next: JoinedGroupsNavigationPreference) => {
+    setJoinedGroupsNavPref(next);
+    void saveJoinedGroupsNavigationPreference(next);
+  }, []);
+
+  const dismissJoinedGroupsCoachmark = useCallback(() => {
+    if (joinedGroupsNavPref.hasSeenCoachmark) return;
+    persistJoinedGroupsNavPref({ ...joinedGroupsNavPref, hasSeenCoachmark: true });
+  }, [joinedGroupsNavPref, persistJoinedGroupsNavPref]);
+
+  const openJoinedGroupsSheet = useCallback(() => {
+    dismissJoinedGroupsCoachmark();
+    const openCount = joinedGroupsNavPref.openCount + 1;
+    persistJoinedGroupsNavPref({
+      ...joinedGroupsNavPref,
+      hasSeenCoachmark: true,
+      openCount,
+      compactModeEligible: openCount >= 3,
+    });
+    setJoinedGroupsSheetVisible(true);
+  }, [dismissJoinedGroupsCoachmark, joinedGroupsNavPref, persistJoinedGroupsNavPref]);
+
+  const closeJoinedGroupsSheet = useCallback(() => {
+    setJoinedGroupsSheetVisible(false);
+  }, []);
+
+  const dismissConstellationsCoachmark = useCallback(() => {
+    if (joinedGroupsNavPref.hasSeenConstellationsCoachmark) return;
+    persistJoinedGroupsNavPref({
+      ...joinedGroupsNavPref,
+      hasSeenConstellationsCoachmark: true,
+    });
+  }, [joinedGroupsNavPref, persistJoinedGroupsNavPref]);
+
+  const toggleConstellationSkyView = useCallback(() => {
+    dismissConstellationsCoachmark();
+    setConstellationSkyViewActive((previous) => !previous);
+  }, [dismissConstellationsCoachmark]);
+
+  useEffect(() => {
+    setMySkyLayerVisible('constellations', constellationSkyViewActive);
+  }, [constellationSkyViewActive, setMySkyLayerVisible]);
+
+  useEffect(() => {
+    if (!constellationSkyViewActive) {
+      setConstellationEmptyHintVisible(false);
+      return;
+    }
+    if (constellationFormations.length === 0) {
+      setConstellationEmptyHintVisible(true);
+      return;
+    }
+    setConstellationEmptyHintVisible(false);
+  }, [constellationFormations.length, constellationSkyViewActive]);
+
+  useEffect(() => {
+    if (!constellationEmptyHintVisible) return;
+    const timer = setTimeout(() => setConstellationEmptyHintVisible(false), 3200);
+    return () => clearTimeout(timer);
+  }, [constellationEmptyHintVisible]);
+
+  const openJoinedGroupFromSheet = useCallback(
+    (communityId: string) => {
+      for (const signal of signals) {
+        if (signal.sourceId === communityId && signal.type === 'communities' && !signal.read) {
+          presentHomeSignal(signal);
+        }
+      }
+      setJoinedGroupsSheetVisible(false);
+      const route = resolveEmergingConstellationRoute(communityId, membershipFor(communityId));
+      router.push(route as never);
+    },
+    [membershipFor, presentHomeSignal, router, signals],
+  );
+
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightOwnerId, setHighlightOwnerId] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -116,7 +286,7 @@ export function MySkyScreen() {
         connectionActivities,
         communities,
         effectiveExploreEnabled,
-        mySkyView.skyOwner.id,
+        displayMySkyView.skyOwner.id,
         exploreCap,
       ),
     [
@@ -158,7 +328,7 @@ export function MySkyScreen() {
     () =>
       computeSkyRegionContext(
         proximity,
-        mySkyView.skyOwner.id,
+        displayMySkyView.skyOwner.id,
         { x: mySkyView.identityStar.x, y: mySkyView.identityStar.y },
         liveViewport,
         worldSize.width,
@@ -296,64 +466,81 @@ export function MySkyScreen() {
 
   const openConstellationDetail = useCallback(
     (patternId: string) => {
-      const pattern = mySkyView.patterns.find((entry) => entry.id === patternId);
+      const pattern = displayMySkyView.patterns.find((entry) => entry.id === patternId);
       if (!pattern) return;
       triggerConstellationReveal(pattern.id);
       setConstellationDetail(
-        buildConstellationDetailView(pattern, mySkyView.nodes, mySkyView.stars),
+        buildConstellationDetailView(pattern, displayMySkyView.nodes, displayMySkyView.stars),
       );
       setConstellationDetailVisible(true);
     },
-    [mySkyView.nodes, mySkyView.patterns, mySkyView.stars, triggerConstellationReveal],
+    [
+      displayMySkyView.nodes,
+      displayMySkyView.patterns,
+      displayMySkyView.stars,
+      triggerConstellationReveal,
+    ],
+  );
+
+  const openPatternExperience = useCallback(
+    (patternId: string) => {
+      const pattern = findPatternById(displayMySkyView.patterns, patternId);
+      if (!pattern) return;
+      if (pattern.emergingCommunityId) {
+        const route = resolveEmergingConstellationRoute(
+          pattern.emergingCommunityId,
+          membershipFor(pattern.emergingCommunityId),
+        );
+        router.push(route as never);
+        return;
+      }
+      openConstellationDetail(patternId);
+    },
+    [displayMySkyView.patterns, membershipFor, openConstellationDetail, router],
+  );
+
+  const handleEmergingGroupPress = useCallback(
+    (communityId: string) => {
+      const route = resolveEmergingConstellationRoute(communityId, membershipFor(communityId));
+      router.push(route as never);
+    },
+    [membershipFor, router],
   );
 
   const handlePatternStarPress = useCallback(
     (star: MySkyStarDisplay) => {
-      const pattern = findPatternForNodeId(mySkyView.patterns, star.id);
+      const pattern = findPatternForNodeId(displayMySkyView.patterns, star.id);
       if (!pattern) return;
       openConstellationDetail(pattern.id);
     },
-    [mySkyView.patterns, openConstellationDetail],
+    [displayMySkyView.patterns, openConstellationDetail],
   );
+
+  const emergingConstellationTapEnabled =
+    Boolean(emergingSkyCommunityId) &&
+    (constellationSkyViewActive ||
+      constellationRevealActive ||
+      constellationDetailVisible ||
+      visibleLayers.constellations);
 
   const navigateStarById = useCallback(
     (nodeId: string) => {
-      const star = mySkyView.stars.find((entry) => entry.id === nodeId);
+      const star = displayMySkyView.stars.find((entry) => entry.id === nodeId);
       if (!star) return;
 
       const target = resolveStarNavigation(star, {
         skywrites,
         joinedCommunityIds,
         guidanceActive,
+        nodes: displayMySkyView.nodes,
       });
 
-      switch (target.kind) {
-        case 'skywrite-detail':
-          router.push(`/skywrite/${target.skywriteId}` as never);
-          return;
-        case 'skywrite-compose':
-          router.push('/skywrite/compose' as never);
-          return;
-        case 'public-sky':
-          router.push(`/public-sky?id=${target.param}` as never);
-          return;
-        case 'community-detail':
-          router.push(`/community?id=${target.communityId}` as never);
-          return;
-        case 'starpath':
-          router.push('/starpath' as never);
-          return;
-        case 'impact-tab':
-          router.push('/(tabs)/impact' as never);
-          return;
-        case 'star-detail':
-          router.push(`/my-sky-star/${target.nodeId}` as never);
-          return;
-        default:
-          return;
-      }
+      if (target.kind === 'none') return;
+      pushStarNavigationTarget(router, target, {
+        skyOwnerId: displayMySkyView.skyOwner.id,
+      });
     },
-    [guidanceActive, joinedCommunityIds, mySkyView.stars, router, skywrites],
+    [displayMySkyView.skyOwner.id, displayMySkyView.stars, guidanceActive, joinedCommunityIds, router, skywrites],
   );
 
   const handleConstellationStarSelect = useCallback(
@@ -387,37 +574,56 @@ export function MySkyScreen() {
             </View>
 
             <View style={styles.layerRow}>
-              <MySkyLabeledControl
-                icon={
-                  <PrivacyGlyph
-                    size={15}
-                    color={MySkyControlColors.iconDefault}
-                    strokeWidth={1.5}
-                  />
-                }
-                label={MySkyCopy.privacyControlLabel}
-                onPress={() => setPrivacyVisible(true)}
-                accessibilityLabel={MySkyCopy.privacyTitle}
-              />
-              <View style={styles.layerScroll}>
+              <View style={styles.layerRowLeftCluster}>
                 <MySkyLayerControls
                   compact
                   minimal
+                  layerOrder={MY_SKY_SECOND_ROW_LAYER_ORDER}
                   visibleLayers={visibleLayers}
                   onToggleLayer={toggleMySkyLayer}
                   onRevealConstellations={triggerConstellationReveal}
                   constellationRevealActive={constellationRevealActive}
                 />
+                <View style={styles.groupsQuickAccess}>
+                  <MySkyJoinedGroupsControl
+                    showActivityHint={joinedGroupsActivityHint}
+                    onPress={openJoinedGroupsSheet}
+                  />
+                  <MySkyJoinedGroupsCoachmark
+                    visible={showJoinedGroupsCoachmark}
+                    anchored
+                    onDismiss={dismissJoinedGroupsCoachmark}
+                  />
+                </View>
               </View>
-              <MySkyImmersiveToggleButton
-                immersiveActive={cleanSkyActive}
-                onPress={toggleCleanSky}
-              />
+              <View style={styles.layerRowRightCluster}>
+                <View style={styles.constellationsQuickAccess}>
+                  <MySkyConstellationsControl
+                    active={constellationSkyViewActive}
+                    onPress={toggleConstellationSkyView}
+                  />
+                  <MySkyConstellationsCoachmark
+                    visible={showConstellationsCoachmark}
+                    onDismiss={dismissConstellationsCoachmark}
+                  />
+                </View>
+                <MySkyImmersiveToggleButton
+                  immersiveActive={cleanSkyActive}
+                  onPress={toggleCleanSky}
+                />
+              </View>
             </View>
           </>
         ) : null}
 
         <View style={[styles.skyArea, cleanSkyActive && styles.skyAreaClean]}>
+          {!cleanSkyActive && constellationEmptyHintVisible ? (
+            <View style={styles.constellationEmptyHint} pointerEvents="none">
+              <Text style={styles.constellationEmptyHintText}>
+                {MySkyCopy.constellationsSkyEmptyHint}
+              </Text>
+            </View>
+          ) : null}
           {!cleanSkyActive ? (
             <MySkyProximityCue
               anchor={proximity.anchor}
@@ -437,7 +643,7 @@ export function MySkyScreen() {
             highlightOwnerId={highlightOwnerId}
             onJumpToSky={jumpToAnchor}
             resolveAnchorForOwner={resolveAnchorForOwner}
-            view={mySkyView}
+            view={displayMySkyView}
             onToggleLayer={toggleMySkyLayer}
             onRevealConstellations={() => triggerConstellationReveal(null)}
             constellationRevealCount={constellationRevealCount}
@@ -445,6 +651,8 @@ export function MySkyScreen() {
             constellationRevealPatternId={constellationRevealPatternId}
             onConstellationRevealComplete={completeConstellationReveal}
             onPatternStarPress={handlePatternStarPress}
+            emergingConstellationTapEnabled={emergingConstellationTapEnabled}
+            onEmergingGroupPress={handleEmergingGroupPress}
             viewportSnapshot={mySkyViewport}
             jumpSnapshot={jumpSnapshot}
             onViewportChange={handleViewportChange}
@@ -452,17 +660,15 @@ export function MySkyScreen() {
             onWorldSizeChange={setWorldSize}
             spatialFocusSuspended={
               searchVisible ||
-              privacyVisible ||
+              joinedGroupsSheetVisible ||
               constellationDetailVisible ||
               constellationRevealActive
             }
           />
           {!cleanSkyActive ? (
             <MySkyInsightOverlay
-              view={mySkyView}
+              view={displayMySkyView}
               visibleLayers={visibleLayers}
-              showConstellations={constellationRevealActive || constellationDetailVisible}
-              onPatternPress={openConstellationDetail}
             />
           ) : (
             <MySkyImmersiveToggleButton
@@ -474,11 +680,13 @@ export function MySkyScreen() {
         </View>
       </SafeAreaView>
 
-      <MySkyPrivacySheet
-        visible={privacyVisible}
-        settings={mySkyVisibilitySettings}
-        onClose={() => setPrivacyVisible(false)}
-        onChange={setMySkyVisibilitySettings}
+      <MySkyJoinedGroupsSheet
+        visible={joinedGroupsSheetVisible}
+        groups={joinedEmergingGroups}
+        signals={signals}
+        signalsMeta={signalsMeta}
+        onClose={closeJoinedGroupsSheet}
+        onSelectGroup={openJoinedGroupFromSheet}
       />
 
       <MySkySearchSheet
@@ -543,15 +751,50 @@ const styles = StyleSheet.create({
   layerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingLeft: Spacing.xs,
     paddingRight: Spacing.sm,
     paddingBottom: 2,
-    gap: 4,
+    gap: 6,
     zIndex: 2,
   },
-  layerScroll: {
-    flex: 1,
+  layerRowLeftCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    gap: 6,
     minWidth: 0,
+  },
+  layerRowRightCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 0,
+    gap: 6,
+  },
+  groupsQuickAccess: {
+    flexShrink: 0,
+    alignItems: 'center',
+  },
+  constellationsQuickAccess: {
+    flexShrink: 0,
+    alignItems: 'center',
+  },
+  constellationEmptyHint: {
+    position: 'absolute',
+    top: 8,
+    alignSelf: 'center',
+    zIndex: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: 'rgba(8, 10, 26, 0.72)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(167, 139, 250, 0.22)',
+  },
+  constellationEmptyHintText: {
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    color: 'rgba(248, 244, 236, 0.72)',
   },
   skyArea: {
     flex: 1,

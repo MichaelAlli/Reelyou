@@ -2,11 +2,18 @@ import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
 import type { SkyNode, SkyPattern } from '@/mySky/skyNodeTypes';
 import type { MySkyView } from '@/mySky/types';
 import type { Privacy } from '@/types';
+import { normalizeSkywriteVisibility } from '@/skywrite/skywriteVisibility';
 
 import {
   resolveEffectiveNodeVisibility,
   type SkyVisibilitySettings,
 } from './skyVisibilitySettings';
+
+function isConnectedSkiesVisibility(visibility: Privacy | undefined): boolean {
+  if (!visibility) return false;
+  const level = normalizeSkywriteVisibility(visibility);
+  return level === 'sky_friends' || visibility === 'orbit';
+}
 
 function isPatternVisible(
   pattern: SkyPattern,
@@ -15,7 +22,7 @@ function isPatternVisible(
   const visibility = pattern.visibility as Privacy | undefined;
   if (!visibility || visibility === 'public') return true;
   if (visibility === 'private') return false;
-  if (visibility === 'orbit') return connectionStatus === 'connected';
+  if (isConnectedSkiesVisibility(visibility)) return connectionStatus === 'connected';
   return false;
 }
 
@@ -34,7 +41,7 @@ export function isPublicSkyNodeVisible(
 
   if (visibility === 'public') return true;
   if (visibility === 'private') return false;
-  if (visibility === 'orbit') return connectionStatus === 'connected';
+  if (isConnectedSkiesVisibility(visibility)) return connectionStatus === 'connected';
 
   return false;
 }

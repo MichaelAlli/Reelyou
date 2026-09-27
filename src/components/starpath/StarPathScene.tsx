@@ -57,6 +57,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   const [detailOpportunityNodeId, setDetailOpportunityNodeId] = useState<string | null>(null);
   const [avatarSheetOpen, setAvatarSheetOpen] = useState(false);
   const [sceneLayout, setSceneLayout] = useState({ width: 0, height: 0 });
+  const [spatialFocusNodeId, setSpatialFocusNodeId] = useState<string | null>(null);
   const spatialFocusClearRef = useRef<(() => void) | null>(null);
 
   const theme = useMemo(() => getStarPathTheme(visualMode), [visualMode]);
@@ -269,10 +270,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   }, [experience]);
 
   const spatialFocusDisabled =
-    !!detailNodeId ||
-    !!detailOpportunityNodeId ||
-    avatarSheetOpen ||
-    showGuideIntroPopup;
+    !!detailNodeId || !!detailOpportunityNodeId || avatarSheetOpen;
 
   const starPathFocusCandidates = useMemo(
     () =>
@@ -362,15 +360,20 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
       const mods = nodeVisualModifiers(ui);
       const bandDelta =
         ui === 'dismissed' ? null : relevanceBandVisualDelta(experience.getNodeRelevanceBand(nodeId));
+      const spatialFocused = spatialFocusNodeId === nodeId;
       return {
         uiState: ui,
         visualOpacity: mods.opacity * (bandDelta?.opacityMultiplier ?? 1),
-        showSelectionRing: mods.showSelectionRing,
-        softPulse: mods.softPulse || bandDelta?.softPulse || experience.softHighlightNodeIds.has(nodeId),
+        showSelectionRing: mods.showSelectionRing || spatialFocused,
+        softPulse:
+          mods.softPulse ||
+          bandDelta?.softPulse ||
+          experience.softHighlightNodeIds.has(nodeId) ||
+          spatialFocused,
         revealPulse: experience.softHighlightNodeIds.has(nodeId),
       };
     },
-    [experience],
+    [experience, spatialFocusNodeId],
   );
 
   return (
@@ -513,6 +516,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
           showFloatingNav
           floatingNavBottom={spatialFocusFloatingNavBottom}
           onRegisterClear={registerSpatialFocusClear}
+          onSelectionChange={setSpatialFocusNodeId}
           topInset={StarPathSpacing.guideTop + 68}
           bottomInset={spatialFocusBottomInset}
         />
@@ -605,11 +609,12 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
         visible={avatarSheetOpen}
         theme={theme}
         identity={experience.avatarIdentity}
-        profilePhotoUri={currentUser.avatarUri}
+        profilePhotoUri={experience.avatarIdentity.profilePhotoUri}
         onClose={() => setAvatarSheetOpen(false)}
         onSelectProfilePhoto={() => {
-          if (currentUser.avatarUri) {
-            experience.setProfilePhotoAvatar(currentUser.avatarUri);
+          const uri = experience.avatarIdentity.profilePhotoUri;
+          if (uri) {
+            experience.setProfilePhotoAvatar(uri);
           }
           setAvatarSheetOpen(false);
         }}

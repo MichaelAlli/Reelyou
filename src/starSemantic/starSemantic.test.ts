@@ -24,7 +24,7 @@ function baseRecord(overrides: Partial<SkywriteRecord>): SkywriteRecord {
     id: 'sw-1',
     text: 'Hello',
     textStyle: 'plain',
-    media: { photo: null, audio: null },
+    media: { photo: null, video: null, audio: null },
     mediaMode: 'text',
     visibility: 'public',
     mood: null,
@@ -47,7 +47,7 @@ function testMediaTokens() {
     sourceId: 'a',
     sourceType: 'skywrite',
     text: '',
-    media: { photo: { uri: 'x' }, audio: null },
+    media: { photo: { uri: 'x' }, video: null, audio: null },
     mediaMode: 'photo',
     visibility: 'public',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -58,7 +58,7 @@ function testMediaTokens() {
     sourceId: 'b',
     sourceType: 'skywrite',
     text: 'clip',
-    media: { photo: null, audio: null },
+    media: { photo: null, video: null, audio: null },
     mediaMode: 'text',
     visibility: 'public',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -87,7 +87,7 @@ function testGrowthFlag() {
 
 function testPrivacyExposure() {
   const semantic = deriveStarSemanticFromSkywrite(
-    baseRecord({ visibility: 'private', mediaMode: 'photo', media: { photo: { uri: 'p' }, audio: null } }),
+    baseRecord({ visibility: 'private', mediaMode: 'photo', media: { photo: { uri: 'p' }, video: null, audio: null } }),
   );
   const exposed = exposeStarSemanticForViewer(semantic, {
     viewerId: 'orbit-jordan',
@@ -101,7 +101,7 @@ function testPrivacyExposure() {
 function testMediaRecalc() {
   const first = deriveStarSemanticFromSkywrite(
     baseRecord({
-      media: { photo: { uri: 'p' }, audio: null },
+      media: { photo: { uri: 'p' }, video: null, audio: null },
       mediaMode: 'photo',
     }),
   );
@@ -109,7 +109,7 @@ function testMediaRecalc() {
   const second = deriveStarSemanticFromSkywrite(
     baseRecord({
       text: 'only text now',
-      media: { photo: null, audio: null },
+      media: { photo: null, video: null, audio: null },
       mediaMode: 'text',
     }),
   );

@@ -23,7 +23,7 @@ function makeQuestion(id: string, authorId: string, area: 'growth' = 'growth'): 
     authorId,
     text: `Question ${id}?`,
     textStyle: 'plain',
-    media: { photo: null, audio: null },
+    media: { photo: null, video: null, audio: null },
     mediaMode: 'text',
     visibility: 'public',
     mood: null,

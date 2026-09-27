@@ -13,11 +13,15 @@ import { HomeAroundYourSkySection } from '@/components/home/HomeAroundYourSkySec
 import { HomeArrivalHeader } from '@/components/home/HomeArrivalHeader';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { HomeGuidingLightSection } from '@/components/home/HomeGuidingLightSection';
-import { HomeGrowingInSection } from '@/components/home/HomeGrowingInSection';
+import { HomeEmergingConstellationSection } from '@/components/home/HomeEmergingConstellationSection';
 import { HomeSkywriteBar } from '@/components/home/HomeSkywriteBar';
 import { HomeStarpathCard } from '@/components/home/HomeStarpathCard';
 import { HomeTodayFocusHomeSection } from '@/components/home/HomeTodayFocusHomeSection';
 import { HomeGlobalMenuSheet } from '@/components/home/HomeGlobalMenuSheet';
+import { HomeProfileAvatarActionSheet } from '@/components/home/HomeProfileAvatarActionSheet';
+import { OwnerProfilePhotoSheet } from '@/components/profile/owner/OwnerProfilePhotoSheet';
+import { useProfilePhotoEditor } from '@/identity/useProfilePhotoEditor';
+import { currentUser } from '@/data/mockData';
 import { HomeSignalCenterSheet } from '@/components/home/HomeSignalCenterSheet';
 import { HomeTopNav } from '@/components/home/HomeTopNav';
 import { ReelyouEasing } from '@/constants/animation';
@@ -60,11 +64,18 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
   const [reduceMotion, setReduceMotion] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [signalsOpen, setSignalsOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const photoEditor = useProfilePhotoEditor();
 
   const openMenu = useCallback(() => setMenuOpen(true), []);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   const openSignals = useCallback(() => setSignalsOpen(true), []);
   const closeSignals = useCallback(() => setSignalsOpen(false), []);
+  const openAvatarMenu = useCallback(() => setAvatarMenuOpen(true), []);
+  const closeAvatarMenu = useCallback(() => setAvatarMenuOpen(false), []);
+  const viewProfile = useCallback(() => {
+    router.push('/(tabs)/profile' as never);
+  }, [router]);
 
   const isArrival = useMemo(() => {
     if (calmEntry) return false;
@@ -154,6 +165,31 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
 
       <HomeGlobalMenuSheet visible={menuOpen} onClose={closeMenu} />
       <HomeSignalCenterSheet visible={signalsOpen} onClose={closeSignals} />
+      <HomeProfileAvatarActionSheet
+        visible={avatarMenuOpen}
+        onClose={closeAvatarMenu}
+        onChangePhoto={photoEditor.openEditor}
+        onViewProfile={viewProfile}
+      />
+      <OwnerProfilePhotoSheet
+        visible={photoEditor.sheetOpen}
+        displayName={currentUser.name}
+        hasPhoto={photoEditor.hasPhoto}
+        previewUri={photoEditor.previewUri}
+        imageSize={photoEditor.imageSize}
+        cropTransform={photoEditor.cropTransform}
+        feedback={photoEditor.feedback}
+        saving={photoEditor.saving}
+        onClose={photoEditor.closeEditor}
+        onChooseLibrary={photoEditor.chooseLibrary}
+        onTakePhoto={photoEditor.takePhoto}
+        onSavePreview={() => void photoEditor.savePreview()}
+        onDiscardPreview={photoEditor.discardPreview}
+        onRemovePhoto={photoEditor.removePhoto}
+        onImageSize={photoEditor.setImageSize}
+        onCropTransformChange={photoEditor.setCropTransform}
+        onResetCrop={photoEditor.resetCrop}
+      />
 
       <Animated.View style={[styles.foreground, screenStyle]}>
         <SafeAreaView style={styles.safe} edges={['top']}>
@@ -178,12 +214,13 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
               supportStyle={supportStyle}
               profileStyle={profileStyle}
               supportLine={HomeCopy.arrivalSupport}
+              onAvatarPress={openAvatarMenu}
             />
             <HomeSkywriteBar animatedStyle={zone0Style} />
             <HomeAroundYourSkySection animatedStyle={zone1Style} />
             <HomeGuidingLightSection animatedStyle={zone2Style} />
             <HomeStarpathCard animatedStyle={zone2Style} />
-            <HomeGrowingInSection animatedStyle={zone3Style} />
+            <HomeEmergingConstellationSection animatedStyle={zone3Style} />
             {showFocusHomeCard ? (
               <HomeTodayFocusHomeSection animatedStyle={zone4FocusStyle} />
             ) : null}

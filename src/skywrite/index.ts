@@ -10,9 +10,16 @@ export {
   formatDurationMs,
   pickSkywritePhoto,
   pickSkywritePhotoFromLibrary,
+  pickSkywriteVideoFromLibrary,
+  recordSkywriteVideo,
   takeSkywritePhoto,
 } from './mediaActions';
-export type { PhotoPickFailureReason, PhotoPickResult } from './mediaActions';
+export type {
+  PhotoPickFailureReason,
+  PhotoPickResult,
+  VideoPickFailureReason,
+  VideoPickResult,
+} from './mediaActions';
 export { parseUserHashtags } from './parseUserHashtags';
 export { loadSkywrites, saveSkywrites } from './persistence';
 export type {
@@ -22,6 +29,8 @@ export type {
   SkywriteMedia,
   SkywriteMediaMode,
   SkywritePhotoMedia,
+  SkywriteVideoMedia,
+  SkywriteVideoOriginalAudioState,
   SkywriteRecord,
   SkywritesState,
 } from './types';

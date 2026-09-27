@@ -13,6 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { ModerationReportSheet } from '@/components/safety/ModerationReportSheet';
+import { SkyInvitationOverflowMenu } from '@/components/skywrite/SkyInvitationOverflowMenu';
+import { SkyInvitationSafetySheet } from '@/components/skywrite/SkyInvitationSafetySheet';
+import { SkywritePerspectiveResponseMenu } from '@/components/skywrite/SkywritePerspectiveResponseMenu';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import {
@@ -32,6 +35,10 @@ import { beaconSignalIdForSkywrite } from '@/skywrite/beacon/skywriteBeaconEligi
 import { resolveVisibilityOptionId } from '@/skywrite/skywriteVisibility';
 import type { Privacy } from '@/types';
 import { markReturnToSkyInvitationsAfterResponse } from '@/skywrite/invitations/skyInvitationFlow';
+import {
+  needsSkyInvitationSafetyAck,
+  persistSkyInvitationSafetyAck,
+} from '@/skywrite/invitations/skyInvitationSafetyAck';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import { useSkywriteBeacon } from '@/skywrite/beacon/SkywriteBeaconProvider';
@@ -80,9 +87,13 @@ function createSkywriteDetailStyles(tokens: ThemeTokens, skyInvitationReply: boo
       paddingHorizontal: Spacing.lg,
       paddingBottom: Spacing.xl,
     },
-    back: {
+    invitationTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
       marginTop: Spacing.sm,
       marginBottom: Spacing.md,
+    },
+    back: {
       minHeight: 44,
       justifyContent: 'center',
     },
@@ -421,7 +432,9 @@ export function SkywriteDetailScreen() {
     SubmitModerationReportInput,
     'reporterUserId' | 'reason' | 'optionalNote'
   > | null>(null);
-
+  const [safetyGateOpen, setSafetyGateOpen] = useState(false);
+  const [safetyLearnMore, setSafetyLearnMore] = useState(false);
+  const [safetyInfoOpen, setSafetyInfoOpen] = useState(false);
   const viewerCanView = useMemo(() => {
     if (!record) return false;
     return resolveSkywriteViewerAccess({
@@ -462,7 +475,21 @@ export function SkywriteDetailScreen() {
   }, [dismissSignal, ignoreBeacon, router, skywriteId]);
 
   const handleRespondTap = useCallback(() => {
-    setRespondMode(true);
+    void needsSkyInvitationSafetyAck(currentUser.id).then((needs) => {
+      if (needs) {
+        setSafetyGateOpen(true);
+        return;
+      }
+      setRespondMode(true);
+    });
+  }, []);
+
+  const handleSafetyUnderstand = useCallback(() => {
+    void persistSkyInvitationSafetyAck(currentUser.id).then(() => {
+      setSafetyGateOpen(false);
+      setSafetyLearnMore(false);
+      setRespondMode(true);
+    });
   }, []);
 
   const handleSaveThread = useCallback(() => {
@@ -510,13 +537,18 @@ export function SkywriteDetailScreen() {
       <HomeBackdrop />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={MySkyCopy.skywriteDetailBack}
-            onPress={() => router.back()}
-            style={styles.back}>
-            <Text style={styles.backText}>{MySkyCopy.skywriteDetailBack}</Text>
-          </Pressable>
+          <View style={styles.invitationTopRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={MySkyCopy.skywriteDetailBack}
+              onPress={() => router.back()}
+              style={styles.back}>
+              <Text style={styles.backText}>{MySkyCopy.skywriteDetailBack}</Text>
+            </Pressable>
+            {fromBeacon && !isAuthor && viewerCanView && !perspectiveSentAck ? (
+              <SkyInvitationOverflowMenu onAboutSafety={() => setSafetyInfoOpen(true)} />
+            ) : null}
+          </View>
 
           {record && !viewerCanView ? (
             <Text style={styles.backText}>This Skywrite isn&apos;t available to you.</Text>
@@ -725,8 +757,13 @@ export function SkywriteDetailScreen() {
                     />
                   ) : null}
 
-                  {record.mediaMode === 'voice' || record.mediaMode === 'photo_voiceover' ? (
+                  {record.mediaMode === 'voice' ||
+                  record.mediaMode === 'photo_voiceover' ||
+                  record.mediaMode === 'video_voiceover' ? (
                     <Text style={styles.mediaNote}>{SkywriteCopy.voiceNoteTitle} included</Text>
+                  ) : null}
+                  {record.media.video?.uri ? (
+                    <Text style={styles.mediaNote}>Video included</Text>
                   ) : null}
 
                   {record.userHashtags.length > 0 ? (
@@ -749,8 +786,13 @@ export function SkywriteDetailScreen() {
                       accessibilityIgnoresInvertColors
                     />
                   ) : null}
-                  {record.mediaMode === 'voice' || record.mediaMode === 'photo_voiceover' ? (
+                  {record.mediaMode === 'voice' ||
+                  record.mediaMode === 'photo_voiceover' ||
+                  record.mediaMode === 'video_voiceover' ? (
                     <Text style={styles.mediaNote}>{SkywriteCopy.voiceNoteTitle} included</Text>
+                  ) : null}
+                  {record.media.video?.uri ? (
+                    <Text style={styles.mediaNote}>Video included</Text>
                   ) : null}
                 </>
               )}
@@ -760,13 +802,9 @@ export function SkywriteDetailScreen() {
                   <Text style={styles.label}>{SkywriteCopy.threadResponsesTitle}</Text>
                   {responses.map((response) => (
                     <View key={response.responseId} style={styles.responseCard}>
-                      <Text style={styles.responseBody}>{response.body}</Text>
                       {isAuthor && response.responderId !== currentUser.id ? (
-                        <>
-                        <Pressable
-                          style={styles.saveBtn}
-                          accessibilityLabel="Report invitation response"
-                          onPress={() =>
+                        <SkywritePerspectiveResponseMenu
+                          onReport={() =>
                             setReportInput({
                               targetType: 'reply',
                               targetId: response.responseId,
@@ -775,9 +813,12 @@ export function SkywriteDetailScreen() {
                               visibilityContext: 'sky_invitation_response',
                               provenanceIds: [response.responseId, record.id],
                             })
-                          }>
-                          <Text style={styles.saveBtnText}>Report</Text>
-                        </Pressable>
+                          }
+                        />
+                      ) : null}
+                      <Text style={styles.responseBody}>{response.body}</Text>
+                      {isAuthor && response.responderId !== currentUser.id ? (
+                        <>
                         <Pressable
                           style={styles.saveBtn}
                           accessibilityLabel={
@@ -860,7 +901,7 @@ export function SkywriteDetailScreen() {
         <ModerationReportSheet
           visible
           onClose={() => setReportInput(null)}
-          title="Report"
+          title={reportInput.targetType === 'reply' ? 'Report response' : 'Report'}
           reportInput={reportInput}
           onSubmit={submitModerationReport}
           followUp={{
@@ -875,6 +916,21 @@ export function SkywriteDetailScreen() {
           }}
         />
       ) : null}
+
+      <SkyInvitationSafetySheet
+        visible={safetyGateOpen}
+        learnMoreOpen={safetyLearnMore}
+        onLearnMoreToggle={() => setSafetyLearnMore((open) => !open)}
+        onUnderstand={handleSafetyUnderstand}
+      />
+
+      <SkyInvitationSafetySheet
+        visible={safetyInfoOpen}
+        readOnly
+        learnMoreOpen
+        onClose={() => setSafetyInfoOpen(false)}
+        onUnderstand={() => setSafetyInfoOpen(false)}
+      />
     </View>
   );
 }

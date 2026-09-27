@@ -11,6 +11,8 @@ import type {
   SkywriteMediaMode,
   SkywritePhotoMedia,
   SkywriteRecord,
+  SkywriteVideoMedia,
+  SkywriteVideoOriginalAudioState,
   SkywritesState,
 } from '@/skywrite/types';
 import { ensureLegacyDemoSeed } from '@/legacy/ensureLegacyDemoSeed';
@@ -18,7 +20,15 @@ import { EMPTY_SKYWRITE_MEDIA, EMPTY_SKYWRITES } from '@/skywrite/types';
 import type { Mood, Privacy } from '@/types';
 
 const SHOWING_UP_IDS = new Set(SKYWRITE_SHOWING_UP_OPTIONS.map((option) => option.id));
-const MEDIA_MODES = new Set<SkywriteMediaMode>(['text', 'photo', 'voice', 'photo_voiceover']);
+const MEDIA_MODES = new Set<SkywriteMediaMode>([
+  'text',
+  'photo',
+  'voice',
+  'photo_voiceover',
+  'video',
+  'video_voiceover',
+]);
+const VIDEO_AUDIO_STATES = new Set<SkywriteVideoOriginalAudioState>(['on', 'lower', 'off']);
 
 const STORAGE_KEY = '@reellyou/skywrites';
 
@@ -62,12 +72,36 @@ function parseAudio(raw: unknown): SkywriteAudioMedia | null {
   };
 }
 
+function parseVideo(raw: unknown): SkywriteVideoMedia | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const entry = raw as Partial<SkywriteVideoMedia>;
+  if (typeof entry.uri !== 'string') return null;
+  return {
+    uri: entry.uri,
+    width: typeof entry.width === 'number' ? entry.width : undefined,
+    height: typeof entry.height === 'number' ? entry.height : undefined,
+    durationMs: typeof entry.durationMs === 'number' ? entry.durationMs : undefined,
+  };
+}
+
 function parseMedia(raw: unknown): SkywriteMedia {
   if (!raw || typeof raw !== 'object') return { ...EMPTY_SKYWRITE_MEDIA };
-  const entry = raw as { photo?: unknown; audio?: unknown };
+  const entry = raw as {
+    photo?: unknown;
+    video?: unknown;
+    audio?: unknown;
+    originalVideoAudio?: unknown;
+  };
+  const originalVideoAudio =
+    typeof entry.originalVideoAudio === 'string' &&
+    VIDEO_AUDIO_STATES.has(entry.originalVideoAudio as SkywriteVideoOriginalAudioState)
+      ? (entry.originalVideoAudio as SkywriteVideoOriginalAudioState)
+      : undefined;
   return {
     photo: parsePhoto(entry.photo),
+    video: parseVideo(entry.video),
     audio: parseAudio(entry.audio),
+    originalVideoAudio,
   };
 }
 
