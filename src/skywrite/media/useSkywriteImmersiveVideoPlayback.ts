@@ -145,24 +145,35 @@ export function useSkywriteImmersiveVideoPlayback(
   );
 
   const toggleMute = useCallback(() => {
-    setMuted((value) => !value);
-    void (async () => {
-      const video = videoRef.current;
-      if (!video) return;
-      const nextMuted = !muted;
-      const vol = nextMuted ? 0 : videoVolumeForOriginal(originalAudio);
+    setMuted((value) => {
+      const nextMuted = !value;
+      void (async () => {
+        const video = videoRef.current;
+        if (!video) return;
+        const vol = nextMuted ? 0 : videoVolumeForOriginal(originalAudio);
+        await video.setVolumeAsync(vol);
+      })();
+      return nextMuted;
+    });
+  }, [originalAudio]);
+
+  const applyVideoVolume = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      const status = await video.getStatusAsync();
+      if (!status.isLoaded) return;
+      const vol = muted ? 0 : videoVolumeForOriginal(originalAudio);
       await video.setVolumeAsync(vol);
-    })();
+    } catch {
+      /* not loaded yet */
+    }
   }, [muted, originalAudio]);
 
   useEffect(() => {
-    void (async () => {
-      const video = videoRef.current;
-      if (!video || !active) return;
-      const vol = muted ? 0 : videoVolumeForOriginal(originalAudio);
-      await video.setVolumeAsync(vol);
-    })();
-  }, [active, muted, originalAudio]);
+    if (!active) return;
+    void applyVideoVolume();
+  }, [active, applyVideoVolume]);
 
   return {
     videoRef,
@@ -175,5 +186,6 @@ export function useSkywriteImmersiveVideoPlayback(
     muted,
     cleanup,
     onPlaybackStatusUpdate,
+    applyVideoVolume,
   };
 }

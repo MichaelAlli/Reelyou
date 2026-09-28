@@ -1,6 +1,9 @@
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+
+import { SkywriteMediaPreview } from '@/components/skywrite/SkywriteMediaPreview';
+import { useOnboarding } from '@/onboarding';
 
 import {
   OWNER_PROFILE_CARD_RADIUS,
@@ -26,6 +29,11 @@ function OwnerProfileSkywritingsCardComponent({
 }: OwnerProfileSkywritingsCardProps) {
   const [selectedTabId, setSelectedTabId] = useState<SkyAreaTabId>(SKY_AREA_TAB_ALL);
   const router = useRouter();
+  const { skywrites } = useOnboarding();
+  const skywriteById = useMemo(
+    () => new Map(skywrites.map((entry) => [entry.id, entry])),
+    [skywrites],
+  );
   const isVisitor = section.viewerMode === 'visitor';
   const previewItems = filterProfileSkywritingItems(section.items, selectedTabId).slice(0, 4);
 
@@ -78,26 +86,40 @@ function OwnerProfileSkywritingsCardComponent({
 
       {previewItems.length > 0 ? (
         <View style={styles.previewList}>
-          {previewItems.map((item) => (
-            <Pressable
-              key={item.id}
-              accessibilityRole="button"
-              onPress={() => {
-                if (onItemPress) {
-                  onItemPress(item.id);
-                  return;
-                }
-                if (!isVisitor) {
-                  router.push(`/skywrite/${item.id}` as never);
-                }
-              }}
-              style={({ pressed }) => [styles.previewRow, pressed && styles.previewRowPressed]}>
-              <Text style={styles.previewLabel} numberOfLines={1}>
-                {item.label}
-              </Text>
-              {(onItemPress || !isVisitor) ? <Text style={styles.previewChevron}>›</Text> : null}
-            </Pressable>
-          ))}
+          {previewItems.map((item) => {
+            const record = skywriteById.get(item.id);
+            return (
+              <Pressable
+                key={item.id}
+                accessibilityRole="button"
+                onPress={() => {
+                  if (onItemPress) {
+                    onItemPress(item.id);
+                    return;
+                  }
+                  if (!isVisitor) {
+                    router.push(`/skywrite/${item.id}` as never);
+                  }
+                }}
+                style={({ pressed }) => [styles.previewRow, pressed && styles.previewRowPressed]}>
+                {record ? (
+                  <SkywriteMediaPreview
+                    skywrite={record}
+                    variant="library"
+                    excerpt={item.label}
+                    previewIdPrefix="profile-skywrites"
+                    allowAudioPreview={false}
+                    style={styles.previewTile}
+                  />
+                ) : (
+                  <Text style={styles.previewLabel} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                )}
+                {(onItemPress || !isVisitor) ? <Text style={styles.previewChevron}>›</Text> : null}
+              </Pressable>
+            );
+          })}
         </View>
       ) : isVisitor ? (
         <Text style={styles.emptyHint}>No shared Skywrites in this view yet.</Text>
@@ -162,6 +184,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 4,
     gap: 8,
+  },
+  previewTile: {
+    flex: 1,
   },
   previewRowPressed: { opacity: 0.9 },
   previewLabel: {

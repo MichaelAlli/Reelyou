@@ -81,6 +81,7 @@ function parseVideo(raw: unknown): SkywriteVideoMedia | null {
     width: typeof entry.width === 'number' ? entry.width : undefined,
     height: typeof entry.height === 'number' ? entry.height : undefined,
     durationMs: typeof entry.durationMs === 'number' ? entry.durationMs : undefined,
+    thumbnailUri: typeof entry.thumbnailUri === 'string' ? entry.thumbnailUri : undefined,
   };
 }
 
@@ -182,10 +183,11 @@ export async function loadSkywrites(): Promise<SkywritesState> {
   }
 }
 
-export async function saveSkywrites(state: SkywritesState): Promise<void> {
+export async function saveSkywrites(state: SkywritesState): Promise<boolean> {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
   } catch {
-    // Non-blocking.
+    return false;
   }
 }

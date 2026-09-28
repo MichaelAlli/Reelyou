@@ -27,6 +27,7 @@ assert(
 );
 assert(
   pickSkywriteMediaSource({
+    text: 'caption',
     media: {
       photo: { uri: 'https://example.com/a.jpg' },
       video: null,
@@ -35,6 +36,17 @@ assert(
     mediaMode: 'photo_voiceover',
   }).kind === 'photo_audio',
   'photo+audio kind',
+);
+assert(
+  resolveSkywriteMediaPreviewKind(
+    {
+      photo: null,
+      video: { uri: 'file://clip.mp4', thumbnailUri: 'file://thumb.jpg' },
+      audio: { uri: 'file://vo.m4a' },
+    },
+    'video_voiceover',
+  ) === 'video_audio',
+  'video+voiceover kind',
 );
 
 console.log('skywriteMediaPreviewUtils.test.ts — OK');

@@ -29,6 +29,7 @@ import { SkywriteShootingStar } from '@/components/skywrite/SkywriteShootingStar
 import { SkywriteToggleRow } from '@/components/skywrite/SkywriteToggleRow';
 import { SkyAreaSuggestionBanner } from '@/components/skywrite/SkyAreaSuggestionBanner';
 import { SkywriteSkyAreaPicker } from '@/components/skywrite/SkywriteSkyAreaPicker';
+import { SkywriteComposePreviewOverlay } from '@/components/skywrite/SkywriteComposePreviewOverlay';
 import { SkywriteVisibilityControl } from '@/components/skywrite/SkywriteVisibilityControl';
 import { detectSkyAreaSuggestionFromHashtags } from '@/skyAreas/skyAreaHashtagSuggestion';
 import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
@@ -60,7 +61,6 @@ import {
   takeSkywritePhoto,
   useSkywriteVoice,
   type PhotoPickResult,
-  type SkywriteDraft,
   type VideoPickResult,
 } from '@/skywrite';
 import type { SkywritePhotoMedia, SkywriteVideoMedia, SkywriteVideoOriginalAudioState } from '@/skywrite/types';
@@ -94,7 +94,7 @@ export function SkywriteScreen() {
   const padH = measureHomePadH(screenWidth);
   const navContentInset = TabBarHeight + Math.max(insets.bottom, Spacing.sm);
   const avatarSize = Math.min(measureHomeAvatarSize(screenWidth), 88);
-  const { createSkywrite, mySkyView, setSkyArrivalHandoff, state } = useOnboarding();
+  const { publishSkywrite, mySkyView, setSkyArrivalHandoff, state } = useOnboarding();
   const { profilePhotoDisplayUri, profilePhotoRevision } = useUserAvatar();
   const composerPortraitSource = profilePhotoDisplayUri ? { uri: profilePhotoDisplayUri } : undefined;
 
@@ -116,6 +116,9 @@ export function SkywriteScreen() {
   const [voiceCaptureOpen, setVoiceCaptureOpen] = useState(false);
   const [mediaFeedback, setMediaFeedback] = useState<string | null>(null);
   const [dismissedSuggestionKey, setDismissedSuggestionKey] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const { catalog, addCustomArea, selectedIds } = useSkyAreaPreferences();
 
   const voice = useSkywriteVoice();
@@ -384,27 +387,58 @@ export function SkywriteScreen() {
     router.replace('/(tabs)/home' as never);
   }, [router]);
 
-  const handleShare = useCallback(() => {
+  const buildPublishDraft = useCallback((): SkywriteDraft | null => {
     if (!hasSkywriteContent(draft)) {
       setValidationHint(SkywriteCopy.emptyValidation);
-      return;
+      return null;
     }
-
     const trimmed = draft.text.trim();
-    const starsBeforeSubmit = takeFocusedSkywriteComposeStars() ?? mySkyView.stars;
-    const record = createSkywrite({
+    return {
       ...draft,
       text: trimmed,
       userHashtags: mergeHashtags(trimmed, manualHashtags),
-    });
+    };
+  }, [draft, manualHashtags]);
 
-    if (record.animateToSky) {
-      submitSkywriteToFocusedSky(record, starsBeforeSubmit, setSkyArrivalHandoff, router);
+  const handleOpenPreview = useCallback(() => {
+    if (!buildPublishDraft()) return;
+    setPublishError(null);
+    setPreviewOpen(true);
+  }, [buildPublishDraft]);
+
+  const handlePostSkywrite = useCallback(async () => {
+    if (isPosting) return;
+    const publishDraft = buildPublishDraft();
+    if (!publishDraft) return;
+
+    setIsPosting(true);
+    setPublishError(null);
+    const starsBeforeSubmit = takeFocusedSkywriteComposeStars() ?? mySkyView.stars;
+    const result = await publishSkywrite(publishDraft);
+    setIsPosting(false);
+
+    if (!result.ok) {
+      setPublishError(result.errorMessage);
       return;
     }
 
-    router.replace('/(tabs)/sky' as never);
-  }, [createSkywrite, draft, manualHashtags, mySkyView.stars, router, setSkyArrivalHandoff]);
+    setPreviewOpen(false);
+    setPublishError(null);
+
+    if (result.record.animateToSky) {
+      submitSkywriteToFocusedSky(result.record, starsBeforeSubmit, setSkyArrivalHandoff, router);
+      return;
+    }
+
+    router.replace('/skywrite' as never);
+  }, [
+    buildPublishDraft,
+    isPosting,
+    mySkyView.stars,
+    publishSkywrite,
+    router,
+    setSkyArrivalHandoff,
+  ]);
 
   return (
     <View style={styles.root}>
@@ -738,12 +772,15 @@ export function SkywriteScreen() {
               {validationHint ? <Text style={styles.validationHint}>{validationHint}</Text> : null}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={SkywriteCopy.shareButton}
-                disabled={!canShare}
-                onPress={handleShare}
-                style={[styles.shareBtn, !canShare && styles.shareBtnDisabled]}>
-                <Text style={styles.shareBtnText}>{SkywriteCopy.shareButton}</Text>
+                accessibilityLabel={SkywriteCopy.previewButton}
+                disabled={!canShare || isPosting}
+                onPress={handleOpenPreview}
+                style={[styles.shareBtn, (!canShare || isPosting) && styles.shareBtnDisabled]}>
+                <Text style={styles.shareBtnText}>{SkywriteCopy.previewButton}</Text>
               </Pressable>
+              {publishError && !previewOpen ? (
+                <Text style={styles.validationHint}>{publishError}</Text>
+              ) : null}
               <Text style={styles.shareFooter}>{SkywriteCopy.shareFooter}</Text>
             </View>
           </ScrollView>
@@ -762,6 +799,20 @@ export function SkywriteScreen() {
         onChooseLibrary={handleChooseVideoLibrary}
         onRecordVideo={handleRecordVideo}
         onCancel={() => setVideoSourceOpen(false)}
+      />
+
+      <SkywriteComposePreviewOverlay
+        visible={previewOpen}
+        draft={draft}
+        mergedHashtags={mergedHashtags}
+        isPosting={isPosting}
+        publishError={publishError}
+        onClose={() => {
+          if (isPosting) return;
+          setPreviewOpen(false);
+          setPublishError(null);
+        }}
+        onPost={() => void handlePostSkywrite()}
       />
 
       <BottomNav />

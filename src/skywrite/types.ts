@@ -25,6 +25,8 @@ export interface SkywriteVideoMedia {
   width?: number;
   height?: number;
   durationMs?: number;
+  /** Square list preview — generated at publish when possible. */
+  thumbnailUri?: string;
 }
 
 export interface SkywriteAudioMedia {

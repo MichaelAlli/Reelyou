@@ -106,6 +106,20 @@ export function createEmptySkywriteDraft(
   };
 }
 
+/** Ephemeral record for compose preview — never persisted. */
+export function buildSkywritePreviewRecord(
+  draft: SkywriteDraft,
+  authorId: string,
+  userHashtags: string[],
+): SkywriteRecord {
+  return buildSkywriteRecord(
+    { ...draft, userHashtags },
+    'skywrite-preview-draft',
+    new Date().toISOString(),
+    authorId,
+  );
+}
+
 export function buildSkywriteRecord(
   draft: SkywriteDraft,
   id: string,

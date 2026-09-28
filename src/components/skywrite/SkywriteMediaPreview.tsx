@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -20,15 +21,79 @@ interface SkywriteMediaPreviewProps {
   excerpt?: string;
   onToggleAudio?: (previewId: string, uri: string) => void;
   isAudioPlaying?: (previewId: string) => boolean;
-  /** When false, audio rows are static (avoids nested buttons inside list row pressables). */
   allowAudioPreview?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
-function thumbnailSize(variant: SkywriteMediaPreviewVariant): { width: number; height: number } | null {
-  if (variant === 'invitationCard') return null;
-  if (variant === 'invitationList') return { width: 52, height: 52 };
-  return { width: 76, height: 76 };
+function squareSize(variant: SkywriteMediaPreviewVariant): number {
+  if (variant === 'invitationList') return 52;
+  if (variant === 'library') return 76;
+  return 76;
+}
+
+function SkywriteSquareTile({
+  skywrite,
+  variant,
+  excerpt,
+}: {
+  skywrite: Pick<SkywriteRecord, 'id' | 'text' | 'media' | 'mediaMode'>;
+  variant: SkywriteMediaPreviewVariant;
+  excerpt: string;
+}) {
+  const media = useMemo(() => pickSkywriteMediaSource(skywrite), [skywrite]);
+  const [imageFailed, setImageFailed] = useState(false);
+  const size = squareSize(variant);
+
+  if (media.kind === 'text') {
+    const tileText = excerpt || media.textExcerpt || 'Skywrite';
+    return (
+      <LinearGradient
+        colors={['rgba(88, 56, 168, 0.55)', 'rgba(12, 10, 32, 0.92)']}
+        style={[styles.squareTile, { width: size, height: size }]}>
+        <Text style={styles.squareText} numberOfLines={variant === 'invitationList' ? 3 : 4}>
+          {tileText}
+        </Text>
+      </LinearGradient>
+    );
+  }
+
+  const imageUri =
+    media.kind === 'video' || media.kind === 'video_audio'
+      ? media.videoThumbnailUri
+      : media.photoUri;
+
+  const showImage = Boolean(imageUri) && !imageFailed;
+  const showPlay =
+    media.kind === 'video' || media.kind === 'video_audio' || media.kind === 'audio';
+
+  return (
+    <View style={[styles.squareTile, styles.squareMedia, { width: size, height: size }]}>
+      {showImage ? (
+        <Image
+          source={{ uri: imageUri! }}
+          style={styles.squareImage}
+          contentFit="cover"
+          transition={120}
+          onError={() => setImageFailed(true)}
+          accessibilityIgnoresInvertColors
+        />
+      ) : (
+        <View style={styles.squareFallback}>
+          <Text style={styles.fallbackIcon}>{media.kind.includes('video') ? '▶' : '◻'}</Text>
+        </View>
+      )}
+      {showPlay ? (
+        <View style={styles.playBadge}>
+          <Text style={styles.playBadgeIcon}>▶</Text>
+        </View>
+      ) : null}
+      {media.kind === 'photo_audio' || media.kind === 'video_audio' ? (
+        <View style={styles.audioBadge}>
+          <Text style={styles.audioBadgeIcon}>♪</Text>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 function SkywriteMediaPreviewComponent({
@@ -42,117 +107,90 @@ function SkywriteMediaPreviewComponent({
   style,
 }: SkywriteMediaPreviewProps) {
   const media = useMemo(() => pickSkywriteMediaSource(skywrite), [skywrite]);
-  const [imageFailed, setImageFailed] = useState(false);
   const previewId = `${previewIdPrefix}-${skywrite.id}`;
   const playing = isAudioPlaying?.(previewId) ?? false;
   const textExcerpt = excerpt ?? skywritePreviewExcerpt(skywrite.text, variant === 'invitationList' ? 80 : 140);
-
-  if (media.kind === 'text') {
-    if (!textExcerpt) return null;
-    return (
-      <Text
-        style={[styles.textOnly, variant === 'invitationCard' && styles.textOnlyCard]}
-        numberOfLines={variant === 'invitationList' ? 2 : 3}>
-        {textExcerpt}
-      </Text>
-    );
-  }
-
-  const showPhoto =
-    (media.kind === 'photo' || media.kind === 'photo_audio') && media.photoUri && !imageFailed;
-  const showAudio = (media.kind === 'audio' || media.kind === 'photo_audio') && media.audioUri;
-  const thumb = thumbnailSize(variant);
   const listLayout = variant === 'library' || variant === 'invitationList';
+  const useSquareTile = variant === 'library' || variant === 'invitationList';
 
-  return (
-    <View style={[listLayout ? styles.rowLayout : styles.stackLayout, style]}>
-      {showPhoto ? (
-        <View
-          style={[
-            styles.thumbWrap,
-            variant === 'invitationCard' && styles.thumbWrapCard,
-            thumb ? { width: thumb.width, height: thumb.height } : null,
-          ]}>
-          <Image
-            source={{ uri: media.photoUri! }}
-            style={styles.thumbImage}
-            contentFit="cover"
-            transition={120}
-            onError={() => setImageFailed(true)}
-            accessibilityIgnoresInvertColors
-          />
-          {media.kind === 'photo_audio' && media.audioUri ? (
-            <View style={styles.audioBadge}>
-              <Text style={styles.audioBadgeIcon}>♪</Text>
-              <Text style={styles.audioBadgeDuration}>
-                {formatSkywriteAudioDuration(media.audioDurationMs)}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      ) : media.kind === 'photo' || media.kind === 'photo_audio' ? (
-        <View
-          style={[
-            styles.fallbackThumb,
-            variant === 'invitationCard' ? styles.thumbWrapCard : null,
-            thumb ? { width: thumb.width, height: thumb.height } : null,
-          ]}>
-          <Text style={styles.fallbackIcon}>◻</Text>
-        </View>
-      ) : null}
-
-      <View style={styles.textColumn}>
-        {textExcerpt && media.kind !== 'audio' ? (
-          <Text style={styles.excerpt} numberOfLines={variant === 'invitationList' ? 2 : 2}>
+  if (variant === 'invitationCard') {
+    if (media.kind === 'text') {
+      if (!textExcerpt) return null;
+      return (
+        <Text style={styles.textOnlyCard} numberOfLines={3}>
+          {textExcerpt}
+        </Text>
+      );
+    }
+    return (
+      <View style={[styles.stackLayout, style]}>
+        <SkywriteSquareTile skywrite={skywrite} variant={variant} excerpt={textExcerpt} />
+        {textExcerpt ? (
+          <Text style={styles.excerpt} numberOfLines={2}>
             {textExcerpt}
           </Text>
         ) : null}
-
-        {showAudio ? (
-          allowAudioPreview ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={playing ? 'Pause audio preview' : 'Play audio preview'}
-              onPress={(event) => {
-                event.stopPropagation();
-                onToggleAudio?.(previewId, media.audioUri!);
-              }}
-              style={({ pressed }) => [styles.audioStrip, pressed && styles.pressed]}>
-              <View style={styles.playBtn}>
-                <Text style={styles.playBtnText}>{playing ? '❚❚' : '▶'}</Text>
-              </View>
-              <SkywriteAudioWaveform active={playing} seed={skywrite.id.length} barCount={12} />
-              <Text style={styles.duration}>
-                {formatSkywriteAudioDuration(media.audioDurationMs)}
-              </Text>
-            </Pressable>
-          ) : (
-            <View style={styles.audioStrip}>
-              <View style={styles.playBtn}>
-                <Text style={styles.playBtnText}>♪</Text>
-              </View>
-              <SkywriteAudioWaveform active={false} seed={skywrite.id.length} barCount={12} />
-              <Text style={styles.duration}>
-                {formatSkywriteAudioDuration(media.audioDurationMs)}
-              </Text>
-            </View>
-          )
-        ) : null}
-
-        {media.kind === 'audio' && !textExcerpt ? (
-          <Text style={styles.audioOnlyHint} numberOfLines={1}>
-            Voice Skywrite
-          </Text>
-        ) : null}
       </View>
-    </View>
-  );
+    );
+  }
+
+  if (useSquareTile) {
+    return (
+      <View style={[listLayout ? styles.rowLayout : styles.stackLayout, style]}>
+        <SkywriteSquareTile skywrite={skywrite} variant={variant} excerpt={textExcerpt} />
+        <View style={styles.textColumn}>
+          {textExcerpt && media.kind !== 'audio' ? (
+            <Text style={styles.excerpt} numberOfLines={variant === 'invitationList' ? 2 : 2}>
+              {textExcerpt}
+            </Text>
+          ) : null}
+          {media.kind === 'audio' && media.audioUri ? (
+            allowAudioPreview ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={playing ? 'Pause audio preview' : 'Play audio preview'}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onToggleAudio?.(previewId, media.audioUri!);
+                }}
+                style={({ pressed }) => [styles.audioStrip, pressed && styles.pressed]}>
+                <View style={styles.playBtn}>
+                  <Text style={styles.playBtnText}>{playing ? '❚❚' : '▶'}</Text>
+                </View>
+                <SkywriteAudioWaveform active={playing} seed={skywrite.id.length} barCount={12} />
+                <Text style={styles.duration}>
+                  {formatSkywriteAudioDuration(media.audioDurationMs)}
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={styles.audioStrip}>
+                <View style={styles.playBtn}>
+                  <Text style={styles.playBtnText}>♪</Text>
+                </View>
+                <SkywriteAudioWaveform active={false} seed={skywrite.id.length} barCount={12} />
+                <Text style={styles.duration}>
+                  {formatSkywriteAudioDuration(media.audioDurationMs)}
+                </Text>
+              </View>
+            )
+          ) : null}
+          {media.kind === 'audio' && !textExcerpt ? (
+            <Text style={styles.audioOnlyHint} numberOfLines={1}>
+              Voice Skywrite
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
+
+  return null;
 }
 
 export const SkywriteMediaPreview = memo(SkywriteMediaPreviewComponent);
 
-export function skywriteHasMediaPreview(record: Pick<SkywriteRecord, 'media' | 'mediaMode'>): boolean {
-  return pickSkywriteMediaSource(record).kind !== 'text';
+export function skywriteHasMediaPreview(record: Pick<SkywriteRecord, 'media' | 'mediaMode' | 'text'>): boolean {
+  return true;
 }
 
 const styles = StyleSheet.create({
@@ -169,44 +207,59 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 6,
   },
-  thumbWrap: {
+  squareTile: {
     borderRadius: Radius.md,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(232, 200, 114, 0.28)',
+  },
+  squareMedia: {
     backgroundColor: 'rgba(8, 10, 24, 0.5)',
   },
-  thumbWrapCard: {
-    width: '100%',
-    height: 132,
-    alignSelf: 'stretch',
-  },
-  thumbImage: {
+  squareImage: {
     width: '100%',
     height: '100%',
   },
-  fallbackThumb: {
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(167, 139, 250, 0.25)',
-    backgroundColor: 'rgba(12, 10, 28, 0.55)',
+  squareFallback: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(12, 10, 28, 0.55)',
+  },
+  squareText: {
+    flex: 1,
+    padding: 8,
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    lineHeight: 15,
+    color: 'rgba(248,244,236,0.92)',
+    textAlign: 'left',
   },
   fallbackIcon: {
     fontSize: 18,
     color: 'rgba(235,228,248,0.45)',
   },
+  playBadge: {
+    position: 'absolute',
+    inset: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(4, 6, 16, 0.28)',
+  },
+  playBadgeIcon: {
+    fontSize: 22,
+    color: '#E8C872',
+    fontWeight: '700',
+  },
   audioBadge: {
     position: 'absolute',
     bottom: 6,
     right: 6,
-    flexDirection: 'row',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.full,
+    justifyContent: 'center',
     backgroundColor: 'rgba(8, 10, 24, 0.78)',
     borderWidth: 1,
     borderColor: 'rgba(232, 200, 114, 0.35)',
@@ -215,25 +268,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#E8C872',
   },
-  audioBadgeDuration: {
-    fontFamily: Fonts.sans,
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#F5F0FF',
-  },
   excerpt: {
     fontFamily: Fonts.sans,
     fontSize: 13,
     lineHeight: 18,
     color: 'rgba(235,228,248,0.88)',
   },
-  textOnly: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    lineHeight: 18,
-    color: 'rgba(235,228,248,0.88)',
-  },
   textOnlyCard: {
+    fontFamily: Fonts.sans,
     fontSize: 14,
     lineHeight: 20,
     color: '#F5F0FF',

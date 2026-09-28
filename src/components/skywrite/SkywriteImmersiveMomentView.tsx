@@ -116,7 +116,9 @@ function SkywriteImmersiveMomentViewComponent({
               useNativeControls={false}
               resizeMode={ResizeMode.CONTAIN}
               isLooping={false}
+              isMuted={false}
               onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
+              onLoad={() => void videoPlayback.applyVideoVolume()}
             />
             <View style={styles.videoControls}>
               <Pressable

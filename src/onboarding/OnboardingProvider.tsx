@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -86,7 +87,6 @@ import {
 } from '@/mySky/skyEvolutionPersistence';
 import { currentUser } from '@/data/mockData';
 import {
-  buildSkywriteRecord,
   EMPTY_SKYWRITES,
   loadSkywrites,
   saveSkywrites,
@@ -94,6 +94,10 @@ import {
   type SkywriteRecord,
   type SkywritesState,
 } from '@/skywrite';
+import {
+  publishSkywriteDraft,
+  type PublishSkywriteResult,
+} from '@/skywrite/publish/publishSkywriteDraft';
 import { stripSkywriteRenderableContent } from '@/skywrite/lifecycle/skywriteContentLifecycle';
 import {
   buildAroundYourSkyHomeFeed,
@@ -189,7 +193,7 @@ interface OnboardingContextValue {
   dismissGuidingLight: () => void;
   /** User-authored Skywrites — local-first, explicit hashtags parsed from text */
   skywrites: SkywriteRecord[];
-  createSkywrite: (draft: SkywriteDraft) => SkywriteRecord;
+  publishSkywrite: (draft: SkywriteDraft) => Promise<PublishSkywriteResult>;
   updateSkywrite: (
     skywriteId: string,
     patch: Partial<Pick<SkywriteRecord, 'visibility' | 'text' | 'userHashtags' | 'skyAreaId'>>,
@@ -222,6 +226,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [guidingLightDismiss, setGuidingLightDismissState] =
     useState<GuidingLightDismissRecord>(EMPTY_GUIDING_LIGHT_DISMISS);
   const [skywritesState, setSkywritesState] = useState<SkywritesState>(EMPTY_SKYWRITES);
+  const skywritesRef = useRef(skywritesState);
   const [skyArrivalHandoff, setSkyArrivalHandoffState] = useState<SkyArrivalHandoff | null>(null);
   const [mySkyVisibleLayers, setMySkyVisibleLayers] = useState<MySkyVisibleLayers>(
     () => ({ ...DEFAULT_MY_SKY_VISIBLE_LAYERS }),
@@ -254,6 +259,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setMySkyVisibilitySettingsState(settings);
     void saveSkyVisibilitySettings(settings);
   }, []);
+
+  useEffect(() => {
+    skywritesRef.current = skywritesState;
+  }, [skywritesState]);
 
   useEffect(() => {
     let live = true;
@@ -642,26 +651,24 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     void saveGuidingLightDismiss(next);
   }, [guidingLightView.light?.id]);
 
-  const createSkywrite = useCallback((draft: SkywriteDraft): SkywriteRecord => {
-    const record = buildSkywriteRecord(
-      draft,
-      `skywrite-${Date.now()}`,
-      new Date().toISOString(),
-      currentUser.id,
-    );
-    setSkywritesState((current) => {
-      const next: SkywritesState = { posts: [record, ...current.posts] };
-      void saveSkywrites(next);
-      return next;
-    });
-    recordSkyEvolution(
-      createEvolutionEntry('SKYWRITE_CREATED', {
-        nodeId: buildSkyNodeId(record.id),
-        summary: 'A new Skywrite became a star in your sky.',
-      }),
-    );
-    return record;
-  }, [recordSkyEvolution]);
+  const publishSkywrite = useCallback(
+    async (draft: SkywriteDraft): Promise<PublishSkywriteResult> =>
+      publishSkywriteDraft(draft, async (record) => {
+        const next: SkywritesState = { posts: [record, ...skywritesRef.current.posts] };
+        const saved = await saveSkywrites(next);
+        if (saved) {
+          setSkywritesState(next);
+          recordSkyEvolution(
+            createEvolutionEntry('SKYWRITE_CREATED', {
+              nodeId: buildSkyNodeId(record.id),
+              summary: 'A new Skywrite became a star in your sky.',
+            }),
+          );
+        }
+        return saved;
+      }, currentUser.id),
+    [recordSkyEvolution],
+  );
 
   const updateSkywrite = useCallback(
     (
@@ -768,7 +775,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       guidingLightView,
       dismissGuidingLight,
       skywrites: skywritesState.posts,
-      createSkywrite,
+      publishSkywrite,
       updateSkywrite,
       stripSkywriteContentForDeletion,
       skyArrivalHandoff,
@@ -835,7 +842,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       guidingLightView,
       dismissGuidingLight,
       skywritesState.posts,
-      createSkywrite,
+      publishSkywrite,
       updateSkywrite,
       stripSkywriteContentForDeletion,
       skyArrivalHandoff,
@@ -882,3 +889,4 @@ export function useOnboarding() {
   }
   return context;
 }
+
