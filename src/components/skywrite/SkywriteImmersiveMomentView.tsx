@@ -1,6 +1,6 @@
 import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SkywriteAudioWaveform } from '@/components/skywrite/SkywriteAudioWaveform';
@@ -27,6 +27,8 @@ interface SkywriteImmersiveMomentViewProps {
   canNext: boolean;
   /** Stops video/voiceover when navigating. */
   onBeforeStepChange?: () => void;
+  /** When true, starts video playback once the asset is loaded (library open flow). */
+  autoPlayVideo?: boolean;
 }
 
 function SkywriteImmersiveMomentViewComponent({
@@ -43,15 +45,22 @@ function SkywriteImmersiveMomentViewComponent({
   canPrevious,
   canNext,
   onBeforeStepChange,
+  autoPlayVideo = false,
 }: SkywriteImmersiveMomentViewProps) {
   const videoActive = stepKind === 'video' && Boolean(record.media.video?.uri);
   const videoPlayback = useSkywriteImmersiveVideoPlayback(record, videoActive);
+  const { requestAutoPlay, applyVideoVolume, cleanup: cleanupVideo } = videoPlayback;
+  const autoPlayIssuedRef = useRef(false);
 
   useEffect(() => {
-    return () => {
-      void videoPlayback.cleanup();
-    };
-  }, [videoPlayback]);
+    autoPlayIssuedRef.current = false;
+  }, [record.id, stepKind]);
+
+  useEffect(() => {
+    if (!autoPlayVideo || stepKind !== 'video' || autoPlayIssuedRef.current) return;
+    autoPlayIssuedRef.current = true;
+    requestAutoPlay();
+  }, [autoPlayVideo, stepKind, record.id, requestAutoPlay]);
 
   const audioUri = record.media.audio?.uri ?? null;
   const showVideoVoiceover =
@@ -59,19 +68,19 @@ function SkywriteImmersiveMomentViewComponent({
 
   const handlePrevious = () => {
     onBeforeStepChange?.();
-    void videoPlayback.cleanup();
+    void cleanupVideo();
     onPrevious();
   };
 
   const handleNext = () => {
     onBeforeStepChange?.();
-    void videoPlayback.cleanup();
+    void cleanupVideo();
     onNext();
   };
 
   const handleExit = () => {
     onBeforeStepChange?.();
-    void videoPlayback.cleanup();
+    void cleanupVideo();
     onExit();
   };
 
@@ -117,8 +126,12 @@ function SkywriteImmersiveMomentViewComponent({
               resizeMode={ResizeMode.CONTAIN}
               isLooping={false}
               isMuted={false}
+              progressUpdateIntervalMillis={250}
               onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
-              onLoad={() => void videoPlayback.applyVideoVolume()}
+              onLoad={() => {
+                void applyVideoVolume();
+                if (autoPlayVideo) requestAutoPlay();
+              }}
             />
             <View style={styles.videoControls}>
               <Pressable

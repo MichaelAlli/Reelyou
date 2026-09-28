@@ -23,10 +23,11 @@ import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
 
 export function SkywriteGuidedPlayScreen() {
   const router = useRouter();
-  const { scope, id, start } = useLocalSearchParams<{
+  const { scope, id, start, autoplay } = useLocalSearchParams<{
     scope?: SkywritePlayScope;
     id?: string;
     start?: string;
+    autoplay?: string;
   }>();
   const playScope: SkywritePlayScope = scope === 'single' ? 'single' : 'focused';
   const { skywrites, mySkyView } = useOnboarding();
@@ -100,6 +101,7 @@ export function SkywriteGuidedPlayScreen() {
 
   const previewId = current ? `guided-play-${current.skywriteId}-${current.stepId}` : '';
   const audioPlaying = audioPreview.isPreviewPlaying(previewId);
+  const autoPlayVideo = autoplay === '1' && current?.kind === 'video';
 
   const handleExit = useCallback(() => {
     void audioPreview.stopAll();
@@ -168,6 +170,7 @@ export function SkywriteGuidedPlayScreen() {
           canPrevious={index > 0}
           canNext={index < steps.length - 1}
           onBeforeStepChange={() => void audioPreview.stopAll()}
+          autoPlayVideo={autoPlayVideo}
         />
       </SafeAreaView>
     </View>

@@ -25,6 +25,7 @@ interface SkywriteComposePreviewOverlayProps {
   draft: SkywriteDraft;
   mergedHashtags: string[];
   isPosting: boolean;
+  postingLabel: string | null;
   publishError: string | null;
   onClose: () => void;
   onPost: () => void;
@@ -35,6 +36,7 @@ export function SkywriteComposePreviewOverlay({
   draft,
   mergedHashtags,
   isPosting,
+  postingLabel,
   publishError,
   onClose,
   onPost,
@@ -117,7 +119,12 @@ export function SkywriteComposePreviewOverlay({
               onPress={onPost}
               style={[styles.primaryBtn, isPosting && styles.disabled]}>
               {isPosting ? (
-                <ActivityIndicator color="#1a1028" />
+                <View style={styles.postingRow}>
+                  <ActivityIndicator color="#1a1028" />
+                  {postingLabel ? (
+                    <Text style={styles.postingText}>{postingLabel}</Text>
+                  ) : null}
+                </View>
               ) : (
                 <Text style={styles.primaryText}>{SkywriteCopy.previewPost}</Text>
               )}
@@ -188,4 +195,11 @@ const styles = StyleSheet.create({
     color: '#1a1028',
   },
   disabled: { opacity: 0.55 },
+  postingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  postingText: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1a1028',
+  },
 });

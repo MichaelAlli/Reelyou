@@ -119,6 +119,7 @@ export function SkywriteScreen() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [postingLabel, setPostingLabel] = useState<string | null>(null);
   const { catalog, addCustomArea, selectedIds } = useSkyAreaPreferences();
 
   const voice = useSkywriteVoice();
@@ -413,9 +414,14 @@ export function SkywriteScreen() {
 
     setIsPosting(true);
     setPublishError(null);
+    setPostingLabel(SkywriteCopy.publishing);
     const starsBeforeSubmit = takeFocusedSkywriteComposeStars() ?? mySkyView.stars;
-    const result = await publishSkywrite(publishDraft);
+    const result = await publishSkywrite(publishDraft, (progress) => {
+      const seconds = Math.max(1, Math.round(progress.elapsedMs / 1000));
+      setPostingLabel(SkywriteCopy.publishingElapsed(seconds));
+    });
     setIsPosting(false);
+    setPostingLabel(null);
 
     if (!result.ok) {
       setPublishError(result.errorMessage);
@@ -806,6 +812,7 @@ export function SkywriteScreen() {
         draft={draft}
         mergedHashtags={mergedHashtags}
         isPosting={isPosting}
+        postingLabel={postingLabel}
         publishError={publishError}
         onClose={() => {
           if (isPosting) return;

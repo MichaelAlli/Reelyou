@@ -2,9 +2,7 @@ import { memo, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import { SkywriteMediaPreview } from '@/components/skywrite/SkywriteMediaPreview';
-import { useOnboarding } from '@/onboarding';
-
+import { SkywriteLibraryMediaCard } from '@/components/skywrite/SkywriteLibraryMediaCard';
 import {
   OWNER_PROFILE_CARD_RADIUS,
   OWNER_PROFILE_HORIZONTAL_INSET,
@@ -12,9 +10,11 @@ import {
   OWNER_PROFILE_SECTION_GAP,
 } from '@/components/profile/owner/ownerProfileLayout';
 import { Fonts } from '@/constants/theme';
+import { useOnboarding } from '@/onboarding';
 import type { ProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
 import { SKY_AREA_TAB_ALL, type SkyAreaTabId } from '@/skyAreas/skyAreaCategory';
 import { filterProfileSkywritingItems } from '@/profile/buildProfileSkywritingsSection';
+import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
 
 interface OwnerProfileSkywritingsCardProps {
   section: ProfileSkywritingsSection;
@@ -88,36 +88,29 @@ function OwnerProfileSkywritingsCardComponent({
         <View style={styles.previewList}>
           {previewItems.map((item) => {
             const record = skywriteById.get(item.id);
+            if (!record) {
+              return (
+                <Text key={item.id} style={styles.previewLabel} numberOfLines={1}>
+                  {item.label}
+                </Text>
+              );
+            }
             return (
-              <Pressable
+              <SkywriteLibraryMediaCard
                 key={item.id}
-                accessibilityRole="button"
-                onPress={() => {
+                skywrite={record}
+                caption={item.label}
+                onPressMedia={() => {
                   if (onItemPress) {
                     onItemPress(item.id);
                     return;
                   }
                   if (!isVisitor) {
-                    router.push(`/skywrite/${item.id}` as never);
+                    openSkywriteMediaPlay(router, record, { autoplay: true });
                   }
                 }}
-                style={({ pressed }) => [styles.previewRow, pressed && styles.previewRowPressed]}>
-                {record ? (
-                  <SkywriteMediaPreview
-                    skywrite={record}
-                    variant="library"
-                    excerpt={item.label}
-                    previewIdPrefix="profile-skywrites"
-                    allowAudioPreview={false}
-                    style={styles.previewTile}
-                  />
-                ) : (
-                  <Text style={styles.previewLabel} numberOfLines={1}>
-                    {item.label}
-                  </Text>
-                )}
-                {(onItemPress || !isVisitor) ? <Text style={styles.previewChevron}>›</Text> : null}
-              </Pressable>
+                style={styles.mediaCard}
+              />
             );
           })}
         </View>
@@ -176,26 +169,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   headerPressed: { opacity: 0.92 },
-  previewList: { marginTop: 10, gap: 6 },
-  previewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 40,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    gap: 8,
+  previewList: { marginTop: 10, gap: 14 },
+  mediaCard: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(167, 139, 250, 0.18)',
+    padding: 8,
+    backgroundColor: 'rgba(6, 8, 22, 0.35)',
   },
-  previewTile: {
-    flex: 1,
-  },
-  previewRowPressed: { opacity: 0.9 },
   previewLabel: {
-    flex: 1,
     fontFamily: Fonts.sans,
     fontSize: 13,
     color: 'rgba(248, 244, 236, 0.88)',
   },
-  previewChevron: { fontSize: 18, color: 'rgba(232, 200, 114, 0.65)' },
   emptyHint: {
     fontFamily: Fonts.sans,
     fontSize: 12,

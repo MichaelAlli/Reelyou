@@ -13,6 +13,20 @@ function stepIdFor(kind: SkywritePlayStepKind): string {
   return kind;
 }
 
+const MEDIA_STEP_PRIORITY: SkywritePlayStepKind[] = ['video', 'photo', 'audio', 'text'];
+
+/** Step index for the main media moment — used when opening a post from a library card. */
+export function resolvePrimaryMediaStepIndex(
+  skywrite: Pick<SkywriteRecord, 'text' | 'media' | 'mediaMode'>,
+): number {
+  const steps = defaultStepsForSkywrite(skywrite as SkywriteRecord);
+  for (const kind of MEDIA_STEP_PRIORITY) {
+    const index = steps.findIndex((step) => step.kind === kind);
+    if (index >= 0) return index;
+  }
+  return 0;
+}
+
 export function defaultStepsForSkywrite(skywrite: SkywriteRecord): SkywritePlayStep[] {
   const steps: SkywritePlayStep[] = [];
   if (skywrite.text.trim()) {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   defaultStepsForSkywrite,
   reorderIds,
+  resolvePrimaryMediaStepIndex,
   resolveStepsForSkywrite,
 } from '@/skywrite/play/skywritePlayLogic';
 import type { SkywriteRecord } from '@/skywrite/types';
@@ -48,5 +49,6 @@ const videoVoiceover: SkywriteRecord = {
 const videoSteps = defaultStepsForSkywrite(videoVoiceover);
 assert(videoSteps.length === 2, 'video voiceover: text + video (no separate audio step)');
 assert(videoSteps.some((step) => step.kind === 'video'), 'includes video step');
+assert(resolvePrimaryMediaStepIndex(videoVoiceover) === 1, 'primary step prefers video');
 
 console.log('skywritePlayLogic.test.ts — OK');

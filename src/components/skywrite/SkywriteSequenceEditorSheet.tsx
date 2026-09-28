@@ -1,10 +1,13 @@
+import { useRouter } from 'expo-router';
 import { memo, useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CalmOverlaySheet } from '@/components/focused-sky/CalmOverlaySheet';
+import { SkywriteLibraryMediaCard } from '@/components/skywrite/SkywriteLibraryMediaCard';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { Fonts, Radius } from '@/constants/theme';
 import { useOnboarding } from '@/onboarding';
+import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
 import {
   defaultFocusedSkywriteIds,
   ensureFocusedOrder,
@@ -26,6 +29,7 @@ function SkywriteSequenceEditorSheetComponent({
   onClose,
   onChange,
 }: SkywriteSequenceEditorSheetProps) {
+  const router = useRouter();
   const { skywrites, mySkyView } = useOnboarding();
 
   const orderedIds = useMemo(() => {
@@ -53,14 +57,32 @@ function SkywriteSequenceEditorSheetComponent({
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           {orderedIds.map((skywriteId) => {
             const included = !excluded.has(skywriteId);
+            const post = skywrites.find((entry) => entry.id === skywriteId);
             return (
               <View key={skywriteId} style={styles.row}>
-                <View style={styles.rowMain}>
-                  <Text style={[styles.rowTitle, !included && styles.rowMuted]} numberOfLines={2}>
-                    {titleFor(skywriteId)}
-                  </Text>
-                  <Text style={styles.rowState}>{included ? 'In play' : 'Skipped'}</Text>
-                </View>
+                {post ? (
+                  <SkywriteLibraryMediaCard
+                    skywrite={post}
+                    caption={titleFor(skywriteId)}
+                    onPressMedia={() => openSkywriteMediaPlay(router, post, { autoplay: true })}
+                    menuActions={[
+                      {
+                        id: 'toggle-include',
+                        label: included ? SkywritePlayCopy.exclude : SkywritePlayCopy.include,
+                        onPress: () =>
+                          onChange({
+                            ...config,
+                            excludedSkywriteIds: toggleExcluded(
+                              config.excludedSkywriteIds,
+                              skywriteId,
+                            ),
+                          }),
+                      },
+                    ]}
+                    style={styles.mediaCard}
+                  />
+                ) : null}
+                <Text style={styles.rowState}>{included ? 'In play' : 'Skipped'}</Text>
                 <View style={styles.actions}>
                   <Pressable
                     onPress={() =>
@@ -141,6 +163,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(167, 139, 250, 0.22)',
     padding: 10,
     gap: 8,
+  },
+  mediaCard: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(167, 139, 250, 0.18)',
+    padding: 6,
   },
   rowMain: { gap: 4 },
   rowTitle: {

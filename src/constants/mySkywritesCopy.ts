@@ -2,7 +2,7 @@ export const MySkywritesCopy = {
   indicatorA11y: 'My Skywrites',
   sheetTitle: 'My Skywrites',
   sheetSubtitle: 'Your writing and where you have shown up.',
-  listHint: 'Tap a row to open — audio previews open on the detail screen.',
+  listHint: 'Tap the media to watch or listen. Use ⋯ for archive and other actions.',
   tabRecent: 'Recent',
   tabSaved: 'Saved',
   tabArchived: 'Archived',

@@ -1,36 +1,51 @@
 import { buildSkywriteRecord } from '@/skywrite/draft';
-import { prepareSkywriteDraftForPublish } from '@/skywrite/publish/ensureSkywriteVideoThumbnail';
 import type { SkywriteDraft, SkywriteRecord } from '@/skywrite/types';
 
-export type PublishSkywriteResult =
-  | { ok: true; record: SkywriteRecord }
-  | { ok: false; errorMessage: string };
+export type PublishSkywritePhase = 'saving';
 
+export type PublishSkywriteProgress = {
+  phase: PublishSkywritePhase;
+  elapsedMs: number;
+};
+
+export type PublishSkywriteResult =
+  | { ok: true; record: SkywriteRecord; saveMs: number }
+  | { ok: false; errorMessage: string; saveMs: number };
+
+/** Persists the post immediately — video thumbnails are generated afterward (non-blocking). */
 export async function publishSkywriteDraft(
   draft: SkywriteDraft,
   persist: (record: SkywriteRecord) => Promise<boolean>,
   authorId: string,
+  onProgress?: (progress: PublishSkywriteProgress) => void,
 ): Promise<PublishSkywriteResult> {
+  const started = Date.now();
+  const tick = () => onProgress?.({ phase: 'saving', elapsedMs: Date.now() - started });
+
   try {
-    const prepared = await prepareSkywriteDraftForPublish(draft);
+    tick();
     const record = buildSkywriteRecord(
-      prepared,
+      draft,
       `skywrite-${Date.now()}`,
       new Date().toISOString(),
       authorId,
     );
+    tick();
     const saved = await persist(record);
+    const saveMs = Date.now() - started;
     if (!saved) {
       return {
         ok: false,
         errorMessage: 'We couldn’t save your Skywrite. Check storage and try again.',
+        saveMs,
       };
     }
-    return { ok: true, record };
+    return { ok: true, record, saveMs };
   } catch {
     return {
       ok: false,
       errorMessage: 'Something went wrong while saving. Your draft is still here.',
+      saveMs: Date.now() - started,
     };
   }
 }

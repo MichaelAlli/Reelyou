@@ -13,7 +13,6 @@ import { CalmOverlaySheet } from '@/components/focused-sky/CalmOverlaySheet';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { MySkywritesCopy } from '@/constants/mySkywritesCopy';
 import { SavedThreadsCopy } from '@/constants/savedThreadsCopy';
-import { SKYWRITE_VISIBILITY_OPTIONS } from '@/constants/skywriteCopy';
 import { Fonts, Radius } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
 import { useOnboarding } from '@/onboarding';
@@ -22,12 +21,14 @@ import {
   buildAuthoredLibraryRows,
   buildContributedLibraryRows,
   buildSavedThreadLibraryRows,
+  type MySkywriteLibraryRow,
   type MySkywritesTabId,
 } from '@/skywrite/library/buildMySkywritesLibrary';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
 import { useSavedThreads } from '@/skywrite/savedThreads/SavedThreadsProvider';
-import { SkywriteMediaPreview } from '@/components/skywrite/SkywriteMediaPreview';
+import { SkywriteLibraryMediaCard } from '@/components/skywrite/SkywriteLibraryMediaCard';
 import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPreviewScope';
+import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
 import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
 
 interface MySkywritesSheetProps {
@@ -124,15 +125,15 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
           ? MySkywritesCopy.emptyContributed
           : MySkywritesCopy.emptyRecent;
 
-  const openDetail = useCallback(
-    (row: { skywriteId: string; savedThreadId?: string }) => {
+  const openMedia = useCallback(
+    (row: MySkywriteLibraryRow) => {
       void audioPreview.stopAll();
       onClose();
       if (row.savedThreadId) {
         router.push(`/skywrite/saved/${row.savedThreadId}` as never);
         return;
       }
-      router.push(`/skywrite/${row.skywriteId}` as never);
+      openSkywriteMediaPlay(router, row.skywrite, { autoplay: true });
     },
     [audioPreview, onClose, router],
   );
@@ -183,63 +184,46 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
             <Text style={styles.empty}>{emptyCopy}</Text>
           ) : (
             rows.map((row) => {
-              const visibilityLabel =
-                SKYWRITE_VISIBILITY_OPTIONS.find((option) => option.id === row.visibility)?.title ??
-                row.visibility;
               const isOwner = row.skywrite.authorId === currentUser.id;
+              const menuActions = [];
+              if (row.savedThreadId && (tab === 'saved' || tab === 'archived')) {
+                menuActions.push({
+                  id: 'saved-thread-archive',
+                  label:
+                    tab === 'archived'
+                      ? SavedThreadsCopy.restoreSaved
+                      : SavedThreadsCopy.archiveSaved,
+                  onPress: () =>
+                    tab === 'archived'
+                      ? restoreThread(row.savedThreadId!)
+                      : archiveThread(row.savedThreadId!),
+                });
+              } else if (isOwner && tab !== 'contributed' && tab !== 'saved') {
+                menuActions.push({
+                  id: 'archive-skywrite',
+                  label:
+                    tab === 'archived'
+                      ? MySkywritesCopy.restoreAction
+                      : MySkywritesCopy.archiveAction,
+                  onPress: () =>
+                    tab === 'archived'
+                      ? restoreSkywrite(row.skywriteId)
+                      : archiveSkywrite(row.skywriteId),
+                });
+              }
+
               return (
-                <View
+                <SkywriteLibraryMediaCard
                   key={`${row.savedThreadId ?? row.skywriteId}-${row.contributedResponseId ?? 'owned'}`}
-                  style={styles.row}>
-                  <Pressable
-                    style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}
-                    onPress={() => openDetail(row)}>
-                    <SkywriteMediaPreview
-                      skywrite={row.skywrite}
-                      variant="library"
-                      excerpt={row.excerpt}
-                      previewIdPrefix="my-skywrites"
-                      allowAudioPreview={false}
-                    />
-                    <View style={styles.rowMeta}>
-                      {row.areaLabel ? <Text style={styles.area}>{row.areaLabel}</Text> : null}
-                      <Text style={styles.when}>{formatWhen(row.sortMs)}</Text>
-                    </View>
-                    {row.intentLabel ? <Text style={styles.intent}>{row.intentLabel}</Text> : null}
-                    <Text style={styles.visibility}>{visibilityLabel}</Text>
-                  </Pressable>
-                  {row.savedThreadId && (tab === 'saved' || tab === 'archived') ? (
-                    <Pressable
-                      onPress={() =>
-                        tab === 'archived'
-                          ? restoreThread(row.savedThreadId!)
-                          : archiveThread(row.savedThreadId!)
-                      }
-                      hitSlop={8}
-                      style={styles.secondaryAction}>
-                      <Text style={styles.secondaryActionText}>
-                        {tab === 'archived'
-                          ? SavedThreadsCopy.restoreSaved
-                          : SavedThreadsCopy.archiveSaved}
-                      </Text>
-                    </Pressable>
-                  ) : isOwner && tab !== 'contributed' && tab !== 'saved' ? (
-                    <Pressable
-                      onPress={() =>
-                        tab === 'archived'
-                          ? restoreSkywrite(row.skywriteId)
-                          : archiveSkywrite(row.skywriteId)
-                      }
-                      hitSlop={8}
-                      style={styles.secondaryAction}>
-                      <Text style={styles.secondaryActionText}>
-                        {tab === 'archived'
-                          ? MySkywritesCopy.restoreAction
-                          : MySkywritesCopy.archiveAction}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
+                  skywrite={row.skywrite}
+                  caption={row.excerpt}
+                  dateLabel={formatWhen(row.sortMs)}
+                  menuActions={menuActions}
+                  onPressMedia={() => openMedia(row)}
+                  onToggleAudio={(previewId, uri) => void audioPreview.togglePreview(previewId, uri)}
+                  isAudioPlaying={(previewId) => audioPreview.isPreviewPlaying(previewId)}
+                  style={styles.mediaCard}
+                />
               );
             })
           )}
@@ -324,8 +308,15 @@ const styles = StyleSheet.create({
     color: '#F5F0FF',
     marginBottom: 10,
   },
-  listScroll: { maxHeight: 360 },
-  listContent: { gap: 10, paddingBottom: 8 },
+  listScroll: { maxHeight: 420 },
+  listContent: { gap: 16, paddingBottom: 8 },
+  mediaCard: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(167, 139, 250, 0.22)',
+    padding: 10,
+    backgroundColor: 'rgba(6, 8, 22, 0.35)',
+  },
   empty: {
     fontFamily: Fonts.sans,
     fontSize: 13,
