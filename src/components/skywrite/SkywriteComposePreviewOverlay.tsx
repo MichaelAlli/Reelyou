@@ -6,14 +6,12 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SkywriteImmersiveMomentView } from '@/components/skywrite/SkywriteImmersiveMomentView';
-import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { SkywriteCopy } from '@/constants/skywriteCopy';
-import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
 import { buildSkywritePreviewRecord } from '@/skywrite/draft';
 import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPreviewScope';
@@ -43,7 +41,6 @@ export function SkywriteComposePreviewOverlay({
   onPost,
   onDraftMediaChange,
 }: SkywriteComposePreviewOverlayProps) {
-  const { height } = useWindowDimensions();
   const audioPreview = useOverlayAudioPreviewScope(visible);
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -77,65 +74,59 @@ export function SkywriteComposePreviewOverlay({
 
   if (!visible || !step) return null;
 
+  const postActions = (
+    <View style={styles.actions}>
+      {publishError ? <Text style={styles.error}>{publishError}</Text> : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={SkywriteCopy.previewBackToEdit}
+        disabled={isPosting}
+        onPress={handleClose}
+        style={[styles.secondaryBtn, isPosting && styles.disabled]}>
+        <Text style={styles.secondaryText}>{SkywriteCopy.previewBackToEdit}</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={SkywriteCopy.previewPost}
+        disabled={isPosting}
+        onPress={onPost}
+        style={[styles.primaryBtn, isPosting && styles.disabled]}>
+        {isPosting ? (
+          <View style={styles.postingRow}>
+            <ActivityIndicator color="#1a1028" />
+            {postingLabel ? <Text style={styles.postingText}>{postingLabel}</Text> : null}
+          </View>
+        ) : (
+          <Text style={styles.primaryText}>{SkywriteCopy.previewPost}</Text>
+        )}
+      </Pressable>
+    </View>
+  );
+
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={handleClose}>
       <View style={styles.root}>
-        <HomeBackdrop />
-        <SafeAreaView style={[styles.safe, { minHeight: height }]}>
-          <Text style={styles.title}>{SkywriteCopy.previewTitle}</Text>
-          <Text style={styles.hint}>{SkywriteCopy.previewHint}</Text>
-
-          <View style={styles.viewer}>
-            <SkywriteImmersiveMomentView
-              record={previewRecord}
-              stepKind={step.kind}
-              stepIndex={stepIndex}
-              stepCount={steps.length}
-              previewId={previewId}
-              audioPlaying={audioPreview.isPreviewPlaying(previewId)}
-              onToggleAudio={(pid, uri) => void audioPreview.togglePreview(pid, uri)}
-              onExit={handleClose}
-              onPrevious={handlePrevious}
-              onNext={handleNext}
-              canPrevious={stepIndex > 0}
-              canNext={stepIndex < steps.length - 1}
-              onBeforeStepChange={() => void audioPreview.stopAll()}
-              layoutMode="viewport"
-              mediaMix={draft.media}
-              onMediaMixChange={onDraftMediaChange}
-              showAudioMixControls
-            />
-          </View>
-
-          {publishError ? <Text style={styles.error}>{publishError}</Text> : null}
-
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={SkywriteCopy.previewBackToEdit}
-              disabled={isPosting}
-              onPress={handleClose}
-              style={[styles.secondaryBtn, isPosting && styles.disabled]}>
-              <Text style={styles.secondaryText}>{SkywriteCopy.previewBackToEdit}</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={SkywriteCopy.previewPost}
-              disabled={isPosting}
-              onPress={onPost}
-              style={[styles.primaryBtn, isPosting && styles.disabled]}>
-              {isPosting ? (
-                <View style={styles.postingRow}>
-                  <ActivityIndicator color="#1a1028" />
-                  {postingLabel ? (
-                    <Text style={styles.postingText}>{postingLabel}</Text>
-                  ) : null}
-                </View>
-              ) : (
-                <Text style={styles.primaryText}>{SkywriteCopy.previewPost}</Text>
-              )}
-            </Pressable>
-          </View>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <SkywriteImmersiveMomentView
+            record={previewRecord}
+            stepKind={step.kind}
+            stepIndex={stepIndex}
+            stepCount={steps.length}
+            previewId={previewId}
+            audioPlaying={audioPreview.isPreviewPlaying(previewId)}
+            onToggleAudio={(pid, uri) => void audioPreview.togglePreview(pid, uri)}
+            onExit={handleClose}
+            onPrevious={handlePrevious}
+            onNext={handleNext}
+            canPrevious={stepIndex > 0}
+            canNext={stepIndex < steps.length - 1}
+            onBeforeStepChange={() => void audioPreview.stopAll()}
+            layoutMode="viewport"
+            mediaMix={draft.media}
+            onMediaMixChange={onDraftMediaChange}
+            showAudioMixControls
+            bottomSlot={postActions}
+          />
         </SafeAreaView>
       </View>
     </Modal>
@@ -143,32 +134,17 @@ export function SkywriteComposePreviewOverlay({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#05070A' },
-  safe: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
-  title: {
-    fontFamily: Fonts.serif,
-    fontSize: 22,
-    color: '#FFF8F0',
-    textAlign: 'center',
-    marginTop: Spacing.sm,
-  },
-  hint: {
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    color: 'rgba(248,244,236,0.62)',
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: Spacing.sm,
-  },
-  viewer: { flex: 1, minHeight: 360 },
+  root: { flex: 1, backgroundColor: '#050508' },
+  safe: { flex: 1 },
+  actions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   error: {
+    width: '100%',
     fontFamily: Fonts.sans,
     fontSize: 13,
     color: '#F87171',
     textAlign: 'center',
-    marginTop: 8,
+    marginBottom: 4,
   },
-  actions: { flexDirection: 'row', gap: 10, marginTop: Spacing.md },
   secondaryBtn: {
     flex: 1,
     minHeight: 48,
@@ -178,6 +154,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
+    backgroundColor: 'rgba(8, 10, 28, 0.45)',
   },
   secondaryText: {
     fontFamily: Fonts.sans,

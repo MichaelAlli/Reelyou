@@ -1,27 +1,24 @@
 import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
   type LayoutChangeEvent,
-  type ViewStyle,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SkywriteAudioMixBottomSheet } from '@/components/skywrite/SkywriteAudioMixBottomSheet';
 import { SkywriteAudioWaveform } from '@/components/skywrite/SkywriteAudioWaveform';
-import { SkywritePlaybackAudioMixControls } from '@/components/skywrite/SkywritePlaybackAudioMixControls';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { getSkywriteWriteInputStyle } from '@/constants/skywriteTextStyles';
-import { Fonts, Radius, Spacing } from '@/constants/theme';
+import { Fonts, Spacing } from '@/constants/theme';
 import { formatSkywriteAudioDuration } from '@/skywrite/media/skywriteMediaPreviewUtils';
 import {
-  measureContainedVideoFrame,
-  skywriteContainedVideoFrameStyle,
   skywriteVideoAspectRatio,
   skywriteVideoElementStyle,
   skywriteVideoFrameStyle,
@@ -43,13 +40,9 @@ interface SkywriteImmersiveMomentViewProps {
   onNext: () => void;
   canPrevious: boolean;
   canNext: boolean;
-  /** Stops video/voiceover when navigating. */
   onBeforeStepChange?: () => void;
-  /** When true, starts video playback once the asset is loaded (library open flow). */
   autoPlayVideo?: boolean;
-  /** Large contain-fit layout for compose preview and full-screen playback. */
   layoutMode?: 'standard' | 'viewport';
-  /** Live mix levels during compose preview (persisted on the draft). */
   mediaMix?: SkywriteMedia;
   onMediaMixChange?: (media: SkywriteMedia) => void;
   showAudioMixControls?: boolean;
@@ -58,6 +51,24 @@ interface SkywriteImmersiveMomentViewProps {
   sequencePaused?: boolean;
   onVideoAutoplayBlocked?: () => void;
   manualPlayNonce?: number;
+  bottomSlot?: ReactNode;
+  tapToPlayPrompt?: boolean;
+  onTapToPlayContinue?: () => void;
+  onToggleSequencePause?: () => void;
+}
+
+function ProgressSegments({ index, count }: { index: number; count: number }) {
+  if (count <= 1) return null;
+  return (
+    <View style={styles.segments}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View
+          key={`seg-${i}`}
+          style={[styles.segment, i <= index ? styles.segmentActive : styles.segmentIdle]}
+        />
+      ))}
+    </View>
+  );
 }
 
 function SkywriteImmersiveMomentViewComponent({
@@ -84,7 +95,12 @@ function SkywriteImmersiveMomentViewComponent({
   sequencePaused = false,
   onVideoAutoplayBlocked,
   manualPlayNonce = 0,
+  bottomSlot,
+  tapToPlayPrompt = false,
+  onTapToPlayContinue,
+  onToggleSequencePause,
 }: SkywriteImmersiveMomentViewProps) {
+  const insets = useSafeAreaInsets();
   const videoActive = stepKind === 'video' && Boolean(record.media.video?.uri);
   const playbackMedia = mediaMix ?? record.media;
   const videoPlayback = useSkywriteImmersiveVideoPlayback(record, videoActive, playbackMedia, {
@@ -92,13 +108,10 @@ function SkywriteImmersiveMomentViewComponent({
   });
   const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize } = videoPlayback;
   const autoPlayIssuedRef = useRef(false);
-  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
-  const [videoFullscreen, setVideoFullscreen] = useState(false);
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const [mixOpen, setMixOpen] = useState(false);
 
-  const onStageLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setStageSize({ width, height });
+  const onStageLayout = (_event: LayoutChangeEvent) => {
+    /* stage is always full bleed in viewport mode */
   };
 
   useEffect(() => {
@@ -137,31 +150,14 @@ function SkywriteImmersiveMomentViewComponent({
   ]);
 
   const audioUri = record.media.audio?.uri ?? null;
-  const showVideoVoiceover =
-    record.mediaMode === 'video_voiceover' && stepKind === 'video' && Boolean(audioUri);
-
   const videoAspect = useMemo(() => {
     if (naturalSize?.width && naturalSize.height) {
       return naturalSize.width / naturalSize.height;
     }
-    return skywriteVideoAspectRatio(
-      record.media.video?.width,
-      record.media.video?.height,
-    );
+    return skywriteVideoAspectRatio(record.media.video?.width, record.media.video?.height);
   }, [naturalSize, record.media.video?.height, record.media.video?.width]);
 
-  const videoFrameStyle = useMemo(() => {
-    if (layoutMode === 'viewport' && stageSize.width > 0 && stageSize.height > 0) {
-      return skywriteContainedVideoFrameStyle(
-        videoAspect,
-        stageSize.width,
-        stageSize.height,
-      );
-    }
-    return skywriteVideoFrameStyle(videoAspect, layoutMode === 'viewport' ? 720 : 480);
-  }, [layoutMode, stageSize.height, stageSize.width, videoAspect]);
-
-  const showMixControls =
+  const showMixSheet =
     showAudioMixControls &&
     Boolean(onMediaMixChange) &&
     stepKind === 'video' &&
@@ -181,207 +177,233 @@ function SkywriteImmersiveMomentViewComponent({
 
   const handleExit = () => {
     onBeforeStepChange?.();
-    setVideoFullscreen(false);
+    setMixOpen(false);
     void cleanupVideo();
     onExit();
   };
 
-  const renderVideoPlayer = (frameStyle: ViewStyle) => (
-    <View style={frameStyle}>
-      <Video
-        ref={videoPlayback.videoRef}
-        style={skywriteVideoElementStyle()}
-        source={{ uri: record.media.video!.uri }}
-        useNativeControls={false}
-        resizeMode={ResizeMode.CONTAIN}
-        isLooping={false}
-        isMuted={false}
-        progressUpdateIntervalMillis={250}
-        onPlaybackStatusUpdate={(status) => {
-          videoPlayback.onPlaybackStatusUpdate(status);
-          if (status.isLoaded && status.didJustFinish) {
-            onVideoFinished?.();
-          }
-        }}
-        onLoad={(status) => {
-          handleVideoLoad(status);
-          if (autoPlayVideo) requestAutoPlay();
-        }}
-      />
-      {!videoFullscreen ? (
-        <Pressable
-          style={styles.expandBtn}
-          accessibilityLabel="Expand video"
-          onPress={() => setVideoFullscreen(true)}>
-          <Text style={styles.expandBtnText}>⛶</Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-
-  const fullscreenStageSize = useMemo(() => {
-    const padV = 120;
-    const padH = 16;
-    return measureContainedVideoFrame(
-      videoAspect,
-      Math.max(1, windowWidth - padH * 2),
-      Math.max(1, windowHeight - padV),
-    );
-  }, [videoAspect, windowHeight, windowWidth]);
-
-  return (
-    <View style={[styles.root, layoutMode === 'viewport' && styles.rootViewport]}>
+  const renderStandardLayout = () => (
+    <View style={styles.root}>
       <View style={styles.topBar}>
         <Pressable onPress={handleExit} accessibilityLabel={SkywritePlayCopy.exitPlay}>
           <Text style={styles.exitText}>{SkywritePlayCopy.exitPlay}</Text>
         </Pressable>
         <Text style={styles.progress}>{SkywritePlayCopy.progress(stepIndex + 1, stepCount)}</Text>
       </View>
-
-      <View style={[styles.content, layoutMode === 'viewport' && styles.contentViewport]}>
+      <View style={styles.content}>
         {stepKind === 'text' ? (
           <Text style={[styles.bodyText, getSkywriteWriteInputStyle(record.textStyle)]}>
             {record.text.trim() || '…'}
           </Text>
         ) : null}
-
         {stepKind === 'photo' && record.media.photo?.uri ? (
-          <>
-            <Image
-              source={{ uri: record.media.photo.uri }}
-              style={styles.heroImage}
-              contentFit="contain"
-              accessibilityIgnoresInvertColors
-            />
-            {record.text.trim() ? (
-              <Text style={styles.caption} numberOfLines={8}>
-                {record.text.trim()}
-              </Text>
-            ) : null}
-          </>
+          <Image source={{ uri: record.media.photo.uri }} style={styles.heroImage} contentFit="contain" />
+        ) : null}
+        {stepKind === 'video' && record.media.video?.uri ? (
+          <View style={styles.videoStageStandard}>
+            <View style={skywriteVideoFrameStyle(videoAspect, 480)}>
+              <Video
+                ref={videoPlayback.videoRef}
+                style={skywriteVideoElementStyle()}
+                source={{ uri: record.media.video.uri }}
+                resizeMode={ResizeMode.CONTAIN}
+                useNativeControls={false}
+                isLooping={false}
+                onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
+                onLoad={(status) => {
+                  handleVideoLoad(status);
+                  if (autoPlayVideo) requestAutoPlay();
+                }}
+              />
+            </View>
+          </View>
+        ) : null}
+        {stepKind === 'audio' && audioUri ? (
+          <Pressable onPress={() => onToggleAudio(previewId, audioUri)}>
+            <Text style={styles.exitText}>{audioPlaying ? 'Pause' : 'Play'} voice</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <View style={styles.controls}>
+        <Pressable disabled={!canPrevious} onPress={handlePrevious} style={styles.navBtn}>
+          <Text style={styles.navText}>{SkywritePlayCopy.previous}</Text>
+        </Pressable>
+        <Pressable disabled={!canNext} onPress={handleNext} style={styles.navBtn}>
+          <Text style={styles.navText}>{SkywritePlayCopy.next}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  if (layoutMode !== 'viewport') {
+    return renderStandardLayout();
+  }
+
+  return (
+    <View style={styles.immersiveRoot}>
+      <View style={styles.immersiveStage} onLayout={onStageLayout}>
+        {stepKind === 'video' && record.media.video?.uri ? (
+          <Video
+            ref={videoPlayback.videoRef}
+            style={skywriteVideoElementStyle()}
+            source={{ uri: record.media.video.uri }}
+            useNativeControls={false}
+            resizeMode={ResizeMode.CONTAIN}
+            isLooping={false}
+            isMuted={false}
+            progressUpdateIntervalMillis={250}
+            onPlaybackStatusUpdate={(status) => {
+              videoPlayback.onPlaybackStatusUpdate(status);
+              if (status.isLoaded && status.didJustFinish) {
+                onVideoFinished?.();
+              }
+            }}
+            onLoad={(status) => {
+              handleVideoLoad(status);
+              if (autoPlayVideo) requestAutoPlay();
+            }}
+          />
         ) : null}
 
-        {stepKind === 'video' && record.media.video?.uri ? (
-          <>
-            <View
-              style={[
-                layoutMode === 'viewport' ? styles.videoStageViewport : styles.videoStageStandard,
-                layoutMode === 'viewport' && styles.videoStageFill,
-                videoFullscreen && styles.videoStageFullscreen,
-              ]}
-              onLayout={layoutMode === 'viewport' ? onStageLayout : undefined}>
-              {renderVideoPlayer(
-                videoFullscreen
-                  ? {
-                      width: fullscreenStageSize.width,
-                      height: fullscreenStageSize.height,
-                      alignSelf: 'center',
-                      backgroundColor: '#050508',
-                      borderRadius: Radius.lg,
-                      overflow: 'hidden',
-                    }
-                  : videoFrameStyle,
-              )}
-            </View>
-            <Modal
-              visible={videoFullscreen}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setVideoFullscreen(false)}>
-              <Pressable style={styles.fullscreenBackdrop} onPress={() => setVideoFullscreen(false)} />
-              <View style={styles.fullscreenControlsOverlay} pointerEvents="box-none">
-                <View style={styles.fullscreenControls}>
-                  <Pressable onPress={() => setVideoFullscreen(false)}>
-                    <Text style={styles.exitText}>Close</Text>
-                  </Pressable>
-                  <Pressable onPress={() => void videoPlayback.togglePlayPause()}>
-                    <Text style={styles.muteText}>
-                      {videoPlayback.isPlaying ? 'Pause' : 'Play'}
-                    </Text>
-                  </Pressable>
-                  <Pressable onPress={videoPlayback.toggleMute}>
-                    <Text style={styles.muteText}>{videoPlayback.muted ? 'Unmute' : 'Mute'}</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </Modal>
-            <View style={styles.videoControls}>
-              <Pressable
-                style={styles.audioPlay}
-                onPress={() => void videoPlayback.togglePlayPause()}
-                accessibilityLabel={videoPlayback.isPlaying ? 'Pause video' : 'Play video'}>
-                <Text style={styles.audioPlayIcon}>{videoPlayback.isPlaying ? '❚❚' : '▶'}</Text>
-              </Pressable>
-              <Text style={styles.audioDuration}>
-                {formatSkywriteAudioDuration(videoPlayback.positionMs)} /{' '}
-                {formatSkywriteAudioDuration(
-                  videoPlayback.durationMs || record.media.video.durationMs,
-                )}
-              </Text>
-              <Pressable
-                onPress={videoPlayback.toggleMute}
-                accessibilityLabel={videoPlayback.muted ? 'Unmute' : 'Mute'}>
-                <Text style={styles.muteText}>{videoPlayback.muted ? 'Unmute' : 'Mute'}</Text>
-              </Pressable>
-            </View>
-            {showMixControls ? (
-              <SkywritePlaybackAudioMixControls
-                compact={layoutMode === 'viewport'}
-                collapsible
-                media={playbackMedia}
-                onChange={(next) => onMediaMixChange?.(next)}
-              />
-            ) : showVideoVoiceover && !showMixControls ? (
-              <Text style={styles.caption}>Voiceover plays with this video.</Text>
-            ) : null}
-            {record.text.trim() ? (
-              <Text style={styles.caption} numberOfLines={layoutMode === 'viewport' ? 3 : 6}>
-                {record.text.trim()}
-              </Text>
-            ) : null}
-          </>
+        {stepKind === 'photo' && record.media.photo?.uri ? (
+          <Image
+            source={{ uri: record.media.photo.uri }}
+            style={StyleSheet.absoluteFill}
+            contentFit="contain"
+            accessibilityIgnoresInvertColors
+          />
+        ) : null}
+
+        {stepKind === 'text' ? (
+          <View style={styles.textStage}>
+            <Text style={[styles.bodyTextImmersive, getSkywriteWriteInputStyle(record.textStyle)]}>
+              {record.text.trim() || '…'}
+            </Text>
+          </View>
         ) : null}
 
         {stepKind === 'audio' && audioUri ? (
-          <View style={styles.audioBlock}>
-            <Pressable
-              style={styles.audioPlay}
-              onPress={() => onToggleAudio(previewId, audioUri)}
-              accessibilityLabel={audioPlaying ? 'Pause' : 'Play voice'}>
-              <Text style={styles.audioPlayIcon}>{audioPlaying ? '❚❚' : '▶'}</Text>
-            </Pressable>
-            <SkywriteAudioWaveform active={audioPlaying} seed={record.id.length} barCount={18} />
-            <Text style={styles.audioDuration}>
-              {formatSkywriteAudioDuration(record.media.audio?.durationMs)}
-            </Text>
-            {record.text.trim() ? <Text style={styles.caption}>{record.text.trim()}</Text> : null}
+          <View style={styles.audioStage}>
+            <SkywriteAudioWaveform active={audioPlaying} seed={record.id.length} barCount={22} />
           </View>
         ) : null}
       </View>
 
-      {commentsSlot ? (
-        <ScrollView
-          style={styles.commentsScroll}
-          contentContainerStyle={styles.commentsScrollContent}
-          keyboardShouldPersistTaps="handled">
-          {commentsSlot}
-        </ScrollView>
-      ) : null}
+      <LinearGradient
+        colors={['rgba(5, 5, 8, 0.82)', 'rgba(5, 5, 8, 0.35)', 'transparent']}
+        style={[styles.topGradient, { paddingTop: insets.top + 6 }]}
+        pointerEvents="box-none">
+        <View style={styles.topRow}>
+          <Pressable
+            onPress={handleExit}
+            hitSlop={12}
+            accessibilityLabel={SkywritePlayCopy.exitPlay}
+            style={styles.closeBtn}>
+            <Text style={styles.closeIcon}>✕</Text>
+          </Pressable>
+          <ProgressSegments index={stepIndex} count={stepCount} />
+          <Text style={styles.progressCompact}>
+            {SkywritePlayCopy.progress(stepIndex + 1, stepCount)}
+          </Text>
+        </View>
+        {tapToPlayPrompt ? (
+          <Pressable style={styles.tapBanner} onPress={onTapToPlayContinue}>
+            <Text style={styles.tapBannerText}>{SkywritePlayCopy.tapToPlaySky}</Text>
+          </Pressable>
+        ) : null}
+      </LinearGradient>
 
-      <View style={styles.controls}>
-        <Pressable
-          disabled={!canPrevious}
-          onPress={handlePrevious}
-          style={[styles.navBtn, !canPrevious && styles.navDisabled]}>
-          <Text style={styles.navText}>{SkywritePlayCopy.previous}</Text>
-        </Pressable>
-        <Pressable
-          disabled={!canNext}
-          onPress={handleNext}
-          style={[styles.navBtn, !canNext && styles.navDisabled]}>
-          <Text style={styles.navText}>{SkywritePlayCopy.next}</Text>
-        </Pressable>
-      </View>
+      <LinearGradient
+        colors={['transparent', 'rgba(5, 5, 8, 0.55)', 'rgba(5, 5, 8, 0.92)']}
+        style={[styles.bottomGradient, { paddingBottom: Math.max(insets.bottom, 10) }]}
+        pointerEvents="box-none">
+        {record.text.trim() && stepKind !== 'text' ? (
+          <Text style={styles.captionOverlay} numberOfLines={3}>
+            {record.text.trim()}
+          </Text>
+        ) : null}
+
+        {stepKind === 'video' && record.media.video?.uri ? (
+          <View style={styles.videoToolbar}>
+            <Pressable
+              style={styles.playChip}
+              onPress={() => void videoPlayback.togglePlayPause()}
+              accessibilityLabel={videoPlayback.isPlaying ? 'Pause video' : 'Play video'}>
+              <Text style={styles.playIcon}>{videoPlayback.isPlaying ? '❚❚' : '▶'}</Text>
+            </Pressable>
+            <Text style={styles.timeLabel}>
+              {formatSkywriteAudioDuration(videoPlayback.positionMs)} /{' '}
+              {formatSkywriteAudioDuration(
+                videoPlayback.durationMs || record.media.video.durationMs,
+              )}
+            </Text>
+            {showMixSheet ? (
+              <Pressable
+                style={styles.toolbarChip}
+                onPress={() => setMixOpen(true)}
+                accessibilityLabel="Audio mix">
+                <Text style={styles.toolbarChipText}>Audio mix</Text>
+              </Pressable>
+            ) : null}
+            {onToggleSequencePause ? (
+              <Pressable style={styles.toolbarChip} onPress={onToggleSequencePause}>
+                <Text style={styles.toolbarChipText}>
+                  {sequencePaused ? SkywritePlayCopy.resume : SkywritePlayCopy.pause}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
+        {stepKind === 'audio' && audioUri ? (
+          <View style={styles.videoToolbar}>
+            <Pressable
+              style={styles.playChip}
+              onPress={() => onToggleAudio(previewId, audioUri)}
+              accessibilityLabel={audioPlaying ? 'Pause voice' : 'Play voice'}>
+              <Text style={styles.playIcon}>{audioPlaying ? '❚❚' : '▶'}</Text>
+            </Pressable>
+            <Text style={styles.timeLabel}>
+              {formatSkywriteAudioDuration(record.media.audio?.durationMs)}
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.navRow}>
+          <Pressable
+            disabled={!canPrevious}
+            onPress={handlePrevious}
+            style={[styles.navBtnOverlay, !canPrevious && styles.navDisabled]}>
+            <Text style={styles.navText}>{SkywritePlayCopy.previous}</Text>
+          </Pressable>
+          <Pressable
+            disabled={!canNext}
+            onPress={handleNext}
+            style={[styles.navBtnOverlay, !canNext && styles.navDisabled]}>
+            <Text style={styles.navText}>{SkywritePlayCopy.next}</Text>
+          </Pressable>
+        </View>
+
+        {commentsSlot ? (
+          <ScrollView
+            style={styles.commentsPeek}
+            contentContainerStyle={styles.commentsPeekContent}
+            keyboardShouldPersistTaps="handled">
+            {commentsSlot}
+          </ScrollView>
+        ) : null}
+
+        {bottomSlot ? <View style={styles.bottomSlot}>{bottomSlot}</View> : null}
+      </LinearGradient>
+
+      {showMixSheet && onMediaMixChange ? (
+        <SkywriteAudioMixBottomSheet
+          visible={mixOpen}
+          media={playbackMedia}
+          onChange={onMediaMixChange}
+          onClose={() => setMixOpen(false)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -389,14 +411,7 @@ function SkywriteImmersiveMomentViewComponent({
 export const SkywriteImmersiveMomentView = memo(SkywriteImmersiveMomentViewComponent);
 
 const styles = StyleSheet.create({
-  root: {
-    width: '100%',
-  },
-  rootViewport: {
-    flex: 1,
-    minHeight: 0,
-    position: 'relative',
-  },
+  root: { width: '100%' },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -421,72 +436,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingVertical: Spacing.md,
   },
-  contentViewport: {
-    justifyContent: 'flex-start',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    minHeight: 0,
-  },
-  videoStageStandard: {
-    width: '100%',
-  },
-  videoStageViewport: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  videoStageFill: {
-    flex: 1,
-    minHeight: 220,
-  },
-  expandBtn: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(8, 10, 28, 0.72)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(232, 200, 114, 0.35)',
-  },
-  expandBtnText: {
-    color: '#E8C872',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  videoStageFullscreen: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 50,
-    backgroundColor: '#050508',
-    paddingTop: 48,
-    paddingBottom: 72,
-    paddingHorizontal: 8,
-  },
-  fullscreenBackdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(5, 5, 8, 0.92)',
-  },
-  fullscreenControlsOverlay: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'flex-end',
-    paddingBottom: 32,
-    paddingHorizontal: 16,
-  },
-  fullscreenControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  commentsScroll: {
-    maxHeight: 220,
-    marginTop: 4,
-  },
-  commentsScrollContent: {
-    paddingBottom: 4,
-  },
   bodyText: {
     fontFamily: Fonts.serif,
     fontSize: 24,
@@ -499,68 +448,177 @@ const styles = StyleSheet.create({
     width: '100%',
     flex: 1,
     maxHeight: 480,
-    borderRadius: Radius.lg,
   },
-  videoControls: {
+  videoStageStandard: { width: '100%' },
+  controls: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: Spacing.md,
+  },
+  navBtn: { minHeight: 44, minWidth: 88, justifyContent: 'center', alignItems: 'center' },
+  navText: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#E8C872',
+  },
+  immersiveRoot: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: '#050508',
+    position: 'relative',
+  },
+  immersiveStage: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: '#050508',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.md,
-    flexWrap: 'wrap',
   },
-  muteText: {
+  textStage: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    width: '100%',
+  },
+  bodyTextImmersive: {
+    fontFamily: Fonts.serif,
+    fontSize: 26,
+    lineHeight: 36,
+    color: '#FFF8F0',
+    textAlign: 'center',
+  },
+  audioStage: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    width: '100%',
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 12,
+    paddingBottom: 28,
+    zIndex: 2,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeIcon: {
+    color: '#FFF8F0',
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  segments: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+  },
+  segment: {
+    flex: 1,
+    height: 2,
+    borderRadius: 1,
+  },
+  segmentActive: { backgroundColor: 'rgba(255, 248, 240, 0.95)' },
+  segmentIdle: { backgroundColor: 'rgba(255, 248, 240, 0.28)' },
+  progressCompact: {
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(248,244,236,0.75)',
+    minWidth: 36,
+    textAlign: 'right',
+  },
+  tapBanner: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(232, 200, 114, 0.18)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.4)',
+  },
+  tapBannerText: {
     fontFamily: Fonts.sans,
     fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(248,244,236,0.75)',
-    minHeight: 44,
-    textAlignVertical: 'center',
-  },
-  caption: {
-    fontFamily: Fonts.sans,
-    fontSize: 15,
-    lineHeight: 22,
-    color: 'rgba(248,244,236,0.88)',
+    color: '#E8C872',
     textAlign: 'center',
-    paddingHorizontal: Spacing.md,
   },
-  audioBlock: {
+  bottomGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 12,
+    paddingTop: 48,
+    zIndex: 2,
+  },
+  captionOverlay: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(248,244,236,0.92)',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  videoToolbar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: Radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(167, 139, 250, 0.28)',
-    backgroundColor: 'rgba(8, 10, 28, 0.55)',
+    gap: 8,
+    marginBottom: 10,
   },
-  audioPlay: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(232, 200, 114, 0.45)',
+  playChip: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(232, 200, 114, 0.14)',
+    backgroundColor: 'rgba(232, 200, 114, 0.16)',
   },
-  audioPlayIcon: {
-    fontSize: 18,
-    color: '#E8C872',
-    fontWeight: '700',
-  },
-  audioDuration: {
+  playIcon: { color: '#E8C872', fontSize: 16, fontWeight: '700' },
+  timeLabel: {
     fontFamily: Fonts.sans,
     fontSize: 12,
-    color: 'rgba(248,244,236,0.65)',
+    color: 'rgba(248, 244, 236, 0.78)',
+    flexShrink: 1,
   },
-  controls: {
+  toolbarChip: {
+    minHeight: 36,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    borderRadius: 999,
+    backgroundColor: 'rgba(8, 10, 28, 0.55)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(167, 139, 250, 0.35)',
+  },
+  toolbarChipText: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E8C872',
+  },
+  navRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: Spacing.md,
-    gap: 8,
+    alignItems: 'center',
+    marginBottom: 6,
   },
-  navBtn: {
+  navBtnOverlay: {
     minHeight: 44,
     minWidth: 88,
     justifyContent: 'center',
@@ -568,10 +626,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   navDisabled: { opacity: 0.35 },
-  navText: {
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#E8C872',
-  },
+  commentsPeek: { maxHeight: 100, marginBottom: 6 },
+  commentsPeekContent: { paddingBottom: 4 },
+  bottomSlot: { marginTop: 4 },
 });

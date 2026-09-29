@@ -270,30 +270,7 @@ export function SkywriteGuidedPlayScreen() {
 
   return (
     <View style={styles.root}>
-      <HomeBackdrop />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.controlBar}>
-          <Pressable onPress={() => setPaused((value) => !value)} style={styles.controlChip}>
-            <Text style={styles.controlText}>{paused ? SkywritePlayCopy.resume : SkywritePlayCopy.pause}</Text>
-          </Pressable>
-          <Text style={styles.progressLabel}>
-            {SkywritePlayCopy.progress(index + 1, steps.length)}
-          </Text>
-        </View>
-
-        {needsTapToPlay ? (
-          <Pressable
-            style={styles.tapPlayBanner}
-            onPress={() => {
-              setNeedsTapToPlay(false);
-              startedRef.current = true;
-              setManualPlayNonce((n) => n + 1);
-            }}>
-            <Text style={styles.tapPlayText}>{SkywritePlayCopy.tapToPlaySky}</Text>
-          </Pressable>
-        ) : null}
-
-        <View style={styles.playViewer}>
         <SkywriteImmersiveMomentView
           record={record}
           stepKind={current.kind}
@@ -313,19 +290,25 @@ export function SkywriteGuidedPlayScreen() {
           layoutMode="viewport"
           manualPlayNonce={manualPlayNonce}
           onVideoAutoplayBlocked={() => setNeedsTapToPlay(true)}
+          tapToPlayPrompt={needsTapToPlay}
+          onTapToPlayContinue={() => {
+            setNeedsTapToPlay(false);
+            startedRef.current = true;
+            setManualPlayNonce((n) => n + 1);
+          }}
+          onToggleSequencePause={() => setPaused((value) => !value)}
           onVideoFinished={() => {
             if (!paused) advance();
           }}
         />
-        </View>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  safe: { flex: 1, paddingHorizontal: Spacing.lg },
+  root: { flex: 1, backgroundColor: '#050508' },
+  safe: { flex: 1 },
   loading: { color: '#FFF8F0', textAlign: 'center', marginTop: 40 },
   empty: {
     fontFamily: Fonts.sans,

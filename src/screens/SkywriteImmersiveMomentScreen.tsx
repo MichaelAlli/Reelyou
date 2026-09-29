@@ -141,9 +141,7 @@ export function SkywriteImmersiveMomentScreen() {
 
   return (
     <View style={styles.root}>
-      <HomeBackdrop />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.viewer}>
         <SkywriteImmersiveMomentView
           record={record}
           stepKind={current.kind}
@@ -161,15 +159,14 @@ export function SkywriteImmersiveMomentScreen() {
           layoutMode="viewport"
           commentsSlot={<SkywriteCommentsPanel skywrite={record} compact />}
         />
-        </View>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  safe: { flex: 1, paddingHorizontal: Spacing.lg },
+  root: { flex: 1, backgroundColor: '#050508' },
+  safe: { flex: 1 },
   loading: { color: '#FFF8F0', textAlign: 'center', marginTop: 40 },
   empty: {
     fontFamily: Fonts.sans,

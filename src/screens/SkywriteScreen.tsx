@@ -30,7 +30,7 @@ import { SkywriteToggleRow } from '@/components/skywrite/SkywriteToggleRow';
 import { SkyAreaSuggestionBanner } from '@/components/skywrite/SkyAreaSuggestionBanner';
 import { SkywriteSkyAreaPicker } from '@/components/skywrite/SkywriteSkyAreaPicker';
 import { SkywriteComposePreviewOverlay } from '@/components/skywrite/SkywriteComposePreviewOverlay';
-import { SkywritePlaybackAudioMixControls } from '@/components/skywrite/SkywritePlaybackAudioMixControls';
+import { SkywriteComposeImmersiveVideoStage } from '@/components/skywrite/SkywriteComposeImmersiveVideoStage';
 import { SkywriteVisibilityControl } from '@/components/skywrite/SkywriteVisibilityControl';
 import { detectSkyAreaSuggestionFromHashtags } from '@/skyAreas/skyAreaHashtagSuggestion';
 import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
@@ -519,6 +519,30 @@ export function SkywriteScreen() {
               </View>
             </View>
 
+            {hasVideo && draft.media.video ? (
+              <SkywriteComposeImmersiveVideoStage
+                video={draft.media.video}
+                media={draft.media}
+                edgeBleed={padH}
+                onMediaChange={(media) => setDraft((current) => ({ ...current, media }))}
+                onReplace={handleVideoPress}
+                onRemove={handleRemoveVideo}
+                onDimensionsResolved={(width, height) =>
+                  setDraft((current) =>
+                    current.media.video
+                      ? {
+                          ...current,
+                          media: {
+                            ...current.media,
+                            video: { ...current.media.video, width, height },
+                          },
+                        }
+                      : current,
+                  )
+                }
+              />
+            ) : null}
+
             <View style={styles.promptCard}>
               <LinearGradient
                 colors={['rgba(14, 12, 36, 0.92)', 'rgba(8, 8, 24, 0.94)']}
@@ -566,6 +590,7 @@ export function SkywriteScreen() {
                 <SkywriteMediaAttachments
                   photo={draft.media.photo}
                   video={draft.media.video}
+                  suppressVideoPreview={hasVideo}
                   audio={draft.media.audio}
                   onVideoDimensionsResolved={(width, height) =>
                     setDraft((current) =>
@@ -613,15 +638,6 @@ export function SkywriteScreen() {
                   onVideoPress={handleVideoPress}
                   onVoicePress={handleVoicePress}
                 />
-
-                {hasVideo ? (
-                  <SkywritePlaybackAudioMixControls
-                    collapsible
-                    compact
-                    media={draft.media}
-                    onChange={(media) => setDraft((current) => ({ ...current, media }))}
-                  />
-                ) : null}
 
                 {mediaFeedback ? <Text style={styles.mediaFeedback}>{mediaFeedback}</Text> : null}
 

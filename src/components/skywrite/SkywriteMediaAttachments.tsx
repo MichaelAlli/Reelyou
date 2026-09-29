@@ -28,6 +28,8 @@ interface SkywriteMediaAttachmentsProps {
   onReRecord: () => void;
   onRemoveAudio: () => void;
   onVideoDimensionsResolved?: (width: number, height: number) => void;
+  /** When true, video is shown in an external immersive stage. */
+  suppressVideoPreview?: boolean;
 }
 
 function SkywriteMediaAttachmentsComponent({
@@ -50,6 +52,7 @@ function SkywriteMediaAttachmentsComponent({
   onReRecord,
   onRemoveAudio,
   onVideoDimensionsResolved,
+  suppressVideoPreview = false,
 }: SkywriteMediaAttachmentsProps) {
   const { width: screenWidth } = useWindowDimensions();
   const previewWidth = Math.min(screenWidth - 48, 420);
@@ -65,7 +68,7 @@ function SkywriteMediaAttachmentsComponent({
 
   return (
     <View style={styles.wrap}>
-      {video ? (
+      {video && !suppressVideoPreview ? (
         <View style={[styles.photoBlock, styles.videoBlock]}>
           <View style={styles.photoFrame}>
             <SkywriteComposerVideoPreview
