@@ -2,7 +2,9 @@ import { memo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
+  OWNER_PROFILE_CARD_RADIUS,
   OWNER_PROFILE_HORIZONTAL_INSET,
+  OWNER_PROFILE_PANEL_BORDER,
 } from '@/components/profile/owner/ownerProfileLayout';
 import { ConnectedSkiesCopy } from '@/constants/connectedSkiesCopy';
 import { Fonts } from '@/constants/theme';
@@ -13,6 +15,7 @@ interface OwnerProfileRelationshipCountsRowProps {
   onPressConnectedSkies: () => void;
   onPressFollowedSkies: () => void;
   onPressSkyFollowing: () => void;
+  /** Visitor-only mutual line — omit on own profile. */
   belowRow?: ReactNode;
 }
 
@@ -33,10 +36,10 @@ function CountCell({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
-      <Text style={styles.value} maxFontSizeMultiplier={1.25}>
+      <Text style={styles.value} maxFontSizeMultiplier={1.3}>
         {value}
       </Text>
-      <Text style={styles.label} numberOfLines={2} maxFontSizeMultiplier={1.2}>
+      <Text style={styles.label} numberOfLines={2} maxFontSizeMultiplier={1.25}>
         {label}
       </Text>
     </Pressable>
@@ -51,31 +54,41 @@ function OwnerProfileRelationshipCountsRowComponent({
   belowRow,
 }: OwnerProfileRelationshipCountsRowProps) {
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.sectionTitle}>{ConnectedSkiesCopy.profileConnectionsSectionTitle}</Text>
-      <View style={styles.row}>
-        <CountCell
-          label={ConnectedSkiesCopy.connectedSkiesLabel}
-          value={counts.connectedSkies}
-          onPress={onPressConnectedSkies}
-          accessibilityLabel={`${ConnectedSkiesCopy.connectedSkiesLabel}, ${counts.connectedSkies}`}
-        />
-        <View style={styles.divider} />
-        <CountCell
-          label={ConnectedSkiesCopy.followedSkiesLabel}
-          value={counts.followedSkies}
-          onPress={onPressFollowedSkies}
-          accessibilityLabel={`${ConnectedSkiesCopy.followedSkiesLabel}, ${counts.followedSkies}`}
-        />
-        <View style={styles.divider} />
-        <CountCell
-          label={ConnectedSkiesCopy.skyFollowingLabel}
-          value={counts.skyFollowing}
-          onPress={onPressSkyFollowing}
-          accessibilityLabel={`${ConnectedSkiesCopy.skyFollowingLabel}, ${counts.skyFollowing}`}
-        />
+    <View style={styles.outer}>
+      <View style={styles.card}>
+        <View style={styles.titleColumn}>
+          <Text
+            style={styles.sectionTitle}
+            numberOfLines={2}
+            maxFontSizeMultiplier={1.25}
+            accessibilityRole="header">
+            {ConnectedSkiesCopy.profileConnectionsSectionTitle}
+          </Text>
+        </View>
+        <View style={styles.countsRow}>
+          <CountCell
+            label={ConnectedSkiesCopy.connectedSkiesLabel}
+            value={counts.connectedSkies}
+            onPress={onPressConnectedSkies}
+            accessibilityLabel={`${ConnectedSkiesCopy.connectedSkiesLabel}, ${counts.connectedSkies}`}
+          />
+          <View style={styles.divider} />
+          <CountCell
+            label={ConnectedSkiesCopy.followedSkiesLabel}
+            value={counts.followedSkies}
+            onPress={onPressFollowedSkies}
+            accessibilityLabel={`${ConnectedSkiesCopy.followedSkiesLabel}, ${counts.followedSkies}`}
+          />
+          <View style={styles.divider} />
+          <CountCell
+            label={ConnectedSkiesCopy.skyFollowingLabel}
+            value={counts.skyFollowing}
+            onPress={onPressSkyFollowing}
+            accessibilityLabel={`${ConnectedSkiesCopy.skyFollowingLabel}, ${counts.skyFollowing}`}
+          />
+        </View>
       </View>
-      {belowRow}
+      {belowRow ? <View style={styles.belowSlot}>{belowRow}</View> : null}
     </View>
   );
 }
@@ -83,43 +96,62 @@ function OwnerProfileRelationshipCountsRowComponent({
 export const OwnerProfileRelationshipCountsRow = memo(OwnerProfileRelationshipCountsRowComponent);
 
 const styles = StyleSheet.create({
-  wrap: {
+  outer: {
     marginHorizontal: OWNER_PROFILE_HORIZONTAL_INSET,
     marginTop: 8,
-    paddingVertical: 6,
-    gap: 4,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 68,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: OWNER_PROFILE_CARD_RADIUS,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: OWNER_PROFILE_PANEL_BORDER,
+    backgroundColor: 'rgba(10, 14, 34, 0.55)',
+    gap: 6,
+  },
+  titleColumn: {
+    flexShrink: 0,
+    width: 78,
+    justifyContent: 'center',
+    paddingRight: 4,
   },
   sectionTitle: {
     fontFamily: Fonts.sans,
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(235, 228, 248, 0.55)',
-    textAlign: 'center',
-    letterSpacing: 0.2,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '700',
+    color: 'rgba(235, 228, 248, 0.72)',
+    textAlign: 'left',
   },
-  row: {
+  countsRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'stretch',
+    minWidth: 0,
   },
   cell: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingVertical: 4,
-    paddingHorizontal: 2,
-    minHeight: 48,
+    justifyContent: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 1,
+    minHeight: 52,
   },
   pressed: { opacity: 0.88 },
   value: {
     fontFamily: Fonts.sans,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#E8C872',
+    lineHeight: 22,
   },
   label: {
     fontFamily: Fonts.sans,
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 9,
+    lineHeight: 11,
     fontWeight: '600',
     color: 'rgba(235, 228, 248, 0.65)',
     textAlign: 'center',
@@ -127,7 +159,11 @@ const styles = StyleSheet.create({
   },
   divider: {
     width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(167, 139, 250, 0.22)',
-    marginVertical: 2,
+    marginVertical: 4,
+  },
+  belowSlot: {
+    marginTop: 4,
   },
 });

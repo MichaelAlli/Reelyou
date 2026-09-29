@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { OWNER_PROFILE_HORIZONTAL_INSET } from '@/components/profile/owner/ownerProfileLayout';
 import { ConnectedSkiesCopy } from '@/constants/connectedSkiesCopy';
 import { Fonts } from '@/constants/theme';
 import { resolvePublicSkyOwnerProfile } from '@/mySky/skyIdentity';
@@ -65,11 +66,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginHorizontal: 20,
-    marginTop: 2,
-    marginBottom: 6,
-    minHeight: 40,
-    paddingVertical: 6,
+    marginHorizontal: OWNER_PROFILE_HORIZONTAL_INSET,
+    marginBottom: 4,
+    minHeight: 36,
+    paddingVertical: 4,
   },
   pressed: { opacity: 0.88 },
   avatarRow: {
