@@ -29,6 +29,7 @@ interface SkywriteComposePreviewOverlayProps {
   publishError: string | null;
   onClose: () => void;
   onPost: () => void;
+  onDraftMediaChange: (media: SkywriteDraft['media']) => void;
 }
 
 export function SkywriteComposePreviewOverlay({
@@ -40,6 +41,7 @@ export function SkywriteComposePreviewOverlay({
   publishError,
   onClose,
   onPost,
+  onDraftMediaChange,
 }: SkywriteComposePreviewOverlayProps) {
   const { height } = useWindowDimensions();
   const audioPreview = useOverlayAudioPreviewScope(visible);
@@ -79,7 +81,7 @@ export function SkywriteComposePreviewOverlay({
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={handleClose}>
       <View style={styles.root}>
         <HomeBackdrop />
-        <SafeAreaView style={[styles.safe, { minHeight: height * 0.92 }]}>
+        <SafeAreaView style={[styles.safe, { minHeight: height }]}>
           <Text style={styles.title}>{SkywriteCopy.previewTitle}</Text>
           <Text style={styles.hint}>{SkywriteCopy.previewHint}</Text>
 
@@ -98,6 +100,10 @@ export function SkywriteComposePreviewOverlay({
               canPrevious={stepIndex > 0}
               canNext={stepIndex < steps.length - 1}
               onBeforeStepChange={() => void audioPreview.stopAll()}
+              layoutMode="viewport"
+              mediaMix={draft.media}
+              onMediaMixChange={onDraftMediaChange}
+              showAudioMixControls
             />
           </View>
 
@@ -154,7 +160,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: Spacing.sm,
   },
-  viewer: { flex: 1, minHeight: 320 },
+  viewer: { flex: 1, minHeight: 360 },
   error: {
     fontFamily: Fonts.sans,
     fontSize: 13,

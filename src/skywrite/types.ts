@@ -42,6 +42,8 @@ export interface SkywriteMedia {
   originalVideoAudio?: SkywriteVideoOriginalAudioState;
   /** 0–1 original video track level (independent of voiceover). */
   originalVideoVolume?: number;
+  /** 0–1 voiceover level (independent of original video). */
+  voiceoverVolume?: number;
 }
 
 /** User-authored Skywrite — explicit hashtags stored separately from inferred themes. */

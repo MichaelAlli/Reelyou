@@ -98,6 +98,7 @@ function parseMedia(raw: unknown): SkywriteMedia {
     audio?: unknown;
     originalVideoAudio?: unknown;
     originalVideoVolume?: unknown;
+    voiceoverVolume?: unknown;
   };
   const originalVideoAudio =
     typeof entry.originalVideoAudio === 'string' &&
@@ -109,12 +110,17 @@ function parseMedia(raw: unknown): SkywriteMedia {
     Number.isFinite(entry.originalVideoVolume)
       ? Math.min(1, Math.max(0, entry.originalVideoVolume))
       : undefined;
+  const voiceoverVolume =
+    typeof entry.voiceoverVolume === 'number' && Number.isFinite(entry.voiceoverVolume)
+      ? Math.min(1, Math.max(0, entry.voiceoverVolume))
+      : undefined;
   return {
     photo: parsePhoto(entry.photo),
     video: parseVideo(entry.video),
     audio: parseAudio(entry.audio),
     originalVideoAudio,
     originalVideoVolume,
+    voiceoverVolume,
   };
 }
 

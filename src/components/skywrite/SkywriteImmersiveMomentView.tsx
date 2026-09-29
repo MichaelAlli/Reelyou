@@ -1,20 +1,29 @@
 import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
-import { memo, useEffect, useMemo, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 
 import { SkywriteAudioWaveform } from '@/components/skywrite/SkywriteAudioWaveform';
+import { SkywritePlaybackAudioMixControls } from '@/components/skywrite/SkywritePlaybackAudioMixControls';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { getSkywriteWriteInputStyle } from '@/constants/skywriteTextStyles';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { formatSkywriteAudioDuration } from '@/skywrite/media/skywriteMediaPreviewUtils';
 import {
+  skywriteContainedVideoFrameStyle,
   skywriteVideoAspectRatio,
   skywriteVideoFrameStyle,
 } from '@/skywrite/media/skywriteVideoLayout';
 import { useSkywriteImmersiveVideoPlayback } from '@/skywrite/media/useSkywriteImmersiveVideoPlayback';
 import type { SkywritePlayStepKind } from '@/skywrite/play/skywritePlayTypes';
-import type { SkywriteRecord } from '@/skywrite/types';
+import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
 
 interface SkywriteImmersiveMomentViewProps {
   record: SkywriteRecord;
@@ -33,6 +42,13 @@ interface SkywriteImmersiveMomentViewProps {
   onBeforeStepChange?: () => void;
   /** When true, starts video playback once the asset is loaded (library open flow). */
   autoPlayVideo?: boolean;
+  /** Large contain-fit layout for compose preview and full-screen playback. */
+  layoutMode?: 'standard' | 'viewport';
+  /** Live mix levels during compose preview (persisted on the draft). */
+  mediaMix?: SkywriteMedia;
+  onMediaMixChange?: (media: SkywriteMedia) => void;
+  showAudioMixControls?: boolean;
+  commentsSlot?: ReactNode;
 }
 
 function SkywriteImmersiveMomentViewComponent({
@@ -50,11 +66,23 @@ function SkywriteImmersiveMomentViewComponent({
   canNext,
   onBeforeStepChange,
   autoPlayVideo = false,
+  layoutMode = 'standard',
+  mediaMix,
+  onMediaMixChange,
+  showAudioMixControls = false,
+  commentsSlot,
 }: SkywriteImmersiveMomentViewProps) {
   const videoActive = stepKind === 'video' && Boolean(record.media.video?.uri);
-  const videoPlayback = useSkywriteImmersiveVideoPlayback(record, videoActive);
-  const { requestAutoPlay, applyVideoVolume, cleanup: cleanupVideo } = videoPlayback;
+  const playbackMedia = mediaMix ?? record.media;
+  const videoPlayback = useSkywriteImmersiveVideoPlayback(record, videoActive, playbackMedia);
+  const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize } = videoPlayback;
   const autoPlayIssuedRef = useRef(false);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+
+  const onStageLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setStageSize({ width, height });
+  };
 
   useEffect(() => {
     autoPlayIssuedRef.current = false;
@@ -70,14 +98,32 @@ function SkywriteImmersiveMomentViewComponent({
   const showVideoVoiceover =
     record.mediaMode === 'video_voiceover' && stepKind === 'video' && Boolean(audioUri);
 
-  const videoAspect = useMemo(
-    () =>
-      skywriteVideoAspectRatio(
-        record.media.video?.width,
-        record.media.video?.height,
-      ),
-    [record.media.video?.height, record.media.video?.width],
-  );
+  const videoAspect = useMemo(() => {
+    if (naturalSize?.width && naturalSize.height) {
+      return naturalSize.width / naturalSize.height;
+    }
+    return skywriteVideoAspectRatio(
+      record.media.video?.width,
+      record.media.video?.height,
+    );
+  }, [naturalSize, record.media.video?.height, record.media.video?.width]);
+
+  const videoFrameStyle = useMemo(() => {
+    if (layoutMode === 'viewport' && stageSize.width > 0 && stageSize.height > 0) {
+      return skywriteContainedVideoFrameStyle(
+        videoAspect,
+        stageSize.width,
+        stageSize.height,
+      );
+    }
+    return skywriteVideoFrameStyle(videoAspect, layoutMode === 'viewport' ? 720 : 480);
+  }, [layoutMode, stageSize.height, stageSize.width, videoAspect]);
+
+  const showMixControls =
+    showAudioMixControls &&
+    Boolean(onMediaMixChange) &&
+    stepKind === 'video' &&
+    (Boolean(playbackMedia.video?.uri) || Boolean(playbackMedia.audio?.uri));
 
   const handlePrevious = () => {
     onBeforeStepChange?.();
@@ -106,7 +152,7 @@ function SkywriteImmersiveMomentViewComponent({
         <Text style={styles.progress}>{SkywritePlayCopy.progress(stepIndex + 1, stepCount)}</Text>
       </View>
 
-      <View style={styles.content}>
+      <View style={[styles.content, layoutMode === 'viewport' && styles.contentViewport]}>
         {stepKind === 'text' ? (
           <Text style={[styles.bodyText, getSkywriteWriteInputStyle(record.textStyle)]}>
             {record.text.trim() || '…'}
@@ -131,22 +177,29 @@ function SkywriteImmersiveMomentViewComponent({
 
         {stepKind === 'video' && record.media.video?.uri ? (
           <>
-            <View style={skywriteVideoFrameStyle(videoAspect, 480)}>
-              <Video
-                ref={videoPlayback.videoRef}
-                style={StyleSheet.absoluteFillObject}
-                source={{ uri: record.media.video.uri }}
-                useNativeControls={false}
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping={false}
-                isMuted={false}
-                progressUpdateIntervalMillis={250}
-                onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
-                onLoad={() => {
-                  void applyVideoVolume();
-                  if (autoPlayVideo) requestAutoPlay();
-                }}
-              />
+            <View
+              style={[
+                layoutMode === 'viewport' ? styles.videoStageViewport : styles.videoStageStandard,
+                layoutMode === 'viewport' && styles.videoStageFill,
+              ]}
+              onLayout={layoutMode === 'viewport' ? onStageLayout : undefined}>
+              <View style={videoFrameStyle}>
+                <Video
+                  ref={videoPlayback.videoRef}
+                  style={StyleSheet.absoluteFillObject}
+                  source={{ uri: record.media.video.uri }}
+                  useNativeControls={false}
+                  resizeMode={ResizeMode.CONTAIN}
+                  isLooping={false}
+                  isMuted={false}
+                  progressUpdateIntervalMillis={250}
+                  onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
+                  onLoad={(status) => {
+                    handleVideoLoad(status);
+                    if (autoPlayVideo) requestAutoPlay();
+                  }}
+                />
+              </View>
             </View>
             <View style={styles.videoControls}>
               <Pressable
@@ -167,11 +220,17 @@ function SkywriteImmersiveMomentViewComponent({
                 <Text style={styles.muteText}>{videoPlayback.muted ? 'Unmute' : 'Mute'}</Text>
               </Pressable>
             </View>
-            {showVideoVoiceover ? (
+            {showMixControls ? (
+              <SkywritePlaybackAudioMixControls
+                compact={layoutMode === 'viewport'}
+                media={playbackMedia}
+                onChange={(next) => onMediaMixChange?.(next)}
+              />
+            ) : showVideoVoiceover && !showMixControls ? (
               <Text style={styles.caption}>Voiceover plays with this video.</Text>
             ) : null}
             {record.text.trim() ? (
-              <Text style={styles.caption} numberOfLines={6}>
+              <Text style={styles.caption} numberOfLines={layoutMode === 'viewport' ? 3 : 6}>
                 {record.text.trim()}
               </Text>
             ) : null}
@@ -194,6 +253,15 @@ function SkywriteImmersiveMomentViewComponent({
           </View>
         ) : null}
       </View>
+
+      {commentsSlot ? (
+        <ScrollView
+          style={styles.commentsScroll}
+          contentContainerStyle={styles.commentsScrollContent}
+          keyboardShouldPersistTaps="handled">
+          {commentsSlot}
+        </ScrollView>
+      ) : null}
 
       <View style={styles.controls}>
         <Pressable
@@ -239,6 +307,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.md,
     paddingVertical: Spacing.md,
+  },
+  contentViewport: {
+    justifyContent: 'flex-start',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    minHeight: 0,
+  },
+  videoStageStandard: {
+    width: '100%',
+  },
+  videoStageViewport: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoStageFill: {
+    flex: 1,
+    minHeight: 180,
+  },
+  commentsScroll: {
+    maxHeight: 220,
+    marginTop: 4,
+  },
+  commentsScrollContent: {
+    paddingBottom: 4,
   },
   bodyText: {
     fontFamily: Fonts.serif,

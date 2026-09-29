@@ -155,6 +155,7 @@ export function buildSkywriteRecord(
       audio: draft.media.audio,
       originalVideoAudio: draft.media.originalVideoAudio,
       originalVideoVolume: draft.media.originalVideoVolume,
+      voiceoverVolume: draft.media.voiceoverVolume,
     },
     mediaMode: deriveMediaMode(draft.media, text),
     visibility: draft.visibility,

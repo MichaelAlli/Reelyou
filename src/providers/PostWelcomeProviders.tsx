@@ -10,6 +10,7 @@ import { SkyAreaPreferencesProvider } from '@/skyAreas/SkyAreaPreferencesProvide
 import { SkywriteBeaconProvider } from '@/skywrite/beacon/SkywriteBeaconProvider';
 import { SkywriteLibraryProvider } from '@/skywrite/library/SkywriteLibraryProvider';
 import { SavedThreadsProvider } from '@/skywrite/savedThreads/SavedThreadsProvider';
+import { SkywriteCommentProvider } from '@/skywrite/comments/SkywriteCommentProvider';
 import { SkywriteThreadProvider } from '@/skywrite/threads/SkywriteThreadProvider';
 import { TodayFocusRecommendationsProvider } from '@/todayFocus/recommendations/TodayFocusRecommendationsProvider';
 import { ThemeProvider } from '@/theme';
@@ -32,15 +33,17 @@ export function PostWelcomeProviders({ children }: { children: ReactNode }) {
             <SkywriteBeaconProvider>
               <SkywriteThreadProvider>
                 <ReelyouConnectProvider>
-                  <EmergingConstellationsProvider>
-                    <SavedThreadsProvider>
-                      <HumanPotentialMetricsProvider>
-                        <TodayFocusRecommendationsProvider>
-                          <LegacyProvider>{children}</LegacyProvider>
-                        </TodayFocusRecommendationsProvider>
-                      </HumanPotentialMetricsProvider>
-                    </SavedThreadsProvider>
-                  </EmergingConstellationsProvider>
+                  <SkywriteCommentProvider>
+                    <EmergingConstellationsProvider>
+                      <SavedThreadsProvider>
+                        <HumanPotentialMetricsProvider>
+                          <TodayFocusRecommendationsProvider>
+                            <LegacyProvider>{children}</LegacyProvider>
+                          </TodayFocusRecommendationsProvider>
+                        </HumanPotentialMetricsProvider>
+                      </SavedThreadsProvider>
+                    </EmergingConstellationsProvider>
+                  </SkywriteCommentProvider>
                 </ReelyouConnectProvider>
               </SkywriteThreadProvider>
             </SkywriteBeaconProvider>

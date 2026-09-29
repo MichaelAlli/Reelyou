@@ -4,7 +4,11 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
+import { SkywriteCommentsPanel } from '@/components/skywrite/SkywriteCommentsPanel';
 import { SkywriteImmersiveMomentView } from '@/components/skywrite/SkywriteImmersiveMomentView';
+import { currentUser } from '@/data/mockData';
+import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
+import { resolveSkywriteViewerAccess } from '@/skywrite/access/resolveSkywriteViewerAccess';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useOnboarding } from '@/onboarding';
@@ -19,6 +23,7 @@ export function SkywriteImmersiveMomentScreen() {
   const router = useRouter();
   const { skywriteId, step } = useLocalSearchParams<{ skywriteId?: string; step?: string }>();
   const { skywrites } = useOnboarding();
+  const { messages, skyFollowGraph } = useReelyouConnect();
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
   const audioPreview = useOverlayAudioPreviewScope(true);
   const [steps, setSteps] = useState<SkywritePlayStep[]>([]);
@@ -66,6 +71,17 @@ export function SkywriteImmersiveMomentScreen() {
   const previewId = current ? `immersive-${current.skywriteId}-${current.stepId}` : '';
   const audioPlaying = audioPreview.isPreviewPlaying(previewId);
 
+  const viewerCanView = useMemo(() => {
+    if (!record) return false;
+    return resolveSkywriteViewerAccess({
+      viewerId: currentUser.id,
+      authorId: record.authorId ?? currentUser.id,
+      visibility: record.visibility,
+      followGraph: skyFollowGraph,
+      blockedUserIds: messages.blockedUserIds,
+    });
+  }, [messages.blockedUserIds, record, skyFollowGraph]);
+
   const handleExit = useCallback(() => {
     void audioPreview.stopAll();
     router.back();
@@ -112,6 +128,17 @@ export function SkywriteImmersiveMomentScreen() {
     );
   }
 
+  if (!viewerCanView) {
+    return (
+      <View style={styles.root}>
+        <HomeBackdrop />
+        <SafeAreaView style={styles.safe}>
+          <Text style={styles.empty}>This Skywrite isn&apos;t available to you.</Text>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
       <HomeBackdrop />
@@ -130,6 +157,8 @@ export function SkywriteImmersiveMomentScreen() {
           canPrevious={index > 0}
           canNext={index < steps.length - 1}
           onBeforeStepChange={() => void audioPreview.stopAll()}
+          layoutMode="viewport"
+          commentsSlot={<SkywriteCommentsPanel skywrite={record} compact />}
         />
       </SafeAreaView>
     </View>

@@ -24,6 +24,9 @@ const DISABLED_CONTEXT: AiCompanionContext = {
 /**
  * AI Context Builder — future AI Companion reads ONLY from UserPersonalizationProfile.
  * No network calls. No external AI. Architecture-only.
+ *
+ * Weak Relate comment observations are stored separately and are NOT merged here yet —
+ * there is no live pattern-recognition pipeline consuming them.
  */
 export function buildAiCompanionContext(
   profile: UserPersonalizationProfile,

@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
+import { SkywriteComposerVideoPreview } from '@/components/skywrite/SkywriteComposerVideoPreview';
 import { SkywriteVoiceCapture } from '@/components/skywrite/SkywriteVoiceCapture';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
@@ -26,6 +27,7 @@ interface SkywriteMediaAttachmentsProps {
   onTogglePlayback: () => void;
   onReRecord: () => void;
   onRemoveAudio: () => void;
+  onVideoDimensionsResolved?: (width: number, height: number) => void;
 }
 
 function SkywriteMediaAttachmentsComponent({
@@ -47,6 +49,7 @@ function SkywriteMediaAttachmentsComponent({
   onTogglePlayback,
   onReRecord,
   onRemoveAudio,
+  onVideoDimensionsResolved,
 }: SkywriteMediaAttachmentsProps) {
   const { width: screenWidth } = useWindowDimensions();
   const previewWidth = Math.min(screenWidth - 80, 320);
@@ -65,7 +68,10 @@ function SkywriteMediaAttachmentsComponent({
       {video ? (
         <View style={[styles.photoBlock, { width: previewWidth }]}>
           <View style={styles.photoFrame}>
-            <Text style={styles.videoLabel}>Video attached</Text>
+            <SkywriteComposerVideoPreview
+              video={video}
+              onDimensionsResolved={onVideoDimensionsResolved}
+            />
             {video.durationMs ? (
               <Text style={styles.videoMeta}>
                 {Math.max(1, Math.round((video.durationMs ?? 0) / 1000))}s

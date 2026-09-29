@@ -30,7 +30,7 @@ import { SkywriteToggleRow } from '@/components/skywrite/SkywriteToggleRow';
 import { SkyAreaSuggestionBanner } from '@/components/skywrite/SkyAreaSuggestionBanner';
 import { SkywriteSkyAreaPicker } from '@/components/skywrite/SkywriteSkyAreaPicker';
 import { SkywriteComposePreviewOverlay } from '@/components/skywrite/SkywriteComposePreviewOverlay';
-import { SkywriteOriginalVideoAudioControls } from '@/components/skywrite/SkywriteOriginalVideoAudioControls';
+import { SkywritePlaybackAudioMixControls } from '@/components/skywrite/SkywritePlaybackAudioMixControls';
 import { SkywriteVisibilityControl } from '@/components/skywrite/SkywriteVisibilityControl';
 import { detectSkyAreaSuggestionFromHashtags } from '@/skyAreas/skyAreaHashtagSuggestion';
 import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
@@ -237,6 +237,7 @@ export function SkywriteScreen() {
         audio: current.media.audio,
         originalVideoAudio: current.media.originalVideoAudio ?? 'on',
         originalVideoVolume: current.media.originalVideoVolume ?? 1,
+        voiceoverVolume: current.media.voiceoverVolume ?? 1,
       },
     }));
     setValidationHint(null);
@@ -566,6 +567,19 @@ export function SkywriteScreen() {
                   photo={draft.media.photo}
                   video={draft.media.video}
                   audio={draft.media.audio}
+                  onVideoDimensionsResolved={(width, height) =>
+                    setDraft((current) =>
+                      current.media.video
+                        ? {
+                            ...current,
+                            media: {
+                              ...current.media,
+                              video: { ...current.media.video, width, height },
+                            },
+                          }
+                        : current,
+                    )
+                  }
                   voiceCaptureOpen={voiceCaptureOpen}
                   isRecording={voice.isRecording}
                   elapsedMs={voice.elapsedMs}
@@ -601,7 +615,7 @@ export function SkywriteScreen() {
                 />
 
                 {hasVideo ? (
-                  <SkywriteOriginalVideoAudioControls
+                  <SkywritePlaybackAudioMixControls
                     media={draft.media}
                     onChange={(media) => setDraft((current) => ({ ...current, media }))}
                   />
@@ -820,6 +834,7 @@ export function SkywriteScreen() {
           setPublishError(null);
         }}
         onPost={() => void handlePostSkywrite()}
+        onDraftMediaChange={(media) => setDraft((current) => ({ ...current, media }))}
       />
 
       <BottomNav />
