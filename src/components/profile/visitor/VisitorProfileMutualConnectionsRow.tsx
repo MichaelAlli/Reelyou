@@ -4,7 +4,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ConnectedSkiesCopy } from '@/constants/connectedSkiesCopy';
 import { Fonts } from '@/constants/theme';
 import { resolvePublicSkyOwnerProfile } from '@/mySky/skyIdentity';
-import { isDemoVisitorMutualProfileOwner } from '@/profile/profileMutualConnectionsDemo';
+import {
+  resolveDemoMutualConnectionDisplayName,
+  usesDemoMutualConnectionsOverlay,
+} from '@/profile/profileMutualConnectionsDemo';
 
 interface VisitorProfileMutualConnectionsRowProps {
   mutualIds: readonly string[];
@@ -26,9 +29,31 @@ function VisitorProfileMutualConnectionsRowComponent({
   if (mutualIds.length === 0) return null;
 
   const count = mutualIds.length;
-  const label = ConnectedSkiesCopy.mutualSkiesYouBothKnowLabel(count);
   const previewIds = mutualIds.slice(0, 3);
-  const demoHint = isDemoVisitorMutualProfileOwner(profileOwnerId);
+  const demoHint = usesDemoMutualConnectionsOverlay(profileOwnerId);
+
+  const resolveShortName = (id: string): string => {
+    const demoName = resolveDemoMutualConnectionDisplayName(id);
+    if (demoName) return demoName;
+    const profile = resolvePublicSkyOwnerProfile(id, 'none');
+    const full = profile?.name ?? id;
+    return full.split(/\s+/)[0] ?? full;
+  };
+
+  const label =
+    count >= 3
+      ? ConnectedSkiesCopy.mutualYouBothKnowNamedLabel(
+          resolveShortName(mutualIds[0]!),
+          resolveShortName(mutualIds[1]!),
+          count - 2,
+        )
+      : count === 2
+        ? ConnectedSkiesCopy.mutualYouBothKnowNamedLabel(
+            resolveShortName(mutualIds[0]!),
+            resolveShortName(mutualIds[1]!),
+            0,
+          )
+        : ConnectedSkiesCopy.mutualSkiesYouBothKnowLabel(count);
 
   return (
     <Pressable
@@ -37,12 +62,18 @@ function VisitorProfileMutualConnectionsRowComponent({
       onPress={onPress}
       style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}>
       <View style={styles.avatarRow}>
-        {previewIds.map((id) => {
+        {previewIds.map((id, index) => {
           const profile = resolvePublicSkyOwnerProfile(id, 'none');
           const color = profile?.avatarColor ?? 'rgba(232, 200, 114, 0.35)';
           const labelText = profile?.avatarInitials ?? initials(profile?.name ?? id);
           return (
-            <View key={id} style={[styles.avatar, { backgroundColor: color }]}>
+            <View
+              key={id}
+              style={[
+                styles.avatar,
+                index === 0 && styles.avatarFirst,
+                { backgroundColor: color },
+              ]}>
               <Text style={styles.avatarText}>{labelText}</Text>
             </View>
           );
@@ -90,6 +121,9 @@ const styles = StyleSheet.create({
     marginLeft: -5,
     borderWidth: 1.5,
     borderColor: 'rgba(8, 10, 24, 0.9)',
+  },
+  avatarFirst: {
+    marginLeft: 0,
   },
   avatarText: {
     fontFamily: Fonts.sans,

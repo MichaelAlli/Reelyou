@@ -22,6 +22,11 @@ export const ConnectedSkiesCopy = {
   mutualConnectionsA11y: 'View mutual connections with this profile',
   mutualSkiesYouBothKnowLabel: (count: number) =>
     count === 1 ? '1 sky you both know' : `${count} skies you both know`,
+  /** e.g. "You both know Jordan, Maya + 1" */
+  mutualYouBothKnowNamedLabel: (first: string, second: string, remaining: number) => {
+    if (remaining <= 0) return `You both know ${first} and ${second}`;
+    return `You both know ${first}, ${second} + ${remaining}`;
+  },
   mutualSkiesShortLabel: (count: number) =>
     count === 1 ? '1 shared sky' : `${count} shared skies`,
   sharedConnectionsA11y: 'Connections you share with this profile',

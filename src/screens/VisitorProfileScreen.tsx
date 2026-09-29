@@ -50,8 +50,8 @@ import { profileOwnerCelestialBackground } from '@/profile/profileOwnerAssets';
 import { isVisitorProfileBlocked } from '@/profile/resolveVisitorProfilePrivacy';
 import { resolveVisitorSkyConnectionStatus } from '@/social/skyFollow/resolveVisitorSkyConnection';
 import {
-  DEMO_VISITOR_MUTUAL_CONNECTION_USER_IDS,
-  isDemoVisitorMutualProfileOwner,
+  resolveDemoMutualConnectionCounts,
+  resolveDemoMutualConnectionUserIds,
 } from '@/profile/profileMutualConnectionsDemo';
 import {
   buildProfileRelationshipCounts,
@@ -187,6 +187,8 @@ export function VisitorProfileScreen({
         mutualConnectionsWithViewer: 0,
       };
     }
+    const demoCounts = resolveDemoMutualConnectionCounts(ownerId);
+    if (demoCounts) return demoCounts;
     return buildProfileRelationshipCounts({
       graph: skyFollowGraph,
       profileOwnerId: ownerId,
@@ -197,14 +199,11 @@ export function VisitorProfileScreen({
 
   const mutualConnectionIds = useMemo(() => {
     if (!ownerId) return [];
-    const blocked = new Set(messages.blockedUserIds);
-    let ids = listSharedConnectionUserIds(skyFollowGraph, ownerId, currentUser.id).filter(
-      (id) => !blocked.has(id),
+    const demoIds = resolveDemoMutualConnectionUserIds(ownerId, messages.blockedUserIds);
+    if (demoIds.length > 0) return demoIds;
+    return listSharedConnectionUserIds(skyFollowGraph, ownerId, currentUser.id).filter(
+      (id) => !messages.blockedUserIds.includes(id),
     );
-    if (ids.length === 0 && isDemoVisitorMutualProfileOwner(ownerId)) {
-      ids = DEMO_VISITOR_MUTUAL_CONNECTION_USER_IDS.filter((id) => !blocked.has(id));
-    }
-    return ids;
   }, [messages.blockedUserIds, ownerId, skyFollowGraph]);
 
   const publicSkyPreview = useMemo(() => {

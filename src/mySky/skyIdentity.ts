@@ -3,6 +3,7 @@ import { resolveExploreDemoOwnerProfile } from '@/explore/exploreDemoSkies';
 import {
   isDemoVisitorMutualProfileOwner,
   resolveDemoVisitorMutualProfile,
+  resolveDevOnlyOrbitProfile,
 } from '@/profile/profileMutualConnectionsDemo';
 import { getCanonicalProfilePhotoDisplayUri } from '@/identity/canonicalUserProfilePhoto';
 import { stableSlotIndexForId } from '@/mySky/skyLayout';
@@ -91,6 +92,9 @@ export function resolvePublicSkyOwnerProfile(
   if (isDemoVisitorMutualProfileOwner(userId)) {
     return resolveDemoVisitorMutualProfile();
   }
+
+  const devOnly = resolveDevOnlyOrbitProfile(userId);
+  if (devOnly) return devOnly;
 
   const user = orbitUsers.find((entry) => entry.id === userId);
   if (!user) return null;

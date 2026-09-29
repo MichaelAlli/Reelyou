@@ -10,7 +10,8 @@ export type DevScreenPreviewId =
   | 'onboarding-4'
   | 'process'
   | 'home'
-  | 'visitor-profile-jordan';
+  | 'visitor-profile-jordan'
+  | 'visitor-profile-avery-mutual-demo';
 
 export interface DevScreenPreviewTarget {
   id: DevScreenPreviewId;
@@ -79,6 +80,12 @@ export const DEV_SCREEN_PREVIEW_TARGETS: DevScreenPreviewTarget[] = [
     label: 'Visitor Profile (Jordan)',
     description: 'QA — another user’s profile as viewer',
     href: '/visitor-profile?id=orbit-jordan',
+  },
+  {
+    id: 'visitor-profile-avery-mutual-demo',
+    label: 'Visitor Profile (Avery · mutual demo)',
+    description: 'Dev — Sky Connections counts + mutual line',
+    href: '/visitor-profile?id=demo-sky-avery',
   },
   {
     id: 'home',

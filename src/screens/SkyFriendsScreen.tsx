@@ -17,8 +17,12 @@ import { SkyFriendsCopy } from '@/constants/skyFriendsCopy';
 import { Fonts, TabBarHeight } from '@/constants/theme';
 import { currentUser, orbitUsers } from '@/data/mockData';
 import { EXPLORE_DEMO_PROFILES, isExploreDemoOwnerId } from '@/explore/exploreDemoSkies';
+import { buildVisitorProfileHref } from '@/profile/visitorProfileRoute';
 import {
-  DEMO_VISITOR_MUTUAL_CONNECTION_USER_IDS,
+  resolveDemoMutualConnectionDisplayName,
+  resolveDemoProfileOwnerFollowerIds,
+  resolveDemoProfileOwnerFollowingIds,
+  resolveDemoMutualConnectionUserIds,
   isDemoVisitorMutualProfileOwner,
 } from '@/profile/profileMutualConnectionsDemo';
 import { resolveSkyRelationship } from '@/social/skyFollow/resolveSkyRelationship';
@@ -31,6 +35,8 @@ function displayName(userId: string): string {
   if (userId === currentUser.id) return currentUser.name;
   if (isExploreDemoOwnerId(userId)) return EXPLORE_DEMO_PROFILES[userId].name;
   if (isDemoVisitorMutualProfileOwner(userId)) return 'Sam Ortiz';
+  const demoMutualName = resolveDemoMutualConnectionDisplayName(userId);
+  if (demoMutualName) return demoMutualName === 'Devin' ? 'Devin Cole' : demoMutualName;
   return orbitUsers.find((u) => u.id === userId)?.name ?? userId;
 }
 
@@ -76,9 +82,11 @@ export function SkyFriendsScreen() {
 
   const userIds = useMemo(() => {
     if (tab === 'shared' && sharedContextOwnerId) {
-      if (isDemoVisitorMutualProfileOwner(sharedContextOwnerId)) {
-        return [...DEMO_VISITOR_MUTUAL_CONNECTION_USER_IDS];
-      }
+      const demoShared = resolveDemoMutualConnectionUserIds(
+        sharedContextOwnerId,
+        messages.blockedUserIds,
+      );
+      if (demoShared.length > 0) return demoShared;
       return listSharedConnectionUserIds(
         skyFollowGraph,
         sharedContextOwnerId,
@@ -94,16 +102,23 @@ export function SkyFriendsScreen() {
       return skyFriendUserIds;
     }
     if (tab === 'following') {
-      return sharedContextOwnerId
-        ? listFollowing(skyFollowGraph, sharedContextOwnerId)
-        : listFollowingUserIds();
+      if (sharedContextOwnerId) {
+        const demoFollowing = resolveDemoProfileOwnerFollowingIds(sharedContextOwnerId);
+        if (demoFollowing) return demoFollowing;
+        return listFollowing(skyFollowGraph, sharedContextOwnerId);
+      }
+      return listFollowingUserIds();
     }
-    return sharedContextOwnerId
-      ? listFollowers(skyFollowGraph, sharedContextOwnerId)
-      : listFollowerUserIds();
+    if (sharedContextOwnerId) {
+      const demoFollowers = resolveDemoProfileOwnerFollowerIds(sharedContextOwnerId);
+      if (demoFollowers) return demoFollowers;
+      return listFollowers(skyFollowGraph, sharedContextOwnerId);
+    }
+    return listFollowerUserIds();
   }, [
     listFollowerUserIds,
     listFollowingUserIds,
+    messages.blockedUserIds,
     sharedContextOwnerId,
     skyFollowGraph,
     skyFriendUserIds,
@@ -206,7 +221,9 @@ export function SkyFriendsScreen() {
                   </View>
                   <View style={styles.actions}>
                     <Pressable
-                      onPress={() => router.push(`/visitor-profile?ownerId=${userId}` as never)}
+                      onPress={() =>
+                        router.push(buildVisitorProfileHref(userId) as never)
+                      }
                       style={styles.chip}>
                       <Text style={styles.chipText}>{SkyFriendsCopy.viewSky}</Text>
                     </Pressable>
