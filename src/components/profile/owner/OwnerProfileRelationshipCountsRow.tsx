@@ -12,7 +12,6 @@ import type { ProfileRelationshipCounts } from '@/social/skyFollow/profileRelati
 
 interface OwnerProfileRelationshipCountsRowProps {
   counts: ProfileRelationshipCounts;
-  onPressConnectedSkies: () => void;
   onPressFollowedSkies: () => void;
   onPressSkyFollowing: () => void;
   /** Visitor-only mutual line — omit on own profile. */
@@ -48,7 +47,6 @@ function CountCell({
 
 function OwnerProfileRelationshipCountsRowComponent({
   counts,
-  onPressConnectedSkies,
   onPressFollowedSkies,
   onPressSkyFollowing,
   belowRow,
@@ -56,39 +54,34 @@ function OwnerProfileRelationshipCountsRowComponent({
   return (
     <View style={styles.outer}>
       <View style={styles.card}>
-        <View style={styles.titleColumn}>
-          <Text
-            style={styles.sectionTitle}
-            numberOfLines={2}
-            maxFontSizeMultiplier={1.25}
-            accessibilityRole="header">
-            {ConnectedSkiesCopy.profileConnectionsSectionTitle}
-          </Text>
+        <View style={styles.mainRow}>
+          <View style={styles.titleColumn}>
+            <Text
+              style={styles.sectionTitle}
+              numberOfLines={2}
+              maxFontSizeMultiplier={1.25}
+              accessibilityRole="header">
+              {ConnectedSkiesCopy.profileConnectionsSectionTitle}
+            </Text>
+          </View>
+          <View style={styles.countsRow}>
+            <CountCell
+              label={ConnectedSkiesCopy.followedSkiesLabel}
+              value={counts.followedSkies}
+              onPress={onPressFollowedSkies}
+              accessibilityLabel={`${ConnectedSkiesCopy.followedSkiesLabel}, ${counts.followedSkies}`}
+            />
+            <View style={styles.divider} />
+            <CountCell
+              label={ConnectedSkiesCopy.skyFollowingLabel}
+              value={counts.skyFollowing}
+              onPress={onPressSkyFollowing}
+              accessibilityLabel={`${ConnectedSkiesCopy.skyFollowingLabel}, ${counts.skyFollowing}`}
+            />
+          </View>
         </View>
-        <View style={styles.countsRow}>
-          <CountCell
-            label={ConnectedSkiesCopy.connectedSkiesLabel}
-            value={counts.connectedSkies}
-            onPress={onPressConnectedSkies}
-            accessibilityLabel={`${ConnectedSkiesCopy.connectedSkiesLabel}, ${counts.connectedSkies}`}
-          />
-          <View style={styles.divider} />
-          <CountCell
-            label={ConnectedSkiesCopy.followedSkiesLabel}
-            value={counts.followedSkies}
-            onPress={onPressFollowedSkies}
-            accessibilityLabel={`${ConnectedSkiesCopy.followedSkiesLabel}, ${counts.followedSkies}`}
-          />
-          <View style={styles.divider} />
-          <CountCell
-            label={ConnectedSkiesCopy.skyFollowingLabel}
-            value={counts.skyFollowing}
-            onPress={onPressSkyFollowing}
-            accessibilityLabel={`${ConnectedSkiesCopy.skyFollowingLabel}, ${counts.skyFollowing}`}
-          />
-        </View>
+        {belowRow ? <View style={styles.mutualFooter}>{belowRow}</View> : null}
       </View>
-      {belowRow ? <View style={styles.belowSlot}>{belowRow}</View> : null}
     </View>
   );
 }
@@ -101,15 +94,18 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   card: {
+    borderRadius: OWNER_PROFILE_CARD_RADIUS,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: OWNER_PROFILE_PANEL_BORDER,
+    backgroundColor: 'rgba(10, 14, 34, 0.55)',
+    overflow: 'hidden',
+  },
+  mainRow: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 68,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: OWNER_PROFILE_CARD_RADIUS,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: OWNER_PROFILE_PANEL_BORDER,
-    backgroundColor: 'rgba(10, 14, 34, 0.55)',
     gap: 6,
   },
   titleColumn: {
@@ -137,7 +133,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 2,
-    paddingHorizontal: 1,
+    paddingHorizontal: 2,
     minHeight: 52,
   },
   pressed: { opacity: 0.88 },
@@ -163,7 +159,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(167, 139, 250, 0.22)',
     marginVertical: 4,
   },
-  belowSlot: {
-    marginTop: 4,
+  mutualFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(167, 139, 250, 0.18)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
 });

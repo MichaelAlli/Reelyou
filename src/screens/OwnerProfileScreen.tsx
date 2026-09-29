@@ -186,7 +186,6 @@ export function OwnerProfileScreen() {
         />
         <OwnerProfileRelationshipCountsRow
           counts={relationshipCounts}
-          onPressConnectedSkies={() => router.push('/sky-friends?tab=friends' as never)}
           onPressFollowedSkies={() => router.push('/sky-friends?tab=following' as never)}
           onPressSkyFollowing={() => router.push('/sky-friends?tab=followers' as never)}
         />

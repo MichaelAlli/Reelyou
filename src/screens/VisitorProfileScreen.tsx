@@ -13,7 +13,6 @@ import { OwnerProfileMySkyPreviewCard } from '@/components/profile/owner/OwnerPr
 import { OwnerProfileSkywritingsCard } from '@/components/profile/owner/OwnerProfileSkywritingsCard';
 import { OwnerProfileTopChrome } from '@/components/profile/owner/OwnerProfileTopChrome';
 import { RippleMetricDetailSheet } from '@/components/legacy/ripple/RippleMetricDetailSheet';
-import { VisitorProfileLegacyRippleRow } from '@/components/profile/visitor/VisitorProfileLegacyRippleRow';
 import { VisitorProfileMutualConnectionsRow } from '@/components/profile/visitor/VisitorProfileMutualConnectionsRow';
 import { OwnerProfileVisitorActionRow } from '@/components/profile/owner/OwnerProfileVisitorActionRow';
 import {
@@ -40,8 +39,6 @@ import { useUserAvatar } from '@/identity/UserAvatarProvider';
 import { buildVisitorProfileView } from '@/profile/buildVisitorProfileView';
 import {
   visitorLegacyRoute,
-  visitorReelYouRoute,
-  visitorRippleRoute,
 } from '@/profile/visitorLegacyRoutes';
 import {
   visitorSkywriteDetailRoute,
@@ -52,6 +49,10 @@ import { VISITOR_PROFILE_LEGACY_SUBTITLE } from '@/profile/profileLegacyCopy';
 import { profileOwnerCelestialBackground } from '@/profile/profileOwnerAssets';
 import { isVisitorProfileBlocked } from '@/profile/resolveVisitorProfilePrivacy';
 import { resolveVisitorSkyConnectionStatus } from '@/social/skyFollow/resolveVisitorSkyConnection';
+import {
+  DEMO_VISITOR_MUTUAL_CONNECTION_USER_IDS,
+  isDemoVisitorMutualProfileOwner,
+} from '@/profile/profileMutualConnectionsDemo';
 import {
   buildProfileRelationshipCounts,
   listSharedConnectionUserIds,
@@ -196,8 +197,15 @@ export function VisitorProfileScreen({
 
   const mutualConnectionIds = useMemo(() => {
     if (!ownerId) return [];
-    return listSharedConnectionUserIds(skyFollowGraph, ownerId, currentUser.id);
-  }, [ownerId, skyFollowGraph]);
+    const blocked = new Set(messages.blockedUserIds);
+    let ids = listSharedConnectionUserIds(skyFollowGraph, ownerId, currentUser.id).filter(
+      (id) => !blocked.has(id),
+    );
+    if (ids.length === 0 && isDemoVisitorMutualProfileOwner(ownerId)) {
+      ids = DEMO_VISITOR_MUTUAL_CONNECTION_USER_IDS.filter((id) => !blocked.has(id));
+    }
+    return ids;
+  }, [messages.blockedUserIds, ownerId, skyFollowGraph]);
 
   const publicSkyPreview = useMemo(() => {
     if (!ownerId || !visitorView?.showSkyPreview) return null;
@@ -335,18 +343,9 @@ export function VisitorProfileScreen({
             livesPressEnabled={metricsDetailEligible && visitorView.showImpactMetrics}
             contributionsPressEnabled={metricsDetailEligible && visitorView.showImpactMetrics}
           />
-          <VisitorProfileLegacyRippleRow
-            onRipplesPress={() => router.push(visitorRippleRoute(ownerId) as never)}
-            onReelYouPress={() => router.push(visitorReelYouRoute(ownerId) as never)}
-          />
           {hideVisitorActions ? null : (
             <OwnerProfileRelationshipCountsRow
               counts={relationshipCounts}
-              onPressConnectedSkies={() =>
-                router.push(
-                  `/sky-friends?tab=friends&profileOwner=${encodeURIComponent(ownerId)}` as never,
-                )
-              }
               onPressFollowedSkies={() =>
                 router.push(
                   `/sky-friends?tab=following&profileOwner=${encodeURIComponent(ownerId)}` as never,
@@ -360,6 +359,7 @@ export function VisitorProfileScreen({
               belowRow={
                 mutualConnectionIds.length > 0 ? (
                   <VisitorProfileMutualConnectionsRow
+                    profileOwnerId={ownerId}
                     mutualIds={mutualConnectionIds}
                     onPress={() =>
                       router.push(

@@ -1,14 +1,15 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { OWNER_PROFILE_HORIZONTAL_INSET } from '@/components/profile/owner/ownerProfileLayout';
 import { ConnectedSkiesCopy } from '@/constants/connectedSkiesCopy';
 import { Fonts } from '@/constants/theme';
 import { resolvePublicSkyOwnerProfile } from '@/mySky/skyIdentity';
+import { isDemoVisitorMutualProfileOwner } from '@/profile/profileMutualConnectionsDemo';
 
 interface VisitorProfileMutualConnectionsRowProps {
   mutualIds: readonly string[];
   onPress: () => void;
+  profileOwnerId: string;
 }
 
 function initials(name: string): string {
@@ -20,16 +21,14 @@ function initials(name: string): string {
 function VisitorProfileMutualConnectionsRowComponent({
   mutualIds,
   onPress,
+  profileOwnerId,
 }: VisitorProfileMutualConnectionsRowProps) {
   if (mutualIds.length === 0) return null;
 
   const count = mutualIds.length;
-  const label =
-    count === 1
-      ? '1 mutual connection'
-      : `${count} mutual connections`;
-
+  const label = ConnectedSkiesCopy.mutualSkiesYouBothKnowLabel(count);
   const previewIds = mutualIds.slice(0, 3);
+  const demoHint = isDemoVisitorMutualProfileOwner(profileOwnerId);
 
   return (
     <Pressable
@@ -49,9 +48,17 @@ function VisitorProfileMutualConnectionsRowComponent({
           );
         })}
       </View>
-      <Text style={styles.label} maxFontSizeMultiplier={1.3}>
+      <Text style={styles.label} maxFontSizeMultiplier={1.3} numberOfLines={2}>
         {label}
       </Text>
+      <Text style={styles.chevron} accessibilityElementsHidden>
+        →
+      </Text>
+      {demoHint ? (
+        <Text style={styles.demoTag} accessibilityLabel="Demo mutual connections preview">
+          Demo
+        </Text>
+      ) : null}
     </Pressable>
   );
 }
@@ -64,38 +71,52 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginHorizontal: OWNER_PROFILE_HORIZONTAL_INSET,
-    marginBottom: 4,
+    gap: 8,
     minHeight: 36,
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   pressed: { opacity: 0.88 },
   avatarRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 0,
   },
   avatar: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -6,
+    marginLeft: -5,
     borderWidth: 1.5,
     borderColor: 'rgba(8, 10, 24, 0.9)',
   },
   avatarText: {
     fontFamily: Fonts.sans,
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '700',
     color: '#FFF8F0',
   },
   label: {
+    flex: 1,
     fontFamily: Fonts.sans,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(232, 200, 114, 0.88)',
+    color: 'rgba(232, 200, 114, 0.9)',
+    lineHeight: 16,
+  },
+  chevron: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    color: 'rgba(232, 200, 114, 0.65)',
+    marginLeft: 2,
+  },
+  demoTag: {
+    fontFamily: Fonts.sans,
+    fontSize: 9,
+    fontWeight: '700',
+    color: 'rgba(235, 228, 248, 0.45)',
+    letterSpacing: 0.3,
+    marginLeft: 4,
   },
 });

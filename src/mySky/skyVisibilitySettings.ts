@@ -74,6 +74,11 @@ export const ORBIT_SKY_VISIBILITY_CATALOG: Record<string, SkyVisibilitySettings>
     defaultVisibility: 'public',
     contentOverrides: {},
   },
+  'demo-visitor-shared-skies': {
+    skyVisibility: 'public',
+    defaultVisibility: 'public',
+    contentOverrides: {},
+  },
 };
 
 export function normalizeSkyVisibilitySettings(

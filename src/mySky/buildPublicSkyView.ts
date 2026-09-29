@@ -3,6 +3,7 @@ import {
   EXPLORE_DEMO_NORTH_STARS,
   isExploreDemoOwnerId,
 } from '@/explore/exploreDemoSkies';
+import { isDemoVisitorMutualProfileOwner } from '@/profile/profileMutualConnectionsDemo';
 import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
 import type { SkywriteRecord } from '@/skywrite/types';
 import { applyPatternVisibility, applyVisibilityToNodes } from '@/mySky/applySkyNodeVisibility';
@@ -54,6 +55,9 @@ export function resolvePublicSkyConnectionStatus(
 function resolveNorthStarVision(userId: string): string {
   if (isExploreDemoOwnerId(userId)) {
     return EXPLORE_DEMO_NORTH_STARS[userId]?.trim() ?? '';
+  }
+  if (isDemoVisitorMutualProfileOwner(userId)) {
+    return 'Demo visitor profile — shared skies preview only.';
   }
   return PUBLIC_NORTH_STARS[userId]?.trim() ?? '';
 }
@@ -142,6 +146,7 @@ export function isPublicSkyAvailable(
     return settings.skyVisibility !== 'private';
   }
   if (isExploreDemoOwnerId(userId)) return true;
+  if (isDemoVisitorMutualProfileOwner(userId)) return true;
   if (!orbitUsers.some((user) => user.id === userId)) return false;
   const settings = resolveSkyVisibilitySettingsForOwner(userId, ownerVisibilitySettings);
   return settings.skyVisibility !== 'private';
@@ -152,6 +157,7 @@ export function isPublicSkyDiscoverable(
   ownerVisibilitySettings?: SkyVisibilitySettings | null,
 ): boolean {
   if (isExploreDemoOwnerId(userId)) return true;
+  if (isDemoVisitorMutualProfileOwner(userId)) return false;
   if (!orbitUsers.some((user) => user.id === userId)) return false;
   const settings = resolveSkyVisibilitySettingsForOwner(userId, ownerVisibilitySettings);
   return isSkyDiscoverable(settings);

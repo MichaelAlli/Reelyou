@@ -126,11 +126,12 @@ export function BottomNav() {
       );
     }
     if (tab.name === 'me') {
+      const onVisitorProfile =
+        pathname === '/visitor-profile' || pathname.includes('/visitor-profile');
+      if (onVisitorProfile) return false;
       return (
         pathname === '/profile' ||
         pathname.endsWith('/profile') ||
-        pathname === '/visitor-profile' ||
-        pathname.endsWith('/visitor-profile') ||
         isLegacyProfileContext
       );
     }
@@ -156,6 +157,12 @@ export function BottomNav() {
                   } else {
                     router.push(tab.href as never);
                   }
+                  return;
+                }
+                const onVisitorProfile =
+                  pathname === '/visitor-profile' || pathname.includes('/visitor-profile');
+                if (tab.name === 'me' && onVisitorProfile) {
+                  router.replace(tab.href as never);
                   return;
                 }
                 if (tab.name === 'me' && isLegacyProfileContext) {

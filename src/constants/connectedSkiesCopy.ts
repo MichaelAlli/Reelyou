@@ -20,6 +20,10 @@ export const ConnectedSkiesCopy = {
   followedSkiesA11y: 'Skies this profile follows',
   skyFollowingA11y: 'Accounts following this profile',
   mutualConnectionsA11y: 'View mutual connections with this profile',
+  mutualSkiesYouBothKnowLabel: (count: number) =>
+    count === 1 ? '1 sky you both know' : `${count} skies you both know`,
+  mutualSkiesShortLabel: (count: number) =>
+    count === 1 ? '1 shared sky' : `${count} shared skies`,
   sharedConnectionsA11y: 'Connections you share with this profile',
   emptyConnectedTitle: 'No Connected Skies yet',
   emptyConnectedBody:

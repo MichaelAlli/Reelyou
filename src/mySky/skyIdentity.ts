@@ -1,5 +1,9 @@
 import { currentUser, orbitUsers } from '@/data/mockData';
 import { resolveExploreDemoOwnerProfile } from '@/explore/exploreDemoSkies';
+import {
+  isDemoVisitorMutualProfileOwner,
+  resolveDemoVisitorMutualProfile,
+} from '@/profile/profileMutualConnectionsDemo';
 import { getCanonicalProfilePhotoDisplayUri } from '@/identity/canonicalUserProfilePhoto';
 import { stableSlotIndexForId } from '@/mySky/skyLayout';
 import type { SkyNodePosition } from '@/mySky/skyNodeTypes';
@@ -83,6 +87,10 @@ export function resolvePublicSkyOwnerProfile(
 
   const demo = resolveExploreDemoOwnerProfile(userId);
   if (demo) return demo;
+
+  if (isDemoVisitorMutualProfileOwner(userId)) {
+    return resolveDemoVisitorMutualProfile();
+  }
 
   const user = orbitUsers.find((entry) => entry.id === userId);
   if (!user) return null;
