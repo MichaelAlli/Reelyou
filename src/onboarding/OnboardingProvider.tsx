@@ -108,6 +108,7 @@ import {
   type PublishSkywriteProgress,
   type PublishSkywriteResult,
 } from '@/skywrite/publish/publishSkywriteDraft';
+import { scheduleSkywritePostPublishEffects } from '@/skywrite/postPublish/scheduleSkywritePostPublishEffects';
 import { stripSkywriteRenderableContent } from '@/skywrite/lifecycle/skywriteContentLifecycle';
 import {
   buildAroundYourSkyHomeFeed,
@@ -247,6 +248,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     useState<GuidingLightDismissRecord>(EMPTY_GUIDING_LIGHT_DISMISS);
   const [skywritesState, setSkywritesState] = useState<SkywritesState>(EMPTY_SKYWRITES);
   const skywritesRef = useRef(skywritesState);
+  const publishInFlightRef = useRef(false);
   const [profileSkyAreaShortcutIds, setProfileSkyAreaShortcutIdsState] = useState<
     SkyAreaCategoryId[]
   >(() => [...PROFILE_BETA_PREVIEW_CATEGORY_IDS]);
@@ -684,26 +686,46 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       draft: SkywriteDraft,
       onProgress?: (progress: PublishSkywriteProgress) => void,
     ): Promise<PublishSkywriteResult> => {
-      const result = await publishSkywriteDraft(
-        draft,
-        async (record) => {
-          const next: SkywritesState = { posts: [record, ...skywritesRef.current.posts] };
-          const saved = await saveSkywrites(next);
-          if (saved) {
-            setSkywritesState(next);
-            skywritesRef.current = next;
-            recordSkyEvolution(
-              createEvolutionEntry('SKYWRITE_CREATED', {
-                nodeId: buildSkyNodeId(record.id),
-                summary: 'A new Skywrite became a star in your sky.',
-              }),
-            );
-          }
-          return saved;
-        },
-        currentUser.id,
-        onProgress,
-      );
+      if (publishInFlightRef.current) {
+        return {
+          ok: false,
+          errorMessage: 'Your Skywrite is already saving. Please wait a moment.',
+          saveMs: 0,
+        };
+      }
+      publishInFlightRef.current = true;
+      let result: PublishSkywriteResult;
+      try {
+        result = await publishSkywriteDraft(
+          draft,
+          async (record) => {
+            if (skywritesRef.current.posts.some((post) => post.id === record.id)) {
+              return true;
+            }
+            const next: SkywritesState = { posts: [record, ...skywritesRef.current.posts] };
+            const saved = await saveSkywrites(next);
+            if (saved) {
+              setSkywritesState(next);
+              skywritesRef.current = next;
+              recordSkyEvolution(
+                createEvolutionEntry('SKYWRITE_CREATED', {
+                  nodeId: buildSkyNodeId(record.id),
+                  summary: 'A new Skywrite became a star in your sky.',
+                }),
+              );
+            }
+            return saved;
+          },
+          currentUser.id,
+          onProgress,
+        );
+      } finally {
+        publishInFlightRef.current = false;
+      }
+
+      if (result.ok) {
+        scheduleSkywritePostPublishEffects(result.record);
+      }
 
       if (result.ok && result.record.media.video?.uri && !result.record.media.video.thumbnailUri) {
         const savedId = result.record.id;

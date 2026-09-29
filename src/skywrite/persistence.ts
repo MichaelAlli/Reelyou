@@ -172,6 +172,10 @@ function parsePost(raw: unknown): SkywriteRecord | null {
     animateToSky: entry.animateToSky !== false,
     allowAIContext: entry.allowAIContext !== false,
     createdAt: typeof entry.createdAt === 'string' ? entry.createdAt : new Date().toISOString(),
+    experiencedAt:
+      typeof entry.experiencedAt === 'string' && entry.experiencedAt.length > 0
+        ? entry.experiencedAt
+        : undefined,
   };
 }
 

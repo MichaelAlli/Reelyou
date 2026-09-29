@@ -65,6 +65,8 @@ export interface SkywriteRecord {
   allowAIContext: boolean;
   /** Explicit primary Sky Area id (default category or custom-*). User-selected only. */
   skyAreaId?: string;
+  /** When the lived experience occurred — optional; defaults to createdAt for timeline. */
+  experiencedAt?: string;
   /** Lightweight intent for beacon routing — explicit choice wins over showingUp inference. */
   intent?: SkywriteIntentId;
   createdAt: string;

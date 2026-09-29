@@ -39,6 +39,7 @@ import {
   type FocusRecommendationPersistedState,
 } from '@/todayFocus/recommendations/focusRecommendationStore';
 import { registerTodayFocusChangeListener } from '@/todayFocus/recommendations/todayFocusChangeBridge';
+import { buildJourneyPersonalizationBundle } from '@/journey/buildJourneyPersonalizationBundle';
 import { inferSkyAreaIdsForFocus } from '@/todayFocus/recommendations/inferSkyAreaIdsForFocus';
 import { canonicalSignalStore } from '@/signals/canonical/canonicalSignalStore';
 
@@ -116,6 +117,15 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
     }
     return ids.join(',');
   }, [lifecycle, skywrites]);
+
+  const journeyPersonalization = useMemo(
+    () =>
+      buildJourneyPersonalizationBundle({
+        profile: personalizationProfile,
+        selectedSkyAreaIds,
+      }),
+    [personalizationProfile, selectedSkyAreaIds],
+  );
 
   const focusSession = useMemo(() => {
     const relatedSkyAreaIds = inferSkyAreaIdsForFocus(
@@ -205,6 +215,7 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
       blockedUserIds: messages.blockedUserIds,
       selectedSkyAreaIds,
       signalProvenanceIds,
+      journey: journeyPersonalization,
     });
 
     const deletedIds = deletedSkywriteIds.length > 0 ? deletedSkywriteIds.split(',') : [];

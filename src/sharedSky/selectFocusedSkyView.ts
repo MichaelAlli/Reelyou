@@ -1,3 +1,4 @@
+import { compareJourneyTimelineNewestFirst } from '@/journey/journeyTimeline';
 import type { MySkyStarDisplay } from '@/mySky/types';
 import type { SkyNode } from '@/mySky/skyNodeTypes';
 
@@ -56,7 +57,7 @@ export function selectFocusedSkyView(
   );
 
   const recentSkywriteIds = [...sources.skywrites]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .sort(compareJourneyTimelineNewestFirst)
     .slice(0, MAX_RECENT)
     .map((post) => post.id);
 

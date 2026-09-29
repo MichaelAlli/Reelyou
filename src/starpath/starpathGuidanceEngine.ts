@@ -149,7 +149,13 @@ function pickCandidateGuide(
     });
   }
 
-  if (branchId && focusAlignsBranch(inputs.todayFocusText, branchId)) {
+  const journeyAlignsBranch =
+    branchId &&
+    (inputs.skyContextAreaIds.includes(branchId) ||
+      inputs.journeyPatternAreaIds.includes(branchId) ||
+      focusAlignsBranch(inputs.todayFocusText, branchId));
+
+  if (journeyAlignsBranch && branchId) {
     candidates.push({
       messageId: stableMessageId('focus_alignment', [branchId]),
       type: 'focus_alignment',

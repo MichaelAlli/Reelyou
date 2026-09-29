@@ -73,6 +73,9 @@ import type { StarPathUiChromeSnapshot, StarPathViewportSnapshot } from '@/starp
 import { saveStarPathUiChrome } from '@/starpath/starpathUiChromePersistence';
 import type { StarPathNextStepType } from '@/starpath/starpathGuidanceTypes';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
+import { buildJourneyPersonalizationBundle } from '@/journey/buildJourneyPersonalizationBundle';
+import { useOnboarding } from '@/onboarding';
+import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
 import { applyGuidePreferences } from '@/starpath/starpathGuidePreferenceFilter';
 import {
   gateInteractionSignals,
@@ -141,6 +144,16 @@ export function StarPathExperienceProvider({
   todayFocusText?: string | null;
 }) {
   const { preferences: userPreferences, messages } = useReelyouConnect();
+  const { personalizationProfile } = useOnboarding();
+  const { selectedIds: skyContextAreaIds } = useSkyAreaPreferences();
+  const journeyPersonalization = useMemo(
+    () =>
+      buildJourneyPersonalizationBundle({
+        profile: personalizationProfile,
+        selectedSkyAreaIds: skyContextAreaIds,
+      }),
+    [personalizationProfile, skyContextAreaIds],
+  );
   const userAvatar = useUserAvatar();
   const [ready, setReady] = useState(false);
   const [interactions, setInteractions] = useState<StarPathInteractionSnapshot>({
@@ -311,6 +324,7 @@ export function StarPathExperienceProvider({
       dynamicWorld,
       dynamicRecentlyEmergedIds,
       focusForGuidance,
+      journeyPersonalization,
     );
     const parsed = userPreferences.emotionalContextPreference.adjustGuidanceIntensity
       ? parseUserReportedSupport(focusForGuidance)
@@ -360,6 +374,7 @@ export function StarPathExperienceProvider({
     dynamicWorld,
     dynamicRecentlyEmergedIds,
     focusForGuidance,
+    journeyPersonalization,
     userPreferences.discoveryPreferences.showOpportunityDiscovery,
     resourceState.dismissedResourceIds,
     resourceState.savedResourceIds,
@@ -455,6 +470,7 @@ export function StarPathExperienceProvider({
       dynamicWorld,
       dynamicRecentlyEmergedIds,
       focusForGuidance,
+      journeyPersonalization,
       userPreferences.discoveryPreferences.showOpportunityDiscovery
         ? {
             ...opportunityContext,
@@ -484,6 +500,7 @@ export function StarPathExperienceProvider({
     dynamicWorld,
     dynamicRecentlyEmergedIds,
     focusForGuidance,
+    journeyPersonalization,
     userPreferences.discoveryPreferences.showOpportunityDiscovery,
     guidanceMeta.guideDismissedIds,
     guidanceMeta.guideSnoozedUntil,

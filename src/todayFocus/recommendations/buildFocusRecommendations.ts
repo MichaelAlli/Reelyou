@@ -53,7 +53,9 @@ interface CandidateDraft extends Omit<FocusRecommendation, 'id' | 'createdAt'> {
 
 function areaBoost(context: FocusContext, areaId?: string | null): number {
   if (!areaId) return 0;
-  return context.explicitSkyAreaIds.includes(areaId) ? 0.12 : 0;
+  if (context.explicitSkyAreaIds.includes(areaId)) return 0.12;
+  if (context.journeyPatternAreaIds?.includes(areaId)) return 0.05;
+  return 0;
 }
 
 function buildCandidateId(focusId: string, type: string, sourceId: string): string {

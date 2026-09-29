@@ -2,6 +2,7 @@ import { deriveNodeUiState } from '@/starpath/starpathInteractionLogic';
 import type { StarPathInteractionSignal } from '@/starpath/starpathInteractionTypes';
 import type { StarPathDynamicWorldState } from '@/starpath/starpathDynamicWorldTypes';
 import type { StarPathSiftingState } from '@/starpath/starpathSiftingTypes';
+import type { JourneyPersonalizationBundle } from '@/journey/buildJourneyPersonalizationBundle';
 
 /** Safe structured inputs for guidance — no scores or weights. */
 export interface StarPathGuidanceSafeInputs {
@@ -15,6 +16,12 @@ export interface StarPathGuidanceSafeInputs {
   activeMilestoneIds: string[];
   unresolvedExplorationIds: string[];
   todayFocusText: string | null;
+  /** Explicit “where you live in your Sky” area ids — not GPS. */
+  skyContextAreaIds: string[];
+  /** Repeated journey themes — only after multiple permitted posts. */
+  journeyPatternAreaIds: string[];
+  explicitGoalHints: string[];
+  northStarSnippet: string | null;
   /** Latest save timestamp for revisit pacing. */
   latestSavedAt: number | null;
   primaryOpportunityNodeId: string | null;
@@ -30,6 +37,7 @@ export function buildGuidanceSafeInputs(
   dynamicWorld: StarPathDynamicWorldState,
   dynamicRecentlyEmergedIds: string[],
   todayFocusText?: string | null,
+  journey?: JourneyPersonalizationBundle | null,
   opportunityContext?: Partial<
     Pick<
       StarPathGuidanceSafeInputs,
@@ -94,6 +102,10 @@ export function buildGuidanceSafeInputs(
     activeMilestoneIds,
     unresolvedExplorationIds: [...new Set(unresolvedExplorationIds)],
     todayFocusText: todayFocusText?.trim() || null,
+    skyContextAreaIds: journey?.skyContextAreaIds ?? [],
+    journeyPatternAreaIds: journey?.journeyPatternAreaIds ?? [],
+    explicitGoalHints: journey?.explicitGoals ?? [],
+    northStarSnippet: journey?.northStarVision?.trim() || null,
     latestSavedAt: latestSaved?.timestamp ?? null,
     primaryOpportunityNodeId: opportunityContext?.primaryOpportunityNodeId ?? null,
     primaryOpportunityCandidateId: opportunityContext?.primaryOpportunityCandidateId ?? null,

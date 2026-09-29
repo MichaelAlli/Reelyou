@@ -5,6 +5,7 @@ import type { HumanPotentialEvidenceRecord } from '@/humanPotential/humanPotenti
 import type { SavedThreadRecord } from '@/skywrite/savedThreads/savedThreadTypes';
 import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
 import { isMutualSkyFriends } from '@/social/skyFollow/skyFollowLogic';
+import type { JourneyPersonalizationBundle } from '@/journey/buildJourneyPersonalizationBundle';
 import type { FocusContext, TodayFocusSession } from '@/todayFocus/recommendations/focusRecommendationTypes';
 import { focusTextFingerprint } from '@/todayFocus/recommendations/focusKeywordRelevance';
 
@@ -44,6 +45,7 @@ export function buildFocusContext(input: {
   relatedStarPathIds?: string[];
   signalProvenanceIds?: string[];
   opportunityIds?: string[];
+  journey?: JourneyPersonalizationBundle | null;
 }): FocusContext {
   const connectedSkyUserIds: string[] = [];
   for (const edge of input.followGraph.edges) {
@@ -67,7 +69,8 @@ export function buildFocusContext(input: {
     .filter((entry) => entry.evidenceType === 'application')
     .map((entry) => entry.evidenceId);
 
-  const northStar = input.profile.northStar.originalVision.trim();
+  const northStar =
+    input.journey?.northStarVision?.trim() || input.profile.northStar.originalVision.trim();
   const reflectionIds = input.savedThreads.flatMap((thread) =>
     input.profile.todayFocus?.reflection ? [`focus-reflection-${input.session.activeDate}`] : [],
   );
@@ -93,6 +96,8 @@ export function buildFocusContext(input: {
     joinedCommunityIds: input.profile.communities.joined.map((entry) => entry.id),
     opportunityContextIds: input.opportunityIds ?? [],
     signalProvenanceIds: input.signalProvenanceIds ?? [],
+    explicitGoalHints: input.journey?.explicitGoals ?? input.profile.goals ?? [],
+    journeyPatternAreaIds: input.journey?.journeyPatternAreaIds ?? [],
     createdAt: Date.now(),
   };
 }

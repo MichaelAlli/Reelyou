@@ -33,6 +33,7 @@ import type { SkyConnectionActivity } from '@/mySky/skyConnectionSources';
 import type { SkyGuidanceSource } from '@/mySky/skyGuidanceSources';
 import type { SkyImpactActivity } from '@/mySky/skyImpactSources';
 import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
+import { filterRenderableSkywrites } from '@/journey/skywriteJourneyContent';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 function skywriteTitle(text: string, mediaMode: string): string {
@@ -362,10 +363,11 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
   const growthProfile = computeSkyGrowthProfile(sources);
   const { vitality } = growthProfile;
 
-  const skywriteNodes = sources.skywrites.map((post) => buildSkywriteNode(post, vitality));
+  const activeSkywrites = filterRenderableSkywrites(sources.skywrites);
+  const skywriteNodes = activeSkywrites.map((post) => buildSkywriteNode(post, vitality));
   const focusReflectionNode = buildFocusReflectionNode(sources, vitality);
 
-  const useFixtures = sources.skywrites.length === 0;
+  const useFixtures = activeSkywrites.length === 0;
   const fixtureNodes = useFixtures
     ? MY_SKY_ITEM_FIXTURES.map((item) => buildFixtureNode(item, vitality))
     : [];

@@ -69,6 +69,10 @@ export interface FocusContext {
   joinedCommunityIds: string[];
   opportunityContextIds: string[];
   signalProvenanceIds: string[];
+  /** Explicit goals — higher weight than inferred patterns. */
+  explicitGoalHints?: string[];
+  /** Conservative area patterns from repeated permitted posts. */
+  journeyPatternAreaIds?: string[];
   createdAt: number;
 }
 
