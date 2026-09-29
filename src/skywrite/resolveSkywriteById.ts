@@ -1,12 +1,14 @@
+import { collectPublicSkywritesForBeacon } from '@/skywrite/beacon/skywriteBeaconEligibility';
 import { resolveSkywriteForDisplay } from '@/skywrite/lifecycle/resolveSkywriteForDisplay';
 import type { SkywriteContentLifecycleView } from '@/skywrite/lifecycle/skywriteContentLifecycleTypes';
 import type { SkywriteRecord } from '@/skywrite/types';
 
-/** Local posts + orbit fixtures — canonical lookup for threads and beacons. */
+/** Local posts + orbit/demo fixtures — canonical lookup for threads, beacons, and Play Sky. */
 export function resolveSkywriteById(
   localPosts: readonly SkywriteRecord[],
   skywriteId: string | undefined,
   lifecycle?: SkywriteContentLifecycleView,
 ): (SkywriteRecord & { authorId: string }) | null {
-  return resolveSkywriteForDisplay(localPosts, skywriteId, lifecycle);
+  const catalog = collectPublicSkywritesForBeacon(localPosts);
+  return resolveSkywriteForDisplay(catalog, skywriteId, lifecycle);
 }

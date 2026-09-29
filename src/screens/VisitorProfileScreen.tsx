@@ -14,6 +14,7 @@ import { OwnerProfileSkywritingsCard } from '@/components/profile/owner/OwnerPro
 import { OwnerProfileTopChrome } from '@/components/profile/owner/OwnerProfileTopChrome';
 import { RippleMetricDetailSheet } from '@/components/legacy/ripple/RippleMetricDetailSheet';
 import { VisitorProfileLegacyRippleRow } from '@/components/profile/visitor/VisitorProfileLegacyRippleRow';
+import { VisitorProfileMutualConnectionsRow } from '@/components/profile/visitor/VisitorProfileMutualConnectionsRow';
 import { OwnerProfileVisitorActionRow } from '@/components/profile/owner/OwnerProfileVisitorActionRow';
 import {
   OWNER_PROFILE_CARD_RADIUS,
@@ -51,7 +52,10 @@ import { VISITOR_PROFILE_LEGACY_SUBTITLE } from '@/profile/profileLegacyCopy';
 import { profileOwnerCelestialBackground } from '@/profile/profileOwnerAssets';
 import { isVisitorProfileBlocked } from '@/profile/resolveVisitorProfilePrivacy';
 import { resolveVisitorSkyConnectionStatus } from '@/social/skyFollow/resolveVisitorSkyConnection';
-import { buildProfileRelationshipCounts } from '@/social/skyFollow/profileRelationshipCounts';
+import {
+  buildProfileRelationshipCounts,
+  listSharedConnectionUserIds,
+} from '@/social/skyFollow/profileRelationshipCounts';
 import type { VisitorPreviewAs } from '@/profile/visitorProfilePreview';
 import { resolvePreviewConnectionStatus } from '@/profile/visitorProfilePreview';
 
@@ -175,7 +179,12 @@ export function VisitorProfileScreen({
 
   const relationshipCounts = useMemo(() => {
     if (!ownerId) {
-      return { exploringSkies: 0, skyExplorers: 0, sharedConnections: 0 };
+      return {
+        connectedSkies: 0,
+        followedSkies: 0,
+        skyFollowing: 0,
+        mutualConnectionsWithViewer: 0,
+      };
     }
     return buildProfileRelationshipCounts({
       graph: skyFollowGraph,
@@ -183,6 +192,11 @@ export function VisitorProfileScreen({
       viewerId: currentUser.id,
       isOwnProfile: false,
     });
+  }, [ownerId, skyFollowGraph]);
+
+  const mutualConnectionIds = useMemo(() => {
+    if (!ownerId) return [];
+    return listSharedConnectionUserIds(skyFollowGraph, ownerId, currentUser.id);
   }, [ownerId, skyFollowGraph]);
 
   const publicSkyPreview = useMemo(() => {
@@ -328,21 +342,32 @@ export function VisitorProfileScreen({
           {hideVisitorActions ? null : (
             <OwnerProfileRelationshipCountsRow
               counts={relationshipCounts}
-              isOwnProfile={false}
-              onPressExploringSkies={() =>
+              onPressConnectedSkies={() =>
+                router.push(
+                  `/sky-friends?tab=friends&profileOwner=${encodeURIComponent(ownerId)}` as never,
+                )
+              }
+              onPressFollowedSkies={() =>
                 router.push(
                   `/sky-friends?tab=following&profileOwner=${encodeURIComponent(ownerId)}` as never,
                 )
               }
-              onPressSkyExplorers={() =>
+              onPressSkyFollowing={() =>
                 router.push(
                   `/sky-friends?tab=followers&profileOwner=${encodeURIComponent(ownerId)}` as never,
                 )
               }
-              onPressSharedConnections={() =>
-                router.push(
-                  `/sky-friends?tab=shared&profileOwner=${encodeURIComponent(ownerId)}` as never,
-                )
+              belowRow={
+                mutualConnectionIds.length > 0 ? (
+                  <VisitorProfileMutualConnectionsRow
+                    mutualIds={mutualConnectionIds}
+                    onPress={() =>
+                      router.push(
+                        `/sky-friends?tab=shared&profileOwner=${encodeURIComponent(ownerId)}` as never,
+                      )
+                    }
+                  />
+                ) : null
               }
             />
           )}

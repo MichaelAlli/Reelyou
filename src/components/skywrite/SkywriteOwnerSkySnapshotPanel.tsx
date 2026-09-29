@@ -99,10 +99,6 @@ function SkywriteOwnerSkySnapshotPanelComponent({
       router.push('/(tabs)/profile' as never);
       return;
     }
-    if (isExploreDemoOwnerId(ownerId)) {
-      router.push(`/public-sky?id=${encodeURIComponent(ownerId)}` as never);
-      return;
-    }
     router.push(buildVisitorProfileHref(ownerId) as never);
   };
 
@@ -165,9 +161,13 @@ function SkywriteOwnerSkySnapshotPanelComponent({
               joinedCommunityIds={[...joinedCommunityIds]}
               guidanceActive={guidanceActive}
               showIdentityStar={false}
+              visitorMode
+              publicSkyOwnerId={ownerId}
+              publicSkyNodes={skyView.nodes}
+              publicSkyConnectionStatus={connectionStatus}
               directIdentityProfileNavigation
               allowTapDuringGesture
-              focusedSkywriteImmersiveTap={false}
+              focusedSkywriteImmersiveTap
             />
           </>
         ) : (

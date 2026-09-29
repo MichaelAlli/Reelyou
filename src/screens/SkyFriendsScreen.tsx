@@ -16,6 +16,7 @@ import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { SkyFriendsCopy } from '@/constants/skyFriendsCopy';
 import { Fonts, TabBarHeight } from '@/constants/theme';
 import { currentUser, orbitUsers } from '@/data/mockData';
+import { EXPLORE_DEMO_PROFILES, isExploreDemoOwnerId } from '@/explore/exploreDemoSkies';
 import { resolveSkyRelationship } from '@/social/skyFollow/resolveSkyRelationship';
 import { listSharedConnectionUserIds } from '@/social/skyFollow/profileRelationshipCounts';
 import { isMutualSkyFriends, listFollowers, listFollowing } from '@/social/skyFollow/skyFollowLogic';
@@ -24,6 +25,7 @@ type TabId = 'friends' | 'following' | 'followers' | 'shared';
 
 function displayName(userId: string): string {
   if (userId === currentUser.id) return currentUser.name;
+  if (isExploreDemoOwnerId(userId)) return EXPLORE_DEMO_PROFILES[userId].name;
   return orbitUsers.find((u) => u.id === userId)?.name ?? userId;
 }
 

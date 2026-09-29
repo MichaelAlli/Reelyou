@@ -1,6 +1,7 @@
 import { currentUser } from '@/data/mockData';
 import { isContributionBeaconDemoEnabled, isLegacyDemoEnabled } from '@/constants/devFlags';
 import { buildLegacyDemoSkywrites } from '@/legacy/legacyDemoFixtures';
+import { EXPLORE_DEMO_SKYWRITES } from '@/explore/exploreDemoSkies';
 import { ORBIT_PROFILE_SKYWRITE_FIXTURES } from '@/profile/orbitProfileSkywriteFixtures';
 import { buildDemoContributionBeaconSkywrites } from '@/skywrite/beacon/contributionBeaconDemoFixtures';
 import type { SkywriteRecord } from '@/skywrite/types';
@@ -29,6 +30,11 @@ export function collectPublicSkywritesForBeacon(
     }
   } else {
     for (const [ownerId, posts] of Object.entries(ORBIT_PROFILE_SKYWRITE_FIXTURES)) {
+      for (const post of posts) {
+        byId.set(post.id, withAuthorId(post, ownerId));
+      }
+    }
+    for (const [ownerId, posts] of Object.entries(EXPLORE_DEMO_SKYWRITES)) {
       for (const post of posts) {
         byId.set(post.id, withAuthorId(post, ownerId));
       }

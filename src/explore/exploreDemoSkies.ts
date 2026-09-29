@@ -21,9 +21,15 @@ const DEMO_VIDEO =
 const DEMO_AUDIO =
   'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
 
-function recentIso(hoursAgo: number): string {
-  return new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
+/** Fixed demo publication times — do not refresh on render (Play Sky 24h uses these). */
+const DEMO_PLAY_SKY_EPOCH_MS = Date.parse('2026-09-29T12:00:00.000Z');
+
+function demoIso(hoursAgo: number): string {
+  return new Date(DEMO_PLAY_SKY_EPOCH_MS - hoursAgo * 60 * 60 * 1000).toISOString();
 }
+
+/** Saved archive — visible on Sky, excluded from Play Sky (>24h). */
+const DEMO_ARCHIVED_ISO = '2025-06-01T14:00:00.000Z';
 
 type DemoSkywriteInput = Pick<
   SkywriteRecord,
@@ -95,7 +101,7 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
       media: { photo: null, video: null, audio: null },
       visibility: 'public',
       skyAreaId: 'growth',
-      createdAt: recentIso(2),
+      createdAt: demoIso(2),
     }),
     post({
       id: 'demo-avery-sw-photo',
@@ -109,7 +115,7 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
       },
       visibility: 'public',
       skyAreaId: 'growth',
-      createdAt: recentIso(5),
+      createdAt: demoIso(5),
     }),
     post({
       id: 'demo-avery-sw-video',
@@ -123,7 +129,17 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
       },
       visibility: 'public',
       skyAreaId: 'purpose',
-      createdAt: recentIso(8),
+      createdAt: demoIso(8),
+    }),
+    post({
+      id: 'demo-avery-sw-archived',
+      authorId: 'demo-sky-avery',
+      text: 'An older saved moment — still on the Sky, not in Play Sky.',
+      mediaMode: 'text',
+      media: { photo: null, video: null, audio: null },
+      visibility: 'public',
+      skyAreaId: 'growth',
+      createdAt: DEMO_ARCHIVED_ISO,
     }),
   ],
   'demo-sky-river': [
@@ -135,7 +151,7 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
       media: { photo: null, video: null, audio: null },
       visibility: 'public',
       skyAreaId: 'creativity',
-      createdAt: recentIso(3),
+      createdAt: demoIso(3),
     }),
     post({
       id: 'demo-river-sw-photo',
@@ -149,7 +165,7 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
       },
       visibility: 'public',
       skyAreaId: 'creativity',
-      createdAt: recentIso(6),
+      createdAt: demoIso(6),
     }),
     post({
       id: 'demo-river-sw-audio',
@@ -163,7 +179,17 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
       },
       visibility: 'public',
       skyAreaId: 'creativity',
-      createdAt: recentIso(10),
+      createdAt: demoIso(10),
+    }),
+    post({
+      id: 'demo-river-sw-archived',
+      authorId: 'demo-sky-river',
+      text: 'Archive sketch — saved on the Sky only.',
+      mediaMode: 'text',
+      media: { photo: null, video: null, audio: null },
+      visibility: 'public',
+      skyAreaId: 'creativity',
+      createdAt: DEMO_ARCHIVED_ISO,
     }),
   ],
   'demo-sky-noor': [
@@ -177,7 +203,7 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
       skyAreaId: 'purpose',
       showingUp: 'question',
       intent: 'question',
-      createdAt: recentIso(4),
+      createdAt: demoIso(4),
     }),
     post({
       id: 'demo-noor-sw-video-vo',
@@ -191,7 +217,7 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
       },
       visibility: 'public',
       skyAreaId: 'faith',
-      createdAt: recentIso(7),
+      createdAt: demoIso(7),
     }),
     post({
       id: 'demo-noor-sw-photo',
@@ -205,7 +231,17 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
       },
       visibility: 'public',
       skyAreaId: 'faith',
-      createdAt: recentIso(11),
+      createdAt: demoIso(11),
+    }),
+    post({
+      id: 'demo-noor-sw-archived',
+      authorId: 'demo-sky-noor',
+      text: 'Quiet note from last season — not in today’s Play Sky.',
+      mediaMode: 'text',
+      media: { photo: null, video: null, audio: null },
+      visibility: 'public',
+      skyAreaId: 'faith',
+      createdAt: DEMO_ARCHIVED_ISO,
     }),
   ],
 };
@@ -224,24 +260,32 @@ export function resolveExploreDemoSkywrites(ownerId: string): SkywriteRecord[] {
   return EXPLORE_DEMO_SKYWRITES[ownerId];
 }
 
-/** Keeps demo Play Sky entries inside the 24h window without touching real posts. */
+/** Registers demo Play Sky eligibility from fixture timestamps — never refreshes real posts. */
 export function mergeExploreDemoPlaySkyRegistry(
   registry: PlaySkySequenceRegistry,
-  nowMs = Date.now(),
+  _nowMs = Date.now(),
 ): PlaySkySequenceRegistry {
   let next = { ...registry };
   for (const ownerId of EXPLORE_DEMO_OWNER_IDS) {
-    for (const post of EXPLORE_DEMO_SKYWRITES[ownerId]) {
-      const stamped = { ...post, createdAt: new Date(nowMs - 60_000).toISOString() };
-      next = registerPlaySkyPublication(next, stamped);
-      const entry = next[stamped.id];
+    for (const demoPost of EXPLORE_DEMO_SKYWRITES[ownerId]) {
+      if (next[demoPost.id]) continue;
+      next = registerPlaySkyPublication(next, demoPost);
+      const entry = next[demoPost.id];
       if (entry) {
-        next[stamped.id] = {
+        const publishedMs = Date.parse(demoPost.createdAt);
+        next[demoPost.id] = {
           ...entry,
-          activeUntilMs: playSkyActiveUntilFromTimestamp(nowMs),
+          activeUntilMs: playSkyActiveUntilFromTimestamp(
+            Number.isFinite(publishedMs) ? publishedMs : DEMO_PLAY_SKY_EPOCH_MS,
+          ),
         };
       }
     }
   }
   return next;
+}
+
+/** Dev-only: reset in-memory demo registry entries (Help replay / QA). */
+export function buildFreshDemoPlaySkyRegistrySlice(): PlaySkySequenceRegistry {
+  return mergeExploreDemoPlaySkyRegistry({});
 }

@@ -18,6 +18,7 @@ import {
   resolveStepsForSkywrite,
 } from '@/skywrite/play/skywritePlayLogic';
 import { resolveOwnerPlaySkySteps } from '@/skywrite/play/resolveOwnerPlaySkySteps';
+import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
 import { buildPublicSkyView, resolvePublicSkyConnectionStatus } from '@/mySky/buildPublicSkyView';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { loadSkywritePlaySequence } from '@/skywrite/play/skywritePlayPersistence';
@@ -60,12 +61,17 @@ export function SkywriteGuidedPlayScreen() {
           (entry) => entry.actorId,
         );
         const connectionStatus = resolvePublicSkyConnectionStatus(ownerId, connectedActorIds);
+        const ownerPosts =
+          ownerId === currentUser.id
+            ? skywrites
+            : resolveOrbitOwnerSkywrites(ownerId);
         setSteps(
           resolveOwnerPlaySkySteps({
             ownerId,
             connectionStatus,
-            ownerSkywrites: ownerId === currentUser.id ? skywrites : undefined,
+            ownerSkywrites: ownerPosts,
             registry,
+            nowMs: Date.now(),
           }),
         );
       } else if (playScope === 'single' && id) {
@@ -135,7 +141,7 @@ export function SkywriteGuidedPlayScreen() {
   const shouldAutoplayVideo =
     !paused &&
     !needsTapToPlay &&
-    (autoplay === '1' || playScope === 'focused') &&
+    (autoplay === '1' || playScope === 'focused' || playScope === 'owner') &&
     current?.kind === 'video';
 
   const handleExit = useCallback(() => {

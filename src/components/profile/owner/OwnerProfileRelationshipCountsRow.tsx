@@ -1,10 +1,8 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
-  OWNER_PROFILE_CARD_RADIUS,
   OWNER_PROFILE_HORIZONTAL_INSET,
-  OWNER_PROFILE_PANEL_BORDER,
 } from '@/components/profile/owner/ownerProfileLayout';
 import { ConnectedSkiesCopy } from '@/constants/connectedSkiesCopy';
 import { Fonts } from '@/constants/theme';
@@ -12,10 +10,10 @@ import type { ProfileRelationshipCounts } from '@/social/skyFollow/profileRelati
 
 interface OwnerProfileRelationshipCountsRowProps {
   counts: ProfileRelationshipCounts;
-  isOwnProfile: boolean;
-  onPressExploringSkies: () => void;
-  onPressSkyExplorers: () => void;
-  onPressSharedConnections?: () => void;
+  onPressConnectedSkies: () => void;
+  onPressFollowedSkies: () => void;
+  onPressSkyFollowing: () => void;
+  belowRow?: ReactNode;
 }
 
 function CountCell({
@@ -35,8 +33,10 @@ function CountCell({
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
-      <Text style={styles.value}>{value}</Text>
-      <Text style={styles.label} numberOfLines={2}>
+      <Text style={styles.value} maxFontSizeMultiplier={1.25}>
+        {value}
+      </Text>
+      <Text style={styles.label} numberOfLines={2} maxFontSizeMultiplier={1.2}>
         {label}
       </Text>
     </Pressable>
@@ -45,40 +45,37 @@ function CountCell({
 
 function OwnerProfileRelationshipCountsRowComponent({
   counts,
-  isOwnProfile,
-  onPressExploringSkies,
-  onPressSkyExplorers,
-  onPressSharedConnections,
+  onPressConnectedSkies,
+  onPressFollowedSkies,
+  onPressSkyFollowing,
+  belowRow,
 }: OwnerProfileRelationshipCountsRowProps) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.sectionTitle}>{ConnectedSkiesCopy.profileEntryTitle}</Text>
+    <View style={styles.wrap}>
+      <Text style={styles.sectionTitle}>{ConnectedSkiesCopy.profileConnectionsSectionTitle}</Text>
       <View style={styles.row}>
         <CountCell
-          label={ConnectedSkiesCopy.exploringSkiesLabel}
-          value={counts.exploringSkies}
-          onPress={onPressExploringSkies}
-          accessibilityLabel={`${ConnectedSkiesCopy.exploringSkiesLabel}, ${counts.exploringSkies}`}
+          label={ConnectedSkiesCopy.connectedSkiesLabel}
+          value={counts.connectedSkies}
+          onPress={onPressConnectedSkies}
+          accessibilityLabel={`${ConnectedSkiesCopy.connectedSkiesLabel}, ${counts.connectedSkies}`}
         />
         <View style={styles.divider} />
         <CountCell
-          label={ConnectedSkiesCopy.skyExplorersLabel}
-          value={counts.skyExplorers}
-          onPress={onPressSkyExplorers}
-          accessibilityLabel={`${ConnectedSkiesCopy.skyExplorersLabel}, ${counts.skyExplorers}`}
+          label={ConnectedSkiesCopy.followedSkiesLabel}
+          value={counts.followedSkies}
+          onPress={onPressFollowedSkies}
+          accessibilityLabel={`${ConnectedSkiesCopy.followedSkiesLabel}, ${counts.followedSkies}`}
         />
-        {!isOwnProfile && onPressSharedConnections ? (
-          <>
-            <View style={styles.divider} />
-            <CountCell
-              label={ConnectedSkiesCopy.sharedConnectionsLabel}
-              value={counts.sharedConnections}
-              onPress={onPressSharedConnections}
-              accessibilityLabel={`${ConnectedSkiesCopy.sharedConnectionsLabel}, ${counts.sharedConnections}`}
-            />
-          </>
-        ) : null}
+        <View style={styles.divider} />
+        <CountCell
+          label={ConnectedSkiesCopy.skyFollowingLabel}
+          value={counts.skyFollowing}
+          onPress={onPressSkyFollowing}
+          accessibilityLabel={`${ConnectedSkiesCopy.skyFollowingLabel}, ${counts.skyFollowing}`}
+        />
       </View>
+      {belowRow}
     </View>
   );
 }
@@ -86,23 +83,19 @@ function OwnerProfileRelationshipCountsRowComponent({
 export const OwnerProfileRelationshipCountsRow = memo(OwnerProfileRelationshipCountsRowComponent);
 
 const styles = StyleSheet.create({
-  card: {
+  wrap: {
     marginHorizontal: OWNER_PROFILE_HORIZONTAL_INSET,
-    marginTop: 10,
-    borderRadius: OWNER_PROFILE_CARD_RADIUS,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: OWNER_PROFILE_PANEL_BORDER,
-    backgroundColor: 'rgba(10, 14, 34, 0.55)',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 8,
+    marginTop: 8,
+    paddingVertical: 6,
+    gap: 4,
   },
   sectionTitle: {
     fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F5F0FF',
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(235, 228, 248, 0.55)',
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
   row: {
     flexDirection: 'row',
@@ -111,10 +104,10 @@ const styles = StyleSheet.create({
   cell: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    minHeight: 56,
+    justifyContent: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    minHeight: 48,
   },
   pressed: { opacity: 0.88 },
   value: {
@@ -135,6 +128,6 @@ const styles = StyleSheet.create({
   divider: {
     width: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(167, 139, 250, 0.22)',
-    marginVertical: 4,
+    marginVertical: 2,
   },
 });
