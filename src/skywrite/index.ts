@@ -1,6 +1,7 @@
 export {
   buildSkywriteRecord,
   createEmptySkywriteDraft,
+  skywriteRecordToDraft,
   deriveMediaMode,
   getSkywriteMediaActionLabels,
   hasSkywriteContent,

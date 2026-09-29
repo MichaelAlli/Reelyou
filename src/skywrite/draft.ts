@@ -1,5 +1,4 @@
 import { SkywriteCopy } from '@/constants/skywriteCopy';
-import { resolveSkywriteSkyAreaId } from '@/skyAreas/resolveSkywriteSkyAreaId';
 import { inferSkywriteIntentFromShowingUp } from '@/skywrite/skywriteIntent';
 import type { SkywriteDraft, SkywriteMedia, SkywriteMediaMode, SkywriteRecord } from '@/skywrite/types';
 import { EMPTY_SKYWRITE_MEDIA } from '@/skywrite/types';
@@ -87,6 +86,22 @@ export function hasSkywriteContent(draft: Pick<SkywriteDraft, 'text' | 'media'>)
   );
 }
 
+export function skywriteRecordToDraft(record: SkywriteRecord): SkywriteDraft {
+  return {
+    text: record.text,
+    textStyle: record.textStyle,
+    media: { ...record.media },
+    visibility: record.visibility,
+    mood: record.mood,
+    showingUp: record.showingUp,
+    userHashtags: [...record.userHashtags],
+    animateToSky: record.animateToSky,
+    allowAIContext: record.allowAIContext,
+    skyAreaId: record.skyAreaId,
+    intent: record.intent,
+  };
+}
+
 export function createEmptySkywriteDraft(
   defaults?: Partial<
     Pick<SkywriteDraft, 'visibility' | 'animateToSky' | 'allowAIContext' | 'skyAreaId'>
@@ -139,6 +154,7 @@ export function buildSkywriteRecord(
       video: draft.media.video,
       audio: draft.media.audio,
       originalVideoAudio: draft.media.originalVideoAudio,
+      originalVideoVolume: draft.media.originalVideoVolume,
     },
     mediaMode: deriveMediaMode(draft.media, text),
     visibility: draft.visibility,
@@ -153,6 +169,7 @@ export function buildSkywriteRecord(
 
   return {
     ...base,
-    skyAreaId: resolveSkywriteSkyAreaId({ ...base, skyAreaId: draft.skyAreaId }),
+    skyAreaId:
+      draft.skyAreaId && draft.skyAreaId.length > 0 ? draft.skyAreaId : undefined,
   };
 }

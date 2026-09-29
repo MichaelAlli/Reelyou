@@ -34,7 +34,7 @@ import { Fonts } from '@/constants/theme';
 
 export function OwnerProfileScreen() {
   const router = useRouter();
-  const { skywrites, mySkyView } = useOnboarding();
+  const { skywrites, mySkyView, profileSkyAreaShortcutIds } = useOnboarding();
   const { skyFriendsCount } = useReelyouConnect();
   const userAvatar = useUserAvatar();
   const photoEditor = useProfilePhotoEditor();
@@ -43,9 +43,10 @@ export function OwnerProfileScreen() {
     () =>
       buildOwnerProfileView({
         skywrites,
+        profileSkyAreaShortcutIds,
         avatarUriOverride: userAvatar.profilePhotoDisplayUri,
       }),
-    [skywrites, userAvatar.profilePhotoDisplayUri],
+    [profileSkyAreaShortcutIds, skywrites, userAvatar.profilePhotoDisplayUri],
   );
   const { ownerUserId, metrics, contributions, userDirectory, blockedUserIds } =
     useLegacyRippleViewModel();
@@ -168,7 +169,10 @@ export function OwnerProfileScreen() {
           onPress={() => router.push('/sky-friends' as never)}
         />
         <OwnerProfileMySkyPreviewCard view={mySkyView} />
-        <OwnerProfileSkywritingsCard section={ownerView.skywritings} />
+        <OwnerProfileSkywritingsCard
+          section={ownerView.skywritings}
+          profileSkyAreaShortcutIds={profileSkyAreaShortcutIds}
+        />
       </ScrollView>
     </View>
   );

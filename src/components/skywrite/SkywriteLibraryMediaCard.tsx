@@ -53,7 +53,9 @@ function SkywriteLibraryMediaCardComponent({
   const previewId = `library-card-${skywrite.id}`;
   const playing = isAudioPlaying?.(previewId) ?? false;
   const captionText =
-    caption ?? skywritePreviewExcerpt(skywrite.text, 100) || (media.kind === 'audio' ? 'Voice Skywrite' : '');
+    caption ??
+    (skywritePreviewExcerpt(skywrite.text, 100) ||
+      (media.kind === 'audio' ? 'Voice Skywrite' : ''));
 
   const imageUri =
     media.kind === 'video' || media.kind === 'video_audio'
@@ -66,6 +68,9 @@ function SkywriteLibraryMediaCardComponent({
     media.kind === 'video' ||
     media.kind === 'video_audio' ||
     (media.kind === 'audio' && !onToggleAudio);
+
+  const thumbnailFit =
+    media.kind === 'video' || media.kind === 'video_audio' ? 'contain' : 'cover';
 
   return (
     <View style={[styles.card, style]}>
@@ -104,7 +109,7 @@ function SkywriteLibraryMediaCardComponent({
             <Image
               source={{ uri: imageUri }}
               style={styles.mediaImage}
-              contentFit="cover"
+              contentFit={thumbnailFit}
               transition={120}
               onError={() => setImageFailed(true)}
               accessibilityIgnoresInvertColors

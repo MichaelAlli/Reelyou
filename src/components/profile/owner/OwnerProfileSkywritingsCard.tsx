@@ -1,5 +1,5 @@
-import { memo, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { SkywriteLibraryMediaCard } from '@/components/skywrite/SkywriteLibraryMediaCard';
@@ -10,32 +10,52 @@ import {
   OWNER_PROFILE_SECTION_GAP,
 } from '@/components/profile/owner/ownerProfileLayout';
 import { Fonts } from '@/constants/theme';
+import { ProfileSkywritingsCopy } from '@/constants/profileSkywritingsCopy';
+import { currentUser } from '@/data/mockData';
 import { useOnboarding } from '@/onboarding';
 import type { ProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
-import { SKY_AREA_TAB_ALL, type SkyAreaTabId } from '@/skyAreas/skyAreaCategory';
+import { ProfileSkyAreaShortcutsSheet } from '@/components/profile/owner/ProfileSkyAreaShortcutsSheet';
+import {
+  PROFILE_BETA_PREVIEW_CATEGORY_IDS,
+  SKY_AREA_TAB_ALL,
+  type SkyAreaCategoryId,
+  type SkyAreaTabId,
+} from '@/skyAreas/skyAreaCategory';
 import { filterProfileSkywritingItems } from '@/profile/buildProfileSkywritingsSection';
+import { useApplySkywriteContentDeletion } from '@/skywrite/lifecycle/useApplySkywriteContentDeletion';
 import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
 
 interface OwnerProfileSkywritingsCardProps {
   section: ProfileSkywritingsSection;
+  profileSkyAreaShortcutIds?: readonly SkyAreaCategoryId[];
   onExplorePress?: () => void;
   onItemPress?: (skywriteId: string) => void;
 }
 
 function OwnerProfileSkywritingsCardComponent({
   section,
+  profileSkyAreaShortcutIds = PROFILE_BETA_PREVIEW_CATEGORY_IDS,
   onExplorePress,
   onItemPress,
 }: OwnerProfileSkywritingsCardProps) {
   const [selectedTabId, setSelectedTabId] = useState<SkyAreaTabId>(SKY_AREA_TAB_ALL);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const router = useRouter();
-  const { skywrites } = useOnboarding();
+  const { skywrites, setProfileSkyAreaShortcutIds } = useOnboarding();
+  const applyDeletion = useApplySkywriteContentDeletion();
   const skywriteById = useMemo(
     () => new Map(skywrites.map((entry) => [entry.id, entry])),
     [skywrites],
   );
   const isVisitor = section.viewerMode === 'visitor';
   const previewItems = filterProfileSkywritingItems(section.items, selectedTabId).slice(0, 4);
+
+  useEffect(() => {
+    if (selectedTabId === SKY_AREA_TAB_ALL) return;
+    if (!section.tabs.some((tab) => tab.id === selectedTabId)) {
+      setSelectedTabId(SKY_AREA_TAB_ALL);
+    }
+  }, [section.tabs, selectedTabId]);
 
   const header = (
     <View style={styles.header}>
@@ -65,24 +85,35 @@ function OwnerProfileSkywritingsCardComponent({
         header
       )}
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabRow}>
-        {section.tabs.map((tab) => {
-          const active = tab.id === selectedTabId;
-          return (
-            <Pressable
-              key={tab.id}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              onPress={() => setSelectedTabId(tab.id)}
-              style={[styles.tab, active && styles.tabActive]}>
-              <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.tabBarRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabRow}>
+          {section.tabs.map((tab) => {
+            const active = tab.id === selectedTabId;
+            return (
+              <Pressable
+                key={tab.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => setSelectedTabId(tab.id)}
+                style={[styles.tab, active && styles.tabActive]}>
+                <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        {!isVisitor ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={ProfileSkywritingsCopy.customizeAreasA11y}
+            onPress={() => setShortcutsOpen(true)}
+            style={styles.shortcutBtn}>
+            <Text style={styles.shortcutBtnText}>{ProfileSkywritingsCopy.customizeAreasLabel}</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       {previewItems.length > 0 ? (
         <View style={styles.previewList}>
@@ -95,11 +126,47 @@ function OwnerProfileSkywritingsCardComponent({
                 </Text>
               );
             }
+            const isOwner = record.authorId === currentUser.id || !record.authorId;
+            const menuActions =
+              !isVisitor && isOwner
+                ? [
+                    {
+                      id: 'edit',
+                      label: ProfileSkywritingsCopy.editPost,
+                      onPress: () =>
+                        router.push(`/skywrite/compose?editId=${record.id}` as never),
+                    },
+                    {
+                      id: 'delete',
+                      label: ProfileSkywritingsCopy.deletePost,
+                      onPress: () => {
+                        Alert.alert(
+                          ProfileSkywritingsCopy.deleteConfirmTitle,
+                          ProfileSkywritingsCopy.deleteConfirmBody,
+                          [
+                            { text: ProfileSkywritingsCopy.deleteCancel, style: 'cancel' },
+                            {
+                              text: ProfileSkywritingsCopy.deleteConfirmAction,
+                              style: 'destructive',
+                              onPress: () =>
+                                applyDeletion({
+                                  ...record,
+                                  authorId: record.authorId ?? currentUser.id,
+                                }),
+                            },
+                          ],
+                        );
+                      },
+                    },
+                  ]
+                : undefined;
+
             return (
               <SkywriteLibraryMediaCard
                 key={item.id}
                 skywrite={record}
                 caption={item.label}
+                menuActions={menuActions}
                 onPressMedia={() => {
                   if (onItemPress) {
                     onItemPress(item.id);
@@ -116,6 +183,15 @@ function OwnerProfileSkywritingsCardComponent({
         </View>
       ) : isVisitor ? (
         <Text style={styles.emptyHint}>No shared Skywrites in this view yet.</Text>
+      ) : null}
+
+      {!isVisitor ? (
+        <ProfileSkyAreaShortcutsSheet
+          visible={shortcutsOpen}
+          selectedIds={profileSkyAreaShortcutIds}
+          onClose={() => setShortcutsOpen(false)}
+          onSave={(ids) => setProfileSkyAreaShortcutIds(ids)}
+        />
       ) : null}
     </View>
   );
@@ -189,10 +265,30 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
+  tabBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   tabRow: {
     gap: 7,
     paddingBottom: 0,
     paddingRight: 2,
+    flexGrow: 1,
+  },
+  shortcutBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(167, 139, 250, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(8, 12, 28, 0.55)',
+  },
+  shortcutBtnText: {
+    fontSize: 14,
+    color: 'rgba(248, 244, 236, 0.72)',
   },
   tab: {
     paddingHorizontal: 12,

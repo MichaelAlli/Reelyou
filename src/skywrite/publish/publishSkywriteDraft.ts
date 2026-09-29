@@ -13,11 +13,17 @@ export type PublishSkywriteResult =
   | { ok: false; errorMessage: string; saveMs: number };
 
 /** Persists the post immediately — video thumbnails are generated afterward (non-blocking). */
+export type PublishSkywriteOptions = {
+  existingId?: string;
+  createdAt?: string;
+};
+
 export async function publishSkywriteDraft(
   draft: SkywriteDraft,
   persist: (record: SkywriteRecord) => Promise<boolean>,
   authorId: string,
   onProgress?: (progress: PublishSkywriteProgress) => void,
+  options?: PublishSkywriteOptions,
 ): Promise<PublishSkywriteResult> {
   const started = Date.now();
   const tick = () => onProgress?.({ phase: 'saving', elapsedMs: Date.now() - started });
@@ -26,8 +32,8 @@ export async function publishSkywriteDraft(
     tick();
     const record = buildSkywriteRecord(
       draft,
-      `skywrite-${Date.now()}`,
-      new Date().toISOString(),
+      options?.existingId ?? `skywrite-${Date.now()}`,
+      options?.createdAt ?? new Date().toISOString(),
       authorId,
     );
     tick();

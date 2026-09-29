@@ -40,6 +40,8 @@ export interface SkywriteMedia {
   audio: SkywriteAudioMedia | null;
   /** Beta: how original video audio mixes with a recorded voiceover. */
   originalVideoAudio?: SkywriteVideoOriginalAudioState;
+  /** 0–1 original video track level (independent of voiceover). */
+  originalVideoVolume?: number;
 }
 
 /** User-authored Skywrite — explicit hashtags stored separately from inferred themes. */

@@ -1,6 +1,6 @@
 import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SkywriteAudioWaveform } from '@/components/skywrite/SkywriteAudioWaveform';
@@ -8,6 +8,10 @@ import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { getSkywriteWriteInputStyle } from '@/constants/skywriteTextStyles';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { formatSkywriteAudioDuration } from '@/skywrite/media/skywriteMediaPreviewUtils';
+import {
+  skywriteVideoAspectRatio,
+  skywriteVideoFrameStyle,
+} from '@/skywrite/media/skywriteVideoLayout';
 import { useSkywriteImmersiveVideoPlayback } from '@/skywrite/media/useSkywriteImmersiveVideoPlayback';
 import type { SkywritePlayStepKind } from '@/skywrite/play/skywritePlayTypes';
 import type { SkywriteRecord } from '@/skywrite/types';
@@ -66,6 +70,15 @@ function SkywriteImmersiveMomentViewComponent({
   const showVideoVoiceover =
     record.mediaMode === 'video_voiceover' && stepKind === 'video' && Boolean(audioUri);
 
+  const videoAspect = useMemo(
+    () =>
+      skywriteVideoAspectRatio(
+        record.media.video?.width,
+        record.media.video?.height,
+      ),
+    [record.media.video?.height, record.media.video?.width],
+  );
+
   const handlePrevious = () => {
     onBeforeStepChange?.();
     void cleanupVideo();
@@ -118,21 +131,23 @@ function SkywriteImmersiveMomentViewComponent({
 
         {stepKind === 'video' && record.media.video?.uri ? (
           <>
-            <Video
-              ref={videoPlayback.videoRef}
-              style={styles.heroVideo}
-              source={{ uri: record.media.video.uri }}
-              useNativeControls={false}
-              resizeMode={ResizeMode.CONTAIN}
-              isLooping={false}
-              isMuted={false}
-              progressUpdateIntervalMillis={250}
-              onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
-              onLoad={() => {
-                void applyVideoVolume();
-                if (autoPlayVideo) requestAutoPlay();
-              }}
-            />
+            <View style={skywriteVideoFrameStyle(videoAspect, 480)}>
+              <Video
+                ref={videoPlayback.videoRef}
+                style={StyleSheet.absoluteFillObject}
+                source={{ uri: record.media.video.uri }}
+                useNativeControls={false}
+                resizeMode={ResizeMode.CONTAIN}
+                isLooping={false}
+                isMuted={false}
+                progressUpdateIntervalMillis={250}
+                onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
+                onLoad={() => {
+                  void applyVideoVolume();
+                  if (autoPlayVideo) requestAutoPlay();
+                }}
+              />
+            </View>
             <View style={styles.videoControls}>
               <Pressable
                 style={styles.audioPlay}
@@ -238,13 +253,6 @@ const styles = StyleSheet.create({
     flex: 1,
     maxHeight: 480,
     borderRadius: Radius.lg,
-  },
-  heroVideo: {
-    width: '100%',
-    aspectRatio: 9 / 16,
-    maxHeight: 480,
-    borderRadius: Radius.lg,
-    backgroundColor: '#000',
   },
   videoControls: {
     flexDirection: 'row',

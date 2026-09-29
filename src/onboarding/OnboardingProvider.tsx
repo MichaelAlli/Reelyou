@@ -87,6 +87,14 @@ import {
 } from '@/mySky/skyEvolutionPersistence';
 import { currentUser } from '@/data/mockData';
 import {
+  loadProfileSkyAreaShortcutIds,
+  saveProfileSkyAreaShortcutIds,
+} from '@/profile/profileSkyAreaShortcutsPersistence';
+import {
+  PROFILE_BETA_PREVIEW_CATEGORY_IDS,
+  type SkyAreaCategoryId,
+} from '@/skyAreas/skyAreaCategory';
+import {
   EMPTY_SKYWRITES,
   loadSkywrites,
   saveSkywrites,
@@ -199,10 +207,17 @@ interface OnboardingContextValue {
     draft: SkywriteDraft,
     onProgress?: (progress: PublishSkywriteProgress) => void,
   ) => Promise<PublishSkywriteResult>;
+  replaceSkywrite: (
+    skywriteId: string,
+    draft: SkywriteDraft,
+    onProgress?: (progress: PublishSkywriteProgress) => void,
+  ) => Promise<PublishSkywriteResult>;
   updateSkywrite: (
     skywriteId: string,
     patch: Partial<Pick<SkywriteRecord, 'visibility' | 'text' | 'userHashtags' | 'skyAreaId'>>,
   ) => void;
+  profileSkyAreaShortcutIds: SkyAreaCategoryId[];
+  setProfileSkyAreaShortcutIds: (ids: SkyAreaCategoryId[]) => void;
   /** Remove renderable body/media for a skywrite id — pairs with library tombstone on delete. */
   stripSkywriteContentForDeletion: (skywriteId: string) => void;
   /** Transient handoff for Skywrite → My Sky animation and arrival. */
@@ -232,6 +247,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     useState<GuidingLightDismissRecord>(EMPTY_GUIDING_LIGHT_DISMISS);
   const [skywritesState, setSkywritesState] = useState<SkywritesState>(EMPTY_SKYWRITES);
   const skywritesRef = useRef(skywritesState);
+  const [profileSkyAreaShortcutIds, setProfileSkyAreaShortcutIdsState] = useState<
+    SkyAreaCategoryId[]
+  >(() => [...PROFILE_BETA_PREVIEW_CATEGORY_IDS]);
   const [skyArrivalHandoff, setSkyArrivalHandoffState] = useState<SkyArrivalHandoff | null>(null);
   const [mySkyVisibleLayers, setMySkyVisibleLayers] = useState<MySkyVisibleLayers>(
     () => ({ ...DEFAULT_MY_SKY_VISIBLE_LAYERS }),
@@ -290,6 +308,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     loadSkywrites().then((record) => {
       if (live) {
         setSkywritesState(record);
+      }
+    });
+    loadProfileSkyAreaShortcutIds().then((ids) => {
+      if (live) {
+        setProfileSkyAreaShortcutIdsState(ids);
       }
     });
     loadSkyEvolution().then((record) => {
@@ -705,6 +728,65 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [recordSkyEvolution],
   );
 
+  const replaceSkywrite = useCallback(
+    async (
+      skywriteId: string,
+      draft: SkywriteDraft,
+      onProgress?: (progress: PublishSkywriteProgress) => void,
+    ): Promise<PublishSkywriteResult> => {
+      const existing = skywritesRef.current.posts.find((post) => post.id === skywriteId);
+      if (!existing) {
+        return {
+          ok: false,
+          errorMessage: 'We couldn’t find that Skywrite to update.',
+          saveMs: 0,
+        };
+      }
+      const result = await publishSkywriteDraft(
+        draft,
+        async (record) => {
+          const next: SkywritesState = {
+            posts: skywritesRef.current.posts.map((post) =>
+              post.id === skywriteId ? record : post,
+            ),
+          };
+          const saved = await saveSkywrites(next);
+          if (saved) {
+            setSkywritesState(next);
+            skywritesRef.current = next;
+          }
+          return saved;
+        },
+        existing.authorId ?? currentUser.id,
+        onProgress,
+        { existingId: skywriteId, createdAt: existing.createdAt },
+      );
+
+      if (result.ok && result.record.media.video?.uri && !result.record.media.video.thumbnailUri) {
+        void ensureSkywriteVideoThumbnail(result.record.media.video).then((video) => {
+          if (!video?.thumbnailUri) return;
+          setSkywritesState((current) => {
+            const posts = current.posts.map((post) =>
+              post.id === skywriteId ? { ...post, media: { ...post.media, video } } : post,
+            );
+            const next = { posts };
+            skywritesRef.current = next;
+            void saveSkywrites(next);
+            return next;
+          });
+        });
+      }
+
+      return result;
+    },
+    [],
+  );
+
+  const setProfileSkyAreaShortcutIds = useCallback((ids: SkyAreaCategoryId[]) => {
+    setProfileSkyAreaShortcutIdsState(ids);
+    void saveProfileSkyAreaShortcutIds(ids);
+  }, []);
+
   const updateSkywrite = useCallback(
     (
       skywriteId: string,
@@ -811,7 +893,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       dismissGuidingLight,
       skywrites: skywritesState.posts,
       publishSkywrite,
+      replaceSkywrite,
       updateSkywrite,
+      profileSkyAreaShortcutIds,
+      setProfileSkyAreaShortcutIds,
       stripSkywriteContentForDeletion,
       skyArrivalHandoff,
       setSkyArrivalHandoff,
@@ -878,7 +963,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       dismissGuidingLight,
       skywritesState.posts,
       publishSkywrite,
+      replaceSkywrite,
       updateSkywrite,
+      profileSkyAreaShortcutIds,
+      setProfileSkyAreaShortcutIds,
       stripSkywriteContentForDeletion,
       skyArrivalHandoff,
       setSkyArrivalHandoff,

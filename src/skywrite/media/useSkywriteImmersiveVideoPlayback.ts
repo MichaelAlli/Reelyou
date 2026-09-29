@@ -2,12 +2,12 @@ import { Audio, Video, type AVPlaybackStatus, type AVPlaybackStatusSuccess } fro
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
-import type { SkywriteRecord, SkywriteVideoOriginalAudioState } from '@/skywrite/types';
+import { resolveOriginalVideoVolume } from '@/skywrite/media/skywriteOriginalVideoVolume';
+import type { SkywriteRecord } from '@/skywrite/types';
 
-function videoVolumeForOriginal(state: SkywriteVideoOriginalAudioState | undefined): number {
-  if (state === 'off') return 0;
-  if (state === 'lower') return 0.22;
-  return 1;
+function videoVolumeForOriginal(record: SkywriteRecord | undefined): number {
+  if (!record) return 1;
+  return resolveOriginalVideoVolume(record.media);
 }
 
 export interface SkywriteImmersiveVideoPlayback {
@@ -44,7 +44,7 @@ export function useSkywriteImmersiveVideoPlayback(
   const hasVoiceover =
     Boolean(record?.media.audio?.uri) && record?.mediaMode === 'video_voiceover';
 
-  const originalAudio = record?.media.originalVideoAudio ?? 'on';
+  const originalVolume = videoVolumeForOriginal(record);
 
   const cleanup = useCallback(async () => {
     pendingPlayRef.current = false;
@@ -122,12 +122,12 @@ export function useSkywriteImmersiveVideoPlayback(
     try {
       const status = await video.getStatusAsync();
       if (!status.isLoaded) return;
-      const vol = muted ? 0 : videoVolumeForOriginal(originalAudio);
+      const vol = muted ? 0 : originalVolume;
       await video.setVolumeAsync(vol);
     } catch {
       /* not loaded yet */
     }
-  }, [muted, originalAudio]);
+  }, [muted, originalVolume]);
 
   const startPlayback = useCallback(async () => {
     const video = videoRef.current;
@@ -146,13 +146,13 @@ export function useSkywriteImmersiveVideoPlayback(
     if (!status.isLoaded) return;
 
     const loaded = status as AVPlaybackStatusSuccess;
-    const vol = muted ? 0 : videoVolumeForOriginal(originalAudio);
+    const vol = muted ? 0 : originalVolume;
     await video.setVolumeAsync(vol);
     await video.playAsync();
     await syncVoiceover(loaded.positionMillis ?? 0, true);
     setIsPlaying(true);
     pendingPlayRef.current = false;
-  }, [muted, originalAudio, syncVoiceover, videoUri]);
+  }, [muted, originalVolume, syncVoiceover, videoUri]);
 
   const onPlaybackStatusUpdate = useCallback(
     (status: AVPlaybackStatus) => {
@@ -209,12 +209,12 @@ export function useSkywriteImmersiveVideoPlayback(
       void (async () => {
         const video = videoRef.current;
         if (!video) return;
-        const vol = nextMuted ? 0 : videoVolumeForOriginal(originalAudio);
+        const vol = nextMuted ? 0 : originalVolume;
         await video.setVolumeAsync(vol);
       })();
       return nextMuted;
     });
-  }, [originalAudio]);
+  }, [originalVolume]);
 
   const requestAutoPlay = useCallback(() => {
     pendingPlayRef.current = true;

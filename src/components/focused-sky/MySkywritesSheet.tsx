@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useMemo, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 
 import { CalmOverlaySheet } from '@/components/focused-sky/CalmOverlaySheet';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
+import { ProfileSkywritingsCopy } from '@/constants/profileSkywritingsCopy';
 import { MySkywritesCopy } from '@/constants/mySkywritesCopy';
 import { SavedThreadsCopy } from '@/constants/savedThreadsCopy';
 import { Fonts, Radius } from '@/constants/theme';
@@ -30,6 +32,7 @@ import { SkywriteLibraryMediaCard } from '@/components/skywrite/SkywriteLibraryM
 import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPreviewScope';
 import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
 import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
+import { useApplySkywriteContentDeletion } from '@/skywrite/lifecycle/useApplySkywriteContentDeletion';
 
 interface MySkywritesSheetProps {
   visible: boolean;
@@ -57,6 +60,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const [tab, setTab] = useState<MySkywritesTabId>('recent');
   const [query, setQuery] = useState('');
   const audioPreview = useOverlayAudioPreviewScope(visible);
+  const applyDeletion = useApplySkywriteContentDeletion();
 
   const rows = useMemo(() => {
     if (tab === 'contributed') {
@@ -199,6 +203,35 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                       : archiveThread(row.savedThreadId!),
                 });
               } else if (isOwner && tab !== 'contributed' && tab !== 'saved') {
+                if (tab === 'recent') {
+                  menuActions.push({
+                    id: 'edit-skywrite',
+                    label: ProfileSkywritingsCopy.editPost,
+                    onPress: () => {
+                      void audioPreview.stopAll();
+                      onClose();
+                      router.push(`/skywrite/compose?editId=${row.skywriteId}` as never);
+                    },
+                  });
+                  menuActions.push({
+                    id: 'delete-skywrite',
+                    label: ProfileSkywritingsCopy.deletePost,
+                    onPress: () => {
+                      Alert.alert(
+                        ProfileSkywritingsCopy.deleteConfirmTitle,
+                        ProfileSkywritingsCopy.deleteConfirmBody,
+                        [
+                          { text: ProfileSkywritingsCopy.deleteCancel, style: 'cancel' },
+                          {
+                            text: ProfileSkywritingsCopy.deleteConfirmAction,
+                            style: 'destructive',
+                            onPress: () => applyDeletion(row.skywrite),
+                          },
+                        ],
+                      );
+                    },
+                  });
+                }
                 menuActions.push({
                   id: 'archive-skywrite',
                   label:

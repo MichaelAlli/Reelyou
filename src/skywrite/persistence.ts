@@ -15,7 +15,12 @@ import type {
   SkywriteVideoOriginalAudioState,
   SkywritesState,
 } from '@/skywrite/types';
+import { isLegacyDemoEnabled } from '@/constants/devFlags';
 import { ensureLegacyDemoSeed } from '@/legacy/ensureLegacyDemoSeed';
+import {
+  buildMySkywritesLabeledDemoPosts,
+  isMySkywritesLabeledDemoPost,
+} from '@/skywrite/library/mySkywritesLabeledDemoPosts';
 import { EMPTY_SKYWRITE_MEDIA, EMPTY_SKYWRITES } from '@/skywrite/types';
 import type { Mood, Privacy } from '@/types';
 
@@ -92,17 +97,24 @@ function parseMedia(raw: unknown): SkywriteMedia {
     video?: unknown;
     audio?: unknown;
     originalVideoAudio?: unknown;
+    originalVideoVolume?: unknown;
   };
   const originalVideoAudio =
     typeof entry.originalVideoAudio === 'string' &&
     VIDEO_AUDIO_STATES.has(entry.originalVideoAudio as SkywriteVideoOriginalAudioState)
       ? (entry.originalVideoAudio as SkywriteVideoOriginalAudioState)
       : undefined;
+  const originalVideoVolume =
+    typeof entry.originalVideoVolume === 'number' &&
+    Number.isFinite(entry.originalVideoVolume)
+      ? Math.min(1, Math.max(0, entry.originalVideoVolume))
+      : undefined;
   return {
     photo: parsePhoto(entry.photo),
     video: parseVideo(entry.video),
     audio: parseAudio(entry.audio),
     originalVideoAudio,
+    originalVideoVolume,
   };
 }
 
@@ -128,7 +140,10 @@ function parsePost(raw: unknown): SkywriteRecord | null {
 
   const textStyle = isSkywriteTextStyle(entry.textStyle) ? entry.textStyle : 'plain';
 
-  const skyAreaId = isSkyAreaCategoryId(entry.skyAreaId) ? entry.skyAreaId : undefined;
+  const skyAreaId =
+    typeof entry.skyAreaId === 'string' && entry.skyAreaId.length > 0
+      ? entry.skyAreaId
+      : undefined;
 
   const intentValues = new Set<SkywriteIntentId>([
     'reflection',
@@ -173,14 +188,35 @@ function parseState(raw: string | null): SkywritesState {
   }
 }
 
+function mergeLabeledRecentDemoPosts(state: SkywritesState): SkywritesState {
+  if (!isLegacyDemoEnabled()) return state;
+  const demos = buildMySkywritesLabeledDemoPosts();
+  const existingIds = new Set(state.posts.map((post) => post.id));
+  const toAdd = demos.filter((post) => !existingIds.has(post.id));
+  if (toAdd.length === 0) return state;
+  return { posts: [...toAdd, ...state.posts] };
+}
+
 export async function loadSkywrites(): Promise<SkywritesState> {
   await ensureLegacyDemoSeed();
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    return parseState(stored);
+    let state = parseState(stored);
+    const merged = mergeLabeledRecentDemoPosts(state);
+    if (merged !== state) {
+      state = merged;
+      await saveSkywrites(state);
+    }
+    return state;
   } catch {
     return EMPTY_SKYWRITES;
   }
+}
+
+export function stripLabeledDemoPostsFromState(state: SkywritesState): SkywritesState {
+  return {
+    posts: state.posts.filter((post) => !isMySkywritesLabeledDemoPost(post.id)),
+  };
 }
 
 export async function saveSkywrites(state: SkywritesState): Promise<boolean> {

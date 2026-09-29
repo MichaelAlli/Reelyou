@@ -3,9 +3,9 @@ import {
   isSkyAreaCategoryId,
   PROFILE_BETA_PREVIEW_CATEGORY_IDS,
   SKY_AREA_TAB_ALL,
+  type SkyAreaCategoryId,
   type SkyAreaTabId,
 } from '@/skyAreas/skyAreaCategory';
-import { resolveSkywriteSkyAreaId } from '@/skyAreas/resolveSkywriteSkyAreaId';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 import { isModerationContentSuppressedSync } from '@/moderation/moderationContentRegistry';
@@ -16,21 +16,29 @@ import type { OwnerProfileSkywritingPreview } from '@/profile/ownerProfileTypes'
 
 export type ProfileSkywritingTone = OwnerProfileSkywritingPreview['tone'];
 
-/** Beta profile UI — All + placeholder categories (future: derive from user areas + visibility). */
-export function buildProfileBetaSkywritingTabs(): ProfileSkywritingTab[] {
+/** Owner profile — All plus three user-chosen Sky area shortcuts. */
+export function buildOwnerProfileSkywritingTabs(
+  shortcutIds: readonly SkyAreaCategoryId[] = PROFILE_BETA_PREVIEW_CATEGORY_IDS,
+): ProfileSkywritingTab[] {
   return [
     { id: SKY_AREA_TAB_ALL, label: 'All' },
-    ...PROFILE_BETA_PREVIEW_CATEGORY_IDS.map((id) => ({
+    ...shortcutIds.map((id) => ({
       id,
       label: getSkyAreaCategory(id).label,
     })),
   ];
 }
 
+/** @deprecated Use buildOwnerProfileSkywritingTabs — kept for tests. */
+export function buildProfileBetaSkywritingTabs(): ProfileSkywritingTab[] {
+  return buildOwnerProfileSkywritingTabs();
+}
+
 export interface ProfileSkywritingItem {
   id: string;
   label: string;
-  skyAreaId: string;
+  /** Explicit composer area only — null when unset (visible under All only). */
+  skyAreaId: string | null;
   tone: ProfileSkywritingTone;
 }
 
@@ -65,18 +73,20 @@ function toneForArea(areaId: string): ProfileSkywritingTone {
 }
 
 function recordToItem(record: SkywriteRecord): ProfileSkywritingItem {
-  const skyAreaId = resolveSkywriteSkyAreaId(record);
+  const skyAreaId =
+    record.skyAreaId && record.skyAreaId.length > 0 ? record.skyAreaId : null;
   return {
     id: record.id,
     label: record.text?.slice(0, 28).trim() || 'Reflection',
     skyAreaId,
-    tone: toneForArea(skyAreaId),
+    tone: skyAreaId ? toneForArea(skyAreaId) : 'leaf',
   };
 }
 
 export function buildProfileSkywritingsSection(input: {
   skywrites: SkywriteRecord[];
   viewerMode: 'owner' | 'visitor';
+  ownerShortcutIds?: readonly SkyAreaCategoryId[];
   visitorAccess?: {
     viewerId: string;
     authorId: string;
@@ -97,7 +107,7 @@ export function buildProfileSkywritingsSection(input: {
   const tabs =
     input.viewerMode === 'visitor'
       ? buildVisitorSkywritingTabsFromVisibleItems(items)
-      : buildProfileBetaSkywritingTabs();
+      : buildOwnerProfileSkywritingTabs(input.ownerShortcutIds);
 
   return {
     tabs,
@@ -111,5 +121,5 @@ export function filterProfileSkywritingItems(
   tabId: SkyAreaTabId,
 ): ProfileSkywritingItem[] {
   if (tabId === SKY_AREA_TAB_ALL) return items;
-  return items.filter((item) => item.skyAreaId === tabId);
+  return items.filter((item) => item.skyAreaId != null && item.skyAreaId === tabId);
 }

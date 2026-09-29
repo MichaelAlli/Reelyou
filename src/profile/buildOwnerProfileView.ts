@@ -5,10 +5,11 @@ import type { SkywriteRecord } from '@/skywrite/types';
 import { buildProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
 import type { OwnerProfileView } from '@/profile/ownerProfileTypes';
 import { filterProfileSkywritingItems } from '@/profile/buildProfileSkywritingsSection';
-import { SKY_AREA_TAB_ALL } from '@/skyAreas/skyAreaCategory';
+import { PROFILE_BETA_PREVIEW_CATEGORY_IDS, SKY_AREA_TAB_ALL, type SkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 
 export function buildOwnerProfileView(input: {
   skywrites: SkywriteRecord[];
+  profileSkyAreaShortcutIds?: readonly SkyAreaCategoryId[];
   roleLineOverride?: string;
   bioOverride?: string;
   avatarUriOverride?: string | null;
@@ -23,9 +24,15 @@ export function buildOwnerProfileView(input: {
     currentUser.bio ||
     'I’m building businesses and communities that help people become their best selves.';
 
+  const shortcutIds =
+    input.profileSkyAreaShortcutIds && input.profileSkyAreaShortcutIds.length > 0
+      ? input.profileSkyAreaShortcutIds
+      : PROFILE_BETA_PREVIEW_CATEGORY_IDS;
+
   const skywritings = buildProfileSkywritingsSection({
     skywrites: input.skywrites,
     viewerMode: 'owner',
+    ownerShortcutIds: shortcutIds,
   });
 
   const skywritingPreviews = filterProfileSkywritingItems(

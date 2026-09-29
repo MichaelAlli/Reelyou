@@ -21,7 +21,11 @@ export function isVisitorProfileBlocked(
 export function buildVisitorSkywritingTabsFromVisibleItems(
   visibleItems: ProfileSkywritingItem[],
 ): ProfileSkywritingTab[] {
-  const visibleCategories = new Set<string>(visibleItems.map((item) => item.skyAreaId));
+  const visibleCategories = new Set<string>(
+    visibleItems
+      .map((item) => item.skyAreaId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0),
+  );
 
   const categoryTabs = PROFILE_BETA_PREVIEW_CATEGORY_IDS.filter((id) =>
     visibleCategories.has(id),

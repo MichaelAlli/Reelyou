@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -30,6 +30,7 @@ import { SkywriteToggleRow } from '@/components/skywrite/SkywriteToggleRow';
 import { SkyAreaSuggestionBanner } from '@/components/skywrite/SkyAreaSuggestionBanner';
 import { SkywriteSkyAreaPicker } from '@/components/skywrite/SkywriteSkyAreaPicker';
 import { SkywriteComposePreviewOverlay } from '@/components/skywrite/SkywriteComposePreviewOverlay';
+import { SkywriteOriginalVideoAudioControls } from '@/components/skywrite/SkywriteOriginalVideoAudioControls';
 import { SkywriteVisibilityControl } from '@/components/skywrite/SkywriteVisibilityControl';
 import { detectSkyAreaSuggestionFromHashtags } from '@/skyAreas/skyAreaHashtagSuggestion';
 import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
@@ -58,12 +59,13 @@ import {
   pickSkywritePhotoFromLibrary,
   pickSkywriteVideoFromLibrary,
   recordSkywriteVideo,
+  skywriteRecordToDraft,
   takeSkywritePhoto,
   useSkywriteVoice,
   type PhotoPickResult,
   type VideoPickResult,
 } from '@/skywrite';
-import type { SkywritePhotoMedia, SkywriteVideoMedia, SkywriteVideoOriginalAudioState } from '@/skywrite/types';
+import type { SkywritePhotoMedia, SkywriteVideoMedia } from '@/skywrite/types';
 import type { Privacy } from '@/types';
 
 /** LOCKED NAV — /skywrite/compose must keep canonical BottomNav (Skywrite active). Do not remove or replace. */
@@ -89,12 +91,15 @@ function mergeHashtags(text: string, manual: string[]): string[] {
 
 export function SkywriteScreen() {
   const router = useRouter();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const editingSkywriteId = typeof editId === 'string' && editId.length > 0 ? editId : null;
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const padH = measureHomePadH(screenWidth);
   const navContentInset = TabBarHeight + Math.max(insets.bottom, Spacing.sm);
   const avatarSize = Math.min(measureHomeAvatarSize(screenWidth), 88);
-  const { publishSkywrite, mySkyView, setSkyArrivalHandoff, state } = useOnboarding();
+  const { publishSkywrite, replaceSkywrite, skywrites, mySkyView, setSkyArrivalHandoff, state } =
+    useOnboarding();
   const { profilePhotoDisplayUri, profilePhotoRevision } = useUserAvatar();
   const composerPortraitSource = profilePhotoDisplayUri ? { uri: profilePhotoDisplayUri } : undefined;
 
@@ -123,6 +128,17 @@ export function SkywriteScreen() {
   const { catalog, addCustomArea, selectedIds } = useSkyAreaPreferences();
 
   const voice = useSkywriteVoice();
+
+  useEffect(() => {
+    if (!editingSkywriteId) return;
+    const record = skywrites.find((entry) => entry.id === editingSkywriteId);
+    if (!record) return;
+    setDraft(skywriteRecordToDraft(record));
+    setManualHashtags(record.userHashtags);
+    if (record.media.audio) {
+      voice.setExistingAudio(record.media.audio);
+    }
+  }, [editingSkywriteId, skywrites]);
 
   const reflectionPrompt = SKYWRITE_REFLECTION_PROMPTS[promptIndex] ?? SkywriteCopy.reflectionDefault;
   const showingUpOption = SKYWRITE_SHOWING_UP_OPTIONS.find((o) => o.id === draft.showingUp);
@@ -220,6 +236,7 @@ export function SkywriteScreen() {
         video,
         audio: current.media.audio,
         originalVideoAudio: current.media.originalVideoAudio ?? 'on',
+        originalVideoVolume: current.media.originalVideoVolume ?? 1,
       },
     }));
     setValidationHint(null);
@@ -266,26 +283,6 @@ export function SkywriteScreen() {
     setVideoSourceOpen(false);
     handleVideoPickResult(await recordSkywriteVideo());
   }, [handleVideoPickResult]);
-
-  const cycleOriginalVideoAudio = useCallback(() => {
-    setDraft((current) => {
-      if (!current.media.video?.uri) return current;
-      const order: SkywriteVideoOriginalAudioState[] = ['on', 'lower', 'off'];
-      const currentState = current.media.originalVideoAudio ?? 'on';
-      const next = order[(order.indexOf(currentState) + 1) % order.length];
-      return {
-        ...current,
-        media: { ...current.media, originalVideoAudio: next },
-      };
-    });
-  }, []);
-
-  const originalVideoAudioLabel = useMemo(() => {
-    const state = draft.media.originalVideoAudio ?? 'on';
-    if (state === 'lower') return SkywriteCopy.videoOriginalAudioLower;
-    if (state === 'off') return SkywriteCopy.videoOriginalAudioOff;
-    return SkywriteCopy.videoOriginalAudioOn;
-  }, [draft.media.originalVideoAudio]);
 
   const handleReRecord = useCallback(async () => {
     await voice.removeAudio();
@@ -356,6 +353,7 @@ export function SkywriteScreen() {
         ...current.media,
         video: null,
         originalVideoAudio: undefined,
+        originalVideoVolume: undefined,
       },
     }));
   }, []);
@@ -416,10 +414,13 @@ export function SkywriteScreen() {
     setPublishError(null);
     setPostingLabel(SkywriteCopy.publishing);
     const starsBeforeSubmit = takeFocusedSkywriteComposeStars() ?? mySkyView.stars;
-    const result = await publishSkywrite(publishDraft, (progress) => {
+    const onProgress = (progress: { elapsedMs: number }) => {
       const seconds = Math.max(1, Math.round(progress.elapsedMs / 1000));
       setPostingLabel(SkywriteCopy.publishingElapsed(seconds));
-    });
+    };
+    const result = editingSkywriteId
+      ? await replaceSkywrite(editingSkywriteId, publishDraft, onProgress)
+      : await publishSkywrite(publishDraft, onProgress);
     setIsPosting(false);
     setPostingLabel(null);
 
@@ -436,12 +437,14 @@ export function SkywriteScreen() {
       return;
     }
 
-    router.replace('/skywrite' as never);
+    router.replace(editingSkywriteId ? '/profile' as never : '/skywrite' as never);
   }, [
     buildPublishDraft,
+    editingSkywriteId,
     isPosting,
     mySkyView.stars,
     publishSkywrite,
+    replaceSkywrite,
     router,
     setSkyArrivalHandoff,
   ]);
@@ -598,13 +601,10 @@ export function SkywriteScreen() {
                 />
 
                 {hasVideo ? (
-                  <Pressable
-                    onPress={cycleOriginalVideoAudio}
-                    accessibilityRole="button"
-                    accessibilityLabel={originalVideoAudioLabel}
-                    style={{ marginTop: 8, minHeight: 44, justifyContent: 'center' }}>
-                    <Text style={styles.mediaFeedback}>{originalVideoAudioLabel}</Text>
-                  </Pressable>
+                  <SkywriteOriginalVideoAudioControls
+                    media={draft.media}
+                    onChange={(media) => setDraft((current) => ({ ...current, media }))}
+                  />
                 ) : null}
 
                 {mediaFeedback ? <Text style={styles.mediaFeedback}>{mediaFeedback}</Text> : null}
