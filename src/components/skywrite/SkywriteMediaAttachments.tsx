@@ -52,7 +52,7 @@ function SkywriteMediaAttachmentsComponent({
   onVideoDimensionsResolved,
 }: SkywriteMediaAttachmentsProps) {
   const { width: screenWidth } = useWindowDimensions();
-  const previewWidth = Math.min(screenWidth - 80, 320);
+  const previewWidth = Math.min(screenWidth - 48, 420);
   const isVoiceover = Boolean(photo || video);
 
   const photoAspect =
@@ -66,10 +66,11 @@ function SkywriteMediaAttachmentsComponent({
   return (
     <View style={styles.wrap}>
       {video ? (
-        <View style={[styles.photoBlock, { width: previewWidth }]}>
+        <View style={[styles.photoBlock, styles.videoBlock]}>
           <View style={styles.photoFrame}>
             <SkywriteComposerVideoPreview
               video={video}
+              maxPreviewWidth={previewWidth}
               onDimensionsResolved={onVideoDimensionsResolved}
             />
             {video.durationMs ? (
@@ -131,7 +132,11 @@ function SkywriteMediaAttachmentsComponent({
       ) : null}
 
       {voiceMode ? (
-        <View style={[styles.voiceWrap, photo ? { width: previewWidth } : styles.voiceWrapFull]}>
+        <View
+          style={[
+            styles.voiceWrap,
+            video ? styles.voiceWrapWithVideo : photo ? { width: previewWidth } : styles.voiceWrapFull,
+          ]}>
           <SkywriteVoiceCapture
             mode={voiceMode}
             isVoiceover={isVoiceover}
@@ -164,6 +169,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     maxWidth: '100%',
   },
+  videoBlock: {
+    alignSelf: 'stretch',
+    width: '100%',
+  },
   photoFrame: {
     borderRadius: 14,
     overflow: 'hidden',
@@ -191,6 +200,10 @@ const styles = StyleSheet.create({
   },
   voiceWrapFull: {
     alignSelf: 'stretch',
+  },
+  voiceWrapWithVideo: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
   videoLabel: {
     fontFamily: Fonts.sans,

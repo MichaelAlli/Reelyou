@@ -36,10 +36,13 @@ export interface SkywriteImmersiveVideoPlayback {
   naturalSize: { width: number; height: number } | null;
 }
 
+export type SkywriteAutoplayResult = 'started' | 'pending' | 'blocked' | 'error';
+
 export function useSkywriteImmersiveVideoPlayback(
   record: SkywriteRecord | undefined,
   active: boolean,
   mediaOverride?: SkywriteMedia,
+  options?: { onAutoplayBlocked?: () => void },
 ): SkywriteImmersiveVideoPlayback {
   const videoRef = useRef<Video>(null);
   const voiceoverRef = useRef<Audio.Sound | null>(null);
@@ -161,30 +164,38 @@ export function useSkywriteImmersiveVideoPlayback(
     }
   }, [muted, originalVolume]);
 
-  const startPlayback = useCallback(async () => {
+  const startPlayback = useCallback(async (): Promise<SkywriteAutoplayResult> => {
     const video = videoRef.current;
-    if (!video || !videoUri) return;
+    if (!video || !videoUri) return 'error';
 
-    let status = await video.getStatusAsync();
-    if (!status.isLoaded) {
-      pendingPlayRef.current = true;
-      await video.loadAsync(
-        { uri: videoUri },
-        { shouldPlay: false, progressUpdateIntervalMillis: 250 },
-      );
-      status = await video.getStatusAsync();
+    try {
+      let status = await video.getStatusAsync();
+      if (!status.isLoaded) {
+        pendingPlayRef.current = true;
+        await video.loadAsync(
+          { uri: videoUri },
+          { shouldPlay: false, progressUpdateIntervalMillis: 250 },
+        );
+        status = await video.getStatusAsync();
+      }
+
+      if (!status.isLoaded) return 'error';
+
+      const loaded = status as AVPlaybackStatusSuccess;
+      const vol = muted ? 0 : originalVolume;
+      await video.setVolumeAsync(vol);
+      await video.playAsync();
+      await syncVoiceover(loaded.positionMillis ?? 0, true);
+      setIsPlaying(true);
+      pendingPlayRef.current = false;
+      return 'started';
+    } catch {
+      pendingPlayRef.current = false;
+      setIsPlaying(false);
+      options?.onAutoplayBlocked?.();
+      return 'blocked';
     }
-
-    if (!status.isLoaded) return;
-
-    const loaded = status as AVPlaybackStatusSuccess;
-    const vol = muted ? 0 : originalVolume;
-    await video.setVolumeAsync(vol);
-    await video.playAsync();
-    await syncVoiceover(loaded.positionMillis ?? 0, true);
-    setIsPlaying(true);
-    pendingPlayRef.current = false;
-  }, [muted, originalVolume, syncVoiceover, videoUri]);
+  }, [muted, originalVolume, options, syncVoiceover, videoUri]);
 
   const onPlaybackStatusUpdate = useCallback(
     (status: AVPlaybackStatus) => {
@@ -206,10 +217,15 @@ export function useSkywriteImmersiveVideoPlayback(
   const handleVideoLoad = useCallback(
     (status: AVPlaybackStatus) => {
       if (!status.isLoaded) return;
-      if (status.naturalSize?.width && status.naturalSize.height) {
+      const naturalSize = (
+        status as AVPlaybackStatusSuccess & {
+          naturalSize?: { width: number; height: number };
+        }
+      ).naturalSize;
+      if (naturalSize?.width && naturalSize.height) {
         setNaturalSize({
-          width: status.naturalSize.width,
-          height: status.naturalSize.height,
+          width: naturalSize.width,
+          height: naturalSize.height,
         });
       }
       void applyVideoVolume();

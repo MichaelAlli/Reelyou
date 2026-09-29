@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react';
+import { memo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SkywriteVolumeSlider } from '@/components/skywrite/SkywriteVolumeSlider';
@@ -20,13 +20,17 @@ interface SkywritePlaybackAudioMixControlsProps {
   media: SkywriteMedia;
   onChange: (media: SkywriteMedia) => void;
   compact?: boolean;
+  /** Collapsed by default; expands to show sliders and mute controls. */
+  collapsible?: boolean;
 }
 
 function SkywritePlaybackAudioMixControlsComponent({
   media,
   onChange,
   compact = false,
+  collapsible = false,
 }: SkywritePlaybackAudioMixControlsProps) {
+  const [expanded, setExpanded] = useState(!collapsible);
   const preMuteOriginalRef = useRef(1);
   const preMuteVoiceoverRef = useRef(1);
 
@@ -77,8 +81,33 @@ function SkywritePlaybackAudioMixControlsComponent({
     }
   };
 
+  const summaryParts: string[] = [];
+  if (hasOriginal) {
+    summaryParts.push(originalMuted ? 'Original muted' : `Original ${Math.round(originalVolume * 100)}%`);
+  }
+  if (hasVoiceover) {
+    summaryParts.push(voiceoverMuted ? 'Voiceover muted' : `Voiceover ${Math.round(voiceoverVolume * 100)}%`);
+  }
+
   return (
     <View style={[styles.wrap, compact && styles.wrapCompact]}>
+      {collapsible ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          accessibilityLabel="Audio mix"
+          onPress={() => setExpanded((open) => !open)}
+          style={styles.collapseHeader}>
+          <Text style={styles.collapseTitle}>Audio mix</Text>
+          <Text style={styles.collapseSummary} numberOfLines={1}>
+            {summaryParts.join(' · ')}
+          </Text>
+          <Text style={styles.collapseChevron}>{expanded ? '▾' : '▸'}</Text>
+        </Pressable>
+      ) : null}
+
+      {!collapsible || expanded ? (
+        <>
       {hasOriginal ? (
         <View style={styles.trackBlock}>
           <View style={styles.trackHeader}>
@@ -156,6 +185,8 @@ function SkywritePlaybackAudioMixControlsComponent({
       {!compact ? (
         <Text style={styles.hint}>{SkywriteCopy.videoOriginalSoundHint}</Text>
       ) : null}
+        </>
+      ) : null}
     </View>
   );
 }
@@ -170,6 +201,30 @@ const styles = StyleSheet.create({
   wrapCompact: {
     paddingVertical: 4,
     gap: 8,
+  },
+  collapseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+    paddingVertical: 4,
+  },
+  collapseTitle: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#E8C872',
+  },
+  collapseSummary: {
+    flex: 1,
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    color: 'rgba(235, 228, 248, 0.55)',
+  },
+  collapseChevron: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    color: 'rgba(232, 200, 114, 0.85)',
   },
   trackBlock: {
     gap: 4,

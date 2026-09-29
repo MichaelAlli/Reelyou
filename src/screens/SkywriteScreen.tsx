@@ -616,6 +616,8 @@ export function SkywriteScreen() {
 
                 {hasVideo ? (
                   <SkywritePlaybackAudioMixControls
+                    collapsible
+                    compact
                     media={draft.media}
                     onChange={(media) => setDraft((current) => ({ ...current, media }))}
                   />

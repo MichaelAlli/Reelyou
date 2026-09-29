@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
@@ -49,6 +49,7 @@ export function SkywriteGuidedPlayScreen() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [needsTapToPlay, setNeedsTapToPlay] = useState(false);
+  const [manualPlayNonce, setManualPlayNonce] = useState(0);
   const startedRef = useRef(false);
 
   useEffect(() => {
@@ -181,10 +182,11 @@ export function SkywriteGuidedPlayScreen() {
   }, [index, current?.stepId]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || autoplay !== '1' || paused) return;
-    if (steps.length === 0) return;
-    setNeedsTapToPlay(true);
-  }, [autoplay, paused, steps.length]);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') setPaused(true);
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (!current || paused || needsTapToPlay) return;
@@ -285,11 +287,13 @@ export function SkywriteGuidedPlayScreen() {
             onPress={() => {
               setNeedsTapToPlay(false);
               startedRef.current = true;
+              setManualPlayNonce((n) => n + 1);
             }}>
             <Text style={styles.tapPlayText}>{SkywritePlayCopy.tapToPlaySky}</Text>
           </Pressable>
         ) : null}
 
+        <View style={styles.playViewer}>
         <SkywriteImmersiveMomentView
           record={record}
           stepKind={current.kind}
@@ -307,10 +311,13 @@ export function SkywriteGuidedPlayScreen() {
           autoPlayVideo={shouldAutoplayVideo}
           sequencePaused={paused}
           layoutMode="viewport"
+          manualPlayNonce={manualPlayNonce}
+          onVideoAutoplayBlocked={() => setNeedsTapToPlay(true)}
           onVideoFinished={() => {
             if (!paused) advance();
           }}
         />
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -393,5 +400,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#E8C872',
     textAlign: 'center',
+  },
+  playViewer: {
+    flex: 1,
+    minHeight: 0,
   },
 });

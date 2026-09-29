@@ -1,6 +1,13 @@
-import type { ViewStyle } from 'react-native';
+import { Platform, StyleSheet, type ViewStyle } from 'react-native';
 
 import { Radius } from '@/constants/theme';
+
+/** Web: expo-av renders <video>; enforce contain fit on the element. */
+export function skywriteVideoElementStyle(): ViewStyle {
+  const base = StyleSheet.absoluteFill;
+  if (Platform.OS !== 'web') return base;
+  return { ...base, objectFit: 'contain' } as ViewStyle;
+}
 
 /** Prefer stored dimensions; fall back to a neutral frame (not forced 9:16). */
 export function skywriteVideoAspectRatio(width?: number, height?: number): number {

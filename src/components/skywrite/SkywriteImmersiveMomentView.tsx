@@ -2,12 +2,15 @@ import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
   type LayoutChangeEvent,
+  type ViewStyle,
 } from 'react-native';
 
 import { SkywriteAudioWaveform } from '@/components/skywrite/SkywriteAudioWaveform';
@@ -17,8 +20,10 @@ import { getSkywriteWriteInputStyle } from '@/constants/skywriteTextStyles';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { formatSkywriteAudioDuration } from '@/skywrite/media/skywriteMediaPreviewUtils';
 import {
+  measureContainedVideoFrame,
   skywriteContainedVideoFrameStyle,
   skywriteVideoAspectRatio,
+  skywriteVideoElementStyle,
   skywriteVideoFrameStyle,
 } from '@/skywrite/media/skywriteVideoLayout';
 import { useSkywriteImmersiveVideoPlayback } from '@/skywrite/media/useSkywriteImmersiveVideoPlayback';
@@ -51,6 +56,8 @@ interface SkywriteImmersiveMomentViewProps {
   commentsSlot?: ReactNode;
   onVideoFinished?: () => void;
   sequencePaused?: boolean;
+  onVideoAutoplayBlocked?: () => void;
+  manualPlayNonce?: number;
 }
 
 function SkywriteImmersiveMomentViewComponent({
@@ -75,13 +82,19 @@ function SkywriteImmersiveMomentViewComponent({
   commentsSlot,
   onVideoFinished,
   sequencePaused = false,
+  onVideoAutoplayBlocked,
+  manualPlayNonce = 0,
 }: SkywriteImmersiveMomentViewProps) {
   const videoActive = stepKind === 'video' && Boolean(record.media.video?.uri);
   const playbackMedia = mediaMix ?? record.media;
-  const videoPlayback = useSkywriteImmersiveVideoPlayback(record, videoActive, playbackMedia);
+  const videoPlayback = useSkywriteImmersiveVideoPlayback(record, videoActive, playbackMedia, {
+    onAutoplayBlocked: onVideoAutoplayBlocked,
+  });
   const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize } = videoPlayback;
   const autoPlayIssuedRef = useRef(false);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const [videoFullscreen, setVideoFullscreen] = useState(false);
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
 
   const onStageLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -99,9 +112,29 @@ function SkywriteImmersiveMomentViewComponent({
   }, [autoPlayVideo, sequencePaused, stepKind, record.id, requestAutoPlay]);
 
   useEffect(() => {
-    if (!sequencePaused || stepKind !== 'video' || !videoPlayback.isPlaying) return;
-    void videoPlayback.togglePlayPause();
-  }, [sequencePaused, stepKind, videoPlayback, videoPlayback.isPlaying]);
+    if (!manualPlayNonce || stepKind !== 'video') return;
+    autoPlayIssuedRef.current = true;
+    requestAutoPlay();
+  }, [manualPlayNonce, requestAutoPlay, stepKind]);
+
+  useEffect(() => {
+    if (stepKind !== 'video') return;
+    if (sequencePaused && videoPlayback.isPlaying) {
+      void videoPlayback.togglePlayPause();
+      return;
+    }
+    if (!sequencePaused && autoPlayVideo && !videoPlayback.isPlaying && videoPlayback.isLoaded) {
+      requestAutoPlay();
+    }
+  }, [
+    autoPlayVideo,
+    sequencePaused,
+    stepKind,
+    videoPlayback,
+    videoPlayback.isLoaded,
+    videoPlayback.isPlaying,
+    requestAutoPlay,
+  ]);
 
   const audioUri = record.media.audio?.uri ?? null;
   const showVideoVoiceover =
@@ -148,12 +181,56 @@ function SkywriteImmersiveMomentViewComponent({
 
   const handleExit = () => {
     onBeforeStepChange?.();
+    setVideoFullscreen(false);
     void cleanupVideo();
     onExit();
   };
 
+  const renderVideoPlayer = (frameStyle: ViewStyle) => (
+    <View style={frameStyle}>
+      <Video
+        ref={videoPlayback.videoRef}
+        style={skywriteVideoElementStyle()}
+        source={{ uri: record.media.video!.uri }}
+        useNativeControls={false}
+        resizeMode={ResizeMode.CONTAIN}
+        isLooping={false}
+        isMuted={false}
+        progressUpdateIntervalMillis={250}
+        onPlaybackStatusUpdate={(status) => {
+          videoPlayback.onPlaybackStatusUpdate(status);
+          if (status.isLoaded && status.didJustFinish) {
+            onVideoFinished?.();
+          }
+        }}
+        onLoad={(status) => {
+          handleVideoLoad(status);
+          if (autoPlayVideo) requestAutoPlay();
+        }}
+      />
+      {!videoFullscreen ? (
+        <Pressable
+          style={styles.expandBtn}
+          accessibilityLabel="Expand video"
+          onPress={() => setVideoFullscreen(true)}>
+          <Text style={styles.expandBtnText}>⛶</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+
+  const fullscreenStageSize = useMemo(() => {
+    const padV = 120;
+    const padH = 16;
+    return measureContainedVideoFrame(
+      videoAspect,
+      Math.max(1, windowWidth - padH * 2),
+      Math.max(1, windowHeight - padV),
+    );
+  }, [videoAspect, windowHeight, windowWidth]);
+
   return (
-    <>
+    <View style={[styles.root, layoutMode === 'viewport' && styles.rootViewport]}>
       <View style={styles.topBar}>
         <Pressable onPress={handleExit} accessibilityLabel={SkywritePlayCopy.exitPlay}>
           <Text style={styles.exitText}>{SkywritePlayCopy.exitPlay}</Text>
@@ -190,31 +267,44 @@ function SkywriteImmersiveMomentViewComponent({
               style={[
                 layoutMode === 'viewport' ? styles.videoStageViewport : styles.videoStageStandard,
                 layoutMode === 'viewport' && styles.videoStageFill,
+                videoFullscreen && styles.videoStageFullscreen,
               ]}
               onLayout={layoutMode === 'viewport' ? onStageLayout : undefined}>
-              <View style={videoFrameStyle}>
-                <Video
-                  ref={videoPlayback.videoRef}
-                  style={StyleSheet.absoluteFillObject}
-                  source={{ uri: record.media.video.uri }}
-                  useNativeControls={false}
-                  resizeMode={ResizeMode.CONTAIN}
-                  isLooping={false}
-                  isMuted={false}
-                  progressUpdateIntervalMillis={250}
-                  onPlaybackStatusUpdate={(status) => {
-                  videoPlayback.onPlaybackStatusUpdate(status);
-                  if (status.isLoaded && status.didJustFinish) {
-                    onVideoFinished?.();
-                  }
-                }}
-                  onLoad={(status) => {
-                    handleVideoLoad(status);
-                    if (autoPlayVideo) requestAutoPlay();
-                  }}
-                />
-              </View>
+              {renderVideoPlayer(
+                videoFullscreen
+                  ? {
+                      width: fullscreenStageSize.width,
+                      height: fullscreenStageSize.height,
+                      alignSelf: 'center',
+                      backgroundColor: '#050508',
+                      borderRadius: Radius.lg,
+                      overflow: 'hidden',
+                    }
+                  : videoFrameStyle,
+              )}
             </View>
+            <Modal
+              visible={videoFullscreen}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setVideoFullscreen(false)}>
+              <Pressable style={styles.fullscreenBackdrop} onPress={() => setVideoFullscreen(false)} />
+              <View style={styles.fullscreenControlsOverlay} pointerEvents="box-none">
+                <View style={styles.fullscreenControls}>
+                  <Pressable onPress={() => setVideoFullscreen(false)}>
+                    <Text style={styles.exitText}>Close</Text>
+                  </Pressable>
+                  <Pressable onPress={() => void videoPlayback.togglePlayPause()}>
+                    <Text style={styles.muteText}>
+                      {videoPlayback.isPlaying ? 'Pause' : 'Play'}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={videoPlayback.toggleMute}>
+                    <Text style={styles.muteText}>{videoPlayback.muted ? 'Unmute' : 'Mute'}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </Modal>
             <View style={styles.videoControls}>
               <Pressable
                 style={styles.audioPlay}
@@ -237,6 +327,7 @@ function SkywriteImmersiveMomentViewComponent({
             {showMixControls ? (
               <SkywritePlaybackAudioMixControls
                 compact={layoutMode === 'viewport'}
+                collapsible
                 media={playbackMedia}
                 onChange={(next) => onMediaMixChange?.(next)}
               />
@@ -291,13 +382,21 @@ function SkywriteImmersiveMomentViewComponent({
           <Text style={styles.navText}>{SkywritePlayCopy.next}</Text>
         </Pressable>
       </View>
-    </>
+    </View>
   );
 }
 
 export const SkywriteImmersiveMomentView = memo(SkywriteImmersiveMomentViewComponent);
 
 const styles = StyleSheet.create({
+  root: {
+    width: '100%',
+  },
+  rootViewport: {
+    flex: 1,
+    minHeight: 0,
+    position: 'relative',
+  },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -338,7 +437,48 @@ const styles = StyleSheet.create({
   },
   videoStageFill: {
     flex: 1,
-    minHeight: 180,
+    minHeight: 220,
+  },
+  expandBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(8, 10, 28, 0.72)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.35)',
+  },
+  expandBtnText: {
+    color: '#E8C872',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  videoStageFullscreen: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 50,
+    backgroundColor: '#050508',
+    paddingTop: 48,
+    paddingBottom: 72,
+    paddingHorizontal: 8,
+  },
+  fullscreenBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(5, 5, 8, 0.92)',
+  },
+  fullscreenControlsOverlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'flex-end',
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+  },
+  fullscreenControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   commentsScroll: {
     maxHeight: 220,
