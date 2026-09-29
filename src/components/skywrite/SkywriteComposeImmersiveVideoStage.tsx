@@ -40,6 +40,7 @@ function SkywriteComposeImmersiveVideoStageComponent({
   onRemove,
   edgeBleed,
   onDimensionsResolved,
+  onFramingAdjustChange,
 }: SkywriteComposeImmersiveVideoStageProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const stageHeight = Math.max(320, Math.round(screenHeight * 0.58));
