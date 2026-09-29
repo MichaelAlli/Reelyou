@@ -6,15 +6,15 @@ import { HomeTodayFocusSection } from '@/components/home/HomeTodayFocusSection';
 
 interface HomeTodayFocusHomeSectionProps {
   animatedStyle?: AnimatedStyle<ViewStyle>;
-  onMinimize?: () => void;
+  onDismiss?: () => void;
 }
 
 /** Full Today’s Focus card — mount only when presentation is `available`. */
 function HomeTodayFocusHomeSectionComponent({
   animatedStyle,
-  onMinimize,
+  onDismiss,
 }: HomeTodayFocusHomeSectionProps) {
-  return <HomeTodayFocusSection animatedStyle={animatedStyle} onMinimize={onMinimize} />;
+  return <HomeTodayFocusSection animatedStyle={animatedStyle} onDismiss={onDismiss} />;
 }
 
 export const HomeTodayFocusHomeSection = memo(HomeTodayFocusHomeSectionComponent);

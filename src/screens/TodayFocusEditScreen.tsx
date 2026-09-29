@@ -70,16 +70,25 @@ export function TodayFocusEditScreen() {
     setSavedNotice(false);
   }, []);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const handleSave = useCallback(() => {
     if (!canSave || isSaving) return;
     setIsSaving(true);
-    setTodayFocus(resolvedValue, mode);
-    setSavedNotice(true);
-    setTimeout(() => {
-      setIsSaving(false);
-      if (router.canGoBack()) router.back();
-      else router.replace('/(tabs)/home' as never);
-    }, 900);
+    setSaveError(null);
+    void setTodayFocus(resolvedValue, mode === 'custom' ? 'custom' : 'suggested').then((saved) => {
+      if (!saved) {
+        setIsSaving(false);
+        setSaveError('Could not save your focus. Please try again.');
+        return;
+      }
+      setSavedNotice(true);
+      setTimeout(() => {
+        setIsSaving(false);
+        if (router.canGoBack()) router.back();
+        else router.replace('/(tabs)/home' as never);
+      }, 900);
+    });
   }, [canSave, isSaving, mode, resolvedValue, router, setTodayFocus]);
 
   const handleClear = useCallback(() => {
@@ -150,6 +159,7 @@ export function TodayFocusEditScreen() {
             />
 
             <View style={styles.footer}>
+              {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
               {savedNotice ? (
                 <Text style={styles.confirmation}>{TodayFocusCopy.savedConfirmation}</Text>
               ) : null}
@@ -273,6 +283,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#C4B5FD',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  error: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#E8A0A0',
     textAlign: 'center',
     marginBottom: 4,
   },

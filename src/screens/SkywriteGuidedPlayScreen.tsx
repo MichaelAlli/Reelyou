@@ -17,6 +17,9 @@ import {
   resolveFocusedSkyPlaySteps,
   resolveStepsForSkywrite,
 } from '@/skywrite/play/skywritePlayLogic';
+import { resolveOwnerPlaySkySteps } from '@/skywrite/play/resolveOwnerPlaySkySteps';
+import { buildPublicSkyView, resolvePublicSkyConnectionStatus } from '@/mySky/buildPublicSkyView';
+import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { loadSkywritePlaySequence } from '@/skywrite/play/skywritePlayPersistence';
 import type { SkywritePlayScope, SkywritePlayStep } from '@/skywrite/play/skywritePlayTypes';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
@@ -26,14 +29,16 @@ const STILL_DWELL_MS = 8500;
 
 export function SkywriteGuidedPlayScreen() {
   const router = useRouter();
-  const { scope, id, start, autoplay } = useLocalSearchParams<{
+  const { scope, id, ownerId, start, autoplay } = useLocalSearchParams<{
     scope?: SkywritePlayScope;
     id?: string;
+    ownerId?: string;
     start?: string;
     autoplay?: string;
   }>();
-  const playScope: SkywritePlayScope = scope === 'single' ? 'single' : 'focused';
-  const { skywrites, mySkyView } = useOnboarding();
+  const playScope: SkywritePlayScope =
+    scope === 'single' ? 'single' : scope === 'owner' ? 'owner' : 'focused';
+  const { skywrites, mySkyView, aroundYourSkyFeed } = useOnboarding();
   const { messages, skyFollowGraph } = useReelyouConnect();
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
   const { registry, ready: registryReady, repost } = usePlaySkySequenceRegistry();
@@ -50,7 +55,20 @@ export function SkywriteGuidedPlayScreen() {
     let mounted = true;
     void loadSkywritePlaySequence().then((config) => {
       if (!mounted) return;
-      if (playScope === 'single' && id) {
+      if (playScope === 'owner' && ownerId) {
+        const connectedActorIds = resolveSkyConnectionActivities(aroundYourSkyFeed).map(
+          (entry) => entry.actorId,
+        );
+        const connectionStatus = resolvePublicSkyConnectionStatus(ownerId, connectedActorIds);
+        setSteps(
+          resolveOwnerPlaySkySteps({
+            ownerId,
+            connectionStatus,
+            ownerSkywrites: ownerId === currentUser.id ? skywrites : undefined,
+            registry,
+          }),
+        );
+      } else if (playScope === 'single' && id) {
         const record = resolveSkywriteById(skywrites, id, contentLifecycle);
         const allowed =
           record &&
@@ -86,7 +104,9 @@ export function SkywriteGuidedPlayScreen() {
     contentLifecycle,
     id,
     messages.blockedUserIds,
+    aroundYourSkyFeed,
     mySkyView.stars,
+    ownerId,
     playScope,
     registry,
     registryReady,
@@ -201,7 +221,9 @@ export function SkywriteGuidedPlayScreen() {
   }
 
   if (steps.length === 0 || !current || !record) {
-    const isOwner = playScope === 'focused';
+    const isOwner =
+      playScope === 'focused' ||
+      (playScope === 'owner' && ownerId === currentUser.id);
     return (
       <View style={styles.root}>
         <HomeBackdrop />

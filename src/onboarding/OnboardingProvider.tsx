@@ -109,7 +109,7 @@ import {
   type PublishSkywriteResult,
 } from '@/skywrite/publish/publishSkywriteDraft';
 import { scheduleSkywritePostPublishEffects } from '@/skywrite/postPublish/scheduleSkywritePostPublishEffects';
-import { setTodayFocusHomeCollapsed } from '@/todayFocus/todayFocusHomeCollapse';
+import { dismissTodayFocusForDateKey } from '@/todayFocus/todayFocusSession';
 import { stripSkywriteRenderableContent } from '@/skywrite/lifecycle/skywriteContentLifecycle';
 import {
   buildAroundYourSkyHomeFeed,
@@ -176,7 +176,7 @@ interface OnboardingContextValue {
   hasTodayFocus: boolean;
   /** Whether a reflection is saved for the current focus today */
   hasTodayFocusReflection: boolean;
-  setTodayFocus: (value: string, source: TodayFocusSource) => void;
+  setTodayFocus: (value: string, source: TodayFocusSource) => Promise<boolean>;
   setTodayFocusReflection: (reflection: string) => void;
   clearTodayFocus: () => void;
   /** Local-first community membership — explicit join/leave only */
@@ -564,29 +564,39 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const setTodayFocus = useCallback((value: string, source: TodayFocusSource) => {
+  const setTodayFocus = useCallback(async (value: string, source: TodayFocusSource) => {
     const trimmed = value.trim();
-    if (!trimmed) return;
+    if (!trimmed) return false;
+    const dateKey = getLocalDateKey();
+    let nextRecord: TodayFocusRecord | null = null;
     setTodayFocusState((current) => {
       const focusChanged = current.value !== trimmed;
-      const next: TodayFocusRecord = {
+      nextRecord = {
         value: trimmed,
         source,
-        dateKey: getLocalDateKey(),
+        dateKey,
         selectedAt: new Date().toISOString(),
         reflection: focusChanged ? null : current.reflection,
         reflectionUpdatedAt: focusChanged ? null : current.reflectionUpdatedAt,
       };
-      void saveTodayFocus(next);
-      setTodayFocusHomeCollapsed(true, getLocalDateKey());
-      notifyTodayFocusChanged(next);
-      recordSkyEvolution(
-        createEvolutionEntry('FOCUS_SELECTED', {
-          summary: 'Today’s Focus was chosen.',
-        }),
-      );
-      return next;
+      return nextRecord;
     });
+    if (!nextRecord) return false;
+    const saved = await saveTodayFocus(nextRecord);
+    if (!saved) {
+      void loadTodayFocus().then((restored) =>
+        setTodayFocusState(reconcileTodayFocusForToday(restored)),
+      );
+      return false;
+    }
+    dismissTodayFocusForDateKey(dateKey);
+    notifyTodayFocusChanged(nextRecord);
+    recordSkyEvolution(
+      createEvolutionEntry('FOCUS_SELECTED', {
+        summary: 'Today’s Focus was chosen.',
+      }),
+    );
+    return true;
   }, [recordSkyEvolution]);
 
   const setTodayFocusReflection = useCallback((reflection: string) => {
@@ -601,7 +611,6 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       };
       void saveTodayFocus(next);
       const dateKey = next.dateKey ?? getLocalDateKey();
-      setTodayFocusHomeCollapsed(true, dateKey);
       recordSkyEvolution(
         createEvolutionEntry('REFLECTION_ADDED', {
           nodeId: `focus-reflection-${dateKey}`,

@@ -111,6 +111,13 @@ export function SettingsHubScreen() {
           ))}
         </Section>
 
+        <Section title="Personal">
+          <LinkRow
+            label="Today's Focus"
+            onPress={() => router.push('/today-focus' as never)}
+          />
+        </Section>
+
         <Section title="Privacy & Safety">
           <LinkRow label="Privacy" onPress={() => router.push('/settings/privacy' as never)} />
           <LinkRow

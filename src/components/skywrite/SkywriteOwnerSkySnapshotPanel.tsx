@@ -4,10 +4,12 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
 import { MySkyStarInteractionOverlay } from '@/components/my-sky/MySkyStarInteractionOverlay';
+import { PlaySkyCue } from '@/components/skywrite/PlaySkyCue';
 import { SkywriteSkyOwnerHeader } from '@/components/skywrite/SkywriteSkyOwnerHeader';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { Fonts, Spacing } from '@/constants/theme';
 import { currentUser } from '@/data/mockData';
+import { useOnboarding } from '@/onboarding';
 import { buildPublicSkyView, resolvePublicSkyConnectionStatus } from '@/mySky/buildPublicSkyView';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
 import { loadSkyHeaderStyleId } from '@/profile/skyHeaderStylePersistence';
@@ -15,11 +17,7 @@ import type { SkyHeaderStyleId } from '@/profile/skyHeaderStyleTypes';
 import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
 import { buildVisitorProfileHref } from '@/profile/visitorProfileRoute';
 import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
-import {
-  defaultFocusedSkywriteIds,
-  resolveFocusedSkyPlaySteps,
-} from '@/skywrite/play/skywritePlayLogic';
-import { loadSkywritePlaySequence } from '@/skywrite/play/skywritePlayPersistence';
+import { resolveOwnerPlaySkySteps } from '@/skywrite/play/resolveOwnerPlaySkySteps';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 interface SkywriteOwnerSkySnapshotPanelProps {
@@ -42,51 +40,53 @@ function SkywriteOwnerSkySnapshotPanelComponent({
   guidanceActive,
 }: SkywriteOwnerSkySnapshotPanelProps) {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const canvasWidth = width - Spacing.md * 2;
-  const panelHeight = Math.min(Math.round(width * 0.72), 420);
+  const { setMySkyExploreEnabled } = useOnboarding();
+  const { width, height } = useWindowDimensions();
+  const canvasWidth = width - Spacing.sm * 2;
+  const panelHeight = Math.min(Math.max(Math.round(height * 0.58), 320), 520);
   const [headerStyleId, setHeaderStyleId] = useState<SkyHeaderStyleId>('starlight');
   const { registry, ready: registryReady } = usePlaySkySequenceRegistry();
   const [canPlay, setCanPlay] = useState(false);
+
+  const ownerPosts = useMemo(() => {
+    if (ownerId === currentUser.id) return ownerSkywrites ?? [];
+    return ownerSkywrites ?? resolveOrbitOwnerSkywrites(ownerId);
+  }, [ownerId, ownerSkywrites]);
 
   useEffect(() => {
     void loadSkyHeaderStyleId(ownerId).then(setHeaderStyleId);
   }, [ownerId]);
 
   const skyView = useMemo(() => {
-    const posts =
-      ownerId === currentUser.id
-        ? ownerSkywrites
-        : ownerSkywrites ?? resolveOrbitOwnerSkywrites(ownerId);
-    return buildPublicSkyView(ownerId, connectionStatus, undefined, undefined, posts ?? undefined);
-  }, [connectionStatus, ownerId, ownerSkywrites]);
+    return buildPublicSkyView(
+      ownerId,
+      connectionStatus,
+      undefined,
+      undefined,
+      ownerPosts.length ? ownerPosts : undefined,
+    );
+  }, [connectionStatus, ownerId, ownerPosts]);
 
   useEffect(() => {
-    if (!registryReady || !skyView) {
+    if (!registryReady) {
       setCanPlay(false);
       return;
     }
-    let mounted = true;
-    void loadSkywritePlaySequence().then((config) => {
-      if (!mounted) return;
-      const steps = resolveFocusedSkyPlaySteps(
-        skyView.stars,
-        ownerId === currentUser.id ? (ownerSkywrites ?? []) : resolveOrbitOwnerSkywrites(ownerId),
-        config.focusedSky,
-        config.singleBySkywriteId,
-        { playSkyRegistry: registry },
-      );
-      setCanPlay(steps.length > 0);
+    const steps = resolveOwnerPlaySkySteps({
+      ownerId,
+      connectionStatus,
+      ownerSkywrites: ownerPosts,
+      registry,
     });
-    return () => {
-      mounted = false;
-    };
-  }, [ownerId, ownerSkywrites, registry, registryReady, skyView]);
+    setCanPlay(steps.length > 0);
+  }, [connectionStatus, ownerId, ownerPosts, registry, registryReady]);
 
   const exploreLabel =
     ownerId === currentUser.id
       ? SkywritePlayCopy.exploreFullSkySelf
       : SkywritePlayCopy.exploreFullSkyVisitor(displayName.split(' ')[0] ?? displayName);
+
+  const metaLabel = kind === 'connected' ? 'Connected Sky' : 'Suggested Sky';
 
   const openProfile = () => {
     if (ownerId === currentUser.id) {
@@ -97,24 +97,19 @@ function SkywriteOwnerSkySnapshotPanelComponent({
   };
 
   const openFullSky = () => {
+    if (ownerId === currentUser.id) {
+      setMySkyExploreEnabled(false);
+      router.push('/(tabs)/sky' as never);
+      return;
+    }
     router.push(`/public-sky?id=${encodeURIComponent(ownerId)}` as never);
   };
 
   const openPlaySky = () => {
-    if (ownerId === currentUser.id) {
-      router.push('/skywrite/play?scope=focused&autoplay=1' as never);
-      return;
-    }
-    const ids = skyView
-      ? defaultFocusedSkywriteIds(
-          skyView.stars,
-          ownerSkywrites ?? resolveOrbitOwnerSkywrites(ownerId),
-        )
-      : [];
-    const first = ids[0];
-    if (first) {
-      router.push(`/skywrite/play?scope=single&id=${encodeURIComponent(first)}&autoplay=1` as never);
-    }
+    if (!canPlay) return;
+    router.push(
+      `/skywrite/play?scope=owner&ownerId=${encodeURIComponent(ownerId)}&autoplay=1` as never,
+    );
   };
 
   if (!skyView) {
@@ -124,11 +119,15 @@ function SkywriteOwnerSkySnapshotPanelComponent({
           displayName={displayName}
           headerStyleId={headerStyleId}
           onPressProfile={openProfile}
+          onPressIdentityStar={openProfile}
         />
+        <Text style={styles.meta}>{metaLabel}</Text>
         <Text style={styles.unavailable}>This Sky isn&apos;t available in Explore right now.</Text>
       </View>
     );
   }
+
+  const hasVisibleStars = skyView.stars.some((star) => star.type === 'skywrite' && star.sourceId);
 
   return (
     <View style={styles.section}>
@@ -136,31 +135,43 @@ function SkywriteOwnerSkySnapshotPanelComponent({
         displayName={displayName}
         headerStyleId={headerStyleId}
         onPressProfile={openProfile}
+        onPressIdentityStar={openProfile}
       />
-      <Text style={styles.meta}>
-        {kind === 'connected' ? 'Connected Sky' : 'Suggested · not connected'}
-      </Text>
-      <View style={[styles.canvas, { height: panelHeight }]}>
-        <MySkyRenderer view={skyView} mode="resting" />
-        <MySkyStarInteractionOverlay
-          layoutWidth={canvasWidth}
-          layoutHeight={panelHeight}
-          view={skyView}
-          skywrites={[...(ownerSkywrites ?? resolveOrbitOwnerSkywrites(ownerId))]}
-          joinedCommunityIds={[...joinedCommunityIds]}
-          guidanceActive={guidanceActive}
-          showIdentityStar
-          directIdentityProfileNavigation
-          allowTapDuringGesture
-          focusedSkywriteImmersiveTap
-        />
+      <PlaySkyCue
+        onPress={openPlaySky}
+        disabled={!canPlay}
+        disabledHint={SkywritePlayCopy.playSkyNoRecent}
+      />
+      <Text style={styles.meta}>{metaLabel}</Text>
+      <View style={[styles.canvas, { height: panelHeight, width: canvasWidth }]}>
+        {hasVisibleStars ? (
+          <>
+            <MySkyRenderer view={skyView} mode="resting" />
+            <MySkyStarInteractionOverlay
+              layoutWidth={canvasWidth}
+              layoutHeight={panelHeight}
+              view={skyView}
+              skywrites={[...ownerPosts]}
+              joinedCommunityIds={[...joinedCommunityIds]}
+              guidanceActive={guidanceActive}
+              showIdentityStar
+              directIdentityProfileNavigation
+              allowTapDuringGesture
+              focusedSkywriteImmersiveTap={false}
+            />
+          </>
+        ) : (
+          <View style={styles.emptySky}>
+            <Text style={styles.emptySkyText}>No visible Skywrites in this view yet.</Text>
+          </View>
+        )}
       </View>
-      {canPlay ? (
-        <Pressable style={styles.action} onPress={openPlaySky}>
-          <Text style={styles.actionText}>{SkywritePlayCopy.playSky}</Text>
-        </Pressable>
-      ) : null}
-      <Pressable style={styles.link} onPress={openFullSky}>
+      <Pressable
+        onPress={openFullSky}
+        accessibilityRole="button"
+        accessibilityLabel={exploreLabel}
+        hitSlop={10}
+        style={({ pressed }) => [styles.link, pressed && styles.linkPressed]}>
         <Text style={styles.linkText}>{exploreLabel}</Text>
       </Pressable>
     </View>
@@ -178,41 +189,40 @@ export function connectionStatusForExploreOwner(
 
 const styles = StyleSheet.create({
   section: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(232, 200, 114, 0.22)',
-    backgroundColor: 'rgba(8, 10, 28, 0.45)',
-    padding: Spacing.md,
-    gap: 8,
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
   },
   meta: {
     fontFamily: Fonts.sans,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(248,244,236,0.55)',
+    color: 'rgba(248,244,236,0.48)',
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   canvas: {
+    alignSelf: 'center',
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(232, 200, 114, 0.18)',
     backgroundColor: 'rgba(4, 6, 16, 0.35)',
   },
-  action: { alignSelf: 'center', minHeight: 40, justifyContent: 'center' },
-  actionText: {
-    fontFamily: Fonts.sans,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#E8C872',
+  link: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
   },
-  link: { alignSelf: 'center', minHeight: 36, justifyContent: 'center' },
+  linkPressed: { opacity: 0.88 },
   linkText: {
     fontFamily: Fonts.sans,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(232, 200, 114, 0.72)',
+    color: 'rgba(232, 200, 114, 0.85)',
     textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   unavailable: {
     fontFamily: Fonts.sans,
@@ -221,5 +231,19 @@ const styles = StyleSheet.create({
     color: 'rgba(248,244,236,0.75)',
     textAlign: 'center',
     marginVertical: 12,
+    paddingHorizontal: 8,
+  },
+  emptySky: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.md,
+  },
+  emptySkyText: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 19,
+    color: 'rgba(248,244,236,0.65)',
+    textAlign: 'center',
   },
 });

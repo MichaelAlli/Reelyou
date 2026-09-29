@@ -24,9 +24,8 @@ export const HomeCopy = {
   todayFocusPrompt: 'What habit or belief are you building today?',
   todayFocusEdit: 'Open',
   todayFocusAction: 'Open Today’s Focus →',
-  todayFocusMinimize: 'Minimize',
-  todayFocusExpand: 'Expand Today’s Focus',
-  todayFocusCompactEmpty: 'Set your focus for today',
+  todayFocusDismiss: 'Dismiss Today’s Focus for today',
+  todayFocusDismissSymbol: '×',
 } as const;
 
 export function getTimeGreeting(date = new Date()): string {

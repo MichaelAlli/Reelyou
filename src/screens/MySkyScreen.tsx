@@ -259,6 +259,7 @@ export function MySkyScreen() {
   const [ephemeralAnchor, setEphemeralAnchor] = useState<NearbySkyAnchor | null>(null);
   const returningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preExploreViewportRef = useRef<MySkyViewportSnapshot | null>(null);
+  const exploreScrollOffsetRef = useRef(0);
   const exploreScrollActive = mySkyExploreEnabled && !cleanSkyActive;
 
   const joinedCommunityIds = useMemo(
@@ -628,10 +629,12 @@ export function MySkyScreen() {
                     onDismiss={dismissConstellationsCoachmark}
                   />
                 </View>
-                <MySkyImmersiveToggleButton
-                  immersiveActive={cleanSkyActive}
-                  onPress={toggleCleanSky}
-                />
+                {!exploreScrollActive ? (
+                  <MySkyImmersiveToggleButton
+                    immersiveActive={cleanSkyActive}
+                    onPress={toggleCleanSky}
+                  />
+                ) : null}
               </View>
             </View>
           </>
@@ -657,6 +660,10 @@ export function MySkyScreen() {
             <MySkyExploreScrollFeed
               nearbyAnchors={displayAnchors}
               bottomInset={TabBarHeight + Spacing.lg}
+              initialScrollOffsetY={exploreScrollOffsetRef.current}
+              onScrollOffsetChange={(offsetY) => {
+                exploreScrollOffsetRef.current = offsetY;
+              }}
             />
           ) : (
           <MySkyStarCanvas

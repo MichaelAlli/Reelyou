@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Fonts, Radius } from '@/constants/theme';
+import { Fonts } from '@/constants/theme';
 import type { SkyHeaderStyleId } from '@/profile/skyHeaderStyleTypes';
 import { skyHeaderStylePresentation } from '@/profile/skyHeaderStylePresentation';
 
@@ -9,6 +9,7 @@ interface SkywriteSkyOwnerHeaderProps {
   displayName: string;
   headerStyleId?: SkyHeaderStyleId;
   onPressProfile: () => void;
+  onPressIdentityStar?: () => void;
   reduceMotion?: boolean;
 }
 
@@ -16,59 +17,86 @@ function SkywriteSkyOwnerHeaderComponent({
   displayName,
   headerStyleId = 'starlight',
   onPressProfile,
+  onPressIdentityStar,
   reduceMotion = false,
 }: SkywriteSkyOwnerHeaderProps) {
   const presentation = skyHeaderStylePresentation(headerStyleId, reduceMotion);
+  const starPress = onPressIdentityStar ?? onPressProfile;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${displayName}'s profile`}
-      onPress={onPressProfile}
-      style={({ pressed }) => [styles.wrap, pressed && styles.pressed]}>
-      <View style={[styles.badge, presentation.containerStyle]}>
-        {presentation.showConstellation ? (
+    <View style={styles.row} accessibilityRole="header">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${displayName}'s profile star`}
+        onPress={starPress}
+        hitSlop={8}
+        style={({ pressed }) => [styles.starHit, pressed && styles.pressed]}>
+        <Text style={[styles.star, presentation.textStyle]} accessibilityElementsHidden>
+          ✦
+        </Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${displayName}'s profile`}
+        onPress={onPressProfile}
+        style={({ pressed }) => [styles.nameHit, pressed && styles.pressed]}>
+        {presentation.showConstellation && !reduceMotion ? (
           <Text style={styles.constellation} accessibilityElementsHidden>
-            ✦ · ✧ · ✦
+            ✧ · ✧
           </Text>
         ) : null}
-        <Text style={[styles.name, presentation.textStyle]} numberOfLines={2}>
+        <Text style={[styles.name, presentation.textStyle]} numberOfLines={2} adjustsFontSizeToFit>
           {presentation.prefix}
           {displayName}
           {presentation.suffix}
         </Text>
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
 export const SkywriteSkyOwnerHeader = memo(SkywriteSkyOwnerHeaderComponent);
 
 const styles = StyleSheet.create({
-  wrap: {
+  row: {
     alignSelf: 'center',
-    maxWidth: '100%',
-    marginBottom: 8,
-  },
-  pressed: { opacity: 0.92 },
-  badge: {
-    borderRadius: Radius.full,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    maxWidth: '100%',
+    paddingHorizontal: 4,
+    marginBottom: 4,
+  },
+  pressed: { opacity: 0.88 },
+  starHit: {
+    minWidth: 28,
+    minHeight: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  star: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    color: 'rgba(232, 200, 114, 0.72)',
+  },
+  nameHit: {
+    flexShrink: 1,
+    alignItems: 'center',
+    maxWidth: '88%',
   },
   name: {
     fontFamily: Fonts.serif,
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '400',
+    letterSpacing: 0.2,
     textAlign: 'center',
   },
   constellation: {
     fontFamily: Fonts.sans,
-    fontSize: 9,
-    letterSpacing: 2,
-    color: 'rgba(232, 200, 114, 0.55)',
+    fontSize: 8,
+    letterSpacing: 3,
+    color: 'rgba(232, 200, 114, 0.45)',
     marginBottom: 2,
   },
 });

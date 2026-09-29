@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContributionBeaconIndicator } from '@/components/focused-sky/ContributionBeaconIndicator';
@@ -56,6 +56,7 @@ export function FocusedSkywriteScreen() {
     constellationRevealActive,
     constellationRevealPatternId,
     completeConstellationReveal,
+    setMySkyExploreEnabled,
   } = useOnboarding();
   const joinedCommunityIds = useMemo(
     () => communities.joined.map((entry) => entry.id),
@@ -94,7 +95,6 @@ export function FocusedSkywriteScreen() {
     () => defaultFocusedSkywriteIds(mySkyView.stars, skywrites).length > 0,
     [mySkyView.stars, skywrites],
   );
-  const showPlayCue = canPlaySky;
 
   useFocusEffect(
     useCallback(() => {
@@ -149,8 +149,9 @@ export function FocusedSkywriteScreen() {
   }, [router]);
 
   const openMySky = useCallback(() => {
+    setMySkyExploreEnabled(false);
     router.push('/(tabs)/sky' as never);
-  }, [router]);
+  }, [router, setMySkyExploreEnabled]);
 
   const handleArrivalComplete = useCallback(() => {
     if (!skyArrivalHandoff) return;
@@ -178,24 +179,25 @@ export function FocusedSkywriteScreen() {
             displayName={mySkyView.skyOwner.name}
             headerStyleId={headerStyleId}
             onPressProfile={openOwnerProfile}
+            onPressIdentityStar={openOwnerProfile}
           />
           <Text style={styles.subtitle}>{SkywritePlayCopy.skySubtitle}</Text>
           <Text style={styles.hint}>{SkywritePlayCopy.playHint}</Text>
         </View>
 
-        {showPlayCue ? (
-          <PlaySkyCue
-            onPress={openPlaySky}
-            showEditSequence={hasSkywriteStars}
-            onEditSequence={() => setSequenceEditorOpen(true)}
-          />
-        ) : null}
+        <PlaySkyCue
+          onPress={openPlaySky}
+          disabled={!canPlaySky}
+          disabledHint={SkywritePlayCopy.playSkyNoRecent}
+          showEditSequence={hasSkywriteStars}
+          onEditSequence={() => setSequenceEditorOpen(true)}
+        />
 
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: launcherBottom + 56 },
+            { paddingBottom: launcherBottom + 88 },
           ]}
           showsVerticalScrollIndicator={false}
           onScroll={(event) => setScrollOffsetY(event.nativeEvent.contentOffset.y)}
@@ -328,9 +330,14 @@ export function FocusedSkywriteScreen() {
 
 function PressableSkyExplore({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Text accessibilityRole="button" onPress={onPress} style={styles.exploreLink}>
-      {label}
-    </Text>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={12}
+      style={({ pressed }) => [styles.exploreLinkWrap, pressed && styles.exploreLinkPressed]}>
+      <Text style={styles.exploreLink}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -408,12 +415,23 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     zIndex: 50,
   },
-  exploreLink: {
+  exploreLinkWrap: {
+    alignSelf: 'center',
     marginTop: Spacing.lg,
     marginBottom: Spacing.md,
+    minHeight: 48,
+    minWidth: 220,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    zIndex: 4,
+  },
+  exploreLinkPressed: { opacity: 0.88 },
+  exploreLink: {
     textAlign: 'center',
     fontFamily: Fonts.sans,
     fontSize: 13,
-    color: 'rgba(232, 200, 114, 0.72)',
+    fontWeight: '600',
+    color: 'rgba(232, 200, 114, 0.85)',
+    textDecorationLine: 'underline',
   },
 });

@@ -1,5 +1,5 @@
-import { memo, useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, useMemo, useRef } from 'react';
+import { ScrollView, StyleSheet, Text, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
 import {
   SkywriteOwnerSkySnapshotPanel,
@@ -16,6 +16,8 @@ import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 interface MySkyExploreScrollFeedProps {
   nearbyAnchors: readonly NearbySkyAnchor[];
   bottomInset: number;
+  initialScrollOffsetY?: number;
+  onScrollOffsetChange?: (offsetY: number) => void;
 }
 
 function displayName(userId: string): string {
@@ -26,7 +28,10 @@ function displayName(userId: string): string {
 function MySkyExploreScrollFeedComponent({
   nearbyAnchors,
   bottomInset,
+  initialScrollOffsetY = 0,
+  onScrollOffsetChange,
 }: MySkyExploreScrollFeedProps) {
+  const scrollRef = useRef<ScrollView>(null);
   const { listFollowingUserIds } = useReelyouConnect();
   const { aroundYourSkyFeed, skywrites, communities, guidingLightView } = useOnboarding();
 
@@ -62,11 +67,19 @@ function MySkyExploreScrollFeedComponent({
     return [...connected, ...suggested];
   }, [listFollowingUserIds, nearbyAnchors]);
 
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    onScrollOffsetChange?.(event.nativeEvent.contentOffset.y);
+  };
+
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.scroll}
       contentContainerStyle={[styles.content, { paddingBottom: bottomInset }]}
       showsVerticalScrollIndicator={false}
+      scrollEventThrottle={32}
+      onScroll={handleScroll}
+      contentOffset={{ x: 0, y: initialScrollOffsetY }}
       nestedScrollEnabled>
       {sections.map((section) => (
         <SkywriteOwnerSkySnapshotPanel

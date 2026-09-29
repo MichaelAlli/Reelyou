@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, AppState } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert } from 'react-native';
 
-import { useOnboarding } from '@/onboarding';
 import { getLocalDateKey } from '@/onboarding/personalization/todayFocus/dateKey';
 import { reconcileTodayFocusForToday } from '@/onboarding/personalization/todayFocus/persistence';
 import {
@@ -9,83 +8,68 @@ import {
   type TodayFocusHomePresentation,
 } from '@/todayFocus/resolveTodayFocusHomeState';
 import {
+  dismissTodayFocusForDateKey,
   hydrateTodayFocusDismissState,
   isTodayFocusDismissHydrated,
   reconcileTodayFocusDismissForDate,
 } from '@/todayFocus/todayFocusSession';
-import {
-  hydrateTodayFocusHomeCollapse,
-  isTodayFocusHomeCollapseHydrated,
-  isTodayFocusHomeCollapsed,
-  reconcileTodayFocusHomeCollapse,
-} from '@/todayFocus/todayFocusHomeCollapse';
+import { useOnboarding } from '@/onboarding';
 
 export function useTodayFocusHomePresentation() {
   const { todayFocus } = useOnboarding();
   const [dateKey, setDateKey] = useState(getLocalDateKey);
-  const [dismissReady, setDismissReady] = useState(
-    isTodayFocusDismissHydrated() && isTodayFocusHomeCollapseHydrated(),
-  );
-  const [homeCollapsed, setHomeCollapsed] = useState(() =>
-    isTodayFocusHomeCollapsed(dateKey),
-  );
+  const [dismissReady, setDismissReady] = useState(isTodayFocusDismissHydrated());
+  const [dismissTick, setDismissTick] = useState(0);
 
   useEffect(() => {
-    if (dismissReady) return;
-    void Promise.all([hydrateTodayFocusDismissState(), hydrateTodayFocusHomeCollapse()]).then(
-      () => {
-        setDismissReady(true);
-        setHomeCollapsed(isTodayFocusHomeCollapsed(dateKey));
-      },
-    );
-  }, [dateKey, dismissReady]);
+    void hydrateTodayFocusDismissState().then(() => setDismissReady(true));
+  }, []);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') return;
+    const tick = () => {
       const nextKey = getLocalDateKey();
       if (nextKey === dateKey) return;
       reconcileTodayFocusDismissForDate(nextKey);
-      reconcileTodayFocusHomeCollapse(nextKey);
       setDateKey(nextKey);
-      setHomeCollapsed(isTodayFocusHomeCollapsed(nextKey));
-    });
-    return () => subscription.remove();
+    };
+    const interval = setInterval(tick, 60_000);
+    return () => clearInterval(interval);
   }, [dateKey]);
 
   useEffect(() => {
     reconcileTodayFocusDismissForDate(dateKey);
-    reconcileTodayFocusHomeCollapse(dateKey);
-    setHomeCollapsed(isTodayFocusHomeCollapsed(dateKey));
   }, [dateKey]);
 
   const presentation = useMemo((): TodayFocusHomePresentation => {
-    if (!dismissReady) return 'dismissed';
+    if (!dismissReady) return 'hidden';
     const reconciled = reconcileTodayFocusForToday(todayFocus);
     return resolveTodayFocusHomePresentation(reconciled, dateKey);
-  }, [dateKey, dismissReady, todayFocus.dateKey, todayFocus.source, todayFocus.value]);
+  }, [dateKey, dismissReady, dismissTick, todayFocus.dateKey, todayFocus.source, todayFocus.value]);
 
   const focusPreview = todayFocus.value?.trim() ?? '';
 
+  const dismissHomeCard = useCallback(() => {
+    dismissTodayFocusForDateKey(dateKey);
+    setDismissTick((value) => value + 1);
+  }, [dateKey]);
+
   return {
     presentation,
-    dateKey,
     focusPreview,
     dismissReady,
-    homeCollapsed,
-    setHomeCollapsed,
+    dateKey,
+    dismissHomeCard,
   };
 }
 
 export function showTodayFocusQuickPreview(focusText: string, onView: () => void, onChange: () => void) {
   Alert.alert(
     "Today's Focus",
-    focusText || 'Your focus for today',
+    focusText || 'Open Today’s Focus to set or review your focus for today.',
     [
       { text: 'Change', onPress: onChange },
-      { text: 'View', onPress: onView, isPreferred: true },
+      { text: 'View', onPress: onView },
       { text: 'Cancel', style: 'cancel' },
     ],
-    { cancelable: true },
   );
 }

@@ -62,11 +62,12 @@ export async function loadTodayFocus(): Promise<TodayFocusRecord> {
   }
 }
 
-export async function saveTodayFocus(record: TodayFocusRecord): Promise<void> {
+export async function saveTodayFocus(record: TodayFocusRecord): Promise<boolean> {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+    return true;
   } catch {
-    // Persistence failure should not block in-memory selection.
+    return false;
   }
 }
 

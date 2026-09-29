@@ -8,19 +8,38 @@ interface PlaySkyCueProps {
   onPress: () => void;
   onEditSequence?: () => void;
   showEditSequence?: boolean;
+  disabled?: boolean;
+  disabledHint?: string;
 }
 
-function PlaySkyCueComponent({ onPress, onEditSequence, showEditSequence }: PlaySkyCueProps) {
+function PlaySkyCueComponent({
+  onPress,
+  onEditSequence,
+  showEditSequence,
+  disabled = false,
+  disabledHint,
+}: PlaySkyCueProps) {
   return (
     <View style={styles.wrap} pointerEvents="box-none">
       <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [styles.playPill, pressed && styles.pressed]}
+        onPress={disabled ? undefined : onPress}
+        disabled={disabled}
+        style={({ pressed }) => [
+          styles.playPill,
+          disabled && styles.playPillDisabled,
+          pressed && !disabled && styles.pressed,
+        ]}
         accessibilityRole="button"
-        accessibilityLabel={SkywritePlayCopy.playSky}>
-        <Text style={styles.playIcon}>▶</Text>
-        <Text style={styles.playLabel}>{SkywritePlayCopy.playSky}</Text>
+        accessibilityLabel={disabled ? disabledHint ?? SkywritePlayCopy.playSkyUnavailable : SkywritePlayCopy.playSky}
+        accessibilityState={{ disabled }}>
+        <Text style={[styles.playIcon, disabled && styles.playLabelDisabled]}>▶</Text>
+        <Text style={[styles.playLabel, disabled && styles.playLabelDisabled]}>
+          {SkywritePlayCopy.playSky}
+        </Text>
       </Pressable>
+      {disabled && disabledHint ? (
+        <Text style={styles.disabledHint}>{disabledHint}</Text>
+      ) : null}
       {showEditSequence && onEditSequence ? (
         <Pressable onPress={onEditSequence} hitSlop={8} style={styles.editLink}>
           <Text style={styles.editText}>{SkywritePlayCopy.editSequence}</Text>
@@ -72,4 +91,18 @@ const styles = StyleSheet.create({
     color: 'rgba(196, 168, 255, 0.85)',
   },
   pressed: { opacity: 0.9 },
+  playPillDisabled: {
+    borderColor: 'rgba(232, 200, 114, 0.18)',
+    backgroundColor: 'rgba(8, 10, 28, 0.35)',
+  },
+  playLabelDisabled: {
+    color: 'rgba(245, 230, 184, 0.45)',
+  },
+  disabledHint: {
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    color: 'rgba(248,244,236,0.5)',
+    textAlign: 'center',
+    maxWidth: 280,
+  },
 });

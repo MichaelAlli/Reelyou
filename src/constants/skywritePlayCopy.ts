@@ -1,5 +1,7 @@
 export const SkywritePlayCopy = {
   playSky: 'Play Sky',
+  playSkyUnavailable: 'Play Sky unavailable',
+  playSkyNoRecent: 'No recent Skywrites in Play Sky',
   playHint: 'Tap a star or press play to let your Sky unfold.',
   skySubtitle: 'Your moments, arranged in a living sky.',
   editSequence: 'Edit sequence',

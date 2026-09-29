@@ -6,7 +6,7 @@ export interface SkywritePlayStep {
   kind: SkywritePlayStepKind;
 }
 
-export type SkywritePlayScope = 'focused' | 'single';
+export type SkywritePlayScope = 'focused' | 'single' | 'owner';
 
 export interface FocusedSkyPlaySequenceConfig {
   /** Skywrite ids in play order; omitted ids use default append order. */

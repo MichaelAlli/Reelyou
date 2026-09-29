@@ -20,7 +20,7 @@ import { useThemedStyles } from '@/theme/useTheme';
 
 interface HomeTodayFocusSectionProps {
   animatedStyle?: AnimatedStyle<ViewStyle>;
-  onMinimize?: () => void;
+  onDismiss?: () => void;
   savedFocusText?: string | null;
 }
 
@@ -34,7 +34,7 @@ const FOCUS = {
 
 function HomeTodayFocusSectionComponent({
   animatedStyle,
-  onMinimize,
+  onDismiss,
   savedFocusText,
 }: HomeTodayFocusSectionProps) {
   const router = useRouter();
@@ -118,6 +118,24 @@ function HomeTodayFocusSectionComponent({
         lineHeight: 15,
         color: 'rgba(235, 228, 248, 0.72)',
       },
+      dismissBtn: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        zIndex: 2,
+        width: 32,
+        height: 32,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 16,
+      },
+      dismissSymbol: {
+        fontFamily: Fonts.sans,
+        fontSize: 20,
+        lineHeight: 22,
+        fontWeight: '400',
+        color: 'rgba(235, 228, 248, 0.55)',
+      },
       editRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -178,6 +196,17 @@ function HomeTodayFocusSectionComponent({
         />
         <View style={styles.topAccent} pointerEvents="none" />
 
+        {onDismiss ? (
+          <Pressable
+            style={styles.dismissBtn}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={HomeCopy.todayFocusDismiss}
+            onPress={onDismiss}>
+            <Text style={styles.dismissSymbol}>{HomeCopy.todayFocusDismissSymbol}</Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.inner}>
           <View style={styles.mainRow}>
             <View style={styles.iconCircle} importantForAccessibility="no-hide-descendants">
@@ -196,16 +225,6 @@ function HomeTodayFocusSectionComponent({
                 onPress={() => router.push('/today-focus-edit' as never)}>
                 <Text style={styles.edit}>{HomeCopy.todayFocusEdit}</Text>
               </Pressable>
-              {onMinimize ? (
-                <Pressable
-                  hitSlop={8}
-                  style={styles.editPress}
-                  accessibilityRole="button"
-                  accessibilityLabel={HomeCopy.todayFocusMinimize}
-                  onPress={onMinimize}>
-                  <Text style={styles.edit}>{HomeCopy.todayFocusMinimize}</Text>
-                </Pressable>
-              ) : null}
             </View>
           </View>
 
