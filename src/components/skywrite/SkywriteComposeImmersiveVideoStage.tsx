@@ -238,6 +238,3 @@ const styles = StyleSheet.create({
     color: 'rgba(248, 180, 180, 0.95)',
   },
 });
-0, 180, 0.95)',
-  },
-});
