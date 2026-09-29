@@ -25,6 +25,10 @@ import { StarPathOpportunityLayer } from '@/components/starpath/StarPathOpportun
 import { StarPathWorldGrowthHint } from '@/components/starpath/StarPathWorldGrowthHint';
 import { opportunityByNodeId } from '@/starpath/starpathResourceActions';
 import {
+  deterministicOpportunityWhyHere,
+  resolveOpportunityWhyHere,
+} from '@/starpath/starpathAiExplanationService';
+import {
   applyDynamicWorldExpansion,
   createStarPathLayoutMetrics,
   refPointToWorldPx,
@@ -203,6 +207,24 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
     if (!detailOpportunityNodeId) return null;
     return opportunityByNodeId(experience.resourceState, detailOpportunityNodeId);
   }, [detailOpportunityNodeId, experience.resourceState]);
+
+  const [opportunityWhyHere, setOpportunityWhyHere] = useState<string | null>(null);
+  useEffect(() => {
+    const candidate = opportunityDetail?.candidate;
+    if (!candidate) {
+      setOpportunityWhyHere(null);
+      return;
+    }
+    const fallback = deterministicOpportunityWhyHere(candidate.reasonCodes);
+    setOpportunityWhyHere(fallback);
+    let cancelled = false;
+    void resolveOpportunityWhyHere(candidate, null).then((text) => {
+      if (!cancelled) setOpportunityWhyHere(text);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [opportunityDetail?.candidate?.id, opportunityDetail?.candidate?.reasonCodes]);
 
   const offscreenSignals = useMemo(
     () =>
@@ -540,11 +562,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
         visible={!!opportunityDetail}
         theme={theme}
         candidate={opportunityDetail?.candidate ?? null}
-        whyHere={
-          opportunityDetail?.candidate.reasonCodes.length
-            ? 'This connects with paths and interests you have been exploring.'
-            : null
-        }
+        whyHere={opportunityWhyHere}
         saved={
           opportunityDetail
             ? experience.resourceState.savedResourceIds.includes(opportunityDetail.candidate.id)

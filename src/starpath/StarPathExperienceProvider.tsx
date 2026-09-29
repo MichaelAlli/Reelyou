@@ -81,6 +81,12 @@ import {
   gateInteractionSignals,
   gateTodayFocusText,
 } from '@/starpath/personalizationPreferenceGate';
+import {
+  fingerprintForCandidate,
+  loadRankingFeedback,
+  recordRankingFeedback,
+  type RankingFeedbackState,
+} from '@/starpath/starpathRankingFeedback';
 
 interface StarPathExperienceContextValue {
   ready: boolean;
@@ -143,7 +149,7 @@ export function StarPathExperienceProvider({
   children: ReactNode;
   todayFocusText?: string | null;
 }) {
-  const { preferences: userPreferences, messages } = useReelyouConnect();
+  const { preferences: userPreferences, messages, skyFollowGraph } = useReelyouConnect();
   const { personalizationProfile } = useOnboarding();
   const { selectedIds: skyContextAreaIds } = useSkyAreaPreferences();
   const journeyPersonalization = useMemo(
@@ -199,12 +205,17 @@ export function StarPathExperienceProvider({
   const [uiChrome, setUiChromeState] = useState<StarPathUiChromeSnapshot | null>(null);
   const [savedViewport, setSavedViewport] = useState<StarPathViewportSnapshot | null>(null);
   const uiChromeSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [rankingFeedback, setRankingFeedback] = useState<RankingFeedbackState>({ entries: [] });
+  const rankingFeedbackRef = useRef(rankingFeedback);
+  rankingFeedbackRef.current = rankingFeedback;
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       const { bundle } = await hydrateStarPathAuthoritativeState();
+      const feedback = await loadRankingFeedback();
       if (!mounted) return;
+      setRankingFeedback(feedback);
       setInteractions(bundle.interactions);
       setDynamicWorld(bundle.dynamicWorld);
       setGuidanceMeta(bundle.guidance);
@@ -341,6 +352,12 @@ export function StarPathExperienceProvider({
         supportState: mergedSupport,
         viewport: viewportRef.current,
         worldBridge: worldSignalBridge,
+        peopleDiscovery: {
+          viewerId: currentUser.id,
+          followGraph: skyFollowGraph,
+          blockedUserIds: messages.blockedUserIds,
+        },
+        rankingFeedback: rankingFeedbackRef.current,
       });
       if (gen !== orchestratorGen.current) return;
       setResourceState(result.resourceState);
@@ -385,6 +402,9 @@ export function StarPathExperienceProvider({
     userPreferences.emotionalContextPreference.adjustGuidanceIntensity,
     worldSignalBridge,
     canonicalSignalTail,
+    skyFollowGraph,
+    messages.blockedUserIds,
+    rankingFeedback,
   ]);
 
   useEffect(() => {
@@ -774,6 +794,14 @@ export function StarPathExperienceProvider({
         if (canonical) canonicalSignalStore.dismissPresentation(canonical.id);
       }
       feedbackOpportunitySignal(candidateId, 'dismissed');
+      const candidate = resourceStateRef.current.resourcesById[candidateId];
+      if (candidate) {
+        void recordRankingFeedback({
+          candidateId,
+          kind: 'less_like',
+          fingerprint: fingerprintForCandidate(candidate),
+        }).then((_) => loadRankingFeedback().then(setRankingFeedback));
+      }
       setGuidancePulse((n) => n + 1);
     },
     [feedbackOpportunitySignal, scheduleResourceSave],

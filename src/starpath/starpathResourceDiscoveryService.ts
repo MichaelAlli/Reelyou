@@ -3,10 +3,36 @@ import type { ResourceDiscoveryContext, ResourceProviderAdapter } from '@/starpa
 import { FIXTURE_ANCHOR_MS, FIXTURE_OPPORTUNITY_CATALOG } from '@/starpath/starpathResourceFixtures';
 import { RESOURCE_PROVIDER_ADAPTERS } from '@/starpath/starpathResourceProviderTypes';
 import { OPPORTUNITY_ESCALATION } from '@/starpath/starpathResourceConfig';
+import { registerStarpathBackendProviders } from '@/starpath/providers/registerBackendProviders';
+import {
+  discoverReellyouPeopleCandidates,
+  type ReellyouPeopleDiscoveryInput,
+} from '@/starpath/starpathReellyouPeopleDiscovery';
+import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
+
+export type ResourceProviderStatus =
+  | 'fixture_only'
+  | 'local'
+  | 'live_future'
+  | 'live'
+  | 'cached'
+  | 'degraded';
 
 export interface ResourceDiscoveryResult {
   candidates: OpportunityCandidate[];
-  providerStatus: 'fixture_only' | 'local' | 'live_future';
+  providerStatus: ResourceProviderStatus;
+  discoveryDiagnostics?: {
+    liveCount: number;
+    fixtureCount: number;
+    peopleCount: number;
+    checkedAt: number;
+  };
+}
+
+export interface ResourceDiscoveryPeopleContext {
+  viewerId: string;
+  followGraph: SkyFollowGraph;
+  blockedUserIds: readonly string[];
 }
 
 function computeFreshness(candidate: OpportunityCandidate, now: number): FreshnessStatus {
@@ -60,8 +86,13 @@ async function fetchFromAdapters(ctx: ResourceDiscoveryContext): Promise<Opportu
   return out;
 }
 
-/** Client Beta: fixture catalog only. Live queries are future backend. */
-export async function discoverResourceCandidates(ctx: ResourceDiscoveryContext): Promise<ResourceDiscoveryResult> {
+registerStarpathBackendProviders();
+
+/** Fixture catalog + optional live backend + permitted Reelyou people suggestions. */
+export async function discoverResourceCandidates(
+  ctx: ResourceDiscoveryContext,
+  peopleCtx?: ResourceDiscoveryPeopleContext,
+): Promise<ResourceDiscoveryResult> {
   const fixture = FIXTURE_OPPORTUNITY_CATALOG.map((c) => {
     const shifted = shiftFixtureCandidate(c, ctx.now);
     return {
@@ -72,14 +103,36 @@ export async function discoverResourceCandidates(ctx: ResourceDiscoveryContext):
   }).filter((c) => c.freshnessStatus !== 'expired');
 
   const adapterResults = await fetchFromAdapters(ctx);
-  const merged = dedupeCandidates([...fixture, ...adapterResults.filter((c) => !c.fixtureOnly)]);
+  const liveFromBackend = adapterResults.filter((c) => !c.fixtureOnly);
 
-  const providerStatus =
-    adapterResults.length > 0 && adapterResults.some((c) => !c.fixtureOnly)
-      ? 'live_future'
-      : 'fixture_only';
+  let peopleCandidates: OpportunityCandidate[] = [];
+  if (peopleCtx) {
+    const peopleInput: ReellyouPeopleDiscoveryInput = {
+      viewerId: peopleCtx.viewerId,
+      graph: peopleCtx.followGraph,
+      blockedUserIds: peopleCtx.blockedUserIds,
+      inputs: ctx.inputs,
+      now: ctx.now,
+    };
+    peopleCandidates = discoverReellyouPeopleCandidates(peopleInput);
+  }
 
-  return { candidates: merged, providerStatus };
+  const merged = dedupeCandidates([...fixture, ...liveFromBackend, ...peopleCandidates]);
+
+  let providerStatus: ResourceProviderStatus = 'fixture_only';
+  if (liveFromBackend.length > 0) providerStatus = 'live';
+  else if (adapterResults.length > 0) providerStatus = 'live_future';
+
+  return {
+    candidates: merged,
+    providerStatus,
+    discoveryDiagnostics: {
+      liveCount: liveFromBackend.length,
+      fixtureCount: fixture.length,
+      peopleCount: peopleCandidates.length,
+      checkedAt: ctx.now,
+    },
+  };
 }
 
 export function filterStaleAndUnverified(candidates: OpportunityCandidate[]): OpportunityCandidate[] {

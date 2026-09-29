@@ -43,6 +43,9 @@ function StarPathOpportunityDetailSheetComponent({
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Close opportunity detail" />
       <View style={styles.anchor} pointerEvents="box-none">
         <View style={styles.panel} testID="starpath-opportunity-detail">
+          {candidate.fixtureOnly ? (
+            <Text style={[styles.fixtureBadge, { color: theme.labelMuted }]}>Demo fixture — not live</Text>
+          ) : null}
           <Text style={[styles.kicker, { color: theme.labelMuted }]}>
             {candidate.opportunityType.replace('_', ' ').toUpperCase()}
           </Text>
@@ -78,6 +81,17 @@ function StarPathOpportunityDetailSheetComponent({
           {candidate.sourceName ? (
             <Text style={[styles.meta, { color: theme.labelMuted }]}>
               From {candidate.sourceName}
+            </Text>
+          ) : null}
+          {candidate.lastVerifiedAt ? (
+            <Text style={[styles.meta, { color: theme.labelMuted }]}>
+              Last checked{' '}
+              {new Date(candidate.lastVerifiedAt).toLocaleString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
             </Text>
           ) : null}
           <Text style={[styles.caution, { color: theme.labelMuted }]}>

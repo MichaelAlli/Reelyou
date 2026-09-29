@@ -1,4 +1,6 @@
 import type { StarPathGuidanceSafeInputs } from '@/starpath/starpathGuidanceInputs';
+import type { ResourceDiscoveryPeopleContext } from '@/starpath/starpathResourceDiscoveryService';
+import type { RankingFeedbackState } from '@/starpath/starpathRankingFeedback';
 import type { UserSupportState } from '@/starpath/starpathEmotionalContextTypes';
 import { discoverResourceCandidates, filterStaleAndUnverified } from '@/starpath/starpathResourceDiscoveryService';
 import { organizeOpportunities } from '@/starpath/starpathOpportunityOrganizer';
@@ -32,6 +34,8 @@ export interface OpportunityOrchestratorInput {
   supportState: UserSupportState;
   viewport: { scrollY: number; viewportHeight: number; paddingTop: number; contentBandHeight: number };
   worldBridge?: OpportunityOrchestratorWorldBridge;
+  peopleDiscovery?: ResourceDiscoveryPeopleContext;
+  rankingFeedback?: RankingFeedbackState;
 }
 
 export interface OpportunityOrchestratorOutput {
@@ -47,12 +51,15 @@ export interface OpportunityOrchestratorOutput {
 export async function runOpportunityOrchestrator(
   input: OpportunityOrchestratorInput,
 ): Promise<OpportunityOrchestratorOutput> {
-  const discovery = await discoverResourceCandidates({
-    now: input.now,
-    inputs: input.guidanceInputs,
-    elevatedBranchId: input.guidanceInputs.elevatedBranchIds[0] ?? null,
-    todayFocusText: input.guidanceInputs.todayFocusText,
-  });
+  const discovery = await discoverResourceCandidates(
+    {
+      now: input.now,
+      inputs: input.guidanceInputs,
+      elevatedBranchId: input.guidanceInputs.elevatedBranchIds[0] ?? null,
+      todayFocusText: input.guidanceInputs.todayFocusText,
+    },
+    input.peopleDiscovery,
+  );
 
   const filtered = filterStaleAndUnverified(discovery.candidates);
   const sifted = siftOpportunityCandidates(
@@ -61,6 +68,7 @@ export async function runOpportunityOrchestrator(
     input.resourceState.dismissedResourceIds,
     input.now,
     input.resourceState.snoozedResourceUntil,
+    input.rankingFeedback ?? { entries: [] },
   );
 
   let resourceState = organizeOpportunities(sifted, {

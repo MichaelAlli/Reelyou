@@ -1,6 +1,11 @@
 import type { OpportunityCandidate, OpportunityReasonCode } from '@/starpath/starpathOpportunityTypes';
 import type { StarPathGuidanceSafeInputs } from '@/starpath/starpathGuidanceInputs';
 import { OPPORTUNITY_ESCALATION, RESOURCE_OVERLOAD_GUARDRAILS } from '@/starpath/starpathResourceConfig';
+import {
+  fingerprintForCandidate,
+  rankingPenaltyForCandidate,
+  type RankingFeedbackState,
+} from '@/starpath/starpathRankingFeedback';
 
 function scoreCandidate(
   c: OpportunityCandidate,
@@ -48,6 +53,7 @@ export function siftOpportunityCandidates(
   dismissedIds: string[],
   now: number,
   snoozedUntil: Record<string, number> = {},
+  rankingFeedback: RankingFeedbackState = { entries: [] },
 ): OpportunityCandidate[] {
   const eligible = raw.filter(
     (c) => !dismissedIds.includes(c.id) && (snoozedUntil[c.id] ?? 0) <= now,
@@ -55,7 +61,9 @@ export function siftOpportunityCandidates(
   const scored = eligible
     .map((c) => {
       const copy = { ...c, reasonCodes: [...c.reasonCodes] };
-      return { c: copy, score: scoreCandidate(copy, inputs, now) };
+      const fingerprint = fingerprintForCandidate(copy);
+      const penalty = rankingPenaltyForCandidate(copy.id, fingerprint, rankingFeedback, now);
+      return { c: copy, score: scoreCandidate(copy, inputs, now) - penalty };
     })
     .sort((a, b) => b.score - a.score || a.c.id.localeCompare(b.c.id));
 

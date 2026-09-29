@@ -1,0 +1,12 @@
+{
+  "name": "reellyou-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --import tsx src/index.ts",
+    "test": "node --import tsx src/starpathBackend.test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}

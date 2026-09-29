@@ -91,7 +91,7 @@ export interface StarPathResourceState {
   snoozedResourceUntil: Record<string, number>;
   staleResourceIds: string[];
   lastDiscoveryAt: number;
-  providerStatus: 'fixture_only' | 'local' | 'live_future';
+  providerStatus: 'fixture_only' | 'local' | 'live_future' | 'live' | 'cached' | 'degraded';
 }
 
 export const EMPTY_RESOURCE_STATE: StarPathResourceState = {
