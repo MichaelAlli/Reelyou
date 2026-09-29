@@ -64,7 +64,7 @@ function OwnerProfileRelationshipCountsRowComponent({
               {ConnectedSkiesCopy.profileConnectionsSectionTitle}
             </Text>
           </View>
-          <View style={styles.countsRow}>
+          <View style={styles.countsCluster}>
             <CountCell
               label={ConnectedSkiesCopy.followedSkiesLabel}
               value={counts.followedSkies}
@@ -88,6 +88,8 @@ function OwnerProfileRelationshipCountsRowComponent({
 
 export const OwnerProfileRelationshipCountsRow = memo(OwnerProfileRelationshipCountsRowComponent);
 
+const COUNT_BLOCK_WIDTH = 68;
+
 const styles = StyleSheet.create({
   outer: {
     marginHorizontal: OWNER_PROFILE_HORIZONTAL_INSET,
@@ -102,17 +104,21 @@ const styles = StyleSheet.create({
   },
   mainRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    minHeight: 68,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    gap: 6,
+    justifyContent: 'flex-start',
+    rowGap: 6,
+    columnGap: 8,
+    minHeight: 64,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
   },
   titleColumn: {
-    flexShrink: 0,
-    width: 78,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 96,
+    maxWidth: 148,
     justifyContent: 'center',
-    paddingRight: 4,
   },
   sectionTitle: {
     fontFamily: Fonts.sans,
@@ -122,19 +128,19 @@ const styles = StyleSheet.create({
     color: 'rgba(235, 228, 248, 0.72)',
     textAlign: 'left',
   },
-  countsRow: {
-    flex: 1,
+  countsCluster: {
     flexDirection: 'row',
+    flexShrink: 0,
     alignItems: 'stretch',
-    minWidth: 0,
+    marginLeft: 'auto',
   },
   cell: {
-    flex: 1,
+    width: COUNT_BLOCK_WIDTH,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 2,
     paddingHorizontal: 2,
-    minHeight: 52,
+    minHeight: 48,
   },
   pressed: { opacity: 0.88 },
   value: {
@@ -162,7 +168,7 @@ const styles = StyleSheet.create({
   mutualFooter: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(167, 139, 250, 0.18)',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 6,
   },
 });
