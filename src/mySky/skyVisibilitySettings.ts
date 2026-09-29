@@ -59,6 +59,21 @@ export const ORBIT_SKY_VISIBILITY_CATALOG: Record<string, SkyVisibilitySettings>
     defaultVisibility: 'private',
     contentOverrides: {},
   },
+  'demo-sky-avery': {
+    skyVisibility: 'public',
+    defaultVisibility: 'public',
+    contentOverrides: {},
+  },
+  'demo-sky-river': {
+    skyVisibility: 'public',
+    defaultVisibility: 'public',
+    contentOverrides: {},
+  },
+  'demo-sky-noor': {
+    skyVisibility: 'public',
+    defaultVisibility: 'public',
+    contentOverrides: {},
+  },
 };
 
 export function normalizeSkyVisibilitySettings(

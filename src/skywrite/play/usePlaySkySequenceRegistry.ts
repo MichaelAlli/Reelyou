@@ -10,6 +10,7 @@ import {
   loadPlaySkySequenceRegistry,
   savePlaySkySequenceRegistry,
 } from '@/skywrite/play/playSkySequencePersistence';
+import { mergeExploreDemoPlaySkyRegistry } from '@/explore/exploreDemoSkies';
 
 export function usePlaySkySequenceRegistry() {
   const [registry, setRegistry] = useState<PlaySkySequenceRegistry>({});
@@ -19,7 +20,7 @@ export function usePlaySkySequenceRegistry() {
     let mounted = true;
     void loadPlaySkySequenceRegistry().then((loaded) => {
       if (!mounted) return;
-      setRegistry(loaded);
+      setRegistry(mergeExploreDemoPlaySkyRegistry(loaded));
       setReady(true);
     });
     return () => {

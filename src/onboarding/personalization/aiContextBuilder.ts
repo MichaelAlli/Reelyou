@@ -100,7 +100,10 @@ export function buildAiCompanionContext(
     });
   }
   const aiEligibleSkywrites = profile.skywrites.filter(
-    (post) => post.visibility !== 'private' && post.allowAIContext,
+    (post) =>
+      post.visibility !== 'private' &&
+      post.allowAIContext &&
+      !post.authorId.startsWith('demo-sky-'),
   );
   if (aiEligibleSkywrites.length > 0) {
     const explicitHashtags = [

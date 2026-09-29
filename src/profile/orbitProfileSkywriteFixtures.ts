@@ -1,4 +1,5 @@
 import type { SkywriteRecord } from '@/skywrite/types';
+import { resolveExploreDemoSkywrites } from '@/explore/exploreDemoSkies';
 
 /** Beta orbit-owner Skywrites for visitor profile filtering QA — not a second state store. */
 export const ORBIT_PROFILE_SKYWRITE_FIXTURES: Record<string, SkywriteRecord[]> = {
@@ -72,5 +73,7 @@ export const ORBIT_PROFILE_SKYWRITE_FIXTURES: Record<string, SkywriteRecord[]> =
 };
 
 export function resolveOrbitOwnerSkywrites(ownerId: string): SkywriteRecord[] {
+  const demo = resolveExploreDemoSkywrites(ownerId);
+  if (demo.length > 0) return demo;
   return ORBIT_PROFILE_SKYWRITE_FIXTURES[ownerId] ?? [];
 }

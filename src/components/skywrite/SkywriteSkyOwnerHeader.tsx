@@ -24,72 +24,83 @@ function SkywriteSkyOwnerHeaderComponent({
   const starPress = onPressIdentityStar ?? onPressProfile;
 
   return (
-    <View style={styles.row} accessibilityRole="header">
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${displayName}'s profile star`}
-        onPress={starPress}
-        hitSlop={8}
-        style={({ pressed }) => [styles.starHit, pressed && styles.pressed]}>
-        <Text style={[styles.star, presentation.textStyle]} accessibilityElementsHidden>
-          ✦
-        </Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${displayName}'s profile`}
-        onPress={onPressProfile}
-        style={({ pressed }) => [styles.nameHit, pressed && styles.pressed]}>
-        {presentation.showConstellation && !reduceMotion ? (
-          <Text style={styles.constellation} accessibilityElementsHidden>
-            ✧ · ✧
+    <View style={styles.outer} accessibilityRole="header">
+      <View style={styles.centerCluster}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${displayName}'s profile star`}
+          onPress={starPress}
+          hitSlop={8}
+          style={({ pressed }) => [styles.starHit, pressed && styles.pressed]}>
+          <Text style={[styles.star, presentation.textStyle]} accessibilityElementsHidden>
+            ✦
           </Text>
-        ) : null}
-        <Text style={[styles.name, presentation.textStyle]} numberOfLines={2} adjustsFontSizeToFit>
-          {presentation.prefix}
-          {displayName}
-          {presentation.suffix}
-        </Text>
-      </Pressable>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${displayName}'s profile`}
+          onPress={onPressProfile}
+          style={({ pressed }) => [styles.nameHit, pressed && styles.pressed]}>
+          {presentation.showConstellation && !reduceMotion ? (
+            <Text style={styles.constellation} accessibilityElementsHidden>
+              ✧ · ✧
+            </Text>
+          ) : null}
+          <Text
+            style={[styles.name, presentation.textStyle]}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}>
+            {presentation.prefix}
+            {displayName}
+            {presentation.suffix}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 export const SkywriteSkyOwnerHeader = memo(SkywriteSkyOwnerHeaderComponent);
 
+const STAR_GAP = 7;
+
 const styles = StyleSheet.create({
-  row: {
-    alignSelf: 'center',
+  outer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginBottom: 2,
+  },
+  centerCluster: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     maxWidth: '100%',
-    paddingHorizontal: 4,
-    marginBottom: 4,
+    gap: STAR_GAP,
   },
   pressed: { opacity: 0.88 },
   starHit: {
-    minWidth: 28,
+    minWidth: 24,
     minHeight: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   star: {
     fontFamily: Fonts.sans,
-    fontSize: 13,
+    fontSize: 12,
     color: 'rgba(232, 200, 114, 0.72)',
   },
   nameHit: {
     flexShrink: 1,
+    maxWidth: '86%',
     alignItems: 'center',
-    maxWidth: '88%',
   },
   name: {
     fontFamily: Fonts.serif,
     fontSize: 18,
     fontWeight: '400',
-    letterSpacing: 0.2,
+    letterSpacing: 0.15,
     textAlign: 'center',
   },
   constellation: {

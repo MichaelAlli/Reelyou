@@ -7,7 +7,12 @@ import {
 } from '@/components/skywrite/SkywriteOwnerSkySnapshotPanel';
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import { Fonts, Spacing } from '@/constants/theme';
-import { currentUser, orbitUsers } from '@/data/mockData';
+import { currentUser } from '@/data/mockData';
+import {
+  EXPLORE_DEMO_OWNER_IDS,
+  EXPLORE_DEMO_PROFILES,
+  isExploreDemoOwnerId,
+} from '@/explore/exploreDemoSkies';
 import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
@@ -22,7 +27,8 @@ interface MySkyExploreScrollFeedProps {
 
 function displayName(userId: string): string {
   if (userId === currentUser.id) return currentUser.name;
-  return orbitUsers.find((entry) => entry.id === userId)?.name ?? 'Sky friend';
+  if (isExploreDemoOwnerId(userId)) return EXPLORE_DEMO_PROFILES[userId].name;
+  return 'Sky friend';
 }
 
 function MySkyExploreScrollFeedComponent({
@@ -57,14 +63,25 @@ function MySkyExploreScrollFeedComponent({
       kind: 'connected' as const,
     }));
     const connectedSet = new Set(followingIds);
+    const demo = EXPLORE_DEMO_OWNER_IDS.filter((id) => !connectedSet.has(id)).map(
+      (ownerId) => ({
+        ownerId,
+        kind: 'demo' as const,
+      }),
+    );
     const suggested = nearbyAnchors
-      .filter((anchor) => anchor.tier === 'explore' && !connectedSet.has(anchor.ownerId))
-      .slice(0, 6)
+      .filter(
+        (anchor) =>
+          anchor.tier === 'explore' &&
+          !connectedSet.has(anchor.ownerId) &&
+          !isExploreDemoOwnerId(anchor.ownerId),
+      )
+      .slice(0, 3)
       .map((anchor) => ({
         ownerId: anchor.ownerId,
         kind: 'suggested' as const,
       }));
-    return [...connected, ...suggested];
+    return [...connected, ...demo, ...suggested];
   }, [listFollowingUserIds, nearbyAnchors]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {

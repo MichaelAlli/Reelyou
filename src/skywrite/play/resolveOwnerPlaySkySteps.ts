@@ -6,6 +6,7 @@ import { resolveFocusedSkyPlaySteps } from '@/skywrite/play/skywritePlayLogic';
 import { EMPTY_SKYWRITE_PLAY_SEQUENCE } from '@/skywrite/play/skywritePlayTypes';
 import type { SkywriteRecord } from '@/skywrite/types';
 import { currentUser } from '@/data/mockData';
+import { mergeExploreDemoPlaySkyRegistry } from '@/explore/exploreDemoSkies';
 
 export function resolveOwnerPlaySkySteps(input: {
   ownerId: string;
@@ -26,11 +27,14 @@ export function resolveOwnerPlaySkySteps(input: {
     posts.length ? posts : undefined,
   );
   if (!skyView) return [];
+  const registry = input.registry
+    ? mergeExploreDemoPlaySkyRegistry(input.registry, input.nowMs)
+    : undefined;
   return resolveFocusedSkyPlaySteps(
     skyView.stars,
     [...posts],
     EMPTY_SKYWRITE_PLAY_SEQUENCE.focusedSky,
     EMPTY_SKYWRITE_PLAY_SEQUENCE.singleBySkywriteId,
-    { playSkyRegistry: input.registry, nowMs: input.nowMs },
+    { playSkyRegistry: registry, nowMs: input.nowMs },
   );
 }

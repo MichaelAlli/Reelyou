@@ -15,6 +15,7 @@ import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
 import { loadSkyHeaderStyleId } from '@/profile/skyHeaderStylePersistence';
 import type { SkyHeaderStyleId } from '@/profile/skyHeaderStyleTypes';
 import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
+import { isExploreDemoOwnerId } from '@/explore/exploreDemoSkies';
 import { buildVisitorProfileHref } from '@/profile/visitorProfileRoute';
 import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
 import { resolveOwnerPlaySkySteps } from '@/skywrite/play/resolveOwnerPlaySkySteps';
@@ -24,7 +25,7 @@ interface SkywriteOwnerSkySnapshotPanelProps {
   ownerId: string;
   displayName: string;
   connectionStatus: SkyConnectionStatus;
-  kind: 'connected' | 'suggested';
+  kind: 'connected' | 'suggested' | 'demo';
   ownerSkywrites?: readonly SkywriteRecord[];
   joinedCommunityIds: readonly string[];
   guidanceActive: boolean;
@@ -86,11 +87,20 @@ function SkywriteOwnerSkySnapshotPanelComponent({
       ? SkywritePlayCopy.exploreFullSkySelf
       : SkywritePlayCopy.exploreFullSkyVisitor(displayName.split(' ')[0] ?? displayName);
 
-  const metaLabel = kind === 'connected' ? 'Connected Sky' : 'Suggested Sky';
+  const metaLabel =
+    kind === 'demo'
+      ? 'Demo Sky'
+      : kind === 'connected'
+        ? 'Connected Sky'
+        : 'Suggested Sky';
 
   const openProfile = () => {
     if (ownerId === currentUser.id) {
       router.push('/(tabs)/profile' as never);
+      return;
+    }
+    if (isExploreDemoOwnerId(ownerId)) {
+      router.push(`/public-sky?id=${encodeURIComponent(ownerId)}` as never);
       return;
     }
     router.push(buildVisitorProfileHref(ownerId) as never);
@@ -154,7 +164,7 @@ function SkywriteOwnerSkySnapshotPanelComponent({
               skywrites={[...ownerPosts]}
               joinedCommunityIds={[...joinedCommunityIds]}
               guidanceActive={guidanceActive}
-              showIdentityStar
+              showIdentityStar={false}
               directIdentityProfileNavigation
               allowTapDuringGesture
               focusedSkywriteImmersiveTap={false}
