@@ -20,6 +20,7 @@ export async function ensureSkywriteVideoThumbnail(
   }
 }
 
+/** Publish keeps the original video file; framing is display metadata on the record. */
 export async function prepareSkywriteDraftForPublish(draft: SkywriteDraft): Promise<SkywriteDraft> {
   if (!draft.media.video?.uri) return draft;
   const video = await ensureSkywriteVideoThumbnail(draft.media.video);

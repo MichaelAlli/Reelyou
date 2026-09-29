@@ -27,6 +27,11 @@ export interface SkywriteVideoMedia {
   durationMs?: number;
   /** Square list preview — generated at publish when possible. */
   thumbnailUri?: string;
+  /** fit = full frame visible; fill = cover stage with pannable overflow. */
+  stageFit?: 'fit' | 'fill';
+  /** Normalized pan from center (-1..1) when stageFit is fill. */
+  framingOffsetX?: number;
+  framingOffsetY?: number;
 }
 
 export interface SkywriteAudioMedia {

@@ -2,6 +2,11 @@ import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { SkywriteFramedVideoLayerRef } from '@/components/skywrite/SkywriteFramedVideoLayer';
+import {
+  SkywriteFramedVideoLayer,
+  SkywriteFramingToolbar,
+} from '@/components/skywrite/SkywriteFramedVideoLayer';
 import {
   Pressable,
   ScrollView,
@@ -55,6 +60,8 @@ interface SkywriteImmersiveMomentViewProps {
   tapToPlayPrompt?: boolean;
   onTapToPlayContinue?: () => void;
   onToggleSequencePause?: () => void;
+  /** Compose / preview before post — pan framing + fit/fill. */
+  allowVideoFramingEdit?: boolean;
 }
 
 function ProgressSegments({ index, count }: { index: number; count: number }) {
@@ -99,10 +106,13 @@ function SkywriteImmersiveMomentViewComponent({
   tapToPlayPrompt = false,
   onTapToPlayContinue,
   onToggleSequencePause,
+  allowVideoFramingEdit = false,
 }: SkywriteImmersiveMomentViewProps) {
   const insets = useSafeAreaInsets();
   const videoActive = stepKind === 'video' && Boolean(record.media.video?.uri);
   const playbackMedia = mediaMix ?? record.media;
+  const displayVideo = playbackMedia.video ?? record.media.video;
+  const framingLayerRef = useRef<SkywriteFramedVideoLayerRef>(null);
   const videoPlayback = useSkywriteImmersiveVideoPlayback(record, videoActive, playbackMedia, {
     onAutoplayBlocked: onVideoAutoplayBlocked,
   });
@@ -162,6 +172,16 @@ function SkywriteImmersiveMomentViewComponent({
     Boolean(onMediaMixChange) &&
     stepKind === 'video' &&
     (Boolean(playbackMedia.video?.uri) || Boolean(playbackMedia.audio?.uri));
+
+  const canEditFraming = allowVideoFramingEdit && Boolean(onMediaMixChange) && Boolean(displayVideo);
+
+  const patchDisplayVideo = (patch: Partial<NonNullable<typeof displayVideo>>) => {
+    if (!displayVideo || !onMediaMixChange) return;
+    onMediaMixChange({
+      ...playbackMedia,
+      video: { ...displayVideo, ...patch },
+    });
+  };
 
   const handlePrevious = () => {
     onBeforeStepChange?.();
@@ -242,16 +262,21 @@ function SkywriteImmersiveMomentViewComponent({
   return (
     <View style={styles.immersiveRoot}>
       <View style={styles.immersiveStage} onLayout={onStageLayout}>
-        {stepKind === 'video' && record.media.video?.uri ? (
-          <Video
-            ref={videoPlayback.videoRef}
-            style={skywriteVideoElementStyle()}
-            source={{ uri: record.media.video.uri }}
-            useNativeControls={false}
-            resizeMode={ResizeMode.CONTAIN}
-            isLooping={false}
-            isMuted={false}
-            progressUpdateIntervalMillis={250}
+        {stepKind === 'video' && displayVideo?.uri ? (
+          <SkywriteFramedVideoLayer
+            ref={framingLayerRef}
+            video={displayVideo}
+            aspectRatio={videoAspect}
+            editable={canEditFraming}
+            onVideoPatch={patchDisplayVideo}
+            videoRef={videoPlayback.videoRef}
+            isPlaying={videoPlayback.isPlaying}
+            onPauseForAdjust={async () => {
+              if (videoPlayback.isPlaying) await videoPlayback.togglePlayPause();
+            }}
+            onResumeAfterAdjust={async (wasPlaying) => {
+              if (wasPlaying) await videoPlayback.togglePlayPause();
+            }}
             onPlaybackStatusUpdate={(status) => {
               videoPlayback.onPlaybackStatusUpdate(status);
               if (status.isLoaded && status.didJustFinish) {
@@ -323,7 +348,16 @@ function SkywriteImmersiveMomentViewComponent({
           </Text>
         ) : null}
 
-        {stepKind === 'video' && record.media.video?.uri ? (
+        {stepKind === 'video' && displayVideo?.uri ? (
+          <>
+            {canEditFraming ? (
+              <SkywriteFramingToolbar
+                video={displayVideo}
+                editable
+                onVideoPatch={patchDisplayVideo}
+                onRequestAdjust={() => framingLayerRef.current?.beginAdjust()}
+              />
+            ) : null}
           <View style={styles.videoToolbar}>
             <Pressable
               style={styles.playChip}
@@ -334,7 +368,7 @@ function SkywriteImmersiveMomentViewComponent({
             <Text style={styles.timeLabel}>
               {formatSkywriteAudioDuration(videoPlayback.positionMs)} /{' '}
               {formatSkywriteAudioDuration(
-                videoPlayback.durationMs || record.media.video.durationMs,
+                videoPlayback.durationMs || displayVideo.durationMs,
               )}
             </Text>
             {showMixSheet ? (
@@ -353,6 +387,7 @@ function SkywriteImmersiveMomentViewComponent({
               </Pressable>
             ) : null}
           </View>
+          </>
         ) : null}
 
         {stepKind === 'audio' && audioUri ? (

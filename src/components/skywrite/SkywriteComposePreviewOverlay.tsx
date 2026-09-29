@@ -125,6 +125,7 @@ export function SkywriteComposePreviewOverlay({
             mediaMix={draft.media}
             onMediaMixChange={onDraftMediaChange}
             showAudioMixControls
+            allowVideoFramingEdit
             bottomSlot={postActions}
           />
         </SafeAreaView>

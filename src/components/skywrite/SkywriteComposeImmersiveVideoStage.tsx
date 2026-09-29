@@ -1,6 +1,5 @@
-import { ResizeMode, Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -10,9 +9,14 @@ import {
 } from 'react-native';
 
 import { SkywriteAudioMixBottomSheet } from '@/components/skywrite/SkywriteAudioMixBottomSheet';
+import {
+  SkywriteFramedVideoLayer,
+  SkywriteFramingToolbar,
+  type SkywriteFramedVideoLayerRef,
+} from '@/components/skywrite/SkywriteFramedVideoLayer';
 import { Fonts } from '@/constants/theme';
 import { buildSkywritePreviewRecord, createEmptySkywriteDraft } from '@/skywrite/draft';
-import { skywriteVideoElementStyle } from '@/skywrite/media/skywriteVideoLayout';
+import { skywriteVideoAspectRatio } from '@/skywrite/media/skywriteVideoLayout';
 import { useSkywriteImmersiveVideoPlayback } from '@/skywrite/media/useSkywriteImmersiveVideoPlayback';
 import { formatSkywriteAudioDuration } from '@/skywrite/media/skywriteMediaPreviewUtils';
 import type { SkywriteMedia, SkywriteVideoMedia } from '@/skywrite/types';
@@ -39,6 +43,7 @@ function SkywriteComposeImmersiveVideoStageComponent({
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const stageHeight = Math.max(320, Math.round(screenHeight * 0.58));
   const [mixOpen, setMixOpen] = useState(false);
+  const framingRef = useRef<SkywriteFramedVideoLayerRef>(null);
 
   const previewRecord = useMemo(() => {
     const draft = { ...createEmptySkywriteDraft(), media };
@@ -46,7 +51,14 @@ function SkywriteComposeImmersiveVideoStageComponent({
   }, [media]);
 
   const videoPlayback = useSkywriteImmersiveVideoPlayback(previewRecord, true, media);
-  const { handleVideoLoad, videoRef } = videoPlayback;
+  const { handleVideoLoad, videoRef, naturalSize } = videoPlayback;
+
+  const aspectRatio = useMemo(() => {
+    if (naturalSize?.width && naturalSize.height) {
+      return naturalSize.width / naturalSize.height;
+    }
+    return skywriteVideoAspectRatio(video.width, video.height);
+  }, [naturalSize, video.height, video.width]);
 
   const onLoad = useCallback(
     (status: { isLoaded?: boolean; naturalSize?: { width: number; height: number } }) => {
@@ -61,24 +73,32 @@ function SkywriteComposeImmersiveVideoStageComponent({
     [handleVideoLoad, onDimensionsResolved],
   );
 
+  const patchVideo = (patch: Partial<SkywriteVideoMedia>) => {
+    if (!media.video) return;
+    onMediaChange({ ...media, video: { ...media.video, ...patch } });
+  };
+
   const hasMix = Boolean(media.video?.uri) || Boolean(media.audio?.uri);
 
   return (
     <View style={[styles.wrap, { height: stageHeight, marginHorizontal: -edgeBleed, width: screenWidth }]}>
-      <View style={styles.stage}>
-        <Video
-          ref={videoRef}
-          style={skywriteVideoElementStyle()}
-          source={{ uri: video.uri }}
-          useNativeControls={false}
-          resizeMode={ResizeMode.CONTAIN}
-          isLooping={false}
-          isMuted={false}
-          shouldPlay={false}
-          onLoad={onLoad}
-          onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
-        />
-      </View>
+      <SkywriteFramedVideoLayer
+        ref={framingRef}
+        video={video}
+        aspectRatio={aspectRatio}
+        editable
+        onVideoPatch={patchVideo}
+        videoRef={videoRef}
+        isPlaying={videoPlayback.isPlaying}
+        onPauseForAdjust={async () => {
+          if (videoPlayback.isPlaying) await videoPlayback.togglePlayPause();
+        }}
+        onResumeAfterAdjust={async (wasPlaying) => {
+          if (wasPlaying) await videoPlayback.togglePlayPause();
+        }}
+        onLoad={onLoad}
+        onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
+      />
 
       <LinearGradient
         colors={['rgba(5, 5, 8, 0.72)', 'transparent']}
@@ -89,6 +109,12 @@ function SkywriteComposeImmersiveVideoStageComponent({
         colors={['transparent', 'rgba(5, 5, 8, 0.88)']}
         style={styles.bottomGradient}
         pointerEvents="box-none">
+        <SkywriteFramingToolbar
+          video={video}
+          editable
+          onVideoPatch={patchVideo}
+          onRequestAdjust={() => framingRef.current?.beginAdjust()}
+        />
         <View style={styles.bottomRow}>
           <Pressable
             style={styles.playChip}
@@ -136,25 +162,24 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 12,
   },
-  stage: {
-    ...StyleSheet.absoluteFill,
-  },
   topGradient: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     height: 72,
+    zIndex: 2,
   },
   bottomGradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    minHeight: 96,
+    minHeight: 120,
     justifyContent: 'flex-end',
     paddingHorizontal: 12,
     paddingBottom: 12,
+    zIndex: 2,
   },
   bottomRow: {
     flexDirection: 'row',
