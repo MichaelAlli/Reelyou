@@ -29,6 +29,9 @@ import { HomeCopy } from '@/constants/homeCopy';
 import { TabBarHeight } from '@/constants/theme';
 import { HomeLayout, HomeMotion, measureHomePadH } from '@/constants/homeLayout';
 import { consumeHomeArrivalPending } from '@/home';
+import { NavigationTipCallout } from '@/navigationTips/NavigationTipCallout';
+import { navigationTipMessage } from '@/navigationTips/navigationTipsCopy';
+import { useNavigationTip } from '@/navigationTips/useNavigationTip';
 import {
   showTodayFocusQuickPreview,
   useTodayFocusHomePresentation,
@@ -82,6 +85,18 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
     if (calmEntry) return false;
     return consumeHomeArrivalPending();
   }, [calmEntry]);
+
+  const homeFocusTip = useNavigationTip('home_today_focus', dismissReady && !isArrival);
+
+  const handleDismissHomeFocusCard = useCallback(() => {
+    homeFocusTip.dismissIfLearned();
+    dismissHomeCard();
+  }, [dismissHomeCard, homeFocusTip]);
+
+  const openTodayFocusWithTip = useCallback(() => {
+    homeFocusTip.dismissIfLearned();
+    openTodayFocus();
+  }, [homeFocusTip, openTodayFocus]);
 
   const screenOp = useSharedValue(isArrival ? 0 : 1);
   const greetingOp = useSharedValue(isArrival ? 0 : 1);
@@ -207,7 +222,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
               onOpenMenu={openMenu}
               onOpenSignals={openSignals}
               showTodayFocusQuickAccess={showFocusQuickAccess}
-              onOpenTodayFocus={openTodayFocus}
+              onOpenTodayFocus={openTodayFocusWithTip}
               onTodayFocusLongPress={onTodayFocusLongPress}
             />
             <HomeArrivalHeader
@@ -222,10 +237,16 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
             <HomeGuidingLightSection animatedStyle={zone2Style} />
             <HomeStarpathCard animatedStyle={zone2Style} />
             <HomeEmergingConstellationSection animatedStyle={zone3Style} />
+            {homeFocusTip.visible ? (
+              <NavigationTipCallout
+                message={navigationTipMessage('home_today_focus')}
+                onDismiss={homeFocusTip.dismiss}
+              />
+            ) : null}
             {showFocusCard ? (
               <HomeTodayFocusHomeSection
                 animatedStyle={zone4FocusStyle}
-                onDismiss={dismissHomeCard}
+                onDismiss={handleDismissHomeFocusCard}
               />
             ) : null}
           </ScrollView>

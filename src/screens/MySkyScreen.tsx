@@ -64,6 +64,9 @@ import {
   resolveEffectiveExploreEnabled,
 } from '@/mySky/discoveryPreferencePolicy';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
+import { NavigationTipCallout } from '@/navigationTips/NavigationTipCallout';
+import { navigationTipMessage } from '@/navigationTips/navigationTipsCopy';
+import { useNavigationTip } from '@/navigationTips/useNavigationTip';
 import { useOnboarding } from '@/onboarding';
 
 export function MySkyScreen() {
@@ -261,6 +264,10 @@ export function MySkyScreen() {
   const preExploreViewportRef = useRef<MySkyViewportSnapshot | null>(null);
   const exploreScrollOffsetRef = useRef(0);
   const exploreScrollActive = mySkyExploreEnabled && !cleanSkyActive;
+  const mySkyNavTip = useNavigationTip(
+    'my_sky_overview',
+    joinedGroupsNavReady && !cleanSkyActive && !exploreScrollActive,
+  );
 
   const joinedCommunityIds = useMemo(
     () => communities.joined.map((entry) => entry.id),
@@ -471,6 +478,7 @@ export function MySkyScreen() {
   const handleToggleExplore = useCallback(
     (enabled: boolean) => {
       if (enabled) {
+        mySkyNavTip.dismissIfLearned();
         preExploreViewportRef.current = liveViewport;
         setMySkyExploreEnabled(true);
         return;
@@ -483,7 +491,7 @@ export function MySkyScreen() {
         setJumpSnapshot(null);
       }
     },
-    [liveViewport, setMySkyExploreEnabled, setMySkyViewport],
+    [liveViewport, mySkyNavTip, setMySkyExploreEnabled, setMySkyViewport],
   );
 
   const openConstellationDetail = useCallback(
@@ -593,6 +601,13 @@ export function MySkyScreen() {
                 onToggleExplore={handleToggleExplore}
                 onOpenSearch={() => setSearchVisible(true)}
               />
+              {mySkyNavTip.visible ? (
+                <NavigationTipCallout
+                  compact
+                  message={navigationTipMessage('my_sky_overview')}
+                  onDismiss={mySkyNavTip.dismiss}
+                />
+              ) : null}
             </View>
 
             <View style={styles.layerRow}>

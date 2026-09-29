@@ -103,14 +103,16 @@ function SpatialFocusHostComponent({
   const onLeftEdge = useCallback(() => {
     if (disabled) return;
     logSpatialFocusLeftEdgeTap();
-    navigateLeft();
-  }, [disabled, navigateLeft]);
+    const moved = navigateLeft();
+    if (moved) dismissHint();
+  }, [disabled, dismissHint, navigateLeft]);
 
   const onRightEdge = useCallback(() => {
     if (disabled) return;
     logSpatialFocusRightEdgeTap();
-    navigateRight();
-  }, [disabled, navigateRight]);
+    const moved = navigateRight();
+    if (moved) dismissHint();
+  }, [disabled, dismissHint, navigateRight]);
 
   if (layoutWidth <= 0 || layoutHeight <= 0) {
     return overlayMode ? null : <>{children}</>;
@@ -169,10 +171,31 @@ function SpatialFocusHostComponent({
         />
       ) : null}
       {hintVisible && hintSurface ? (
-        <View style={[styles.hintWrap, styles.hintLayer]} pointerEvents="box-none">
-          <Pressable onPress={dismissHint} style={styles.hintCard}>
-            <Text style={styles.hintText}>{spatialFocusHintCopy(hintSurface)}</Text>
-          </Pressable>
+        <View
+          style={[
+            styles.hintWrap,
+            styles.hintLayer,
+            {
+              top: zoneTop + Math.round(zoneHeight * 0.36),
+              bottom: undefined,
+            },
+          ]}
+          pointerEvents="box-none">
+          <View style={styles.hintCard}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss edge navigation tip"
+              onPress={dismissHint}
+              hitSlop={10}
+              style={({ pressed }) => [styles.hintClose, pressed && styles.hintClosePressed]}>
+              <Text style={styles.hintCloseGlyph} accessibilityElementsHidden>
+                ×
+              </Text>
+            </Pressable>
+            <Text style={styles.hintText} maxFontSizeMultiplier={1.35}>
+              {spatialFocusHintCopy(hintSurface)}
+            </Text>
+          </View>
         </View>
       ) : null}
       {showFloatingNav ? (
@@ -250,23 +273,42 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 12,
     alignItems: 'center',
   },
   hintCard: {
-    maxWidth: 320,
+    width: '100%',
+    maxWidth: 300,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(8, 10, 22, 0.82)',
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(8, 10, 22, 0.9)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(232, 200, 114, 0.28)',
+    borderColor: 'rgba(232, 200, 114, 0.32)',
+  },
+  hintClose: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  hintClosePressed: { opacity: 0.85 },
+  hintCloseGlyph: {
+    fontFamily: Fonts.sans,
+    fontSize: 18,
+    lineHeight: 20,
+    color: 'rgba(248, 244, 236, 0.72)',
   },
   hintText: {
     fontFamily: Fonts.sans,
     fontSize: 12,
-    lineHeight: 16,
-    color: 'rgba(248, 244, 236, 0.88)',
+    lineHeight: 17,
+    color: 'rgba(248, 244, 236, 0.9)',
     textAlign: 'center',
+    paddingHorizontal: 18,
   },
 });

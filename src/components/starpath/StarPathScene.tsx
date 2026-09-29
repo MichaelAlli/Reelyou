@@ -40,6 +40,9 @@ import { useStarPathWorldGraph } from '@/starpath/useStarPathWorldGraph';
 import type { StarPathViewportWindow } from '@/starpath/starpathWorldVisibility';
 import { saveStarPathViewport } from '@/starpath/starpathViewportPersistence';
 import { buildStarPathFocusCandidates } from '@/spatialFocus/adapters/starPathFocusAdapter';
+import { NavigationTipCallout } from '@/navigationTips/NavigationTipCallout';
+import { navigationTipMessage } from '@/navigationTips/navigationTipsCopy';
+import { useNavigationTip } from '@/navigationTips/useNavigationTip';
 import { SpatialFocusHost } from '@/spatialFocus/SpatialFocusHost';
 
 interface StarPathSceneProps {
@@ -64,6 +67,7 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
   const viewportWidth = sceneLayout.width > 0 ? sceneLayout.width : width;
   const viewportHeight = sceneLayout.height > 0 ? sceneLayout.height : height;
   const experience = useStarPathExperience();
+  const starpathNavTip = useNavigationTip('starpath_intro', experience.ready);
 
   const metrics = useMemo(() => {
     const base = createStarPathLayoutMetrics(width, height);
@@ -147,9 +151,10 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
       if (!entry) return;
       const signalNodeId = dynamicNode?.sourceId ?? id;
       experience.recordInteraction(signalNodeId, entry.branchId, 'viewed', 'node_tap');
+      starpathNavTip.dismissIfLearned();
       setDetailNodeId(id);
     },
-    [experience],
+    [experience, starpathNavTip],
   );
 
   const onAvatarPress = useCallback(() => {
@@ -460,6 +465,15 @@ function StarPathSceneComponent({ visualMode = 'night', onNextStepPress }: StarP
       ) : null}
 
       <View style={styles.overlay} pointerEvents="box-none">
+        {starpathNavTip.visible && !showGuideIntroPopup ? (
+          <View style={[styles.navTipSlot, { top: StarPathSpacing.guideTop + 52 }]} pointerEvents="box-none">
+            <NavigationTipCallout
+              compact
+              message={navigationTipMessage('starpath_intro')}
+              onDismiss={starpathNavTip.dismiss}
+            />
+          </View>
+        ) : null}
         <View
           style={[styles.guideSlot, { top: StarPathSpacing.guideTop }]}
           pointerEvents="box-none"
@@ -658,5 +672,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: StarPathSpacing.guideLeft,
     zIndex: 50,
+  },
+  navTipSlot: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 49,
+    paddingHorizontal: 12,
   },
 });

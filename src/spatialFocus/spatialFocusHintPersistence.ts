@@ -27,3 +27,12 @@ export function spatialFocusHintCopy(surface: SpatialFocusHintSurface): string {
   }
   return 'Tap the edges to move between nearby stars.';
 }
+
+export async function clearSpatialFocusHints(): Promise<void> {
+  const surfaces: SpatialFocusHintSurface[] = ['skywrite', 'mysky', 'starpath'];
+  try {
+    await Promise.all(surfaces.map((surface) => AsyncStorage.removeItem(`${KEY_PREFIX}${surface}`)));
+  } catch {
+    // non-critical
+  }
+}

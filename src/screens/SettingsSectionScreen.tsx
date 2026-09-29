@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,6 +8,8 @@ import { Fonts } from '@/constants/theme';
 import type { WhoCanMessage } from '@/preferences/userPreferencesTypes';
 import { MySkyPrivacyControls } from '@/components/my-sky/MySkyPrivacyControls';
 import { MySkyCopy } from '@/constants/mySkyCopy';
+import { NavigationTipsCopy } from '@/navigationTips/navigationTipsCopy';
+import { resetAllNavigationGuidance } from '@/navigationTips/navigationTipsPersistence';
 import { useOnboarding } from '@/onboarding';
 
 export function SettingsSectionScreen() {
@@ -14,6 +17,7 @@ export function SettingsSectionScreen() {
   const router = useRouter();
   const { preferences, updatePreferences } = useReelyouConnect();
   const onboarding = useOnboarding();
+  const [tipsResetAck, setTipsResetAck] = useState(false);
 
   const title =
     section === 'messaging'
@@ -238,10 +242,28 @@ export function SettingsSectionScreen() {
         ) : null}
 
         {section === 'help' ? (
-          <Text style={styles.body}>
-            REELYOU Beta — for support, visit help resources from your account team. Signal Center and Messages use
-            local fixture data until backend connects.
-          </Text>
+          <>
+            <Text style={styles.body}>
+              REELYOU Beta — for support, visit help resources from your account team. Signal Center and Messages use
+              local fixture data until backend connects.
+            </Text>
+            <Pressable
+              style={styles.row}
+              onPress={() => {
+                void resetAllNavigationGuidance().then(() => {
+                  setTipsResetAck(true);
+                  setTimeout(() => setTipsResetAck(false), 3200);
+                });
+              }}>
+              <View style={styles.rowTextBlock}>
+                <Text style={styles.rowTextPlain}>{NavigationTipsCopy.replayTips}</Text>
+                <Text style={styles.rowHint}>{NavigationTipsCopy.replayTipsHint}</Text>
+              </View>
+            </Pressable>
+            {tipsResetAck ? (
+              <Text style={styles.ackText}>Tips will show again the next time you open each area.</Text>
+            ) : null}
+          </>
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -299,6 +321,15 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(167,139,250,0.15)',
   },
   rowText: { fontFamily: Fonts.sans, color: '#F5F0FF', textTransform: 'capitalize' },
+  rowTextPlain: { fontFamily: Fonts.sans, color: '#F5F0FF', fontSize: 15 },
+  rowTextBlock: { flex: 1, gap: 4, paddingRight: 8 },
+  rowHint: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(235,228,248,0.55)',
+  },
   check: { color: '#E8C872' },
   body: { fontFamily: Fonts.sans, color: 'rgba(235,228,248,0.75)', lineHeight: 20, fontSize: 14 },
+  ackText: { fontFamily: Fonts.sans, fontSize: 13, lineHeight: 18, color: '#E8C872' },
 });

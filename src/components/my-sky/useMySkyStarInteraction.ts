@@ -33,6 +33,8 @@ export interface MySkyStarInteractionOptions {
   focusedSkywriteImmersiveTap?: boolean;
   /** Skip identity bubble — open profile directly (Skywrite Sky header / identity star). */
   directIdentityProfileNavigation?: boolean;
+  /** Called when a post star opens its Skywrite moment. */
+  onSkywriteStarOpened?: () => void;
 }
 
 export function useMySkyStarInteraction({
@@ -49,6 +51,7 @@ export function useMySkyStarInteraction({
   isGestureBlocked,
   focusedSkywriteImmersiveTap = false,
   directIdentityProfileNavigation = false,
+  onSkywriteStarOpened,
 }: MySkyStarInteractionOptions) {
   const router = useRouter();
   const { stars, nodes, patterns, skyOwner, identityStar } = view;
@@ -168,6 +171,7 @@ export function useMySkyStarInteraction({
           publicSkyOwnerId,
           skyOwnerId: skyOwner.id,
         });
+        onSkywriteStarOpened?.();
         return;
       }
       openInsightForStar(star);
@@ -175,6 +179,7 @@ export function useMySkyStarInteraction({
     [
       closeInsightBubble,
       focusedSkywriteImmersiveTap,
+      onSkywriteStarOpened,
       openInsightForStar,
       publicSkyOwnerId,
       resolveNavigationTarget,

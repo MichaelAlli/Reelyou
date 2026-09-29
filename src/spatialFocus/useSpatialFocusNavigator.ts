@@ -31,7 +31,7 @@ export function useSpatialFocusNavigator(
   );
 
   const step = useCallback(
-    (direction: 'left' | 'right') => {
+    (direction: 'left' | 'right'): boolean => {
       const result = selectNextSpatialFocusCandidate(
         direction,
         candidates,
@@ -41,10 +41,11 @@ export function useSpatialFocusNavigator(
       if (result.nextId) {
         setSelectedSpatialObjectId(result.nextId);
         logSpatialFocusTarget(result.nextId);
-        return;
+        return true;
       }
       logSpatialFocusTarget(null);
       setNoCandidatePulse((tick) => tick + 1);
+      return false;
     },
     [candidates, reference, selectedSpatialObjectId],
   );

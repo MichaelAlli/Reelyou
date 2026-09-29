@@ -35,6 +35,9 @@ import {
 import { useSkywritePlaySequence } from '@/skywrite/play/useSkywritePlaySequence';
 import { useSharedSky } from '@/sharedSky/useSharedSky';
 import { buildFocusedSkywriteFocusCandidates } from '@/spatialFocus/adapters/mySkyStarFocusAdapter';
+import { NavigationTipCallout } from '@/navigationTips/NavigationTipCallout';
+import { navigationTipMessage } from '@/navigationTips/navigationTipsCopy';
+import { useNavigationTip } from '@/navigationTips/useNavigationTip';
 import { SpatialFocusHost } from '@/spatialFocus/SpatialFocusHost';
 
 /** LOCKED FOCUSED SKYWRITE SKY — canonical shared Sky view; preserve stars, launcher, and arrival overlay flow unless explicitly authorized. */
@@ -112,6 +115,10 @@ export function FocusedSkywriteScreen() {
 
   const arrivalOverlayActive = skyArrivalHandoff?.skywriteStatus === 'animating';
   const arrivalLandingPhase = skyArrivalHandoff?.skywriteStatus === 'landed';
+  const skywriteNavTip = useNavigationTip(
+    'skywrite_basics',
+    !arrivalOverlayActive && !arrivalLandingPhase,
+  );
   const freezeStarField =
     (arrivalOverlayActive || arrivalLandingPhase) &&
     Boolean(skyArrivalHandoff?.renderStarsSnapshot);
@@ -186,12 +193,23 @@ export function FocusedSkywriteScreen() {
         </View>
 
         <PlaySkyCue
-          onPress={openPlaySky}
+          onPress={() => {
+            skywriteNavTip.dismissIfLearned();
+            openPlaySky();
+          }}
           disabled={!canPlaySky}
           disabledHint={SkywritePlayCopy.playSkyNoRecent}
           showEditSequence={hasSkywriteStars}
           onEditSequence={() => setSequenceEditorOpen(true)}
         />
+
+        {skywriteNavTip.visible ? (
+          <NavigationTipCallout
+            compact
+            message={navigationTipMessage('skywrite_basics')}
+            onDismiss={skywriteNavTip.dismiss}
+          />
+        ) : null}
 
         <ScrollView
           style={styles.scroll}
@@ -216,6 +234,7 @@ export function FocusedSkywriteScreen() {
                 layoutWidth={canvasWidth}
                 layoutHeight={panelHeight}
                 hintSurface={index === 0 ? 'skywrite' : undefined}
+                bottomInset={index === 0 ? 72 : 0}
                 disabled={
                   index !== 0 ||
                   arrivalOverlayActive ||
@@ -271,6 +290,7 @@ export function FocusedSkywriteScreen() {
                   onSpatialFocusBlockingChange={
                     index === 0 ? setSpatialFocusBlocked : undefined
                   }
+                  onSkywriteStarOpened={index === 0 ? skywriteNavTip.dismissIfLearned : undefined}
                 />
               </SpatialFocusHost>
             </View>
