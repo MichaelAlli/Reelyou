@@ -109,6 +109,7 @@ import {
   type PublishSkywriteResult,
 } from '@/skywrite/publish/publishSkywriteDraft';
 import { scheduleSkywritePostPublishEffects } from '@/skywrite/postPublish/scheduleSkywritePostPublishEffects';
+import { setTodayFocusHomeCollapsed } from '@/todayFocus/todayFocusHomeCollapse';
 import { stripSkywriteRenderableContent } from '@/skywrite/lifecycle/skywriteContentLifecycle';
 import {
   buildAroundYourSkyHomeFeed,
@@ -577,7 +578,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         reflectionUpdatedAt: focusChanged ? null : current.reflectionUpdatedAt,
       };
       void saveTodayFocus(next);
-      clearTodayFocusDismiss();
+      setTodayFocusHomeCollapsed(true, getLocalDateKey());
       notifyTodayFocusChanged(next);
       recordSkyEvolution(
         createEvolutionEntry('FOCUS_SELECTED', {
@@ -600,6 +601,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       };
       void saveTodayFocus(next);
       const dateKey = next.dateKey ?? getLocalDateKey();
+      setTodayFocusHomeCollapsed(true, dateKey);
       recordSkyEvolution(
         createEvolutionEntry('REFLECTION_ADDED', {
           nodeId: `focus-reflection-${dateKey}`,

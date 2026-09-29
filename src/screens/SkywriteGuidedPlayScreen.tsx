@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -12,6 +12,7 @@ import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
 import { resolveSkywriteViewerAccess } from '@/skywrite/access/resolveSkywriteViewerAccess';
 import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPreviewScope';
+import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
 import {
   resolveFocusedSkyPlaySteps,
   resolveStepsForSkywrite,
@@ -20,6 +21,8 @@ import { loadSkywritePlaySequence } from '@/skywrite/play/skywritePlayPersistenc
 import type { SkywritePlayScope, SkywritePlayStep } from '@/skywrite/play/skywritePlayTypes';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
+
+const STILL_DWELL_MS = 8500;
 
 export function SkywriteGuidedPlayScreen() {
   const router = useRouter();
@@ -33,12 +36,17 @@ export function SkywriteGuidedPlayScreen() {
   const { skywrites, mySkyView } = useOnboarding();
   const { messages, skyFollowGraph } = useReelyouConnect();
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
+  const { registry, ready: registryReady, repost } = usePlaySkySequenceRegistry();
   const audioPreview = useOverlayAudioPreviewScope(true);
-  const [sequenceReady, setSequenceReady] = useState(false);
+  const [stepsLoaded, setStepsLoaded] = useState(false);
   const [steps, setSteps] = useState<SkywritePlayStep[]>([]);
   const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [needsTapToPlay, setNeedsTapToPlay] = useState(false);
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (!registryReady) return;
     let mounted = true;
     void loadSkywritePlaySequence().then((config) => {
       if (!mounted) return;
@@ -65,10 +73,11 @@ export function SkywriteGuidedPlayScreen() {
             skywrites,
             config.focusedSky,
             config.singleBySkywriteId,
+            { playSkyRegistry: registry },
           ),
         );
       }
-      setSequenceReady(true);
+      setStepsLoaded(true);
     });
     return () => {
       mounted = false;
@@ -79,6 +88,8 @@ export function SkywriteGuidedPlayScreen() {
     messages.blockedUserIds,
     mySkyView.stars,
     playScope,
+    registry,
+    registryReady,
     skyFollowGraph,
     skywrites,
   ]);
@@ -101,12 +112,33 @@ export function SkywriteGuidedPlayScreen() {
 
   const previewId = current ? `guided-play-${current.skywriteId}-${current.stepId}` : '';
   const audioPlaying = audioPreview.isPreviewPlaying(previewId);
-  const autoPlayVideo = autoplay === '1' && current?.kind === 'video';
+  const shouldAutoplayVideo =
+    !paused &&
+    !needsTapToPlay &&
+    (autoplay === '1' || playScope === 'focused') &&
+    current?.kind === 'video';
 
   const handleExit = useCallback(() => {
     void audioPreview.stopAll();
     router.back();
   }, [audioPreview, router]);
+
+  const advance = useCallback(() => {
+    void audioPreview.stopAll();
+    setIndex((value) => Math.min(value + 1, steps.length - 1));
+  }, [audioPreview, steps.length]);
+
+  const goNext = useCallback(() => {
+    void audioPreview.stopAll();
+    setNeedsTapToPlay(false);
+    setIndex((value) => Math.min(value + 1, steps.length - 1));
+  }, [audioPreview, steps.length]);
+
+  const goPrevious = useCallback(() => {
+    void audioPreview.stopAll();
+    setNeedsTapToPlay(false);
+    setIndex((value) => Math.max(value - 1, 0));
+  }, [audioPreview]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -117,17 +149,47 @@ export function SkywriteGuidedPlayScreen() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleExit]);
 
-  const goNext = useCallback(() => {
-    void audioPreview.stopAll();
-    setIndex((value) => Math.min(value + 1, steps.length - 1));
-  }, [audioPreview, steps.length]);
+  useEffect(() => {
+    startedRef.current = false;
+    setNeedsTapToPlay(false);
+  }, [index, current?.stepId]);
 
-  const goPrevious = useCallback(() => {
-    void audioPreview.stopAll();
-    setIndex((value) => Math.max(value - 1, 0));
-  }, [audioPreview]);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || autoplay !== '1' || paused) return;
+    if (steps.length === 0) return;
+    setNeedsTapToPlay(true);
+  }, [autoplay, paused, steps.length]);
 
-  if (!sequenceReady) {
+  useEffect(() => {
+    if (!current || paused || needsTapToPlay) return;
+    if (current.kind === 'text' || current.kind === 'photo') {
+      const timer = setTimeout(() => advance(), STILL_DWELL_MS);
+      return () => clearTimeout(timer);
+    }
+    if (current.kind === 'audio' && record?.media.audio?.uri && !audioPlaying) {
+      void audioPreview.togglePreview(previewId, record.media.audio.uri);
+    }
+    return undefined;
+  }, [
+    advance,
+    audioPlaying,
+    audioPreview,
+    current,
+    needsTapToPlay,
+    paused,
+    previewId,
+    record?.media.audio?.uri,
+  ]);
+
+  useEffect(() => {
+    if (!audioPlaying || paused || !current || current.kind !== 'audio') return;
+    const duration = record?.media.audio?.durationMs ?? 0;
+    if (duration <= 0) return;
+    const timer = setTimeout(() => advance(), duration + 400);
+    return () => clearTimeout(timer);
+  }, [advance, audioPlaying, current, paused, record?.media.audio?.durationMs]);
+
+  if (!stepsLoaded || !registryReady) {
     return (
       <View style={styles.root}>
         <HomeBackdrop />
@@ -139,11 +201,35 @@ export function SkywriteGuidedPlayScreen() {
   }
 
   if (steps.length === 0 || !current || !record) {
+    const isOwner = playScope === 'focused';
     return (
       <View style={styles.root}>
         <HomeBackdrop />
         <SafeAreaView style={styles.safe}>
           <Text style={styles.empty}>{SkywritePlayCopy.emptySequence}</Text>
+          {isOwner ? (
+            <Text style={styles.emptyHint}>{SkywritePlayCopy.playSkyEmptyOwnerHint}</Text>
+          ) : null}
+          {isOwner ? (
+            <View style={styles.emptyActions}>
+              <Pressable
+                onPress={() => {
+                  handleExit();
+                  router.push('/skywrite/compose' as never);
+                }}
+                style={styles.exitBtn}>
+                <Text style={styles.exitText}>{SkywritePlayCopy.addSkywrite}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  handleExit();
+                  router.push('/skywrite' as never);
+                }}
+                style={styles.exitBtn}>
+                <Text style={styles.exitText}>{SkywritePlayCopy.openMySkywrites}</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <Pressable onPress={handleExit} style={styles.exitBtn}>
             <Text style={styles.exitText}>{SkywritePlayCopy.exitPlay}</Text>
           </Pressable>
@@ -156,6 +242,26 @@ export function SkywriteGuidedPlayScreen() {
     <View style={styles.root}>
       <HomeBackdrop />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.controlBar}>
+          <Pressable onPress={() => setPaused((value) => !value)} style={styles.controlChip}>
+            <Text style={styles.controlText}>{paused ? SkywritePlayCopy.resume : SkywritePlayCopy.pause}</Text>
+          </Pressable>
+          <Text style={styles.progressLabel}>
+            {SkywritePlayCopy.progress(index + 1, steps.length)}
+          </Text>
+        </View>
+
+        {needsTapToPlay ? (
+          <Pressable
+            style={styles.tapPlayBanner}
+            onPress={() => {
+              setNeedsTapToPlay(false);
+              startedRef.current = true;
+            }}>
+            <Text style={styles.tapPlayText}>{SkywritePlayCopy.tapToPlaySky}</Text>
+          </Pressable>
+        ) : null}
+
         <SkywriteImmersiveMomentView
           record={record}
           stepKind={current.kind}
@@ -170,7 +276,12 @@ export function SkywriteGuidedPlayScreen() {
           canPrevious={index > 0}
           canNext={index < steps.length - 1}
           onBeforeStepChange={() => void audioPreview.stopAll()}
-          autoPlayVideo={autoPlayVideo}
+          autoPlayVideo={shouldAutoplayVideo}
+          sequencePaused={paused}
+          layoutMode="viewport"
+          onVideoFinished={() => {
+            if (!paused) advance();
+          }}
         />
       </SafeAreaView>
     </View>
@@ -189,16 +300,70 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 48,
   },
+  emptyHint: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 20,
+    color: 'rgba(248,244,236,0.62)',
+    textAlign: 'center',
+    marginTop: 12,
+    paddingHorizontal: 16,
+  },
   exitText: {
     fontFamily: Fonts.sans,
     fontSize: 14,
     fontWeight: '600',
     color: '#E8C872',
   },
+  emptyActions: {
+    marginTop: 16,
+    gap: 4,
+    alignItems: 'center',
+  },
   exitBtn: {
     alignSelf: 'center',
     marginTop: 24,
     minHeight: 44,
     justifyContent: 'center',
+  },
+  controlBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  controlChip: {
+    minHeight: 36,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.4)',
+  },
+  controlText: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E8C872',
+  },
+  progressLabel: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: 'rgba(248,244,236,0.65)',
+  },
+  tapPlayBanner: {
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(232, 200, 114, 0.12)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.35)',
+  },
+  tapPlayText: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#E8C872',
+    textAlign: 'center',
   },
 });

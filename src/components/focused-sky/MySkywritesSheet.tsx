@@ -33,6 +33,7 @@ import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPre
 import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
 import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
 import { useApplySkywriteContentDeletion } from '@/skywrite/lifecycle/useApplySkywriteContentDeletion';
+import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
 
 interface MySkywritesSheetProps {
   visible: boolean;
@@ -61,6 +62,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const [query, setQuery] = useState('');
   const audioPreview = useOverlayAudioPreviewScope(visible);
   const applyDeletion = useApplySkywriteContentDeletion();
+  const { repost } = usePlaySkySequenceRegistry();
 
   const rows = useMemo(() => {
     if (tab === 'contributed') {
@@ -204,6 +206,13 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                 });
               } else if (isOwner && tab !== 'contributed' && tab !== 'saved') {
                 if (tab === 'recent') {
+                  menuActions.push({
+                    id: 'repost-play-sky',
+                    label: MySkywritesCopy.repostPlaySky,
+                    onPress: () => {
+                      repost(row.skywriteId);
+                    },
+                  });
                   menuActions.push({
                     id: 'edit-skywrite',
                     label: ProfileSkywritingsCopy.editPost,

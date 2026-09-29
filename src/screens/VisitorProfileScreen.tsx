@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/BottomNav';
 import { OwnerProfileHero } from '@/components/profile/owner/OwnerProfileHero';
+import { OwnerProfileRelationshipCountsRow } from '@/components/profile/owner/OwnerProfileRelationshipCountsRow';
 import { OwnerProfileMetricsStrip } from '@/components/profile/owner/OwnerProfileMetricsStrip';
 import { OwnerProfileMySkyPreviewCard } from '@/components/profile/owner/OwnerProfileMySkyPreviewCard';
 import { OwnerProfileSkywritingsCard } from '@/components/profile/owner/OwnerProfileSkywritingsCard';
@@ -50,6 +51,7 @@ import { VISITOR_PROFILE_LEGACY_SUBTITLE } from '@/profile/profileLegacyCopy';
 import { profileOwnerCelestialBackground } from '@/profile/profileOwnerAssets';
 import { isVisitorProfileBlocked } from '@/profile/resolveVisitorProfilePrivacy';
 import { resolveVisitorSkyConnectionStatus } from '@/social/skyFollow/resolveVisitorSkyConnection';
+import { buildProfileRelationshipCounts } from '@/social/skyFollow/profileRelationshipCounts';
 import type { VisitorPreviewAs } from '@/profile/visitorProfilePreview';
 import { resolvePreviewConnectionStatus } from '@/profile/visitorProfilePreview';
 
@@ -170,6 +172,18 @@ export function VisitorProfileScreen({
     userDirectory,
     viewerContext,
   ]);
+
+  const relationshipCounts = useMemo(() => {
+    if (!ownerId) {
+      return { exploringSkies: 0, skyExplorers: 0, sharedConnections: 0 };
+    }
+    return buildProfileRelationshipCounts({
+      graph: skyFollowGraph,
+      profileOwnerId: ownerId,
+      viewerId: currentUser.id,
+      isOwnProfile: false,
+    });
+  }, [ownerId, skyFollowGraph]);
 
   const publicSkyPreview = useMemo(() => {
     if (!ownerId || !visitorView?.showSkyPreview) return null;
@@ -311,6 +325,27 @@ export function VisitorProfileScreen({
             onRipplesPress={() => router.push(visitorRippleRoute(ownerId) as never)}
             onReelYouPress={() => router.push(visitorReelYouRoute(ownerId) as never)}
           />
+          {hideVisitorActions ? null : (
+            <OwnerProfileRelationshipCountsRow
+              counts={relationshipCounts}
+              isOwnProfile={false}
+              onPressExploringSkies={() =>
+                router.push(
+                  `/sky-friends?tab=following&profileOwner=${encodeURIComponent(ownerId)}` as never,
+                )
+              }
+              onPressSkyExplorers={() =>
+                router.push(
+                  `/sky-friends?tab=followers&profileOwner=${encodeURIComponent(ownerId)}` as never,
+                )
+              }
+              onPressSharedConnections={() =>
+                router.push(
+                  `/sky-friends?tab=shared&profileOwner=${encodeURIComponent(ownerId)}` as never,
+                )
+              }
+            />
+          )}
           <RippleMetricDetailSheet
             visible={metricKind != null}
             view={metricDetailView}

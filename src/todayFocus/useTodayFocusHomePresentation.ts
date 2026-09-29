@@ -13,17 +13,32 @@ import {
   isTodayFocusDismissHydrated,
   reconcileTodayFocusDismissForDate,
 } from '@/todayFocus/todayFocusSession';
+import {
+  hydrateTodayFocusHomeCollapse,
+  isTodayFocusHomeCollapseHydrated,
+  isTodayFocusHomeCollapsed,
+  reconcileTodayFocusHomeCollapse,
+} from '@/todayFocus/todayFocusHomeCollapse';
 
 export function useTodayFocusHomePresentation() {
   const { todayFocus } = useOnboarding();
   const [dateKey, setDateKey] = useState(getLocalDateKey);
-  const [dismissReady, setDismissReady] = useState(isTodayFocusDismissHydrated());
+  const [dismissReady, setDismissReady] = useState(
+    isTodayFocusDismissHydrated() && isTodayFocusHomeCollapseHydrated(),
+  );
+  const [homeCollapsed, setHomeCollapsed] = useState(() =>
+    isTodayFocusHomeCollapsed(dateKey),
+  );
 
   useEffect(() => {
-    if (!dismissReady) {
-      void hydrateTodayFocusDismissState().then(() => setDismissReady(true));
-    }
-  }, [dismissReady]);
+    if (dismissReady) return;
+    void Promise.all([hydrateTodayFocusDismissState(), hydrateTodayFocusHomeCollapse()]).then(
+      () => {
+        setDismissReady(true);
+        setHomeCollapsed(isTodayFocusHomeCollapsed(dateKey));
+      },
+    );
+  }, [dateKey, dismissReady]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -31,13 +46,17 @@ export function useTodayFocusHomePresentation() {
       const nextKey = getLocalDateKey();
       if (nextKey === dateKey) return;
       reconcileTodayFocusDismissForDate(nextKey);
+      reconcileTodayFocusHomeCollapse(nextKey);
       setDateKey(nextKey);
+      setHomeCollapsed(isTodayFocusHomeCollapsed(nextKey));
     });
     return () => subscription.remove();
   }, [dateKey]);
 
   useEffect(() => {
     reconcileTodayFocusDismissForDate(dateKey);
+    reconcileTodayFocusHomeCollapse(dateKey);
+    setHomeCollapsed(isTodayFocusHomeCollapsed(dateKey));
   }, [dateKey]);
 
   const presentation = useMemo((): TodayFocusHomePresentation => {
@@ -48,7 +67,14 @@ export function useTodayFocusHomePresentation() {
 
   const focusPreview = todayFocus.value?.trim() ?? '';
 
-  return { presentation, dateKey, focusPreview, dismissReady };
+  return {
+    presentation,
+    dateKey,
+    focusPreview,
+    dismissReady,
+    homeCollapsed,
+    setHomeCollapsed,
+  };
 }
 
 export function showTodayFocusQuickPreview(focusText: string, onView: () => void, onChange: () => void) {

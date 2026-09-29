@@ -15,4 +15,6 @@ export const MySkywritesCopy = {
   archiveAction: 'Rest in archive',
   restoreAction: 'Bring back',
   close: 'Close',
+  repostPlaySky: 'Repost to Play Sky',
+  repostPlaySkyHint: 'Adds a new 24-hour Play Sky window without duplicating the post.',
 } as const;

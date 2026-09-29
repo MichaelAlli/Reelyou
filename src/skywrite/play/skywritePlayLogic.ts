@@ -1,5 +1,7 @@
 import type { MySkyStarDisplay } from '@/mySky/types';
 import type { SkywriteRecord } from '@/skywrite/types';
+import type { PlaySkySequenceRegistry } from '@/skywrite/play/playSkySequenceEligibility';
+import { filterSkywriteIdsForPlaySkySequence } from '@/skywrite/play/playSkySequenceEligibility';
 import type {
   FocusedSkyPlaySequenceConfig,
   SingleSkywritePlayConfig,
@@ -116,10 +118,14 @@ export function resolveFocusedSkyPlaySteps(
   skywrites: readonly SkywriteRecord[],
   config: FocusedSkyPlaySequenceConfig,
   singleConfigs: Record<string, SingleSkywritePlayConfig>,
+  options?: {
+    playSkyRegistry?: PlaySkySequenceRegistry;
+    nowMs?: number;
+  },
 ): SkywritePlayStep[] {
   const defaultOrder = defaultFocusedSkywriteIds(stars, skywrites);
   const excluded = new Set(config.excludedSkywriteIds);
-  const order =
+  let order =
     config.orderedSkywriteIds.length > 0
       ? [
           ...config.orderedSkywriteIds.filter((id) => !excluded.has(id)),
@@ -130,6 +136,15 @@ export function resolveFocusedSkyPlaySteps(
       : defaultOrder.filter((id) => !excluded.has(id));
 
   const byId = new Map(skywrites.map((post) => [post.id, post]));
+  if (options?.playSkyRegistry) {
+    order = filterSkywriteIdsForPlaySkySequence(
+      order,
+      options.playSkyRegistry,
+      byId,
+      undefined,
+      options.nowMs,
+    );
+  }
   const out: SkywritePlayStep[] = [];
   for (const skywriteId of order) {
     const record = byId.get(skywriteId);

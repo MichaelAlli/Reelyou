@@ -105,7 +105,7 @@ export function OnboardingWhereYouLiveScreen() {
       markStep('whereYouLive', status);
       setTimeout(() => {
         setIsSubmitting(false);
-        router.replace('/process' as never);
+        router.replace('/onboarding/find-familiar-skies' as never);
       }, 280);
     },
     [markStep, router],

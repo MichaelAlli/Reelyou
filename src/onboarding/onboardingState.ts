@@ -5,7 +5,13 @@ import { EMPTY_NORTH_STAR } from '@/onboarding/northStar';
 /** Lifecycle status for each onboarding step. */
 export type OnboardingStepStatus = 'pending' | 'completed' | 'skipped';
 
-export type OnboardingStepId = 'profile' | 'goals' | 'challenges' | 'screen4' | 'whereYouLive';
+export type OnboardingStepId =
+  | 'profile'
+  | 'goals'
+  | 'challenges'
+  | 'screen4'
+  | 'whereYouLive'
+  | 'findFamiliarSkies';
 
 /**
  * Unified onboarding state — single source of truth for all onboarding screens.
@@ -39,6 +45,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
     challenges: 'pending',
     screen4: 'pending',
     whereYouLive: 'pending',
+    findFamiliarSkies: 'pending',
   },
   aiPersonalizationEnabled: true,
   isOnboardingComplete: false,

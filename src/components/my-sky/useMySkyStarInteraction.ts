@@ -31,6 +31,8 @@ export interface MySkyStarInteractionOptions {
   isGestureBlocked?: () => boolean;
   /** Focused Skywrite sky only — one tap opens immersive moment (no insight preview card). */
   focusedSkywriteImmersiveTap?: boolean;
+  /** Skip identity bubble — open profile directly (Skywrite Sky header / identity star). */
+  directIdentityProfileNavigation?: boolean;
 }
 
 export function useMySkyStarInteraction({
@@ -46,6 +48,7 @@ export function useMySkyStarInteraction({
   allowTapDuringGesture = false,
   isGestureBlocked,
   focusedSkywriteImmersiveTap = false,
+  directIdentityProfileNavigation = false,
 }: MySkyStarInteractionOptions) {
   const router = useRouter();
   const { stars, nodes, patterns, skyOwner, identityStar } = view;
@@ -182,13 +185,6 @@ export function useMySkyStarInteraction({
     ],
   );
 
-  const handleOwnIdentityPress = useCallback(() => {
-    if (!tapAllowed()) return;
-    closeInsightBubble();
-    setActiveId(identityStar.id);
-    setBubbleOpen(true);
-  }, [closeInsightBubble, identityStar.id, tapAllowed]);
-
   const handleViewProfile = useCallback(() => {
     setBubbleOpen(false);
     if (skyOwner.isSelf) {
@@ -197,6 +193,17 @@ export function useMySkyStarInteraction({
       router.push(`/visitor-profile?id=${skyOwner.id}` as never);
     }
   }, [router, skyOwner.id, skyOwner.isSelf, visitorMode]);
+
+  const handleOwnIdentityPress = useCallback(() => {
+    if (!tapAllowed()) return;
+    closeInsightBubble();
+    if (directIdentityProfileNavigation) {
+      handleViewProfile();
+      return;
+    }
+    setActiveId(identityStar.id);
+    setBubbleOpen(true);
+  }, [closeInsightBubble, directIdentityProfileNavigation, handleViewProfile, identityStar.id, tapAllowed]);
 
   return {
     stars,

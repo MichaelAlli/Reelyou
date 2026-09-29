@@ -19,12 +19,13 @@ import { MySkyJoinedGroupsControl } from '@/components/my-sky/MySkyJoinedGroupsC
 import { MySkyJoinedGroupsSheet } from '@/components/my-sky/MySkyJoinedGroupsSheet';
 import { buildMySkyConstellationFormations } from '@/emergingConstellations/buildMySkyConstellationFormations';
 import { MySkySearchSheet } from '@/components/my-sky/MySkySearchSheet';
+import { MySkyExploreScrollFeed } from '@/components/my-sky/MySkyExploreScrollFeed';
 import { MySkyStarCanvas } from '@/components/my-sky/MySkyStarCanvas';
 import { MY_SKY_SECOND_ROW_LAYER_ORDER } from '@/constants/mySkyLayers';
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import { HomePalette } from '@/constants/homeLayout';
 import { SkyArrivalCopy } from '@/constants/skyArrivalCopy';
-import { Fonts, Spacing } from '@/constants/theme';
+import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
 import {
   buildConstellationDetailView,
   type ConstellationDetailView,
@@ -257,6 +258,8 @@ export function MySkyScreen() {
   const [previousNearbyOwnerId, setPreviousNearbyOwnerId] = useState<string | null>(null);
   const [ephemeralAnchor, setEphemeralAnchor] = useState<NearbySkyAnchor | null>(null);
   const returningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const preExploreViewportRef = useRef<MySkyViewportSnapshot | null>(null);
+  const exploreScrollActive = mySkyExploreEnabled && !cleanSkyActive;
 
   const joinedCommunityIds = useMemo(
     () => communities.joined.map((entry) => entry.id),
@@ -464,6 +467,24 @@ export function MySkyScreen() {
     setCleanSkyActive((active) => !active);
   }, []);
 
+  const handleToggleExplore = useCallback(
+    (enabled: boolean) => {
+      if (enabled) {
+        preExploreViewportRef.current = liveViewport;
+        setMySkyExploreEnabled(true);
+        return;
+      }
+      setMySkyExploreEnabled(false);
+      const restore = preExploreViewportRef.current;
+      if (restore) {
+        setMySkyViewport(restore);
+        setLiveViewport(restore);
+        setJumpSnapshot(null);
+      }
+    },
+    [liveViewport, setMySkyExploreEnabled, setMySkyViewport],
+  );
+
   const openConstellationDetail = useCallback(
     (patternId: string) => {
       const pattern = displayMySkyView.patterns.find((entry) => entry.id === patternId);
@@ -568,7 +589,7 @@ export function MySkyScreen() {
               <MySkyControlRow
                 northStarText={northStarText}
                 exploreEnabled={mySkyExploreEnabled}
-                onToggleExplore={setMySkyExploreEnabled}
+                onToggleExplore={handleToggleExplore}
                 onOpenSearch={() => setSearchVisible(true)}
               />
             </View>
@@ -624,7 +645,7 @@ export function MySkyScreen() {
               </Text>
             </View>
           ) : null}
-          {!cleanSkyActive ? (
+          {!cleanSkyActive && !exploreScrollActive ? (
             <MySkyProximityCue
               anchor={proximity.anchor}
               phase={proximity.phase}
@@ -632,6 +653,12 @@ export function MySkyScreen() {
               onPress={jumpToAnchor}
             />
           ) : null}
+          {exploreScrollActive ? (
+            <MySkyExploreScrollFeed
+              nearbyAnchors={displayAnchors}
+              bottomInset={TabBarHeight + Spacing.lg}
+            />
+          ) : (
           <MySkyStarCanvas
             immersive
             cleanSky={cleanSkyActive}
@@ -665,7 +692,8 @@ export function MySkyScreen() {
               constellationRevealActive
             }
           />
-          {!cleanSkyActive ? (
+          )}
+          {!cleanSkyActive && !exploreScrollActive ? (
             <MySkyInsightOverlay
               view={displayMySkyView}
               visibleLayers={visibleLayers}

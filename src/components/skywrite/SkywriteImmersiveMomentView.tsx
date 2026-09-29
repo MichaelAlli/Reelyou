@@ -49,6 +49,8 @@ interface SkywriteImmersiveMomentViewProps {
   onMediaMixChange?: (media: SkywriteMedia) => void;
   showAudioMixControls?: boolean;
   commentsSlot?: ReactNode;
+  onVideoFinished?: () => void;
+  sequencePaused?: boolean;
 }
 
 function SkywriteImmersiveMomentViewComponent({
@@ -71,6 +73,8 @@ function SkywriteImmersiveMomentViewComponent({
   onMediaMixChange,
   showAudioMixControls = false,
   commentsSlot,
+  onVideoFinished,
+  sequencePaused = false,
 }: SkywriteImmersiveMomentViewProps) {
   const videoActive = stepKind === 'video' && Boolean(record.media.video?.uri);
   const playbackMedia = mediaMix ?? record.media;
@@ -89,10 +93,15 @@ function SkywriteImmersiveMomentViewComponent({
   }, [record.id, stepKind]);
 
   useEffect(() => {
-    if (!autoPlayVideo || stepKind !== 'video' || autoPlayIssuedRef.current) return;
+    if (!autoPlayVideo || stepKind !== 'video' || autoPlayIssuedRef.current || sequencePaused) return;
     autoPlayIssuedRef.current = true;
     requestAutoPlay();
-  }, [autoPlayVideo, stepKind, record.id, requestAutoPlay]);
+  }, [autoPlayVideo, sequencePaused, stepKind, record.id, requestAutoPlay]);
+
+  useEffect(() => {
+    if (!sequencePaused || stepKind !== 'video' || !videoPlayback.isPlaying) return;
+    void videoPlayback.togglePlayPause();
+  }, [sequencePaused, stepKind, videoPlayback, videoPlayback.isPlaying]);
 
   const audioUri = record.media.audio?.uri ?? null;
   const showVideoVoiceover =
@@ -193,7 +202,12 @@ function SkywriteImmersiveMomentViewComponent({
                   isLooping={false}
                   isMuted={false}
                   progressUpdateIntervalMillis={250}
-                  onPlaybackStatusUpdate={videoPlayback.onPlaybackStatusUpdate}
+                  onPlaybackStatusUpdate={(status) => {
+                  videoPlayback.onPlaybackStatusUpdate(status);
+                  if (status.isLoaded && status.didJustFinish) {
+                    onVideoFinished?.();
+                  }
+                }}
                   onLoad={(status) => {
                     handleVideoLoad(status);
                     if (autoPlayVideo) requestAutoPlay();

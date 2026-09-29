@@ -11,21 +11,33 @@ import { useOnboarding } from '@/onboarding';
 
 interface HomeTodayFocusCompactRowProps {
   animatedStyle?: AnimatedStyle<ViewStyle>;
+  onExpand?: () => void;
+  placeholder?: string;
 }
 
-function HomeTodayFocusCompactRowComponent({ animatedStyle }: HomeTodayFocusCompactRowProps) {
+function HomeTodayFocusCompactRowComponent({
+  animatedStyle,
+  onExpand,
+  placeholder,
+}: HomeTodayFocusCompactRowProps) {
   const router = useRouter();
   const { todayFocus } = useOnboarding();
   const focusText = todayFocus.value?.trim() ?? '';
-
-  if (!focusText) return null;
+  const line = focusText || placeholder || HomeCopy.todayFocusCompactEmpty;
 
   return (
     <Animated.View style={[styles.wrap, animatedStyle]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Today's Focus: ${focusText}. View or change.`}
-        onPress={() => router.push('/today-focus' as never)}
+        accessibilityLabel={`Today's Focus: ${line}. ${HomeCopy.todayFocusExpand}.`}
+        onPress={() => {
+          onExpand?.();
+          if (focusText) {
+            router.push('/today-focus' as never);
+          } else {
+            router.push('/today-focus-edit' as never);
+          }
+        }}
         style={({ pressed }) => [styles.shell, pressed && styles.pressed]}>
         <LinearGradient
           colors={['rgba(14, 18, 40, 0.92)', 'rgba(8, 10, 26, 0.95)']}
@@ -41,8 +53,8 @@ function HomeTodayFocusCompactRowComponent({ animatedStyle }: HomeTodayFocusComp
         <View style={styles.row}>
           <View style={styles.textCol}>
             <Text style={styles.label}>{HomeCopy.todayFocusTitle.toUpperCase()}</Text>
-            <Text style={styles.focus} numberOfLines={2}>
-              {focusText}
+            <Text style={[styles.focus, !focusText && styles.focusMuted]} numberOfLines={2}>
+              {line}
             </Text>
           </View>
           <Text style={styles.chevron}>›</Text>
@@ -95,6 +107,10 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: '600',
     color: HomePalette.textPrimary,
+  },
+  focusMuted: {
+    color: 'rgba(248, 244, 236, 0.72)',
+    fontWeight: '500',
   },
   chevron: {
     fontSize: 22,

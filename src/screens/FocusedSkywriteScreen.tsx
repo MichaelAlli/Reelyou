@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,6 +9,10 @@ import { FocusedSkyQuickLauncher } from '@/components/focused-sky/FocusedSkyQuic
 import { MySkywritesIndicator } from '@/components/focused-sky/MySkywritesIndicator';
 import { MySkywritesSheet } from '@/components/focused-sky/MySkywritesSheet';
 import { PlaySkyCue } from '@/components/skywrite/PlaySkyCue';
+import { SkywriteSkyOwnerHeader } from '@/components/skywrite/SkywriteSkyOwnerHeader';
+import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
+import { loadSkyHeaderStyleId } from '@/profile/skyHeaderStylePersistence';
+import type { SkyHeaderStyleId } from '@/profile/skyHeaderStyleTypes';
 import { SkywriteSequenceEditorSheet } from '@/components/skywrite/SkywriteSequenceEditorSheet';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
@@ -66,17 +70,25 @@ export function FocusedSkywriteScreen() {
   const [mySkywritesOpen, setMySkywritesOpen] = useState(false);
   const [sequenceEditorOpen, setSequenceEditorOpen] = useState(false);
   const { state: playSequenceState, updateFocusedConfig } = useSkywritePlaySequence();
+  const { registry, ready: registryReady } = usePlaySkySequenceRegistry();
+  const [headerStyleId, setHeaderStyleId] = useState<SkyHeaderStyleId>('starlight');
   const activeContributionBeacons = useContributionBeaconOverlayQueue();
 
+  useEffect(() => {
+    void loadSkyHeaderStyleId(mySkyView.skyOwner.id).then(setHeaderStyleId);
+  }, [mySkyView.skyOwner.id]);
+
   const canPlaySky = useMemo(() => {
+    if (!registryReady) return false;
     const steps = resolveFocusedSkyPlaySteps(
       mySkyView.stars,
       skywrites,
       playSequenceState.focusedSky,
       playSequenceState.singleBySkywriteId,
+      { playSkyRegistry: registry },
     );
     return steps.length > 0;
-  }, [mySkyView.stars, playSequenceState, skywrites]);
+  }, [mySkyView.stars, playSequenceState, registry, registryReady, skywrites]);
 
   const hasSkywriteStars = useMemo(
     () => defaultFocusedSkywriteIds(mySkyView.stars, skywrites).length > 0,
@@ -129,7 +141,11 @@ export function FocusedSkywriteScreen() {
   }, [mySkyView.stars, router]);
 
   const openPlaySky = useCallback(() => {
-    router.push('/skywrite/play?scope=focused' as never);
+    router.push('/skywrite/play?scope=focused&autoplay=1' as never);
+  }, [router]);
+
+  const openOwnerProfile = useCallback(() => {
+    router.push('/(tabs)/profile' as never);
   }, [router]);
 
   const openMySky = useCallback(() => {
@@ -158,7 +174,11 @@ export function FocusedSkywriteScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <HomeHeaderLogo />
-          <Text style={styles.title}>Your Skywrite Sky</Text>
+          <SkywriteSkyOwnerHeader
+            displayName={mySkyView.skyOwner.name}
+            headerStyleId={headerStyleId}
+            onPressProfile={openOwnerProfile}
+          />
           <Text style={styles.subtitle}>{SkywritePlayCopy.skySubtitle}</Text>
           <Text style={styles.hint}>{SkywritePlayCopy.playHint}</Text>
         </View>
@@ -244,6 +264,7 @@ export function FocusedSkywriteScreen() {
                   showIdentityStar={index === 0}
                   allowTapDuringGesture
                   focusedSkywriteImmersiveTap={index === 0}
+                  directIdentityProfileNavigation={index === 0}
                   suppressInsightPreview={index === 0}
                   onSpatialFocusBlockingChange={
                     index === 0 ? setSpatialFocusBlocked : undefined
@@ -253,7 +274,10 @@ export function FocusedSkywriteScreen() {
             </View>
           ))}
 
-          <PressableSkyExplore onPress={openMySky} />
+          <PressableSkyExplore
+            label={SkywritePlayCopy.exploreFullSkySelf}
+            onPress={openMySky}
+          />
         </ScrollView>
       </SafeAreaView>
 
@@ -302,10 +326,10 @@ export function FocusedSkywriteScreen() {
   );
 }
 
-function PressableSkyExplore({ onPress }: { onPress: () => void }) {
+function PressableSkyExplore({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Text accessibilityRole="button" onPress={onPress} style={styles.exploreLink}>
-      Explore full My Sky
+      {label}
     </Text>
   );
 }

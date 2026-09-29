@@ -117,6 +117,12 @@ export function SettingsHubScreen() {
             label="Connected Skies"
             onPress={() => router.push('/sky-friends' as never)}
           />
+          <LinkRow
+            label="Find familiar skies"
+            onPress={() =>
+              router.push('/onboarding/find-familiar-skies?from=settings' as never)
+            }
+          />
           <LinkRow label="Blocked people" onPress={() => router.push('/settings/blocked' as never)} />
           <LinkRow label="Limited people" onPress={() => router.push('/settings/limited' as never)} />
           <LinkRow

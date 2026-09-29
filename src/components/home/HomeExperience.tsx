@@ -16,7 +16,9 @@ import { HomeGuidingLightSection } from '@/components/home/HomeGuidingLightSecti
 import { HomeEmergingConstellationSection } from '@/components/home/HomeEmergingConstellationSection';
 import { HomeSkywriteBar } from '@/components/home/HomeSkywriteBar';
 import { HomeStarpathCard } from '@/components/home/HomeStarpathCard';
+import { HomeTodayFocusCompactRow } from '@/components/home/HomeTodayFocusCompactRow';
 import { HomeTodayFocusHomeSection } from '@/components/home/HomeTodayFocusHomeSection';
+import { setTodayFocusHomeCollapsed } from '@/todayFocus/todayFocusHomeCollapse';
 import { HomeGlobalMenuSheet } from '@/components/home/HomeGlobalMenuSheet';
 import { HomeProfileAvatarActionSheet } from '@/components/home/HomeProfileAvatarActionSheet';
 import { OwnerProfilePhotoSheet } from '@/components/profile/owner/OwnerProfilePhotoSheet';
@@ -40,9 +42,28 @@ interface HomeExperienceProps {
 
 function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
   const router = useRouter();
-  const { presentation, focusPreview, dismissReady } = useTodayFocusHomePresentation();
-  const showFocusQuickAccess = dismissReady && presentation === 'set';
-  const showFocusHomeCard = dismissReady && presentation === 'available';
+  const { presentation, focusPreview, dismissReady, dateKey, homeCollapsed, setHomeCollapsed } =
+    useTodayFocusHomePresentation();
+  const showFocusQuickAccess =
+    dismissReady && (presentation === 'set' || (presentation === 'available' && homeCollapsed));
+  const showFocusExpanded =
+    dismissReady &&
+    !homeCollapsed &&
+    (presentation === 'available' || presentation === 'set');
+  const showFocusCompact =
+    dismissReady &&
+    homeCollapsed &&
+    (presentation === 'available' || presentation === 'set');
+
+  const minimizeTodayFocus = useCallback(() => {
+    setTodayFocusHomeCollapsed(true, dateKey);
+    setHomeCollapsed(true);
+  }, [dateKey, setHomeCollapsed]);
+
+  const expandTodayFocus = useCallback(() => {
+    setTodayFocusHomeCollapsed(false, dateKey);
+    setHomeCollapsed(false);
+  }, [dateKey, setHomeCollapsed]);
 
   const openTodayFocus = useCallback(() => {
     router.push('/today-focus' as never);
@@ -221,8 +242,17 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
             <HomeGuidingLightSection animatedStyle={zone2Style} />
             <HomeStarpathCard animatedStyle={zone2Style} />
             <HomeEmergingConstellationSection animatedStyle={zone3Style} />
-            {showFocusHomeCard ? (
-              <HomeTodayFocusHomeSection animatedStyle={zone4FocusStyle} />
+            {showFocusExpanded ? (
+              <HomeTodayFocusHomeSection
+                animatedStyle={zone4FocusStyle}
+                onMinimize={minimizeTodayFocus}
+              />
+            ) : null}
+            {showFocusCompact ? (
+              <HomeTodayFocusCompactRow
+                animatedStyle={zone4FocusStyle}
+                onExpand={expandTodayFocus}
+              />
             ) : null}
           </ScrollView>
         </SafeAreaView>

@@ -83,6 +83,9 @@ export const MySkyCopy = {
   exploreToggleLabel: 'Explore',
   exploreToggleAccessibilityOn: 'Explore is on. Wider skies visible. Tap to turn off.',
   exploreToggleAccessibilityOff: 'Explore is off. Tap to reveal wider skies.',
+  exploreScrollEmpty:
+    'Follow Skies you trust to scroll their snapshots here. Suggestions stay separate until you connect.',
+  exploreScrollFooter: 'Scrolling Explore does not create connections or change your counts.',
   nearbyTitle: 'Nearby Skies',
   nearbySubtitle: 'Friends, connections, and shared communities in your universe.',
   nearbyEmpty: 'No connected skies nearby yet.',

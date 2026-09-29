@@ -6,11 +6,14 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { OwnerProfileHero } from '@/components/profile/owner/OwnerProfileHero';
-import { OwnerProfileSkyFriendsEntry } from '@/components/profile/owner/OwnerProfileSkyFriendsEntry';
+import { OwnerProfileRelationshipCountsRow } from '@/components/profile/owner/OwnerProfileRelationshipCountsRow';
+import { currentUser } from '@/data/mockData';
+import { buildProfileRelationshipCounts } from '@/social/skyFollow/profileRelationshipCounts';
 import { OwnerProfileMetricsStrip } from '@/components/profile/owner/OwnerProfileMetricsStrip';
 import { OwnerProfileMySkyPreviewCard } from '@/components/profile/owner/OwnerProfileMySkyPreviewCard';
 import { OwnerProfileSkywritingsCard } from '@/components/profile/owner/OwnerProfileSkywritingsCard';
 import { OwnerProfileOptionsSheet } from '@/components/profile/owner/OwnerProfileOptionsSheet';
+import { ProfileSkyHeaderStyleSheet } from '@/components/profile/owner/ProfileSkyHeaderStyleSheet';
 import { OwnerProfileTopChrome } from '@/components/profile/owner/OwnerProfileTopChrome';
 import { RippleMetricDetailSheet } from '@/components/legacy/ripple/RippleMetricDetailSheet';
 import {
@@ -35,7 +38,17 @@ import { Fonts } from '@/constants/theme';
 export function OwnerProfileScreen() {
   const router = useRouter();
   const { skywrites, mySkyView, profileSkyAreaShortcutIds } = useOnboarding();
-  const { skyFriendsCount } = useReelyouConnect();
+  const { skyFollowGraph } = useReelyouConnect();
+  const relationshipCounts = useMemo(
+    () =>
+      buildProfileRelationshipCounts({
+        graph: skyFollowGraph,
+        profileOwnerId: currentUser.id,
+        viewerId: currentUser.id,
+        isOwnProfile: true,
+      }),
+    [skyFollowGraph],
+  );
   const userAvatar = useUserAvatar();
   const photoEditor = useProfilePhotoEditor();
 
@@ -52,6 +65,7 @@ export function OwnerProfileScreen() {
     useLegacyRippleViewModel();
   const [metricKind, setMetricKind] = useState<RippleMetricDetailKind | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [headerStyleOpen, setHeaderStyleOpen] = useState(false);
   const [shareAck, setShareAck] = useState<string | null>(null);
 
   const metricDetailView = useMemo(() => {
@@ -114,9 +128,15 @@ export function OwnerProfileScreen() {
         onCropTransformChange={photoEditor.setCropTransform}
         onResetCrop={photoEditor.resetCrop}
       />
+      <ProfileSkyHeaderStyleSheet
+        visible={headerStyleOpen}
+        displayName={ownerView.identity.name}
+        onClose={() => setHeaderStyleOpen(false)}
+      />
       <OwnerProfileOptionsSheet
         visible={optionsOpen}
         onClose={closeOptions}
+        onCustomizeSkyHeader={() => setHeaderStyleOpen(true)}
         onShareProfile={handleShareProfile}
         onPreviewProfile={() =>
           router.push(buildVisitorSelfPreviewHref(undefined, { previewAs: 'public' }) as never)
@@ -164,9 +184,15 @@ export function OwnerProfileScreen() {
           view={metricDetailView}
           onClose={() => setMetricKind(null)}
         />
-        <OwnerProfileSkyFriendsEntry
-          count={skyFriendsCount}
-          onPress={() => router.push('/sky-friends' as never)}
+        <OwnerProfileRelationshipCountsRow
+          counts={relationshipCounts}
+          isOwnProfile
+          onPressExploringSkies={() =>
+            router.push('/sky-friends?tab=following' as never)
+          }
+          onPressSkyExplorers={() =>
+            router.push('/sky-friends?tab=followers' as never)
+          }
         />
         <OwnerProfileMySkyPreviewCard view={mySkyView} />
         <OwnerProfileSkywritingsCard

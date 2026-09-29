@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -17,8 +17,10 @@ import { SkyFriendsCopy } from '@/constants/skyFriendsCopy';
 import { Fonts, TabBarHeight } from '@/constants/theme';
 import { currentUser, orbitUsers } from '@/data/mockData';
 import { resolveSkyRelationship } from '@/social/skyFollow/resolveSkyRelationship';
+import { listSharedConnectionUserIds } from '@/social/skyFollow/profileRelationshipCounts';
+import { isMutualSkyFriends, listFollowers, listFollowing } from '@/social/skyFollow/skyFollowLogic';
 
-type TabId = 'friends' | 'following' | 'followers';
+type TabId = 'friends' | 'following' | 'followers' | 'shared';
 
 function displayName(userId: string): string {
   if (userId === currentUser.id) return currentUser.name;
@@ -27,7 +29,27 @@ function displayName(userId: string): string {
 
 export function SkyFriendsScreen() {
   const router = useRouter();
-  const [tab, setTab] = useState<TabId>('friends');
+  const { tab: tabParam, profileOwner } = useLocalSearchParams<{
+    tab?: string;
+    profileOwner?: string;
+  }>();
+  const sharedContextOwnerId =
+    typeof profileOwner === 'string' && profileOwner.length > 0 ? profileOwner : null;
+  const initialTab: TabId =
+    tabParam === 'shared' && sharedContextOwnerId
+      ? 'shared'
+      : tabParam === 'following'
+        ? 'following'
+        : tabParam === 'followers'
+          ? 'followers'
+          : 'friends';
+  const [tab, setTab] = useState<TabId>(initialTab);
+
+  useEffect(() => {
+    if (tabParam === 'shared' && sharedContextOwnerId) setTab('shared');
+    else if (tabParam === 'following') setTab('following');
+    else if (tabParam === 'followers') setTab('followers');
+  }, [sharedContextOwnerId, tabParam]);
   const [query, setQuery] = useState('');
   const {
     skyFollowGraph,
@@ -46,10 +68,37 @@ export function SkyFriendsScreen() {
   } = useReelyouConnect();
 
   const userIds = useMemo(() => {
-    if (tab === 'friends') return skyFriendUserIds;
-    if (tab === 'following') return listFollowingUserIds();
-    return listFollowerUserIds();
-  }, [listFollowerUserIds, listFollowingUserIds, skyFriendUserIds, tab]);
+    if (tab === 'shared' && sharedContextOwnerId) {
+      return listSharedConnectionUserIds(
+        skyFollowGraph,
+        sharedContextOwnerId,
+        currentUser.id,
+      );
+    }
+    if (tab === 'friends') {
+      if (sharedContextOwnerId) {
+        return listFollowing(skyFollowGraph, sharedContextOwnerId).filter((otherId) =>
+          isMutualSkyFriends(skyFollowGraph, sharedContextOwnerId, otherId),
+        );
+      }
+      return skyFriendUserIds;
+    }
+    if (tab === 'following') {
+      return sharedContextOwnerId
+        ? listFollowing(skyFollowGraph, sharedContextOwnerId)
+        : listFollowingUserIds();
+    }
+    return sharedContextOwnerId
+      ? listFollowers(skyFollowGraph, sharedContextOwnerId)
+      : listFollowerUserIds();
+  }, [
+    listFollowerUserIds,
+    listFollowingUserIds,
+    sharedContextOwnerId,
+    skyFollowGraph,
+    skyFriendUserIds,
+    tab,
+  ]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -87,6 +136,9 @@ export function SkyFriendsScreen() {
                 ['friends', SkyFriendsCopy.tabFriends],
                 ['following', SkyFriendsCopy.tabFollowing],
                 ['followers', SkyFriendsCopy.tabFollowers],
+                ...(sharedContextOwnerId
+                  ? ([['shared', SkyFriendsCopy.tabShared]] as const)
+                  : []),
               ] as const
             ).map(([id, label]) => (
               <Pressable
@@ -113,14 +165,18 @@ export function SkyFriendsScreen() {
                   ? SkyFriendsCopy.emptyFriendsTitle
                   : tab === 'following'
                     ? SkyFriendsCopy.emptyFollowingTitle
-                    : SkyFriendsCopy.emptyFollowersTitle}
+                    : tab === 'shared'
+                      ? SkyFriendsCopy.emptySharedTitle
+                      : SkyFriendsCopy.emptyFollowersTitle}
               </Text>
               <Text style={styles.emptyBody}>
                 {tab === 'friends'
                   ? SkyFriendsCopy.emptyFriendsBody
                   : tab === 'following'
                     ? SkyFriendsCopy.emptyFollowingBody
-                    : SkyFriendsCopy.emptyFollowersBody}
+                    : tab === 'shared'
+                      ? SkyFriendsCopy.emptySharedBody
+                      : SkyFriendsCopy.emptyFollowersBody}
               </Text>
             </View>
           ) : (

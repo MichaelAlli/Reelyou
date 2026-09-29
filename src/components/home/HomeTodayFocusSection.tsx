@@ -20,6 +20,8 @@ import { useThemedStyles } from '@/theme/useTheme';
 
 interface HomeTodayFocusSectionProps {
   animatedStyle?: AnimatedStyle<ViewStyle>;
+  onMinimize?: () => void;
+  savedFocusText?: string | null;
 }
 
 /** Compact Today’s Focus surface — local tokens only. */
@@ -30,10 +32,14 @@ const FOCUS = {
   gap: 11,
 } as const;
 
-function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSectionProps) {
+function HomeTodayFocusSectionComponent({
+  animatedStyle,
+  onMinimize,
+  savedFocusText,
+}: HomeTodayFocusSectionProps) {
   const router = useRouter();
   const { todayFocusDisplayPrompt } = useOnboarding();
-  const promptText = todayFocusDisplayPrompt ?? HomeCopy.todayFocusPrompt;
+  const promptText = savedFocusText?.trim() || todayFocusDisplayPrompt || HomeCopy.todayFocusPrompt;
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       wrap: {
@@ -112,6 +118,12 @@ function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSection
         lineHeight: 15,
         color: 'rgba(235, 228, 248, 0.72)',
       },
+      editRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        flexShrink: 0,
+      },
       editPress: {
         minHeight: 44,
         justifyContent: 'center',
@@ -175,14 +187,26 @@ function HomeTodayFocusSectionComponent({ animatedStyle }: HomeTodayFocusSection
               <Text style={styles.title}>{HomeCopy.todayFocusTitle}</Text>
               <Text style={styles.prompt}>{promptText}</Text>
             </View>
-            <Pressable
-              hitSlop={8}
-              style={styles.editPress}
-              accessibilityRole="button"
-              accessibilityLabel="Edit Today's Focus"
-              onPress={() => router.push('/today-focus-edit' as never)}>
-              <Text style={styles.edit}>{HomeCopy.todayFocusEdit}</Text>
-            </Pressable>
+            <View style={styles.editRow}>
+              <Pressable
+                hitSlop={8}
+                style={styles.editPress}
+                accessibilityRole="button"
+                accessibilityLabel="Edit Today's Focus"
+                onPress={() => router.push('/today-focus-edit' as never)}>
+                <Text style={styles.edit}>{HomeCopy.todayFocusEdit}</Text>
+              </Pressable>
+              {onMinimize ? (
+                <Pressable
+                  hitSlop={8}
+                  style={styles.editPress}
+                  accessibilityRole="button"
+                  accessibilityLabel={HomeCopy.todayFocusMinimize}
+                  onPress={onMinimize}>
+                  <Text style={styles.edit}>{HomeCopy.todayFocusMinimize}</Text>
+                </Pressable>
+              ) : null}
+            </View>
           </View>
 
           <Pressable

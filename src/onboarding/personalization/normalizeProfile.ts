@@ -13,6 +13,7 @@ const STEP_LABELS: Record<OnboardingStepId, string> = {
   challenges: 'challenges',
   screen4: 'northStar',
   whereYouLive: 'whereYouLiveInSky',
+  findFamiliarSkies: 'findFamiliarSkies',
 };
 
 function labelForInterest(id: string): string | undefined {

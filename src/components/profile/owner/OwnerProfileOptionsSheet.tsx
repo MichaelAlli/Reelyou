@@ -8,6 +8,7 @@ import { Fonts } from '@/constants/theme';
 interface OwnerProfileOptionsSheetProps {
   visible: boolean;
   onClose: () => void;
+  onCustomizeSkyHeader?: () => void;
   onShareProfile?: () => void;
   onPreviewProfile: () => void;
   onPreviewProfileConnectedSky?: () => void;
@@ -17,6 +18,7 @@ interface OwnerProfileOptionsSheetProps {
 function OwnerProfileOptionsSheetComponent({
   visible,
   onClose,
+  onCustomizeSkyHeader,
   onShareProfile,
   onPreviewProfile,
   onPreviewProfileConnectedSky,
@@ -33,6 +35,13 @@ function OwnerProfileOptionsSheetComponent({
       <View style={styles.sheet} testID="owner-profile-options">
         {onShareProfile ? (
           <MenuRow label="Share profile" hint="Visitor link" onPress={() => run(onShareProfile)} />
+        ) : null}
+        {onCustomizeSkyHeader ? (
+          <MenuRow
+            label="Sky header style"
+            hint="Starlight, Golden Glow, Constellation"
+            onPress={() => run(onCustomizeSkyHeader)}
+          />
         ) : null}
         <MenuRow
           label="Preview profile"
