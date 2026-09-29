@@ -57,6 +57,11 @@ export const SkywriteCopy = {
   videoFramingFillHint:
     'Fit shows the full frame. Switch to Fill to drag and re-center without stretching.',
   videoFramingLongPressHint: 'Press and hold to adjust framing',
+  videoFramingDone: 'Done',
+  videoFramingNoOverflowHint:
+    'This clip has no extra room to pan in Fill on this screen. Try a different aspect or use Fit for the full frame.',
+  videoFramingNoHorizontalPan: 'No horizontal room to pan in Fill for this clip.',
+  videoFramingNoVerticalPan: 'No vertical room to pan in Fill for this clip.',
   editSkywriteSave: 'Save changes',
   editSkywriteTitle: 'Edit Skywrite',
   microphoneDenied: 'We couldn’t access your microphone.',

@@ -29,6 +29,7 @@ interface SkywriteComposeImmersiveVideoStageProps {
   onRemove: () => void;
   edgeBleed: number;
   onDimensionsResolved?: (width: number, height: number) => void;
+  onFramingAdjustChange?: (active: boolean) => void;
 }
 
 function SkywriteComposeImmersiveVideoStageComponent({
@@ -43,6 +44,7 @@ function SkywriteComposeImmersiveVideoStageComponent({
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const stageHeight = Math.max(320, Math.round(screenHeight * 0.58));
   const [mixOpen, setMixOpen] = useState(false);
+  const [framingAdjustActive, setFramingAdjustActive] = useState(false);
   const framingRef = useRef<SkywriteFramedVideoLayerRef>(null);
 
   const previewRecord = useMemo(() => {
@@ -88,6 +90,10 @@ function SkywriteComposeImmersiveVideoStageComponent({
         aspectRatio={aspectRatio}
         editable
         onVideoPatch={patchVideo}
+        onAdjustModeChange={(active) => {
+          setFramingAdjustActive(active);
+          onFramingAdjustChange?.(active);
+        }}
         videoRef={videoRef}
         isPlaying={videoPlayback.isPlaying}
         onPauseForAdjust={async () => {
@@ -112,8 +118,10 @@ function SkywriteComposeImmersiveVideoStageComponent({
         <SkywriteFramingToolbar
           video={video}
           editable
+          adjustActive={framingAdjustActive}
           onVideoPatch={patchVideo}
           onRequestAdjust={() => framingRef.current?.beginAdjust()}
+          onRequestDone={() => framingRef.current?.endAdjust()}
         />
         <View style={styles.bottomRow}>
           <Pressable
@@ -228,5 +236,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: 'rgba(248, 180, 180, 0.95)',
+  },
+});
+0, 180, 0.95)',
   },
 });

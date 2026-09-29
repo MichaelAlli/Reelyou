@@ -119,6 +119,7 @@ function SkywriteImmersiveMomentViewComponent({
   const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize } = videoPlayback;
   const autoPlayIssuedRef = useRef(false);
   const [mixOpen, setMixOpen] = useState(false);
+  const [framingAdjustActive, setFramingAdjustActive] = useState(false);
 
   const onStageLayout = (_event: LayoutChangeEvent) => {
     /* stage is always full bleed in viewport mode */
@@ -269,6 +270,7 @@ function SkywriteImmersiveMomentViewComponent({
             aspectRatio={videoAspect}
             editable={canEditFraming}
             onVideoPatch={patchDisplayVideo}
+            onAdjustModeChange={setFramingAdjustActive}
             videoRef={videoPlayback.videoRef}
             isPlaying={videoPlayback.isPlaying}
             onPauseForAdjust={async () => {
@@ -354,8 +356,10 @@ function SkywriteImmersiveMomentViewComponent({
               <SkywriteFramingToolbar
                 video={displayVideo}
                 editable
+                adjustActive={framingAdjustActive}
                 onVideoPatch={patchDisplayVideo}
                 onRequestAdjust={() => framingLayerRef.current?.beginAdjust()}
+                onRequestDone={() => framingLayerRef.current?.endAdjust()}
               />
             ) : null}
           <View style={styles.videoToolbar}>

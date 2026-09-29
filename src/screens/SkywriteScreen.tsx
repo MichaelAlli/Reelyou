@@ -122,6 +122,7 @@ export function SkywriteScreen() {
   const [mediaFeedback, setMediaFeedback] = useState<string | null>(null);
   const [dismissedSuggestionKey, setDismissedSuggestionKey] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [videoFramingAdjust, setVideoFramingAdjust] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [postingLabel, setPostingLabel] = useState<string | null>(null);
@@ -459,6 +460,7 @@ export function SkywriteScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={insets.top}>
           <ScrollView
+            scrollEnabled={!videoFramingAdjust}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.scroll,
@@ -540,6 +542,7 @@ export function SkywriteScreen() {
                       : current,
                   )
                 }
+                onFramingAdjustChange={setVideoFramingAdjust}
               />
             ) : null}
 

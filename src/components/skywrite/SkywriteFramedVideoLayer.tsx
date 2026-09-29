@@ -10,11 +10,13 @@ import {
 } from 'react';
 import {
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
   type LayoutChangeEvent,
+  type ViewStyle,
 } from 'react-native';
 
 import { SkywriteCopy } from '@/constants/skywriteCopy';
@@ -23,15 +25,19 @@ import { skywriteVideoElementStyle } from '@/skywrite/media/skywriteVideoLayout'
 import {
   canPanVideoFraming,
   computeVideoStageLayout,
+  describePanAxes,
   framingToTranslation,
   resolveVideoFraming,
   resolveVideoStageFit,
   translationToFraming,
 } from '@/skywrite/media/skywriteVideoFraming';
+import { useSkywriteFramingPointerDrag } from '@/skywrite/media/useSkywriteFramingPointerDrag';
 import type { SkywriteVideoMedia } from '@/skywrite/types';
 
 export interface SkywriteFramedVideoLayerRef {
   beginAdjust: () => void;
+  endAdjust: () => void;
+  isAdjustActive: () => boolean;
 }
 
 interface SkywriteFramedVideoLayerProps {
@@ -39,6 +45,7 @@ interface SkywriteFramedVideoLayerProps {
   aspectRatio: number;
   editable?: boolean;
   onVideoPatch?: (patch: Partial<SkywriteVideoMedia>) => void;
+  onAdjustModeChange?: (active: boolean) => void;
   videoRef?: VideoProps['ref'];
   onPlaybackStatusUpdate?: VideoProps['onPlaybackStatusUpdate'];
   onLoad?: VideoProps['onLoad'];
@@ -56,6 +63,7 @@ const SkywriteFramedVideoLayerComponent = forwardRef<
     aspectRatio,
     editable = false,
     onVideoPatch,
+    onAdjustModeChange,
     videoRef,
     onPlaybackStatusUpdate,
     onLoad,
@@ -92,15 +100,25 @@ const SkywriteFramedVideoLayerComponent = forwardRef<
 
   const translateX = liveTranslate?.x ?? baseTranslation.translateX;
   const translateY = liveTranslate?.y ?? baseTranslation.translateY;
+  const translateLiveRef = useRef({ x: translateX, y: translateY });
+  translateLiveRef.current = { x: translateX, y: translateY };
+
+  const setAdjustActiveState = useCallback(
+    (active: boolean) => {
+      setAdjustActive(active);
+      onAdjustModeChange?.(active);
+    },
+    [onAdjustModeChange],
+  );
 
   const onStageLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setStageSize({ width, height });
   };
 
-  const commitFraming = useCallback(
-    (nextX: number, nextY: number) => {
-      const next = translationToFraming(nextX, nextY, layout);
+  const persistTranslation = useCallback(
+    (nextX: number, nextY: number, snapToCenter = false) => {
+      const next = translationToFraming(nextX, nextY, layout, { snapToCenter });
       onVideoPatch?.({
         framingOffsetX: next.offsetX,
         framingOffsetY: next.offsetY,
@@ -112,15 +130,24 @@ const SkywriteFramedVideoLayerComponent = forwardRef<
 
   const enterAdjustMode = useCallback(async () => {
     if (!editable) return;
-    if (stageFit === 'fit' && !canPanVideoFraming(layout)) {
+    if (stageFit !== 'fill') {
       setHint(SkywriteCopy.videoFramingFillHint);
+      return;
+    }
+    if (!canPanVideoFraming(layout)) {
+      setHint(SkywriteCopy.videoFramingNoOverflowHint);
+      return;
+    }
+    const axes = describePanAxes(layout);
+    if (!axes.canPanX && !axes.canPanY) {
+      setHint(SkywriteCopy.videoFramingNoOverflowHint);
       return;
     }
     setHint(null);
     wasPlayingRef.current = isPlaying;
     if (isPlaying) await onPauseForAdjust?.();
     dragStartRef.current = { x: baseTranslation.translateX, y: baseTranslation.translateY };
-    setAdjustActive(true);
+    setAdjustActiveState(true);
   }, [
     baseTranslation.translateX,
     baseTranslation.translateY,
@@ -128,65 +155,106 @@ const SkywriteFramedVideoLayerComponent = forwardRef<
     isPlaying,
     layout,
     onPauseForAdjust,
+    setAdjustActiveState,
     stageFit,
   ]);
 
-  const exitAdjustMode = useCallback(async () => {
-    setAdjustActive(false);
-    const resume = wasPlayingRef.current;
-    wasPlayingRef.current = false;
-    await onResumeAfterAdjust?.(resume);
-  }, [onResumeAfterAdjust]);
+  const exitAdjustMode = useCallback(
+    async (snapToCenter = true) => {
+      const { x, y } = translateLiveRef.current;
+      persistTranslation(x, y, snapToCenter);
+      setAdjustActiveState(false);
+      setLiveTranslate(null);
+      const resume = wasPlayingRef.current;
+      wasPlayingRef.current = false;
+      await onResumeAfterAdjust?.(resume);
+    },
+    [onResumeAfterAdjust, persistTranslation, setAdjustActiveState],
+  );
 
-  useImperativeHandle(ref, () => ({ beginAdjust: () => void enterAdjustMode() }), [enterAdjustMode]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      beginAdjust: () => void enterAdjustMode(),
+      endAdjust: () => void exitAdjustMode(),
+      isAdjustActive: () => adjustActive,
+    }),
+    [adjustActive, enterAdjustMode, exitAdjustMode],
+  );
+
+  const handleLiveTranslate = useCallback((x: number, y: number) => {
+    setLiveTranslate({ x, y });
+  }, []);
+
+  const handleCommitTranslate = useCallback(
+    (x: number, y: number) => {
+      persistTranslation(x, y, false);
+    },
+    [persistTranslation],
+  );
+
+  const { pointerHandlers } = useSkywriteFramingPointerDrag({
+    enabled: adjustActive,
+    layout,
+    translateX,
+    translateY,
+    onLiveTranslate: handleLiveTranslate,
+    onCommit: handleCommitTranslate,
+  });
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => adjustActive,
         onMoveShouldSetPanResponder: () => adjustActive,
+        onStartShouldSetPanResponderCapture: () => adjustActive,
+        onMoveShouldSetPanResponderCapture: () => adjustActive,
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => adjustActive,
         onPanResponderGrant: () => {
           dragStartRef.current = { x: translateX, y: translateY };
         },
         onPanResponderMove: (_, gesture) => {
-          const nextX = dragStartRef.current.x + gesture.dx;
-          const nextY = dragStartRef.current.y + gesture.dy;
-          setLiveTranslate({
-            x: Math.max(-layout.maxPanX, Math.min(layout.maxPanX, nextX)),
-            y: Math.max(-layout.maxPanY, Math.min(layout.maxPanY, nextY)),
-          });
+          const { maxPanX, maxPanY } = layout;
+          const nextX = Math.max(-maxPanX, Math.min(maxPanX, dragStartRef.current.x + gesture.dx));
+          const nextY = Math.max(-maxPanY, Math.min(maxPanY, dragStartRef.current.y + gesture.dy));
+          setLiveTranslate({ x: nextX, y: nextY });
         },
         onPanResponderRelease: (_, gesture) => {
-          const nextX = dragStartRef.current.x + gesture.dx;
-          const nextY = dragStartRef.current.y + gesture.dy;
-          const clampedX = Math.max(-layout.maxPanX, Math.min(layout.maxPanX, nextX));
-          const clampedY = Math.max(-layout.maxPanY, Math.min(layout.maxPanY, nextY));
-          commitFraming(clampedX, clampedY);
-          void exitAdjustMode();
+          const { maxPanX, maxPanY } = layout;
+          const nextX = Math.max(-maxPanX, Math.min(maxPanX, dragStartRef.current.x + gesture.dx));
+          const nextY = Math.max(-maxPanY, Math.min(maxPanY, dragStartRef.current.y + gesture.dy));
+          persistTranslation(nextX, nextY, false);
         },
         onPanResponderTerminate: () => {
           setLiveTranslate(null);
-          void exitAdjustMode();
         },
       }),
-    [adjustActive, commitFraming, exitAdjustMode, layout.maxPanX, layout.maxPanY, translateX, translateY],
+    [adjustActive, layout, persistTranslation, translateX, translateY],
   );
 
   const left = (layout.stageWidth - layout.videoWidth) / 2 + translateX;
   const top = (layout.stageHeight - layout.videoHeight) / 2 + translateY;
-  const resizeMode = stageFit === 'fill' ? ResizeMode.COVER : ResizeMode.CONTAIN;
+
+  const adjustSurfaceStyle = useMemo((): ViewStyle => {
+    if (!adjustActive) return styles.adjustSurface;
+    const active = { ...styles.adjustSurface, ...styles.adjustSurfaceActive };
+    if (Platform.OS === 'web') {
+      return {
+        ...active,
+        cursor: 'grab',
+        userSelect: 'none',
+        touchAction: 'none',
+      } as ViewStyle;
+    }
+    return active;
+  }, [adjustActive]);
+
+  const nativePanHandlers = Platform.OS === 'web' ? {} : panResponder.panHandlers;
 
   return (
     <View style={styles.stage} onLayout={onStageLayout}>
-      <View style={styles.clip} {...(adjustActive ? panResponder.panHandlers : {})}>
-        {editable && !adjustActive ? (
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            delayLongPress={450}
-            onLongPress={() => void enterAdjustMode()}
-            accessibilityHint={SkywriteCopy.videoFramingLongPressHint}
-          />
-        ) : null}
+      <View style={styles.clip}>
         {stageSize.width > 0 ? (
           <View
             pointerEvents="none"
@@ -202,7 +270,7 @@ const SkywriteFramedVideoLayerComponent = forwardRef<
               style={skywriteVideoElementStyle()}
               source={{ uri: video.uri }}
               useNativeControls={false}
-              resizeMode={resizeMode}
+              resizeMode={ResizeMode.CONTAIN}
               isLooping={false}
               progressUpdateIntervalMillis={250}
               onPlaybackStatusUpdate={onPlaybackStatusUpdate}
@@ -213,24 +281,53 @@ const SkywriteFramedVideoLayerComponent = forwardRef<
       </View>
 
       {adjustActive ? (
-        <View style={styles.guideOverlay} pointerEvents="none">
-          <View style={styles.guideVertical} />
-          <View style={styles.guideHorizontal} />
-          <Text style={styles.guideLabel}>{SkywriteCopy.videoFramingAdjusting}</Text>
+        <View
+          style={adjustSurfaceStyle}
+          {...nativePanHandlers}
+          {...pointerHandlers}
+          accessibilityLabel="Video framing adjustment surface">
+          <View style={styles.guideOverlay} pointerEvents="none">
+            <View style={styles.guideVertical} />
+            <View style={styles.guideHorizontal} />
+            <Text style={styles.guideLabel}>{SkywriteCopy.videoFramingAdjusting}</Text>
+          </View>
+          <Pressable
+            style={styles.doneBtn}
+            accessibilityRole="button"
+            onPress={() => {
+              void exitAdjustMode(true);
+            }}>
+            <Text style={styles.doneBtnText}>{SkywriteCopy.videoFramingDone}</Text>
+          </Pressable>
         </View>
+      ) : null}
+
+      {editable && !adjustActive ? (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          delayLongPress={450}
+          onLongPress={() => void enterAdjustMode()}
+          accessibilityHint={SkywriteCopy.videoFramingLongPressHint}
+        />
       ) : null}
 
       {hint ? (
         <View style={styles.hintBanner} pointerEvents="box-none">
           <Text style={styles.hintText}>{hint}</Text>
-          <Pressable
-            style={styles.hintBtn}
-            onPress={() => {
-              onVideoPatch?.({ stageFit: 'fill' });
-              setHint(null);
-            }}>
-            <Text style={styles.hintBtnText}>{SkywriteCopy.videoFramingFill}</Text>
-          </Pressable>
+          {stageFit !== 'fill' ? (
+            <Pressable
+              style={styles.hintBtn}
+              onPress={() => {
+                onVideoPatch?.({ stageFit: 'fill' });
+                setHint(null);
+              }}>
+              <Text style={styles.hintBtnText}>{SkywriteCopy.videoFramingFill}</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.hintBtn} onPress={() => setHint(null)}>
+              <Text style={styles.hintBtnText}>OK</Text>
+            </Pressable>
+          )}
         </View>
       ) : null}
     </View>
@@ -242,15 +339,19 @@ export const SkywriteFramedVideoLayer = memo(SkywriteFramedVideoLayerComponent);
 export interface SkywriteFramingToolbarProps {
   video: SkywriteVideoMedia;
   editable?: boolean;
+  adjustActive?: boolean;
   onVideoPatch?: (patch: Partial<SkywriteVideoMedia>) => void;
   onRequestAdjust?: () => void;
+  onRequestDone?: () => void;
 }
 
 export const SkywriteFramingToolbar = memo(function SkywriteFramingToolbar({
   video,
   editable,
+  adjustActive = false,
   onVideoPatch,
   onRequestAdjust,
+  onRequestDone,
 }: SkywriteFramingToolbarProps) {
   if (!editable || !onVideoPatch) return null;
   const stageFit = resolveVideoStageFit(video);
@@ -261,31 +362,40 @@ export const SkywriteFramingToolbar = memo(function SkywriteFramingToolbar({
     <View style={toolbarStyles.row}>
       <Chip
         label={SkywriteCopy.videoFramingFit}
-        active={stageFit === 'fit'}
-        onPress={() =>
+        active={stageFit === 'fit' && !adjustActive}
+        onPress={() => {
+          onRequestDone?.();
           onVideoPatch({
             stageFit: 'fit',
             framingOffsetX: 0,
             framingOffsetY: 0,
-          })
-        }
+          });
+        }}
       />
       <Chip
         label={SkywriteCopy.videoFramingFill}
-        active={stageFit === 'fill'}
-        onPress={() => onVideoPatch({ stageFit: 'fill' })}
+        active={stageFit === 'fill' && !adjustActive}
+        onPress={() => {
+          onRequestDone?.();
+          onVideoPatch({ stageFit: 'fill' });
+        }}
       />
-      <Chip label={SkywriteCopy.videoFramingAdjust} onPress={() => onRequestAdjust?.()} />
+      <Chip
+        label={adjustActive ? SkywriteCopy.videoFramingDone : SkywriteCopy.videoFramingAdjust}
+        active={adjustActive}
+        onPress={() => (adjustActive ? onRequestDone?.() : onRequestAdjust?.())}
+      />
       {hasCustomFraming ? (
         <Chip
           label={SkywriteCopy.videoFramingReset}
-          onPress={() =>
+          onPress={() => {
+            onRequestDone?.();
             onVideoPatch({
               stageFit: 'fit',
               framingOffsetX: 0,
               framingOffsetY: 0,
-            })
-          }
+            });
+          }}
         />
       ) : null}
     </View>
@@ -321,6 +431,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
+  adjustSurface: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 3,
+    backgroundColor: 'rgba(232, 200, 114, 0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.35)',
+  },
+  adjustSurfaceActive: {
+    backgroundColor: 'rgba(232, 200, 114, 0.1)',
+  },
   guideOverlay: {
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
@@ -329,16 +449,16 @@ const styles = StyleSheet.create({
   guideVertical: {
     position: 'absolute',
     width: StyleSheet.hairlineWidth,
-    top: '20%',
-    bottom: '20%',
-    backgroundColor: 'rgba(232, 200, 114, 0.45)',
+    top: '18%',
+    bottom: '18%',
+    backgroundColor: 'rgba(232, 200, 114, 0.5)',
   },
   guideHorizontal: {
     position: 'absolute',
     height: StyleSheet.hairlineWidth,
-    left: '15%',
-    right: '15%',
-    backgroundColor: 'rgba(232, 200, 114, 0.45)',
+    left: '12%',
+    right: '12%',
+    backgroundColor: 'rgba(232, 200, 114, 0.5)',
   },
   guideLabel: {
     fontFamily: Fonts.sans,
@@ -350,6 +470,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
+  },
+  doneBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    minHeight: 36,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    borderRadius: 999,
+    backgroundColor: 'rgba(8, 10, 28, 0.82)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.55)',
+  },
+  doneBtnText: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E8C872',
   },
   hintBanner: {
     position: 'absolute',
@@ -363,6 +501,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(232, 200, 114, 0.35)',
     alignItems: 'center',
     gap: 10,
+    zIndex: 4,
   },
   hintText: {
     fontFamily: Fonts.sans,

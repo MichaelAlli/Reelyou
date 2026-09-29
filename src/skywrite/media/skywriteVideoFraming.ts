@@ -92,10 +92,22 @@ export function translationToFraming(
   translateX: number,
   translateY: number,
   layout: VideoStageLayout,
+  options?: { snapToCenter?: boolean },
 ): SkywriteVideoFraming {
   const offsetX = layout.maxPanX > 0 ? clampFramingOffset(translateX / layout.maxPanX) : 0;
   const offsetY = layout.maxPanY > 0 ? clampFramingOffset(translateY / layout.maxPanY) : 0;
-  return applyFramingSnap({ offsetX, offsetY });
+  const framing = { offsetX, offsetY };
+  return options?.snapToCenter ? applyFramingSnap(framing) : framing;
+}
+
+export function describePanAxes(layout: VideoStageLayout): {
+  canPanX: boolean;
+  canPanY: boolean;
+} {
+  return {
+    canPanX: layout.maxPanX > 0.5,
+    canPanY: layout.maxPanY > 0.5,
+  };
 }
 
 export function applyFramingSnap(framing: SkywriteVideoFraming): SkywriteVideoFraming {
