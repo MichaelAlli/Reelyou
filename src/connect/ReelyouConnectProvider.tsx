@@ -9,7 +9,16 @@ import {
   type ReactNode,
 } from 'react';
 
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { currentUser, orbitUsers } from '@/data/mockData';
+import {
+  fetchSocialStateFromServer,
+  isSharedSocialPersistenceEnabled,
+  postBlock,
+  postFollow,
+  deleteFollow,
+} from '@/social/sharedSocialApi';
 import { useOnboarding } from '@/onboarding';
 import { useSkywriteBeacon } from '@/skywrite/beacon/SkywriteBeaconProvider';
 import { beaconNow } from '@/skywrite/beacon/beaconTime';
@@ -140,6 +149,8 @@ interface ReelyouConnectContextValue {
 const ReelyouConnectContext = createContext<ReelyouConnectContextValue | null>(null);
 
 export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
+  const auth = useReelyouAuth();
+  const activeUserId = resolveActiveUserId(auth.user);
   const { aroundYourSkyFeed, skywrites } = useOnboarding();
   const { buildQueueForViewer } = useSkywriteBeacon();
   const { ignoreBeacon } = useSkywriteThreads();
@@ -191,6 +202,32 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!ready || !isSharedSocialPersistenceEnabled() || !auth.isAuthenticated) return;
+    let mounted = true;
+    void (async () => {
+      const remote = await fetchSocialStateFromServer();
+      if (!remote || !mounted) return;
+      setSkyFollowGraph(() => {
+        let graph = EMPTY_SKY_FOLLOW_GRAPH;
+        for (const id of remote.followingUserIds) {
+          graph = addSkyFollowEdge(graph, activeUserId, id);
+        }
+        for (const id of remote.followerUserIds) {
+          graph = addSkyFollowEdge(graph, id, activeUserId);
+        }
+        return graph;
+      });
+      setMessages((prev) => ({
+        ...prev,
+        blockedUserIds: [...new Set([...prev.blockedUserIds, ...remote.blockedUserIds])],
+      }));
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [activeUserId, auth.isAuthenticated, ready]);
+
+  useEffect(() => {
     if (!ready) return;
     const interval = setInterval(() => {
       void loadStarPathResourceState().then(setStarpathResources);
@@ -219,52 +256,54 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const followedSkyUserIds = useMemo(
-    () => listFollowing(skyFollowGraph, currentUser.id),
-    [skyFollowGraph],
+    () => listFollowing(skyFollowGraph, activeUserId),
+    [activeUserId, skyFollowGraph],
   );
 
   const skyFriendsCount = useMemo(
-    () => countSkyFriends(skyFollowGraph, currentUser.id),
-    [skyFollowGraph],
+    () => countSkyFriends(skyFollowGraph, activeUserId),
+    [activeUserId, skyFollowGraph],
   );
 
   const skyFriendUserIds = useMemo(
-    () => listSkyFriendUserIds(skyFollowGraph, currentUser.id),
-    [skyFollowGraph],
+    () => listSkyFriendUserIds(skyFollowGraph, activeUserId),
+    [activeUserId, skyFollowGraph],
   );
 
   const followSky = useCallback(
     (userId: string) => {
       if (messages.blockedUserIds.includes(userId)) return;
       setSkyFollowGraph((prev) => {
-        const next = addSkyFollowEdge(prev, currentUser.id, userId);
-        scheduleFollowGraphSave(next);
+        const next = addSkyFollowEdge(prev, activeUserId, userId);
+        if (!isSharedSocialPersistenceEnabled()) scheduleFollowGraphSave(next);
         return next;
       });
+      if (isSharedSocialPersistenceEnabled()) void postFollow(userId);
     },
-    [messages.blockedUserIds, scheduleFollowGraphSave],
+    [activeUserId, messages.blockedUserIds, scheduleFollowGraphSave],
   );
 
   const unfollowSky = useCallback(
     (userId: string) => {
       setSkyFollowGraph((prev) => {
-        const next = removeSkyFollowEdge(prev, currentUser.id, userId);
-        scheduleFollowGraphSave(next);
+        const next = removeSkyFollowEdge(prev, activeUserId, userId);
+        if (!isSharedSocialPersistenceEnabled()) scheduleFollowGraphSave(next);
         return next;
       });
+      if (isSharedSocialPersistenceEnabled()) void deleteFollow(userId);
     },
-    [scheduleFollowGraphSave],
+    [activeUserId, scheduleFollowGraphSave],
   );
 
   const toggleFollowSky = useCallback(
     (userId: string) => {
-      if (isFollowingSkyUser(skyFollowGraph, currentUser.id, userId)) {
+      if (isFollowingSkyUser(skyFollowGraph, activeUserId, userId)) {
         unfollowSky(userId);
       } else {
         followSky(userId);
       }
     },
-    [followSky, skyFollowGraph, unfollowSky],
+    [activeUserId, followSky, skyFollowGraph, unfollowSky],
   );
 
   const isFollowingSkyUserCb = useCallback(
@@ -273,18 +312,18 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   );
 
   const isMutualSkyFriend = useCallback(
-    (userId: string) => isMutualSkyFriends(skyFollowGraph, currentUser.id, userId),
-    [skyFollowGraph],
+    (userId: string) => isMutualSkyFriends(skyFollowGraph, activeUserId, userId),
+    [activeUserId, skyFollowGraph],
   );
 
   const listFollowingUserIds = useCallback(
-    () => listFollowing(skyFollowGraph, currentUser.id),
-    [skyFollowGraph],
+    () => listFollowing(skyFollowGraph, activeUserId),
+    [activeUserId, skyFollowGraph],
   );
 
   const listFollowerUserIds = useCallback(
-    () => listFollowers(skyFollowGraph, currentUser.id),
-    [skyFollowGraph],
+    () => listFollowers(skyFollowGraph, activeUserId),
+    [activeUserId, skyFollowGraph],
   );
 
   const updatePreferences = useCallback(
@@ -585,13 +624,14 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
         return next;
       });
       setSkyFollowGraph((prev) => {
-        let next = removeSkyFollowEdge(prev, currentUser.id, userId);
-        next = removeSkyFollowEdge(next, userId, currentUser.id);
-        scheduleFollowGraphSave(next);
+        let next = removeSkyFollowEdge(prev, activeUserId, userId);
+        next = removeSkyFollowEdge(next, userId, activeUserId);
+        if (!isSharedSocialPersistenceEnabled()) scheduleFollowGraphSave(next);
         return next;
       });
+      if (isSharedSocialPersistenceEnabled()) void postBlock(userId);
     },
-    [scheduleFollowGraphSave, scheduleMsgSave],
+    [activeUserId, scheduleFollowGraphSave, scheduleMsgSave],
   );
 
   const unblockUser = useCallback(

@@ -23,6 +23,17 @@ import {
 } from './friendMatch/matchContactsService.js';
 import { explainWithOpenAi, type VerifiedFactsPayload } from './openaiClient.js';
 import { checkRateLimit } from './rateLimit.js';
+import {
+  handleAddComment,
+  handleBlock,
+  handleCreateSkywrite,
+  handleFollow,
+  handleGetSocialState,
+  handleListComments,
+  handleListSkywrites,
+  handleUnblock,
+  handleUnfollow,
+} from './social/socialHandlers.js';
 
 assertProductionSecrets();
 loadAccountDatabase();
@@ -199,6 +210,104 @@ const server = createServer(async (req, res) => {
     if (!session) return;
     handleDeleteImportedDiscoveryData(session.userId);
     sendNoContent(res, origin);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/social/state') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    sendJson(res, 200, handleGetSocialState(session.userId), origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/social/follow') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{ userId?: string }>(req);
+      const target = body.userId?.trim();
+      if (!target) {
+        sendJson(res, 400, { error: 'bad_request' }, origin);
+        return;
+      }
+      sendJson(res, 200, handleFollow(session.userId, target), origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'DELETE' && url.pathname.startsWith('/v1/social/follow/')) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const target = decodeURIComponent(url.pathname.replace('/v1/social/follow/', ''));
+    sendJson(res, 200, handleUnfollow(session.userId, target), origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/social/blocks') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{ userId?: string }>(req);
+      const target = body.userId?.trim();
+      if (!target) {
+        sendJson(res, 400, { error: 'bad_request' }, origin);
+        return;
+      }
+      sendJson(res, 200, handleBlock(session.userId, target), origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'DELETE' && url.pathname.startsWith('/v1/social/blocks/')) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const target = decodeURIComponent(url.pathname.replace('/v1/social/blocks/', ''));
+    sendJson(res, 200, handleUnblock(session.userId, target), origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/content/skywrites') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{ text?: string }>(req);
+      sendJson(res, 200, handleCreateSkywrite(session.userId, body), origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/content/skywrites') {
+    const authorUserId = url.searchParams.get('authorUserId')?.trim();
+    if (!authorUserId) {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+      return;
+    }
+    sendJson(res, 200, handleListSkywrites(authorUserId), origin);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/comments$/)) {
+    const skywriteId = url.pathname.split('/')[4] ?? '';
+    sendJson(res, 200, handleListComments(skywriteId), origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/comments$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const skywriteId = url.pathname.split('/')[4] ?? '';
+    try {
+      const body = await readJson<{ text?: string }>(req);
+      sendJson(res, 200, handleAddComment(session.userId, skywriteId, body), origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
     return;
   }
 

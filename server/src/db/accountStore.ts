@@ -26,6 +26,15 @@ export interface AccountDatabase {
   emailIndex: Record<string, string>;
   blocks: { blockerId: string; blockedId: string; createdAt: number }[];
   friendImport: Record<string, { hasImportedContactData: boolean; updatedAt: number }>;
+  followEdges?: { followerUserId: string; followedUserId: string; createdAt: number }[];
+  skywrites?: { id: string; authorUserId: string; text: string; createdAt: number }[];
+  comments?: {
+    id: string;
+    skywriteId: string;
+    authorUserId: string;
+    text: string;
+    createdAt: number;
+  }[];
 }
 
 const EMPTY_DB: AccountDatabase = {
@@ -55,7 +64,14 @@ export function loadAccountDatabase(): AccountDatabase {
     return cached;
   }
   const raw = fs.readFileSync(file, 'utf8');
-  cached = { ...EMPTY_DB, ...(JSON.parse(raw) as AccountDatabase) };
+  const parsed = JSON.parse(raw) as AccountDatabase;
+  cached = {
+    ...EMPTY_DB,
+    ...parsed,
+    followEdges: parsed.followEdges ?? [],
+    skywrites: parsed.skywrites ?? [],
+    comments: parsed.comments ?? [],
+  };
   return cached;
 }
 
