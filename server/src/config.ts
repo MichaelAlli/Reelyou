@@ -13,6 +13,8 @@ export const config = {
   port: Number(process.env.PORT ?? 8787),
   corsOrigins: parseOrigins(process.env.CORS_ORIGIN),
   dbPath: process.env.REELYOU_DB_PATH?.trim() || './data/accounts.json',
+  /** When set (e.g. Render Postgres), social graph + accounts persist across deploys. */
+  databaseUrl: process.env.DATABASE_URL?.trim() ?? '',
   auth: {
     jwtSecret: process.env.AUTH_JWT_SECRET?.trim() ?? '',
     tokenTtlSec: Math.max(Number(process.env.AUTH_TOKEN_TTL_SEC ?? 604_800), 3600),

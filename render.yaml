@@ -1,0 +1,39 @@
+# Reelyou beta API — deploy from https://dashboard.render.com/
+# Blueprint: New > Blueprint > connect repo, set root to Reelyou/ (this file at repo root under Reelyou).
+#
+# Cost (Render, US, as of 2026 — confirm in dashboard before provisioning):
+#   PostgreSQL (Basic 256MB): about $7/month
+#   Web Service (Starter, always on): about $7/month
+#   Total: about $14/month for persistent beta (no free always-on Postgres on Render).
+
+services:
+  - type: web
+    name: reellyou-api
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8787
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reellyou-db
+          property: connectionString
+      - key: AUTH_JWT_SECRET
+        sync: false
+      - key: FRIEND_MATCH_PEPPER
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+
+databases:
+  - name: reellyou-db
+    plan: basic-256mb
+    databaseName: reellyou
+    user: reellyou

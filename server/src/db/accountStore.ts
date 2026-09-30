@@ -2,6 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { config } from '../config.js';
+import {
+  loadFromPostgres,
+  persistToPostgres,
+  postgresPersistenceEnabled,
+} from './postgresAccountStore.js';
 
 export interface StoredUser {
   id: string;
@@ -47,6 +52,17 @@ const EMPTY_DB: AccountDatabase = {
 };
 
 let cached: AccountDatabase | null = null;
+let initPromise: Promise<void> | null = null;
+
+function normalizeLoaded(parsed: AccountDatabase): AccountDatabase {
+  return {
+    ...EMPTY_DB,
+    ...parsed,
+    followEdges: parsed.followEdges ?? [],
+    skywrites: parsed.skywrites ?? [],
+    comments: parsed.comments ?? [],
+  };
+}
 
 function dbFilePath(): string {
   const configured = config.dbPath;
@@ -54,34 +70,60 @@ function dbFilePath(): string {
   return path.join(configured, 'accounts.json');
 }
 
-export function loadAccountDatabase(): AccountDatabase {
-  if (cached) return cached;
+/** Call once before handling traffic when DATABASE_URL may be set. */
+export async function initAccountDatabase(): Promise<void> {
+  if (cached) return;
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    if (postgresPersistenceEnabled(config.databaseUrl)) {
+      const fromPg = await loadFromPostgres(config.databaseUrl);
+      cached = fromPg ? normalizeLoaded(fromPg) : structuredClone(EMPTY_DB);
+      if (!fromPg) persistAccountDatabase();
+      console.log('[reellyou-server] Loaded account database from Postgres');
+      return;
+    }
+    loadAccountDatabaseFromFile();
+  })();
+  return initPromise;
+}
+
+function loadAccountDatabaseFromFile(): AccountDatabase {
   const file = dbFilePath();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   if (!fs.existsSync(file)) {
     cached = structuredClone(EMPTY_DB);
-    persistAccountDatabase();
+    persistAccountDatabaseToFile();
     return cached;
   }
   const raw = fs.readFileSync(file, 'utf8');
-  const parsed = JSON.parse(raw) as AccountDatabase;
-  cached = {
-    ...EMPTY_DB,
-    ...parsed,
-    followEdges: parsed.followEdges ?? [],
-    skywrites: parsed.skywrites ?? [],
-    comments: parsed.comments ?? [],
-  };
+  cached = normalizeLoaded(JSON.parse(raw) as AccountDatabase);
   return cached;
 }
 
-export function persistAccountDatabase(): void {
+export function loadAccountDatabase(): AccountDatabase {
+  if (cached) return cached;
+  if (postgresPersistenceEnabled(config.databaseUrl)) {
+    throw new Error('[reellyou-server] Call initAccountDatabase() before loadAccountDatabase when DATABASE_URL is set.');
+  }
+  return loadAccountDatabaseFromFile();
+}
+
+function persistAccountDatabaseToFile(): void {
   if (!cached) return;
   const file = dbFilePath();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(cached, null, 2), 'utf8');
   fs.renameSync(tmp, file);
+}
+
+export function persistAccountDatabase(): void {
+  if (!cached) return;
+  if (postgresPersistenceEnabled(config.databaseUrl)) {
+    persistToPostgres(config.databaseUrl, cached);
+    return;
+  }
+  persistAccountDatabaseToFile();
 }
 
 export function resetAccountDatabaseForTests(filePath: string): AccountDatabase {

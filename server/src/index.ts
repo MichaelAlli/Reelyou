@@ -10,7 +10,7 @@ import {
   openAiConfigured,
 } from './config.js';
 import { markImportedDiscoveryData } from './db/accountRepository.js';
-import { loadAccountDatabase } from './db/accountStore.js';
+import { initAccountDatabase } from './db/accountStore.js';
 import { discoverLiveResources } from './discoverResources.js';
 import {
   handleDeleteImportedDiscoveryData,
@@ -36,7 +36,6 @@ import {
 } from './social/socialHandlers.js';
 
 assertProductionSecrets();
-loadAccountDatabase();
 
 function corsHeaders(origin: string | undefined): Record<string, string> {
   const allowed =
@@ -344,8 +343,16 @@ const server = createServer(async (req, res) => {
   sendJson(res, 404, { error: 'not_found' }, origin);
 });
 
-server.listen(config.port, () => {
-  console.log(
-    `[reellyou-server] listening on :${config.port} auth=${authConfigured()} friendMatch=${friendMatchConfigured()}`,
-  );
+async function main(): Promise<void> {
+  await initAccountDatabase();
+  server.listen(config.port, () => {
+    console.log(
+      `[reellyou-server] listening on :${config.port} auth=${authConfigured()} friendMatch=${friendMatchConfigured()} db=${config.databaseUrl ? 'postgres' : 'file'}`,
+    );
+  });
+}
+
+main().catch((err) => {
+  console.error('[reellyou-server] failed to start:', err);
+  process.exit(1);
 });
