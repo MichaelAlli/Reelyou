@@ -39,6 +39,12 @@
           "photosPermission": "Allow REELYOU to attach photos to your Skywrite moments.",
           "cameraPermission": "Allow REELYOU to capture photos for your Skywrite moments."
         }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Reelyou can match phone numbers and emails from contacts you allow. Your address book is not stored."
+        }
       ]
     ],
     "experiments": {

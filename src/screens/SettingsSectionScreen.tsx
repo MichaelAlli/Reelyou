@@ -11,12 +11,15 @@ import { MySkyCopy } from '@/constants/mySkyCopy';
 import { NavigationTipsCopy } from '@/navigationTips/navigationTipsCopy';
 import { resetAllNavigationGuidance } from '@/navigationTips/navigationTipsPersistence';
 import { useOnboarding } from '@/onboarding';
+import { useFriendDiscovery } from '@/friendDiscovery/FriendDiscoveryProvider';
+import { FindFamiliarSkiesCopy } from '@/constants/findFamiliarSkiesCopy';
 
 export function SettingsSectionScreen() {
   const { section } = useLocalSearchParams<{ section: string }>();
   const router = useRouter();
   const { preferences, updatePreferences } = useReelyouConnect();
   const onboarding = useOnboarding();
+  const friendDiscovery = useFriendDiscovery();
   const [tipsResetAck, setTipsResetAck] = useState(false);
 
   const title =
@@ -166,6 +169,25 @@ export function SettingsSectionScreen() {
                       !preferences.discoveryPreferences.reduceDiscoverySuggestions,
                   },
                 })
+              }
+            />
+            <Text style={styles.body}>{FindFamiliarSkiesCopy.discoverabilityTitle}</Text>
+            <DiscoveryToggle
+              label={FindFamiliarSkiesCopy.discoverabilityPhone}
+              value={friendDiscovery.state.discoverableByVerifiedPhone}
+              onToggle={() =>
+                friendDiscovery.setDiscoverableByPhone(
+                  !friendDiscovery.state.discoverableByVerifiedPhone,
+                )
+              }
+            />
+            <DiscoveryToggle
+              label={FindFamiliarSkiesCopy.discoverabilityEmail}
+              value={friendDiscovery.state.discoverableByVerifiedEmail}
+              onToggle={() =>
+                friendDiscovery.setDiscoverableByEmail(
+                  !friendDiscovery.state.discoverableByVerifiedEmail,
+                )
               }
             />
           </>

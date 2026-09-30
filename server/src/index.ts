@@ -3,6 +3,11 @@ import { config, openAiConfigured } from './config.js';
 import { discoverLiveResources } from './discoverResources.js';
 import { explainWithOpenAi, type VerifiedFactsPayload } from './openaiClient.js';
 import { checkRateLimit } from './rateLimit.js';
+import {
+  handleMatchContacts,
+  resolveViewerUserId,
+  type MatchContactsBody,
+} from './friendMatch/matchContactsHandler.js';
 
 function corsHeaders(origin: string | undefined): Record<string, string> {
   const allowed =
@@ -71,6 +76,26 @@ const server = createServer(async (req, res) => {
       sendJson(res, result.ok ? 200 : 503, result, origin);
     } catch {
       sendJson(res, 400, { ok: false, errorCode: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/friends/match-contacts') {
+    const viewerId = resolveViewerUserId(req);
+    if (!viewerId) {
+      sendJson(res, 401, { error: 'unauthorized' }, origin);
+      return;
+    }
+    if (!checkRateLimit(`${ip}:friend-match`, 30, 60_000)) {
+      sendJson(res, 429, { error: 'rate_limited' }, origin);
+      return;
+    }
+    try {
+      const body = await readJson<MatchContactsBody>(req);
+      const result = handleMatchContacts(viewerId, body);
+      sendJson(res, 200, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
     }
     return;
   }

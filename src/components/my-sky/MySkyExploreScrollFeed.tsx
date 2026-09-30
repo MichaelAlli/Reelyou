@@ -1,5 +1,13 @@
+import { useRouter } from 'expo-router';
 import { memo, useMemo, useRef } from 'react';
-import { ScrollView, StyleSheet, Text, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 
 import {
   SkywriteOwnerSkySnapshotPanel,
@@ -17,6 +25,8 @@ import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
+import { FindFamiliarSkiesCopy } from '@/constants/findFamiliarSkiesCopy';
+import { PeopleYouMayKnowSection } from '@/friendDiscovery/components/PeopleYouMayKnowSection';
 
 interface MySkyExploreScrollFeedProps {
   nearbyAnchors: readonly NearbySkyAnchor[];
@@ -38,6 +48,7 @@ function MySkyExploreScrollFeedComponent({
   onScrollOffsetChange,
 }: MySkyExploreScrollFeedProps) {
   const scrollRef = useRef<ScrollView>(null);
+  const router = useRouter();
   const { listFollowingUserIds } = useReelyouConnect();
   const { aroundYourSkyFeed, skywrites, communities, guidingLightView } = useOnboarding();
 
@@ -98,6 +109,12 @@ function MySkyExploreScrollFeedComponent({
       onScroll={handleScroll}
       contentOffset={{ x: 0, y: initialScrollOffsetY }}
       nestedScrollEnabled>
+      <PeopleYouMayKnowSection />
+      <Pressable
+        style={styles.findPeopleLink}
+        onPress={() => router.push('/onboarding/find-familiar-skies?from=settings' as never)}>
+        <Text style={styles.findPeopleLinkText}>{FindFamiliarSkiesCopy.exploreEntry}</Text>
+      </Pressable>
       {sections.map((section) => (
         <SkywriteOwnerSkySnapshotPanel
           key={section.ownerId}
@@ -140,5 +157,11 @@ const styles = StyleSheet.create({
     color: 'rgba(248,244,236,0.45)',
     textAlign: 'center',
     marginTop: 8,
+  },
+  findPeopleLink: { alignSelf: 'center', marginBottom: Spacing.sm },
+  findPeopleLinkText: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: 'rgba(232, 200, 114, 0.65)',
   },
 });

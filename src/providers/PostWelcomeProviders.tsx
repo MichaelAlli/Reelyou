@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { ReelyouConnectProvider } from '@/connect/ReelyouConnectProvider';
+import { FriendDiscoveryProvider } from '@/friendDiscovery/FriendDiscoveryProvider';
 import { UserAvatarProvider } from '@/identity/UserAvatarProvider';
 import { EmergingConstellationsProvider } from '@/emergingConstellations/EmergingConstellationsProvider';
 import { HumanPotentialMetricsProvider } from '@/humanPotential/HumanPotentialMetricsProvider';
@@ -33,6 +34,7 @@ export function PostWelcomeProviders({ children }: { children: ReactNode }) {
             <SkywriteBeaconProvider>
               <SkywriteThreadProvider>
                 <ReelyouConnectProvider>
+                  <FriendDiscoveryProvider>
                   <SkywriteCommentProvider>
                     <EmergingConstellationsProvider>
                       <SavedThreadsProvider>
@@ -44,6 +46,7 @@ export function PostWelcomeProviders({ children }: { children: ReactNode }) {
                       </SavedThreadsProvider>
                     </EmergingConstellationsProvider>
                   </SkywriteCommentProvider>
+                  </FriendDiscoveryProvider>
                 </ReelyouConnectProvider>
               </SkywriteThreadProvider>
             </SkywriteBeaconProvider>

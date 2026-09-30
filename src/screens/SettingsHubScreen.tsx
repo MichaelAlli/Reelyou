@@ -125,7 +125,7 @@ export function SettingsHubScreen() {
             onPress={() => router.push('/sky-friends' as never)}
           />
           <LinkRow
-            label="Find familiar skies"
+            label="Find your people"
             onPress={() =>
               router.push('/onboarding/find-familiar-skies?from=settings' as never)
             }
