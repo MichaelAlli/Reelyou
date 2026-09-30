@@ -33,6 +33,7 @@ import {
 import { AuthCopy } from '@/constants/auth';
 import { SignUpDayLayout, resolveSignUpDayLogoWidth, resolveSignUpDayTopInset, signUpDayFontRender, signUpDayTextReadabilityShadow, signUpDayWebViewportStyle } from '@/constants/signUpDayLayout';
 import { Fonts } from '@/constants/theme';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import {
   isSignUpFormValid,
   validateSignUpField,
@@ -52,6 +53,8 @@ const INITIAL_VALUES: SignUpFormValues = {
 
 export function SignUpDayScreen() {
   const router = useRouter();
+  const auth = useReelyouAuth();
+  const [authError, setAuthError] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const styles = useScreenStyles();
@@ -123,7 +126,7 @@ export function SignUpDayScreen() {
     setTouched((current) => ({ ...current, [field]: true }));
   }, []);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     setTouched({
       fullName: true,
       email: true,
@@ -137,11 +140,29 @@ export function SignUpDayScreen() {
       return;
     }
 
+    if (auth.configured) {
+      setAuthError(null);
+      setIsSubmitting(true);
+      const result = await auth.register({
+        email: values.email.trim(),
+        password: values.password,
+        fullName: values.fullName.trim(),
+        phone: values.phone.trim() || undefined,
+      });
+      setIsSubmitting(false);
+      if (!result.ok) {
+        setAuthError('Could not create your account. Try a different email.');
+        return;
+      }
+      router.replace('/onboarding/profile' as never);
+      return;
+    }
+
     setIsSubmitting(true);
     setTimeout(() => {
       setIsSubmitting(false);
     }, 1200);
-  }, [values]);
+  }, [auth, router, values]);
 
   const goToLogIn = useCallback(() => {
     router.replace('/login' as never);
@@ -255,7 +276,7 @@ export function SignUpDayScreen() {
         <View style={styles.ctaBlock}>
           <AuthPrimaryButton
             label={AuthCopy.createAccount}
-            onPress={handleSubmit}
+            onPress={() => void handleSubmit()}
             disabled={!canSubmit}
             loading={isSubmitting}
           />

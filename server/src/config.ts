@@ -5,9 +5,21 @@ function parseOrigins(raw: string | undefined): string[] {
   return raw.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+const nodeEnv = process.env.NODE_ENV?.trim() || 'development';
+
 export const config = {
+  nodeEnv,
+  isProduction: nodeEnv === 'production',
   port: Number(process.env.PORT ?? 8787),
   corsOrigins: parseOrigins(process.env.CORS_ORIGIN),
+  dbPath: process.env.REELYOU_DB_PATH?.trim() || './data/accounts.json',
+  auth: {
+    jwtSecret: process.env.AUTH_JWT_SECRET?.trim() ?? '',
+    tokenTtlSec: Math.max(Number(process.env.AUTH_TOKEN_TTL_SEC ?? 604_800), 3600),
+  },
+  friendMatch: {
+    pepper: process.env.FRIEND_MATCH_PEPPER?.trim() ?? '',
+  },
   openAi: {
     apiKey: process.env.OPENAI_API_KEY?.trim() ?? '',
     model: process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini',
@@ -31,4 +43,22 @@ export const config = {
 
 export function openAiConfigured(): boolean {
   return config.openAi.apiKey.length > 0;
+}
+
+export function authConfigured(): boolean {
+  return config.auth.jwtSecret.length >= 32;
+}
+
+export function friendMatchConfigured(): boolean {
+  return config.friendMatch.pepper.length >= 32;
+}
+
+export function assertProductionSecrets(): void {
+  if (!config.isProduction) return;
+  if (!authConfigured()) {
+    throw new Error('[reellyou-server] AUTH_JWT_SECRET (>=32 chars) is required in production.');
+  }
+  if (!friendMatchConfigured()) {
+    throw new Error('[reellyou-server] FRIEND_MATCH_PEPPER (>=32 chars) is required in production.');
+  }
 }

@@ -1,21 +1,39 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { config, openAiConfigured } from './config.js';
+
+import { authenticateRequest } from './auth/authenticateRequest.js';
+import { handleLogin, handleRegister, handleSession } from './auth/authHandlers.js';
+import {
+  assertProductionSecrets,
+  authConfigured,
+  config,
+  friendMatchConfigured,
+  openAiConfigured,
+} from './config.js';
+import { markImportedDiscoveryData } from './db/accountRepository.js';
+import { loadAccountDatabase } from './db/accountStore.js';
 import { discoverLiveResources } from './discoverResources.js';
-import { explainWithOpenAi, type VerifiedFactsPayload } from './openaiClient.js';
-import { checkRateLimit } from './rateLimit.js';
+import {
+  handleDeleteImportedDiscoveryData,
+  handleGetDiscoverySettings,
+  handlePatchDiscoverySettings,
+} from './friendMatch/discoveryHandlers.js';
 import {
   handleMatchContacts,
-  resolveViewerUserId,
   type MatchContactsBody,
-} from './friendMatch/matchContactsHandler.js';
+} from './friendMatch/matchContactsService.js';
+import { explainWithOpenAi, type VerifiedFactsPayload } from './openaiClient.js';
+import { checkRateLimit } from './rateLimit.js';
+
+assertProductionSecrets();
+loadAccountDatabase();
 
 function corsHeaders(origin: string | undefined): Record<string, string> {
   const allowed =
     origin && config.corsOrigins.includes(origin) ? origin : config.corsOrigins[0] ?? '*';
   return {
     'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 }
 
@@ -31,10 +49,28 @@ function sendJson(res: ServerResponse, status: number, body: unknown, origin?: s
   res.end(JSON.stringify(body));
 }
 
+function sendNoContent(res: ServerResponse, origin?: string): void {
+  res.writeHead(204, corsHeaders(origin));
+  res.end();
+}
+
 function clientIp(req: IncomingMessage): string {
   const fwd = req.headers['x-forwarded-for'];
   if (typeof fwd === 'string') return fwd.split(',')[0]?.trim() ?? 'unknown';
   return req.socket.remoteAddress ?? 'unknown';
+}
+
+function requireAuth(
+  req: IncomingMessage,
+  res: ServerResponse,
+  origin: string | undefined,
+): { userId: string } | null {
+  const session = authenticateRequest(req);
+  if (!session) {
+    sendJson(res, 401, { error: 'unauthorized' }, origin);
+    return null;
+  }
+  return session;
 }
 
 const server = createServer(async (req, res) => {
@@ -60,12 +96,109 @@ const server = createServer(async (req, res) => {
       {
         ok: true,
         openAiConfigured: openAiConfigured(),
+        authConfigured: authConfigured(),
+        friendMatchConfigured: friendMatchConfigured(),
         grantsGov: config.resources.grantsGovEnabled,
         arxiv: config.resources.arxivEnabled,
         rssFeeds: config.resources.rssUrls.length,
       },
       origin,
     );
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/auth/register') {
+    if (!authConfigured()) {
+      sendJson(res, 503, { error: 'auth_not_configured' }, origin);
+      return;
+    }
+    try {
+      const body = await readJson<{
+        email?: string;
+        password?: string;
+        fullName?: string;
+        phone?: string | null;
+      }>(req);
+      const result = handleRegister(body);
+      sendJson(res, result.ok ? 201 : 400, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/auth/login') {
+    if (!authConfigured()) {
+      sendJson(res, 503, { error: 'auth_not_configured' }, origin);
+      return;
+    }
+    try {
+      const body = await readJson<{ email?: string; password?: string }>(req);
+      const result = handleLogin(body);
+      sendJson(res, result.ok ? 200 : 401, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/auth/session') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const result = handleSession(session.userId);
+    sendJson(res, result.ok ? 200 : 404, result, origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/friends/match-contacts') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    if (!friendMatchConfigured()) {
+      sendJson(res, 503, { error: 'friend_match_not_configured' }, origin);
+      return;
+    }
+    if (!checkRateLimit(`${ip}:friend-match:${session.userId}`, 30, 60_000)) {
+      sendJson(res, 429, { error: 'rate_limited' }, origin);
+      return;
+    }
+    try {
+      const body = await readJson<MatchContactsBody>(req);
+      const result = handleMatchContacts(session.userId, body);
+      if (result.matches.length > 0) {
+        markImportedDiscoveryData(session.userId);
+      }
+      sendJson(res, 200, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (url.pathname === '/v1/friends/discovery-settings') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    if (req.method === 'GET') {
+      sendJson(res, 200, handleGetDiscoverySettings(session.userId), origin);
+      return;
+    }
+    if (req.method === 'PATCH') {
+      try {
+        const body = await readJson<{ discoverableByPhone?: boolean; discoverableByEmail?: boolean }>(
+          req,
+        );
+        sendJson(res, 200, handlePatchDiscoverySettings(session.userId, body), origin);
+      } catch {
+        sendJson(res, 400, { error: 'bad_request' }, origin);
+      }
+      return;
+    }
+  }
+
+  if (req.method === 'DELETE' && url.pathname === '/v1/friends/imported-discovery-data') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    handleDeleteImportedDiscoveryData(session.userId);
+    sendNoContent(res, origin);
     return;
   }
 
@@ -76,26 +209,6 @@ const server = createServer(async (req, res) => {
       sendJson(res, result.ok ? 200 : 503, result, origin);
     } catch {
       sendJson(res, 400, { ok: false, errorCode: 'bad_request' }, origin);
-    }
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/v1/friends/match-contacts') {
-    const viewerId = resolveViewerUserId(req);
-    if (!viewerId) {
-      sendJson(res, 401, { error: 'unauthorized' }, origin);
-      return;
-    }
-    if (!checkRateLimit(`${ip}:friend-match`, 30, 60_000)) {
-      sendJson(res, 429, { error: 'rate_limited' }, origin);
-      return;
-    }
-    try {
-      const body = await readJson<MatchContactsBody>(req);
-      const result = handleMatchContacts(viewerId, body);
-      sendJson(res, 200, result, origin);
-    } catch {
-      sendJson(res, 400, { error: 'bad_request' }, origin);
     }
     return;
   }
@@ -123,5 +236,7 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(config.port, () => {
-  console.log(`[reellyou-server] listening on :${config.port} openAi=${openAiConfigured()}`);
+  console.log(
+    `[reellyou-server] listening on :${config.port} auth=${authConfigured()} friendMatch=${friendMatchConfigured()}`,
+  );
 });

@@ -44,6 +44,7 @@ import {
   resolveLogInDayTopInset,
 } from '@/constants/logInDayLayout';
 import { Fonts } from '@/constants/theme';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { useLogInForm } from '@/hooks/use-log-in-form';
 import { AuthAppearanceProvider } from '@/hooks/use-auth-appearance';
 import { useThemedStyles } from '@/theme';
@@ -60,6 +61,8 @@ export function LogInDayScreen() {
   const foregroundTranslateY = useSharedValue(12);
   const [reduceMotion, setReduceMotion] = useState(false);
 
+  const auth = useReelyouAuth();
+  const [authError, setAuthError] = useState<string | null>(null);
   const {
     values,
     errors,
@@ -71,6 +74,23 @@ export function LogInDayScreen() {
     handleSubmit,
     setShowPassword,
   } = useLogInForm();
+
+  const onLogInPress = useCallback(async () => {
+    if (!auth.configured) {
+      handleSubmit();
+      return;
+    }
+    markTouched('email');
+    markTouched('password');
+    if (!canSubmit) return;
+    setAuthError(null);
+    const result = await auth.login({ email: values.email.trim(), password: values.password });
+    if (!result.ok) {
+      setAuthError('Could not sign in. Check your email and password.');
+      return;
+    }
+    router.replace('/onboarding/profile' as never);
+  }, [auth, canSubmit, handleSubmit, markTouched, router, values.email, values.password]);
 
   useEffect(() => {
     let mounted = true;
@@ -159,6 +179,7 @@ export function LogInDayScreen() {
             onToggleSecure={() => setShowPassword((visible) => !visible)}
             error={errors.password}
           />
+          {authError ? <Text style={styles.authError}>{authError}</Text> : null}
         </View>
 
         <View style={styles.rememberBlock}>
@@ -180,7 +201,7 @@ export function LogInDayScreen() {
         <View style={styles.ctaBlock}>
           <AuthPrimaryButton
             label={AuthCopy.logInButton}
-            onPress={handleSubmit}
+            onPress={() => void onLogInPress()}
             disabled={!canSubmit}
             loading={isSubmitting}
           />
@@ -322,6 +343,13 @@ function useScreenStyles() {
         textAlign: 'center',
         ...textLift,
         ...fontRender,
+      },
+      authError: {
+        fontFamily: Fonts.sans,
+        fontSize: 12,
+        color: '#E8A872',
+        marginTop: 6,
+        textAlign: 'center',
       },
       footerLink: {
         color: day.goldAccent,

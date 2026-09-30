@@ -1,5 +1,7 @@
-import { isReellyouBackendConfigured, resolveReellyouApiBaseUrl } from '@/backend/reellyouApiConfig';
+import { authenticatedReellyouFetch } from '@/backend/authenticatedReellyouFetch';
+import { isReellyouBackendConfigured } from '@/backend/reellyouApiConfig';
 import type { ContactMatchResult, FriendDiscoveryMatch } from '@/friendDiscovery/friendDiscoveryTypes';
+import { isFriendDiscoveryDevFixtureEnabled, isProductionFriendDiscoveryReady } from '@/config/betaReleaseFlags';
 import { runDevFixtureContactMatch } from '@/friendDiscovery/friendDiscoveryDevFixtures';
 
 const MAX_IDENTIFIERS_PER_REQUEST = 150;
@@ -13,11 +15,7 @@ export async function postMatchContactIdentifiers(input: {
   const phones = input.phones.slice(0, MAX_IDENTIFIERS_PER_REQUEST);
   const emails = input.emails.slice(0, MAX_IDENTIFIERS_PER_REQUEST);
 
-  if (
-    __DEV__ &&
-    process.env.EXPO_PUBLIC_FRIEND_DISCOVERY_DEV_FIXTURES === '1' &&
-    !isReellyouBackendConfigured()
-  ) {
+  if (isFriendDiscoveryDevFixtureEnabled() && !isProductionFriendDiscoveryReady()) {
     return runDevFixtureContactMatch({
       viewerUserId: input.viewerUserId,
       phones,
@@ -26,26 +24,38 @@ export async function postMatchContactIdentifiers(input: {
     });
   }
 
-  const base = resolveReellyouApiBaseUrl();
-  if (!base) {
+  if (!isReellyouBackendConfigured()) {
     return { status: 'backend_unconfigured', matches: [], message: 'Friend matching server is not configured.' };
   }
 
+  if (!isProductionFriendDiscoveryReady()) {
+    return {
+      status: 'error',
+      matches: [],
+      message: 'Sign in with a Reelyou account to use contact matching in beta.',
+    };
+  }
+
   try {
-    const res = await fetch(`${base}/v1/friends/match-contacts`, {
+    const res = await authenticatedReellyouFetch('/v1/friends/match-contacts', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Reelyou-User-Id': input.viewerUserId,
-      },
       body: JSON.stringify({
         phones,
         emails,
         source: input.source,
       }),
     });
+    if (!res) {
+      return { status: 'error', matches: [], message: 'Sign in required for contact matching.' };
+    }
+    if (res.status === 401) {
+      return { status: 'error', matches: [], message: 'Session expired. Sign in again.' };
+    }
     if (res.status === 429) {
       return { status: 'rate_limited', matches: [], message: 'Too many requests. Try again shortly.' };
+    }
+    if (res.status === 503) {
+      return { status: 'backend_unconfigured', matches: [], message: 'Friend matching is not available yet.' };
     }
     if (!res.ok) {
       return { status: 'error', matches: [], message: 'Could not match contacts right now.' };

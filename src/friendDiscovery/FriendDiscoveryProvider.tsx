@@ -8,7 +8,13 @@ import {
   type ReactNode,
 } from 'react';
 
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { currentUser } from '@/data/mockData';
+import {
+  deleteServerImportedDiscoveryData,
+  fetchServerDiscoverySettings,
+  patchServerDiscoverySettings,
+} from '@/friendDiscovery/friendDiscoveryBackendSync';
 import {
   loadFriendDiscoveryState,
   saveFriendDiscoveryState,
@@ -44,16 +50,27 @@ const FriendDiscoveryContext = createContext<FriendDiscoveryContextValue | null>
 export function FriendDiscoveryProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<FriendDiscoveryState | null>(null);
   const { messages, skyFollowGraph, preferences } = useReelyouConnect();
+  const auth = useReelyouAuth();
+  const viewerId = auth.configured && auth.user ? auth.user.id : currentUser.id;
 
   useEffect(() => {
     let mounted = true;
-    void loadFriendDiscoveryState().then((loaded) => {
-      if (mounted) setState(loaded);
+    void loadFriendDiscoveryState().then(async (loaded) => {
+      const serverPrefs = await fetchServerDiscoverySettings();
+      const merged = serverPrefs
+        ? {
+            ...loaded,
+            discoverableByVerifiedPhone: serverPrefs.discoverableByPhone,
+            discoverableByVerifiedEmail: serverPrefs.discoverableByEmail,
+            updatedAt: serverPrefs.updatedAt,
+          }
+        : loaded;
+      if (mounted) setState(merged);
     });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [auth.user?.id]);
 
   const persist = useCallback(async (next: FriendDiscoveryState) => {
     setState(next);
@@ -70,12 +87,18 @@ export function FriendDiscoveryProvider({ children }: { children: ReactNode }) {
   );
 
   const setDiscoverableByPhone = useCallback(
-    (enabled: boolean) => patch({ discoverableByVerifiedPhone: enabled }),
+    (enabled: boolean) => {
+      patch({ discoverableByVerifiedPhone: enabled });
+      void patchServerDiscoverySettings({ discoverableByPhone: enabled });
+    },
     [patch],
   );
 
   const setDiscoverableByEmail = useCallback(
-    (enabled: boolean) => patch({ discoverableByVerifiedEmail: enabled }),
+    (enabled: boolean) => {
+      patch({ discoverableByVerifiedEmail: enabled });
+      void patchServerDiscoverySettings({ discoverableByEmail: enabled });
+    },
     [patch],
   );
 
@@ -99,6 +122,7 @@ export function FriendDiscoveryProvider({ children }: { children: ReactNode }) {
       googleContactsConnected: false,
       facebookConnected: false,
     });
+    void deleteServerImportedDiscoveryData();
   }, [patch]);
 
   const disconnectGoogleContacts = useCallback(() => {
@@ -131,7 +155,7 @@ export function FriendDiscoveryProvider({ children }: { children: ReactNode }) {
     if (perm === 'denied') {
       return { status: 'denied', message: 'Contacts permission was not granted.' };
     }
-    const result = await matchFromDeviceContacts({ viewerUserId: currentUser.id });
+    const result = await matchFromDeviceContacts({ viewerUserId: viewerId });
     if (result.status === 'ok' || result.status === 'empty') {
       applyContactMatches(
         result.matches.map((m) => m.userId),
@@ -139,7 +163,7 @@ export function FriendDiscoveryProvider({ children }: { children: ReactNode }) {
       );
     }
     return { status: result.status, message: result.message };
-  }, [applyContactMatches]);
+  }, [applyContactMatches, viewerId]);
 
   const markFindYourPeopleSeen = useCallback(() => {
     patch({ findYourPeopleOnboardingSeen: true });
@@ -148,7 +172,7 @@ export function FriendDiscoveryProvider({ children }: { children: ReactNode }) {
   const peopleYouMayKnow = useMemo(() => {
     if (!state) return [];
     return buildPeopleYouMayKnowSuggestions({
-      viewerId: currentUser.id,
+      viewerId,
       graph: skyFollowGraph,
       blockedUserIds: messages.blockedUserIds,
       friendDiscovery: state,
@@ -159,6 +183,7 @@ export function FriendDiscoveryProvider({ children }: { children: ReactNode }) {
     preferences.discoveryPreferences.reduceDiscoverySuggestions,
     skyFollowGraph,
     state,
+    viewerId,
   ]);
 
   const value = useMemo((): FriendDiscoveryContextValue => {
@@ -189,7 +214,6 @@ export function FriendDiscoveryProvider({ children }: { children: ReactNode }) {
     setDiscoverableByPhone,
     state,
     syncPhoneContacts,
-    state,
   ]);
 
   return (

@@ -26,6 +26,7 @@ import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { FindFamiliarSkiesCopy } from '@/constants/findFamiliarSkiesCopy';
+import { isExploreDemoContentEnabled } from '@/config/betaReleaseFlags';
 import { PeopleYouMayKnowSection } from '@/friendDiscovery/components/PeopleYouMayKnowSection';
 
 interface MySkyExploreScrollFeedProps {
@@ -74,12 +75,12 @@ function MySkyExploreScrollFeedComponent({
       kind: 'connected' as const,
     }));
     const connectedSet = new Set(followingIds);
-    const demo = EXPLORE_DEMO_OWNER_IDS.filter((id) => !connectedSet.has(id)).map(
-      (ownerId) => ({
-        ownerId,
-        kind: 'demo' as const,
-      }),
-    );
+    const demo = isExploreDemoContentEnabled()
+      ? EXPLORE_DEMO_OWNER_IDS.filter((id) => !connectedSet.has(id)).map((ownerId) => ({
+          ownerId,
+          kind: 'demo' as const,
+        }))
+      : [];
     const suggested = nearbyAnchors
       .filter(
         (anchor) =>

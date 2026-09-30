@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node --import tsx src/index.ts",
-    "test": "node --import tsx src/starpathBackend.test.ts && node --import tsx src/friendMatch.test.ts"
+    "test": "node --import tsx src/starpathBackend.test.ts && node --import tsx src/friendMatch.test.ts && node --import tsx src/friendDiscoveryProduction.test.ts"
   },
   "devDependencies": {
     "tsx": "^4.19.2"
