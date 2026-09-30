@@ -1,3 +1,4 @@
+import { getCachedSkywrite } from '@/social/sharedSkywriteCache';
 import { collectPublicSkywritesForBeacon } from '@/skywrite/beacon/skywriteBeaconEligibility';
 import { resolveSkywriteForDisplay } from '@/skywrite/lifecycle/resolveSkywriteForDisplay';
 import type { SkywriteContentLifecycleView } from '@/skywrite/lifecycle/skywriteContentLifecycleTypes';
@@ -9,6 +10,9 @@ export function resolveSkywriteById(
   skywriteId: string | undefined,
   lifecycle?: SkywriteContentLifecycleView,
 ): (SkywriteRecord & { authorId: string }) | null {
-  const catalog = collectPublicSkywritesForBeacon(localPosts);
+  const cached = skywriteId ? getCachedSkywrite(skywriteId) : undefined;
+  const catalog = collectPublicSkywritesForBeacon(
+    cached ? [...localPosts, cached] : localPosts,
+  );
   return resolveSkywriteForDisplay(catalog, skywriteId, lifecycle);
 }

@@ -23,6 +23,16 @@ import { buildPublicSkyView, resolvePublicSkyConnectionStatus } from '@/mySky/bu
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { loadSkywritePlaySequence } from '@/skywrite/play/skywritePlayPersistence';
 import type { SkywritePlayScope, SkywritePlayStep } from '@/skywrite/play/skywritePlayTypes';
+import {
+  fetchAuthorSkywritesFromServer,
+  fetchSkywriteFromServer,
+} from '@/social/sharedSkywriteApi';
+import {
+  cacheRemoteSkywrite,
+  cacheRemoteSkywrites,
+  getCachedAuthorSkywrites,
+} from '@/social/sharedSkywriteCache';
+import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
 
@@ -44,6 +54,10 @@ export function SkywriteGuidedPlayScreen() {
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
   const { registry, ready: registryReady, repost } = usePlaySkySequenceRegistry();
   const audioPreview = useOverlayAudioPreviewScope(true);
+  const [remoteSingleRecord, setRemoteSingleRecord] = useState<import('@/skywrite/types').SkywriteRecord | null>(
+    null,
+  );
+  const [remoteFetchTick, setRemoteFetchTick] = useState(0);
   const [stepsLoaded, setStepsLoaded] = useState(false);
   const [steps, setSteps] = useState<SkywritePlayStep[]>([]);
   const [index, setIndex] = useState(0);
@@ -51,6 +65,34 @@ export function SkywriteGuidedPlayScreen() {
   const [needsTapToPlay, setNeedsTapToPlay] = useState(false);
   const [manualPlayNonce, setManualPlayNonce] = useState(0);
   const startedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isSharedSocialPersistenceEnabled() || playScope !== 'owner' || !ownerId) return;
+    if (ownerId === currentUser.id) return;
+    let mounted = true;
+    void fetchAuthorSkywritesFromServer(ownerId).then((posts) => {
+      if (!mounted || posts.length === 0) return;
+      cacheRemoteSkywrites(ownerId, posts);
+      setRemoteFetchTick((tick) => tick + 1);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [ownerId, playScope]);
+
+  useEffect(() => {
+    if (!isSharedSocialPersistenceEnabled() || playScope !== 'single' || !id) return;
+    let mounted = true;
+    void fetchSkywriteFromServer(id).then((remote) => {
+      if (!mounted || !remote) return;
+      cacheRemoteSkywrite(remote);
+      setRemoteSingleRecord(remote);
+      setRemoteFetchTick((tick) => tick + 1);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [id, playScope]);
 
   useEffect(() => {
     if (!registryReady) return;
@@ -65,7 +107,7 @@ export function SkywriteGuidedPlayScreen() {
         const ownerPosts =
           ownerId === currentUser.id
             ? skywrites
-            : resolveOrbitOwnerSkywrites(ownerId);
+            : [...resolveOrbitOwnerSkywrites(ownerId), ...getCachedAuthorSkywrites(ownerId)];
         setSteps(
           resolveOwnerPlaySkySteps({
             ownerId,
@@ -76,12 +118,14 @@ export function SkywriteGuidedPlayScreen() {
           }),
         );
       } else if (playScope === 'single' && id) {
-        const record = resolveSkywriteById(skywrites, id, contentLifecycle);
+        const record =
+          resolveSkywriteById(skywrites, id, contentLifecycle) ??
+          (remoteSingleRecord?.id === id ? remoteSingleRecord : null);
         const allowed =
           record &&
           resolveSkywriteViewerAccess({
             viewerId: currentUser.id,
-            authorId: record.authorId,
+            authorId: record.authorId ?? '',
             visibility: record.visibility,
             followGraph: skyFollowGraph,
             blockedUserIds: messages.blockedUserIds,
@@ -119,6 +163,8 @@ export function SkywriteGuidedPlayScreen() {
     registryReady,
     skyFollowGraph,
     skywrites,
+    remoteSingleRecord,
+    remoteFetchTick,
   ]);
 
   useEffect(() => {

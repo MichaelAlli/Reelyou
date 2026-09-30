@@ -62,6 +62,7 @@ function parsePhoto(raw: unknown): SkywritePhotoMedia | null {
   if (typeof entry.uri !== 'string') return null;
   return {
     uri: entry.uri,
+    remoteAssetId: typeof entry.remoteAssetId === 'string' ? entry.remoteAssetId : undefined,
     width: typeof entry.width === 'number' ? entry.width : undefined,
     height: typeof entry.height === 'number' ? entry.height : undefined,
   };
@@ -73,6 +74,7 @@ function parseAudio(raw: unknown): SkywriteAudioMedia | null {
   if (typeof entry.uri !== 'string') return null;
   return {
     uri: entry.uri,
+    remoteAssetId: typeof entry.remoteAssetId === 'string' ? entry.remoteAssetId : undefined,
     durationMs: typeof entry.durationMs === 'number' ? entry.durationMs : undefined,
   };
 }
@@ -81,12 +83,19 @@ function parseVideo(raw: unknown): SkywriteVideoMedia | null {
   if (!raw || typeof raw !== 'object') return null;
   const entry = raw as Partial<SkywriteVideoMedia>;
   if (typeof entry.uri !== 'string') return null;
+  const stageFit = entry.stageFit === 'fit' || entry.stageFit === 'fill' ? entry.stageFit : undefined;
   return {
     uri: entry.uri,
+    remoteAssetId: typeof entry.remoteAssetId === 'string' ? entry.remoteAssetId : undefined,
     width: typeof entry.width === 'number' ? entry.width : undefined,
     height: typeof entry.height === 'number' ? entry.height : undefined,
     durationMs: typeof entry.durationMs === 'number' ? entry.durationMs : undefined,
     thumbnailUri: typeof entry.thumbnailUri === 'string' ? entry.thumbnailUri : undefined,
+    stageFit,
+    framingOffsetX:
+      typeof entry.framingOffsetX === 'number' ? entry.framingOffsetX : undefined,
+    framingOffsetY:
+      typeof entry.framingOffsetY === 'number' ? entry.framingOffsetY : undefined,
   };
 }
 

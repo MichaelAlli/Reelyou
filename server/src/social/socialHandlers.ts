@@ -7,10 +7,13 @@ import {
   listComments,
   listFollowers,
   listFollowing,
+  deleteSkywrite,
+  getSkywriteForViewer,
   listSkywritesForAuthor,
   removeBlock,
   removeFollow,
 } from './socialRepository.js';
+import type { CreateSkywriteInput } from './skywriteTypes.js';
 
 export function handleGetSocialState(userId: string) {
   return {
@@ -40,14 +43,25 @@ export function handleUnblock(viewerId: string, targetUserId: string) {
   return { ok: true };
 }
 
-export function handleCreateSkywrite(viewerId: string, body: { text?: string }) {
-  const created = createSkywrite(viewerId, body.text ?? '');
+export function handleCreateSkywrite(viewerId: string, body: CreateSkywriteInput) {
+  const created = createSkywrite(viewerId, body);
   if (!created) return { ok: false as const, error: 'invalid_skywrite' };
   return { ok: true as const, skywrite: created };
 }
 
-export function handleListSkywrites(authorUserId: string) {
-  return { skywrites: listSkywritesForAuthor(authorUserId) };
+export function handleListSkywrites(authorUserId: string, viewerId: string) {
+  return { skywrites: listSkywritesForAuthor(authorUserId, viewerId) };
+}
+
+export function handleGetSkywrite(viewerId: string, skywriteId: string) {
+  const skywrite = getSkywriteForViewer(skywriteId, viewerId);
+  if (!skywrite) return { ok: false as const, error: 'not_found' };
+  return { ok: true as const, skywrite };
+}
+
+export async function handleDeleteSkywrite(viewerId: string, skywriteId: string) {
+  const ok = await deleteSkywrite(viewerId, skywriteId);
+  return ok ? { ok: true as const } : { ok: false as const, error: 'not_found' };
 }
 
 export function handleListComments(skywriteId: string) {

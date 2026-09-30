@@ -19,13 +19,13 @@ function db() {
 
 export function listFollowing(userId: string): string[] {
   return db()
-    .followEdges.filter((e) => e.followerUserId === userId)
+    .followEdges!.filter((e) => e.followerUserId === userId)
     .map((e) => e.followedUserId);
 }
 
 export function listFollowers(userId: string): string[] {
   return db()
-    .followEdges.filter((e) => e.followedUserId === userId)
+    .followEdges!.filter((e) => e.followedUserId === userId)
     .map((e) => e.followerUserId);
 }
 
@@ -48,18 +48,19 @@ export function addFollow(followerUserId: string, followedUserId: string): boole
   if (!getUserById(followedUserId) || !getUserById(followerUserId)) return false;
   if (isBlockedEitherDirection(followerUserId, followedUserId)) return false;
   const store = db();
-  const exists = store.followEdges.some(
+  const edges = store.followEdges!;
+  const exists = edges.some(
     (e) => e.followerUserId === followerUserId && e.followedUserId === followedUserId,
   );
   if (exists) return true;
-  store.followEdges.push({ followerUserId, followedUserId, createdAt: Date.now() });
+  edges.push({ followerUserId, followedUserId, createdAt: Date.now() });
   persistAccountDatabase();
   return true;
 }
 
 export function removeFollow(followerUserId: string, followedUserId: string): void {
   const store = db();
-  store.followEdges = store.followEdges.filter(
+  store.followEdges = store.followEdges!.filter(
     (e) => !(e.followerUserId === followerUserId && e.followedUserId === followedUserId),
   );
   persistAccountDatabase();
@@ -84,12 +85,11 @@ export function removeBlock(blockerId: string, blockedId: string): void {
   persistAccountDatabase();
 }
 
-export interface StoredSkywrite {
-  id: string;
-  authorUserId: string;
-  text: string;
-  createdAt: number;
-}
+export type { StoredSkywrite, CreateSkywriteInput } from './skywriteTypes.js';
+import type { CreateSkywriteInput, StoredSkywrite, SkywriteVisibility } from './skywriteTypes.js';
+import { attachAssetsToSkywrite, assertAssetsReadyForPublish, softDeleteMediaForSkywrite } from '../media/mediaRepository.js';
+import { deleteObject } from '../media/mediaStorage.js';
+import { canViewerAccessSkywrite } from './contentVisibility.js';
 
 export interface StoredComment {
   id: string;
@@ -99,29 +99,103 @@ export interface StoredComment {
   createdAt: number;
 }
 
-export function createSkywrite(authorUserId: string, text: string): StoredSkywrite | null {
+function isVisibility(v: unknown): v is SkywriteVisibility {
+  return v === 'private' || v === 'orbit' || v === 'sky_friends' || v === 'public';
+}
+
+export function createSkywrite(
+  authorUserId: string,
+  input: CreateSkywriteInput | string,
+): StoredSkywrite | null {
   if (!getUserById(authorUserId)) return null;
-  const trimmed = text.trim();
-  if (!trimmed) return null;
+  const body: CreateSkywriteInput =
+    typeof input === 'string' ? { text: input } : input ?? {};
+  const trimmed = (body.text ?? '').trim();
+  const media = body.media ?? {};
+  const hasMedia =
+    Boolean(media.photoAssetId) ||
+    Boolean(media.videoAssetId) ||
+    Boolean(media.audioAssetId);
+  if (!trimmed && !hasMedia) return null;
+
+  const assetCheck = assertAssetsReadyForPublish(authorUserId, media);
+  if (!assetCheck.ok) return null;
+
+  const createdAt = body.createdAt ? Date.parse(body.createdAt) : Date.now();
   const entry: StoredSkywrite = {
-    id: randomUUID(),
+    id: body.id?.trim() || randomUUID(),
     authorUserId,
     text: trimmed.slice(0, 4000),
-    createdAt: Date.now(),
+    createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+    visibility: isVisibility(body.visibility) ? body.visibility : 'orbit',
+    mediaMode: body.mediaMode?.trim() || 'text',
+    textStyle: body.textStyle,
+    userHashtags: Array.isArray(body.userHashtags)
+      ? body.userHashtags.filter((t) => typeof t === 'string').slice(0, 32)
+      : [],
+    mood: body.mood ?? null,
+    showingUp: body.showingUp ?? null,
+    skyAreaId: body.skyAreaId,
+    intent: body.intent,
+    animateToSky: body.animateToSky !== false,
+    allowAIContext: body.allowAIContext !== false,
+    experiencedAt: body.experiencedAt,
+    media,
+    deletedAt: null,
   };
   db().skywrites!.push(entry);
+  attachAssetsToSkywrite(entry.id, authorUserId, media);
   persistAccountDatabase();
   return entry;
 }
 
-export function listSkywritesForAuthor(authorUserId: string): StoredSkywrite[] {
+export function listSkywritesForAuthor(
+  authorUserId: string,
+  viewerId: string,
+): StoredSkywrite[] {
   return db()
-    .skywrites!.filter((s) => s.authorUserId === authorUserId)
+    .skywrites!.filter(
+      (s) =>
+        s.authorUserId === authorUserId &&
+        !s.deletedAt &&
+        canViewerAccessSkywrite({
+          viewerId,
+          authorId: s.authorUserId,
+          visibility: s.visibility,
+        }),
+    )
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function getSkywrite(id: string): StoredSkywrite | undefined {
-  return db().skywrites!.find((s) => s.id === id);
+  const row = db().skywrites!.find((s) => s.id === id);
+  if (!row || row.deletedAt) return undefined;
+  return row;
+}
+
+export function getSkywriteForViewer(id: string, viewerId: string): StoredSkywrite | undefined {
+  const row = getSkywrite(id);
+  if (!row) return undefined;
+  if (
+    !canViewerAccessSkywrite({
+      viewerId,
+      authorId: row.authorUserId,
+      visibility: row.visibility,
+    })
+  ) {
+    return undefined;
+  }
+  return row;
+}
+
+export async function deleteSkywrite(authorUserId: string, skywriteId: string): Promise<boolean> {
+  const row = getSkywrite(skywriteId);
+  if (!row || row.authorUserId !== authorUserId) return false;
+  row.deletedAt = Date.now();
+  const keys = softDeleteMediaForSkywrite(skywriteId, authorUserId);
+  persistAccountDatabase();
+  await Promise.all(keys.map((key) => deleteObject(key).catch(() => undefined)));
+  return true;
 }
 
 export function addComment(skywriteId: string, authorUserId: string, text: string): StoredComment | null {

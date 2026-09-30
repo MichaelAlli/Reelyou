@@ -18,6 +18,7 @@ import {
   pickSkywriteMediaSource,
   skywritePreviewExcerpt,
 } from '@/skywrite/media/skywriteMediaPreviewUtils';
+import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 export interface SkywriteLibraryMenuAction {
@@ -47,7 +48,9 @@ function SkywriteLibraryMediaCardComponent({
   isAudioPlaying,
   style,
 }: SkywriteLibraryMediaCardProps) {
-  const media = useMemo(() => pickSkywriteMediaSource(skywrite), [skywrite]);
+  const resolvedSkywrite =
+    useResolvedSkywriteRecord(skywrite as SkywriteRecord) ?? (skywrite as SkywriteRecord);
+  const media = useMemo(() => pickSkywriteMediaSource(resolvedSkywrite), [resolvedSkywrite]);
   const [imageFailed, setImageFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const previewId = `library-card-${skywrite.id}`;

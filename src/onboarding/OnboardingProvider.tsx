@@ -85,7 +85,16 @@ import {
   loadSkyEvolution,
   saveSkyEvolution,
 } from '@/mySky/skyEvolutionPersistence';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { currentUser } from '@/data/mockData';
+import { syncPublishedSkywriteToServer } from '@/social/publishSharedSkywrite';
+import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
+import {
+  fetchAuthorSkywritesFromServer,
+  fetchSkywriteFromServer,
+} from '@/social/sharedSkywriteApi';
+import { cacheRemoteSkywrites } from '@/social/sharedSkywriteCache';
 import {
   loadProfileSkyAreaShortcutIds,
   saveProfileSkyAreaShortcutIds,
@@ -240,6 +249,8 @@ interface OnboardingContextValue {
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
+  const { user: authUser } = useReelyouAuth();
+  const activeUserId = resolveActiveUserId(authUser);
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [todayFocus, setTodayFocusState] = useState<TodayFocusRecord>(() =>
     reconcileTodayFocusForToday({ ...EMPTY_TODAY_FOCUS, dateKey: getLocalDateKey() }),
@@ -332,6 +343,30 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       live = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isSharedSocialPersistenceEnabled() || !authUser?.id) return;
+    let live = true;
+    void fetchAuthorSkywritesFromServer(authUser.id).then((remote) => {
+      if (!live || remote.length === 0) return;
+      cacheRemoteSkywrites(authUser.id, remote);
+      setSkywritesState((current) => {
+        const byId = new Map(current.posts.map((post) => [post.id, post]));
+        for (const post of remote) {
+          byId.set(post.id, post);
+        }
+        const merged: SkywritesState = {
+          posts: [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+        };
+        skywritesRef.current = merged;
+        void saveSkywrites(merged);
+        return merged;
+      });
+    });
+    return () => {
+      live = false;
+    };
+  }, [authUser?.id]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -710,26 +745,41 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         result = await publishSkywriteDraft(
           draft,
           async (record) => {
-            if (skywritesRef.current.posts.some((post) => post.id === record.id)) {
+            let finalRecord = record;
+            if (isSharedSocialPersistenceEnabled()) {
+              const sync = await syncPublishedSkywriteToServer(record);
+              if (!sync.ok) return false;
+              finalRecord = sync.record;
+            }
+            if (skywritesRef.current.posts.some((post) => post.id === finalRecord.id)) {
               return true;
             }
-            const next: SkywritesState = { posts: [record, ...skywritesRef.current.posts] };
+            const next: SkywritesState = {
+              posts: [finalRecord, ...skywritesRef.current.posts],
+            };
             const saved = await saveSkywrites(next);
             if (saved) {
               setSkywritesState(next);
               skywritesRef.current = next;
               recordSkyEvolution(
                 createEvolutionEntry('SKYWRITE_CREATED', {
-                  nodeId: buildSkyNodeId(record.id),
+                  nodeId: buildSkyNodeId(finalRecord.id),
                   summary: 'A new Skywrite became a star in your sky.',
                 }),
               );
             }
             return saved;
           },
-          currentUser.id,
+          activeUserId,
           onProgress,
         );
+        if (!result.ok && isSharedSocialPersistenceEnabled()) {
+          result = {
+            ...result,
+            errorMessage:
+              'We couldn’t upload or save your Skywrite to the server. Check your connection and try again.',
+          };
+        }
       } finally {
         publishInFlightRef.current = false;
       }
@@ -758,7 +808,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       return result;
     },
-    [recordSkyEvolution],
+    [activeUserId, recordSkyEvolution],
   );
 
   const replaceSkywrite = useCallback(
@@ -778,9 +828,15 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       const result = await publishSkywriteDraft(
         draft,
         async (record) => {
+          let finalRecord = record;
+          if (isSharedSocialPersistenceEnabled()) {
+            const sync = await syncPublishedSkywriteToServer(record);
+            if (!sync.ok) return false;
+            finalRecord = sync.record;
+          }
           const next: SkywritesState = {
             posts: skywritesRef.current.posts.map((post) =>
-              post.id === skywriteId ? record : post,
+              post.id === skywriteId ? finalRecord : post,
             ),
           };
           const saved = await saveSkywrites(next);
@@ -790,7 +846,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           }
           return saved;
         },
-        existing.authorId ?? currentUser.id,
+        existing.authorId ?? activeUserId,
         onProgress,
         { existingId: skywriteId, createdAt: existing.createdAt },
       );

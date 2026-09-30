@@ -38,7 +38,7 @@ assert.ok(handleFollow(a.user.id, b.user.id).ok);
 const stateA = handleGetSocialState(a.user.id);
 assert.deepEqual(stateA.followingUserIds, [b.user.id]);
 
-const post = handleCreateSkywrite(a.user.id, { text: 'Hello shared sky' });
+const post = handleCreateSkywrite(a.user.id, { text: 'Hello shared sky', visibility: 'public' });
 assert.ok(post.ok);
 const comment = handleAddComment(b.user.id, post.skywrite.id, { text: 'Seen it' });
 assert.ok(comment.ok);

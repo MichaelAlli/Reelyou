@@ -16,12 +16,15 @@ export type SkywriteVideoOriginalAudioState = 'on' | 'lower' | 'off';
 
 export interface SkywritePhotoMedia {
   uri: string;
+  /** Server object-storage asset — durable across devices when auth + API are configured. */
+  remoteAssetId?: string;
   width?: number;
   height?: number;
 }
 
 export interface SkywriteVideoMedia {
   uri: string;
+  remoteAssetId?: string;
   width?: number;
   height?: number;
   durationMs?: number;
@@ -36,6 +39,7 @@ export interface SkywriteVideoMedia {
 
 export interface SkywriteAudioMedia {
   uri: string;
+  remoteAssetId?: string;
   durationMs?: number;
 }
 

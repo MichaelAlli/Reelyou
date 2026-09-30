@@ -30,6 +30,7 @@ import {
 } from '@/skywrite/media/skywriteVideoLayout';
 import { useSkywriteImmersiveVideoPlayback } from '@/skywrite/media/useSkywriteImmersiveVideoPlayback';
 import type { SkywritePlayStepKind } from '@/skywrite/play/skywritePlayTypes';
+import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
 
 interface SkywriteImmersiveMomentViewProps {
@@ -109,11 +110,12 @@ function SkywriteImmersiveMomentViewComponent({
   allowVideoFramingEdit = false,
 }: SkywriteImmersiveMomentViewProps) {
   const insets = useSafeAreaInsets();
-  const videoActive = stepKind === 'video' && Boolean(record.media.video?.uri);
-  const playbackMedia = mediaMix ?? record.media;
-  const displayVideo = playbackMedia.video ?? record.media.video;
+  const resolvedRecord = useResolvedSkywriteRecord(record) ?? record;
+  const videoActive = stepKind === 'video' && Boolean(resolvedRecord.media.video?.uri);
+  const playbackMedia = mediaMix ?? resolvedRecord.media;
+  const displayVideo = playbackMedia.video ?? resolvedRecord.media.video;
   const framingLayerRef = useRef<SkywriteFramedVideoLayerRef>(null);
-  const videoPlayback = useSkywriteImmersiveVideoPlayback(record, videoActive, playbackMedia, {
+  const videoPlayback = useSkywriteImmersiveVideoPlayback(resolvedRecord, videoActive, playbackMedia, {
     onAutoplayBlocked: onVideoAutoplayBlocked,
   });
   const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize } = videoPlayback;
@@ -160,7 +162,7 @@ function SkywriteImmersiveMomentViewComponent({
     requestAutoPlay,
   ]);
 
-  const audioUri = record.media.audio?.uri ?? null;
+  const audioUri = resolvedRecord.media.audio?.uri ?? null;
   const videoAspect = useMemo(() => {
     if (naturalSize?.width && naturalSize.height) {
       return naturalSize.width / naturalSize.height;
@@ -217,16 +219,20 @@ function SkywriteImmersiveMomentViewComponent({
             {record.text.trim() || '…'}
           </Text>
         ) : null}
-        {stepKind === 'photo' && record.media.photo?.uri ? (
-          <Image source={{ uri: record.media.photo.uri }} style={styles.heroImage} contentFit="contain" />
+        {stepKind === 'photo' && resolvedRecord.media.photo?.uri ? (
+          <Image
+            source={{ uri: resolvedRecord.media.photo.uri }}
+            style={styles.heroImage}
+            contentFit="contain"
+          />
         ) : null}
-        {stepKind === 'video' && record.media.video?.uri ? (
+        {stepKind === 'video' && displayVideo?.uri ? (
           <View style={styles.videoStageStandard}>
             <View style={skywriteVideoFrameStyle(videoAspect, 480)}>
               <Video
                 ref={videoPlayback.videoRef}
                 style={skywriteVideoElementStyle()}
-                source={{ uri: record.media.video.uri }}
+                source={{ uri: displayVideo.uri }}
                 resizeMode={ResizeMode.CONTAIN}
                 useNativeControls={false}
                 isLooping={false}

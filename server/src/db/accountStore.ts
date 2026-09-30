@@ -32,7 +32,8 @@ export interface AccountDatabase {
   blocks: { blockerId: string; blockedId: string; createdAt: number }[];
   friendImport: Record<string, { hasImportedContactData: boolean; updatedAt: number }>;
   followEdges?: { followerUserId: string; followedUserId: string; createdAt: number }[];
-  skywrites?: { id: string; authorUserId: string; text: string; createdAt: number }[];
+  skywrites?: import('../social/skywriteTypes.js').StoredSkywrite[];
+  mediaAssets?: import('../media/mediaTypes.js').StoredMediaAsset[];
   comments?: {
     id: string;
     skywriteId: string;
@@ -59,8 +60,26 @@ function normalizeLoaded(parsed: AccountDatabase): AccountDatabase {
     ...EMPTY_DB,
     ...parsed,
     followEdges: parsed.followEdges ?? [],
-    skywrites: parsed.skywrites ?? [],
+    skywrites: (parsed.skywrites ?? []).map(normalizeLegacySkywrite),
     comments: parsed.comments ?? [],
+    mediaAssets: parsed.mediaAssets ?? [],
+  };
+}
+
+function normalizeLegacySkywrite(
+  raw: import('../social/skywriteTypes.js').StoredSkywrite | { id: string; authorUserId: string; text: string; createdAt: number },
+): import('../social/skywriteTypes.js').StoredSkywrite {
+  if ('visibility' in raw && 'media' in raw) return raw as import('../social/skywriteTypes.js').StoredSkywrite;
+  const legacy = raw as { id: string; authorUserId: string; text: string; createdAt: number };
+  return {
+    id: legacy.id,
+    authorUserId: legacy.authorUserId,
+    text: legacy.text,
+    createdAt: legacy.createdAt,
+    visibility: 'public',
+    mediaMode: 'text',
+    media: {},
+    deletedAt: null,
   };
 }
 

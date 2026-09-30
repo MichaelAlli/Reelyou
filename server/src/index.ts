@@ -8,6 +8,7 @@ import {
   config,
   friendMatchConfigured,
   openAiConfigured,
+  mediaStorageConfigured,
 } from './config.js';
 import { markImportedDiscoveryData } from './db/accountRepository.js';
 import { initAccountDatabase } from './db/accountStore.js';
@@ -23,17 +24,33 @@ import {
 } from './friendMatch/matchContactsService.js';
 import { explainWithOpenAi, type VerifiedFactsPayload } from './openaiClient.js';
 import { checkRateLimit } from './rateLimit.js';
+import { readBodyWithLimit } from './http/readBody.js';
+import {
+  handleCompleteUploadSession,
+  handleCreateUploadSession,
+  handleMediaAccess,
+} from './media/mediaHandlers.js';
+import { MEDIA_MAX_BYTES } from './media/mediaLimits.js';
+import {
+  getMediaAsset,
+  getMediaAssetByStorageKey,
+  resolveSkywriteVisibilityForAsset,
+} from './media/mediaRepository.js';
+import { readLocalObject, writeLocalObject } from './media/mediaStorage.js';
 import {
   handleAddComment,
   handleBlock,
   handleCreateSkywrite,
+  handleDeleteSkywrite,
   handleFollow,
+  handleGetSkywrite,
   handleGetSocialState,
   handleListComments,
   handleListSkywrites,
   handleUnblock,
   handleUnfollow,
 } from './social/socialHandlers.js';
+import { canViewerAccessMediaAsset } from './social/contentVisibility.js';
 
 assertProductionSecrets();
 
@@ -108,6 +125,7 @@ const server = createServer(async (req, res) => {
         openAiConfigured: openAiConfigured(),
         authConfigured: authConfigured(),
         friendMatchConfigured: friendMatchConfigured(),
+        mediaStorageConfigured: mediaStorageConfigured(),
         grantsGov: config.resources.grantsGovEnabled,
         arxiv: config.resources.arxivEnabled,
         rssFeeds: config.resources.rssUrls.length,
@@ -269,11 +287,109 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && url.pathname === '/v1/media/upload-sessions') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{
+        kind?: string;
+        contentType?: string;
+        sizeBytes?: number;
+      }>(req);
+      sendJson(res, 200, await handleCreateUploadSession(session.userId, body), origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (
+    req.method === 'POST' &&
+    url.pathname.startsWith('/v1/media/upload-sessions/') &&
+    url.pathname.endsWith('/complete')
+  ) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const parts = url.pathname.split('/');
+    const assetId = decodeURIComponent(parts[4] ?? '');
+    sendJson(res, 200, await handleCompleteUploadSession(session.userId, assetId), origin);
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname.startsWith('/v1/media/upload/')) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    if (config.media.storage !== 'local') {
+      sendJson(res, 404, { error: 'not_found' }, origin);
+      return;
+    }
+    const storageKey = decodeURIComponent(url.pathname.replace('/v1/media/upload/', ''));
+    const asset = getMediaAssetByStorageKey(storageKey);
+    if (!asset || asset.ownerUserId !== session.userId || asset.status === 'deleted') {
+      sendJson(res, 404, { error: 'not_found' }, origin);
+      return;
+    }
+    try {
+      const body = await readBodyWithLimit(req, MEDIA_MAX_BYTES[asset.kind]);
+      await writeLocalObject(storageKey, body);
+      sendNoContent(res, origin);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'body_too_large') {
+        sendJson(res, 413, { error: 'too_large' }, origin);
+      } else {
+        sendJson(res, 400, { error: 'bad_request' }, origin);
+      }
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname.startsWith('/v1/media/assets/') && url.pathname.endsWith('/access')) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const assetId = url.pathname.split('/')[4] ?? '';
+    sendJson(res, 200, await handleMediaAccess(session.userId, assetId), origin);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname.startsWith('/v1/media/raw/')) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const storageKey = decodeURIComponent(url.pathname.replace('/v1/media/raw/', ''));
+    const asset = getMediaAssetByStorageKey(storageKey);
+    if (!asset || asset.status !== 'ready' || asset.deletedAt) {
+      sendJson(res, 404, { error: 'not_found' }, origin);
+      return;
+    }
+    const visibility = resolveSkywriteVisibilityForAsset(asset);
+    const allowed = canViewerAccessMediaAsset({
+      viewerId: session.userId,
+      ownerUserId: asset.ownerUserId,
+      skywriteId: asset.skywriteId,
+      skywriteVisibility: visibility,
+    });
+    if (!allowed) {
+      sendJson(res, 403, { error: 'forbidden' }, origin);
+      return;
+    }
+    const bytes = readLocalObject(storageKey);
+    if (!bytes) {
+      sendJson(res, 404, { error: 'not_found' }, origin);
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': asset.contentType,
+      'Cache-Control': 'private, max-age=60',
+      ...corsHeaders(origin),
+    });
+    res.end(bytes);
+    return;
+  }
+
   if (req.method === 'POST' && url.pathname === '/v1/content/skywrites') {
     const session = requireAuth(req, res, origin);
     if (!session) return;
     try {
-      const body = await readJson<{ text?: string }>(req);
+      const body = await readJson<import('./social/skywriteTypes.js').CreateSkywriteInput>(req);
       sendJson(res, 200, handleCreateSkywrite(session.userId, body), origin);
     } catch {
       sendJson(res, 400, { error: 'bad_request' }, origin);
@@ -282,12 +398,30 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/v1/content/skywrites') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
     const authorUserId = url.searchParams.get('authorUserId')?.trim();
     if (!authorUserId) {
       sendJson(res, 400, { error: 'bad_request' }, origin);
       return;
     }
-    sendJson(res, 200, handleListSkywrites(authorUserId), origin);
+    sendJson(res, 200, handleListSkywrites(authorUserId, session.userId), origin);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const skywriteId = url.pathname.split('/')[4] ?? '';
+    sendJson(res, 200, handleGetSkywrite(session.userId, skywriteId), origin);
+    return;
+  }
+
+  if (req.method === 'DELETE' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const skywriteId = url.pathname.split('/')[4] ?? '';
+    sendJson(res, 200, await handleDeleteSkywrite(session.userId, skywriteId), origin);
     return;
   }
 

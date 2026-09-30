@@ -30,6 +30,19 @@ export const config = {
     timeoutMs: 25_000,
     maxRetries: 2,
   },
+  media: {
+    /** `s3` for beta/production (S3-compatible, e.g. Cloudflare R2). `local` for automated tests only. */
+    storage: (process.env.MEDIA_STORAGE?.trim() || 'local') as 'local' | 's3',
+    localRoot: process.env.MEDIA_LOCAL_ROOT?.trim() || './data/media',
+    signedUrlTtlSec: Math.max(Number(process.env.MEDIA_SIGNED_URL_TTL_SEC ?? 900), 60),
+    s3: {
+      endpoint: process.env.MEDIA_S3_ENDPOINT?.trim() ?? '',
+      region: process.env.MEDIA_S3_REGION?.trim() || 'auto',
+      bucket: process.env.MEDIA_S3_BUCKET?.trim() ?? '',
+      accessKeyId: process.env.MEDIA_S3_ACCESS_KEY_ID?.trim() ?? '',
+      secretAccessKey: process.env.MEDIA_S3_SECRET_ACCESS_KEY?.trim() ?? '',
+    },
+  },
   resources: {
     rssUrls: (process.env.RESOURCE_RSS_URLS ?? '')
       .split(',')
@@ -55,6 +68,17 @@ export function friendMatchConfigured(): boolean {
   return config.friendMatch.pepper.length >= 32;
 }
 
+export function mediaStorageConfigured(): boolean {
+  if (config.media.storage === 'local') return config.isProduction ? false : true;
+  const s = config.media.s3;
+  return (
+    s.bucket.length > 0 &&
+    s.accessKeyId.length > 0 &&
+    s.secretAccessKey.length > 0 &&
+    (s.endpoint.length > 0 || s.region.length > 0)
+  );
+}
+
 export function assertProductionSecrets(): void {
   if (!config.isProduction) return;
   if (!authConfigured()) {
@@ -62,5 +86,13 @@ export function assertProductionSecrets(): void {
   }
   if (!friendMatchConfigured()) {
     throw new Error('[reellyou-server] FRIEND_MATCH_PEPPER (>=32 chars) is required in production.');
+  }
+  if (config.media.storage !== 's3' || !mediaStorageConfigured()) {
+    throw new Error(
+      '[reellyou-server] MEDIA_STORAGE=s3 with MEDIA_S3_BUCKET, MEDIA_S3_ACCESS_KEY_ID, MEDIA_S3_SECRET_ACCESS_KEY, MEDIA_S3_ENDPOINT is required in production.',
+    );
+  }
+  if (!config.databaseUrl) {
+    throw new Error('[reellyou-server] DATABASE_URL is required in production.');
   }
 }
