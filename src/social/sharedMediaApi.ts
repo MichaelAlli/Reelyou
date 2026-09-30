@@ -96,3 +96,7 @@ export async function resolveMediaAccessUrl(assetId: string): Promise<string | n
 export function clearMediaAccessCache(): void {
   accessCache.clear();
 }
+
+export function invalidateMediaAccessCache(assetId: string): void {
+  accessCache.delete(assetId);
+}

@@ -27,6 +27,9 @@ import {
 } from '@/profile/buildProfileSkywritingsSection';
 import { profileOwnerCelestialBackground } from '@/profile/profileOwnerAssets';
 import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
+import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
+import { fetchAuthorSkywritesFromServer } from '@/social/sharedSkywriteApi';
+import { cacheRemoteSkywrites, mergeCachedAuthorSkywrites } from '@/social/sharedSkywriteCache';
 import { buildVisitorProfileHref } from '@/profile/visitorProfileRoute';
 import {
   visitorSkywriteDetailRoute,
@@ -48,6 +51,20 @@ export function VisitorSkywritingsScreen({ ownerId }: VisitorSkywritingsScreenPr
   const { skyFollowGraph, messages } = useReelyouConnect();
   const subjectId = ownerId ?? '';
   const [tabId, setTabId] = useState<SkyAreaTabId>(SKY_AREA_TAB_ALL);
+  const [remoteFetchTick, setRemoteFetchTick] = useState(0);
+
+  useEffect(() => {
+    if (!subjectId || !isSharedSocialPersistenceEnabled()) return;
+    let mounted = true;
+    void fetchAuthorSkywritesFromServer(subjectId).then((posts) => {
+      if (!mounted || posts.length === 0) return;
+      cacheRemoteSkywrites(subjectId, posts);
+      setRemoteFetchTick((n) => n + 1);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [subjectId]);
 
   const blocked = subjectId
     ? isVisitorProfileBlocked(subjectId, messages.blockedUserIds)
@@ -60,7 +77,10 @@ export function VisitorSkywritingsScreen({ ownerId }: VisitorSkywritingsScreenPr
 
   const section = useMemo(() => {
     if (!subjectId || blocked) return null;
-    const skywrites = resolveOrbitOwnerSkywrites(subjectId);
+    const skywrites = mergeCachedAuthorSkywrites(
+      subjectId,
+      resolveOrbitOwnerSkywrites(subjectId),
+    );
     return buildProfileSkywritingsSection({
       skywrites,
       viewerMode: 'visitor',
@@ -71,7 +91,7 @@ export function VisitorSkywritingsScreen({ ownerId }: VisitorSkywritingsScreenPr
         blockedUserIds: messages.blockedUserIds,
       },
     });
-  }, [blocked, messages.blockedUserIds, skyFollowGraph, subjectId]);
+  }, [blocked, messages.blockedUserIds, remoteFetchTick, skyFollowGraph, subjectId]);
 
   const visibleItems = useMemo(() => {
     if (!section) return [];

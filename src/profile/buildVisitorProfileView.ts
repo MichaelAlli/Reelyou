@@ -16,6 +16,7 @@ import { visitorCanShowImpactMetrics } from '@/profile/buildSkywritingPreviews';
 import { isMutualSkyFriends } from '@/social/skyFollow/skyFollowLogic';
 import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
 import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
+import { mergeCachedAuthorSkywrites } from '@/social/sharedSkywriteCache';
 import type { OwnerProfileMetrics, OwnerProfileView } from '@/profile/ownerProfileTypes';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
 import { SKY_AREA_TAB_ALL } from '@/skyAreas/skyAreaCategory';
@@ -82,8 +83,10 @@ export function buildVisitorProfileView(input: {
   const showSkyPreview = canViewPublicSky(visibility, isConnected);
   const showImpactMetrics = visitorCanShowImpactMetrics(visibility.skyVisibility, isSkyFriend);
 
-  const sourceSkywrites =
-    input.ownerSkywrites ?? resolveOrbitOwnerSkywrites(input.ownerId);
+  const sourceSkywrites = mergeCachedAuthorSkywrites(
+    input.ownerId,
+    input.ownerSkywrites ?? resolveOrbitOwnerSkywrites(input.ownerId),
+  );
 
   const skywritings = buildProfileSkywritingsSection({
     skywrites: sourceSkywrites,

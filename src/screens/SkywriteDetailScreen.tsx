@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -40,7 +40,14 @@ import {
   persistSkyInvitationSafetyAck,
 } from '@/skywrite/invitations/skyInvitationSafetyAck';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
+import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
+import { fetchSkywriteFromServer } from '@/social/sharedSkywriteApi';
+import { cacheRemoteSkywrite } from '@/social/sharedSkywriteCache';
+import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
+import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
+import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
+import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
 import { useSkywriteBeacon } from '@/skywrite/beacon/SkywriteBeaconProvider';
 import { resolveSavedThreadSourceAccess } from '@/skywrite/savedThreads/savedThreadAccess';
 import { useSavedThreads } from '@/skywrite/savedThreads/SavedThreadsProvider';
@@ -395,11 +402,48 @@ export function SkywriteDetailScreen() {
   const { getLifecycle, resolveAuthorBeacon, reactivateAuthorBeacon } = useSkywriteBeacon();
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
 
-  const record = resolveSkywriteById(
-    skywrites,
-    typeof id === 'string' ? id : undefined,
-    contentLifecycle,
+  const [remoteRecord, setRemoteRecord] = useState<import('@/skywrite/types').SkywriteRecord | null>(
+    null,
   );
+
+  useEffect(() => {
+    const skywriteIdParam = typeof id === 'string' ? id : undefined;
+    if (!skywriteIdParam || !isSharedSocialPersistenceEnabled()) return;
+    const local = resolveSkywriteById(skywrites, skywriteIdParam, contentLifecycle);
+    if (local) return;
+    let mounted = true;
+    void fetchSkywriteFromServer(skywriteIdParam).then((fetched) => {
+      if (!mounted || !fetched) return;
+      cacheRemoteSkywrite(fetched);
+      setRemoteRecord(fetched);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [contentLifecycle, id, skywrites]);
+
+  const record =
+    resolveSkywriteById(skywrites, typeof id === 'string' ? id : undefined, contentLifecycle) ??
+    (remoteRecord?.id === id ? remoteRecord : null);
+
+  const viewerCanViewEarly = useMemo(() => {
+    if (!record) return false;
+    return resolveSkywriteViewerAccess({
+      viewerId: currentUser.id,
+      authorId: record.authorId ?? currentUser.id,
+      visibility: record.visibility,
+      followGraph: skyFollowGraph,
+      blockedUserIds: messages.blockedUserIds,
+    });
+  }, [messages.blockedUserIds, record, skyFollowGraph]);
+
+  const {
+    record: displayRecord,
+    status: remoteMediaStatus,
+    mediaError,
+    retry: retryRemoteMedia,
+  } = useResolvedSkywriteRecord(viewerCanViewEarly ? record : null);
+
   const skywriteId = record?.id;
   const responses = useMemo(
     () => (skywriteId ? getResponses(skywriteId) : []),
@@ -435,16 +479,29 @@ export function SkywriteDetailScreen() {
   const [safetyGateOpen, setSafetyGateOpen] = useState(false);
   const [safetyLearnMore, setSafetyLearnMore] = useState(false);
   const [safetyInfoOpen, setSafetyInfoOpen] = useState(false);
-  const viewerCanView = useMemo(() => {
+  const viewerCanView = viewerCanViewEarly;
+
+  const hasRemoteMedia = useMemo(() => {
     if (!record) return false;
-    return resolveSkywriteViewerAccess({
-      viewerId: currentUser.id,
-      authorId: record.authorId ?? currentUser.id,
-      visibility: record.visibility,
-      followGraph: skyFollowGraph,
-      blockedUserIds: messages.blockedUserIds,
-    });
-  }, [messages.blockedUserIds, record, skyFollowGraph]);
+    const uris = [
+      record.media.photo?.uri,
+      record.media.video?.uri,
+      record.media.audio?.uri,
+    ];
+    return uris.some((uri) => Boolean(parseRemoteAssetIdFromUri(uri)));
+  }, [record]);
+
+  const canOpenMediaPlay = Boolean(
+    displayRecord &&
+      (displayRecord.media.video?.uri ||
+        displayRecord.media.audio?.uri ||
+        displayRecord.media.photo?.uri),
+  );
+
+  const handleOpenMediaPlay = useCallback(() => {
+    if (!displayRecord) return;
+    openSkywriteMediaPlay(router, displayRecord, { autoplay: true });
+  }, [displayRecord, router]);
 
   const areaLabel = useMemo(() => {
     if (!record?.skyAreaId) return null;
@@ -652,6 +709,16 @@ export function SkywriteDetailScreen() {
                     </Pressable>
                   ) : null}
 
+                  {canOpenMediaPlay ? (
+                    <Pressable
+                      style={styles.saveBtn}
+                      onPress={handleOpenMediaPlay}
+                      disabled={remoteMediaStatus === 'loading'}
+                      accessibilityLabel={SkywritePlayCopy.playSky}>
+                      <Text style={styles.saveBtnText}>{SkywritePlayCopy.playSky}</Text>
+                    </Pressable>
+                  ) : null}
+
                   {isAuthor ? (
                     <Pressable
                       style={styles.saveBtn}
@@ -748,12 +815,23 @@ export function SkywriteDetailScreen() {
                     {record.text.trim() || SkywriteCopy.writePlaceholder}
                   </Text>
 
-                  {record.media.photo?.uri ? (
+                  {hasRemoteMedia && remoteMediaStatus === 'loading' ? (
+                    <Text style={styles.mediaNote}>Loading media…</Text>
+                  ) : null}
+                  {hasRemoteMedia && mediaError ? (
+                    <Pressable onPress={retryRemoteMedia} accessibilityRole="button">
+                      <Text style={styles.mediaNote}>
+                        Couldn&apos;t load media. Tap to retry.
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {displayRecord?.media.photo?.uri ? (
                     <Image
-                      source={{ uri: record.media.photo.uri }}
+                      source={{ uri: displayRecord.media.photo.uri }}
                       style={styles.photo}
                       contentFit="cover"
                       accessibilityIgnoresInvertColors
+                      onError={() => retryRemoteMedia()}
                     />
                   ) : null}
 
@@ -778,12 +856,23 @@ export function SkywriteDetailScreen() {
                 </View>
               ) : (
                 <>
-                  {record.media.photo?.uri ? (
+                  {hasRemoteMedia && remoteMediaStatus === 'loading' ? (
+                    <Text style={styles.mediaNote}>Loading media…</Text>
+                  ) : null}
+                  {hasRemoteMedia && mediaError ? (
+                    <Pressable onPress={retryRemoteMedia} accessibilityRole="button">
+                      <Text style={styles.mediaNote}>
+                        Couldn&apos;t load media. Tap to retry.
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {displayRecord?.media.photo?.uri ? (
                     <Image
-                      source={{ uri: record.media.photo.uri }}
+                      source={{ uri: displayRecord.media.photo.uri }}
                       style={styles.photo}
                       contentFit="cover"
                       accessibilityIgnoresInvertColors
+                      onError={() => retryRemoteMedia()}
                     />
                   ) : null}
                   {record.mediaMode === 'voice' ||

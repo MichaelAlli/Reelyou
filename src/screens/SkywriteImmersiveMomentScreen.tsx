@@ -16,6 +16,9 @@ import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPre
 import { resolveStepsForSkywrite } from '@/skywrite/play/skywritePlayLogic';
 import { loadSkywritePlaySequence } from '@/skywrite/play/skywritePlayPersistence';
 import type { SkywritePlayStep } from '@/skywrite/play/skywritePlayTypes';
+import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
+import { fetchSkywriteFromServer } from '@/social/sharedSkywriteApi';
+import { cacheRemoteSkywrite } from '@/social/sharedSkywriteCache';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
 
@@ -29,6 +32,24 @@ export function SkywriteImmersiveMomentScreen() {
   const [steps, setSteps] = useState<SkywritePlayStep[]>([]);
   const [index, setIndex] = useState(0);
   const [ready, setReady] = useState(false);
+  const [remoteRecord, setRemoteRecord] = useState<
+    import('@/skywrite/types').SkywriteRecord | null
+  >(null);
+
+  useEffect(() => {
+    if (!skywriteId || !isSharedSocialPersistenceEnabled()) return;
+    const local = resolveSkywriteById(skywrites, skywriteId, contentLifecycle);
+    if (local) return;
+    let mounted = true;
+    void fetchSkywriteFromServer(skywriteId).then((fetched) => {
+      if (!mounted || !fetched) return;
+      cacheRemoteSkywrite(fetched);
+      setRemoteRecord(fetched);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [contentLifecycle, skywriteId, skywrites]);
 
   useEffect(() => {
     if (!skywriteId) {
@@ -39,7 +60,9 @@ export function SkywriteImmersiveMomentScreen() {
     let mounted = true;
     void loadSkywritePlaySequence().then((config) => {
       if (!mounted) return;
-      const record = resolveSkywriteById(skywrites, skywriteId, contentLifecycle);
+      const record =
+        resolveSkywriteById(skywrites, skywriteId, contentLifecycle) ??
+        (remoteRecord?.id === skywriteId ? remoteRecord : null);
       if (record) {
         setSteps(resolveStepsForSkywrite(record, config.singleBySkywriteId[skywriteId]));
       } else {
@@ -50,7 +73,7 @@ export function SkywriteImmersiveMomentScreen() {
     return () => {
       mounted = false;
     };
-  }, [contentLifecycle, skywriteId, skywrites]);
+  }, [contentLifecycle, remoteRecord, skywriteId, skywrites]);
 
   useEffect(() => {
     const startIndex = Number(step);

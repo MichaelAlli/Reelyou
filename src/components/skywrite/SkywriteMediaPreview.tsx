@@ -10,6 +10,7 @@ import {
   pickSkywriteMediaSource,
   skywritePreviewExcerpt,
 } from '@/skywrite/media/skywriteMediaPreviewUtils';
+import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 export type SkywriteMediaPreviewVariant = 'library' | 'invitationCard' | 'invitationList';
@@ -40,7 +41,9 @@ function SkywriteSquareTile({
   variant: SkywriteMediaPreviewVariant;
   excerpt: string;
 }) {
-  const media = useMemo(() => pickSkywriteMediaSource(skywrite), [skywrite]);
+  const { record: resolved, retry } = useResolvedSkywriteRecord(skywrite as SkywriteRecord);
+  const viewSkywrite = resolved ?? (skywrite as SkywriteRecord);
+  const media = useMemo(() => pickSkywriteMediaSource(viewSkywrite), [viewSkywrite]);
   const [imageFailed, setImageFailed] = useState(false);
   const size = squareSize(variant);
 
@@ -74,7 +77,10 @@ function SkywriteSquareTile({
           style={styles.squareImage}
           contentFit="cover"
           transition={120}
-          onError={() => setImageFailed(true)}
+          onError={() => {
+            setImageFailed(true);
+            retry();
+          }}
           accessibilityIgnoresInvertColors
         />
       ) : (
@@ -106,7 +112,9 @@ function SkywriteMediaPreviewComponent({
   allowAudioPreview = true,
   style,
 }: SkywriteMediaPreviewProps) {
-  const media = useMemo(() => pickSkywriteMediaSource(skywrite), [skywrite]);
+  const { record: resolved, retry } = useResolvedSkywriteRecord(skywrite as SkywriteRecord);
+  const viewSkywrite = resolved ?? (skywrite as SkywriteRecord);
+  const media = useMemo(() => pickSkywriteMediaSource(viewSkywrite), [viewSkywrite]);
   const previewId = `${previewIdPrefix}-${skywrite.id}`;
   const playing = isAudioPlaying?.(previewId) ?? false;
   const textExcerpt = excerpt ?? skywritePreviewExcerpt(skywrite.text, variant === 'invitationList' ? 80 : 140);

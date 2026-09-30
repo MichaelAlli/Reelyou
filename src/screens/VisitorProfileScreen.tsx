@@ -28,6 +28,9 @@ import { currentUser } from '@/data/mockData';
 import { Fonts, TabBarHeight } from '@/constants/theme';
 import { buildPublicSkyView } from '@/mySky/buildPublicSkyView';
 import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
+import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
+import { fetchAuthorSkywritesFromServer } from '@/social/sharedSkywriteApi';
+import { cacheRemoteSkywrites } from '@/social/sharedSkywriteCache';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import {
   buildRippleMetricDetailView,
@@ -102,6 +105,20 @@ export function VisitorProfileScreen({
   const { profilePhotoDisplayUri } = useUserAvatar();
   const [safetyMenuOpen, setSafetyMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [remoteSkyFetchTick, setRemoteSkyFetchTick] = useState(0);
+
+  useEffect(() => {
+    if (!ownerId || !isSharedSocialPersistenceEnabled()) return;
+    let mounted = true;
+    void fetchAuthorSkywritesFromServer(ownerId).then((posts) => {
+      if (!mounted || posts.length === 0) return;
+      cacheRemoteSkywrites(ownerId, posts);
+      setRemoteSkyFetchTick((n) => n + 1);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [ownerId]);
 
   const connectionActivities = useMemo(
     () => resolveSkyConnectionActivities(aroundYourSkyFeed),
@@ -135,7 +152,7 @@ export function VisitorProfileScreen({
       connectionStatus,
       followGraph: skyFollowGraph,
       blockedUserIds: messages.blockedUserIds,
-      ownerSkywrites: skywrites,
+      ownerSkywrites: ownerId ? resolveOrbitOwnerSkywrites(ownerId) : [],
       previewAccessMode: visitorPreview ? previewAccessMode ?? 'public' : undefined,
     });
   }, [
@@ -143,8 +160,8 @@ export function VisitorProfileScreen({
     messages.blockedUserIds,
     ownerId,
     previewAccessMode,
+    remoteSkyFetchTick,
     skyFollowGraph,
-    skywrites,
     visitorPreview,
     profilePhotoDisplayUri,
   ]);

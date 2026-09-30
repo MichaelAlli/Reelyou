@@ -110,12 +110,14 @@ function SkywriteImmersiveMomentViewComponent({
   allowVideoFramingEdit = false,
 }: SkywriteImmersiveMomentViewProps) {
   const insets = useSafeAreaInsets();
-  const resolvedRecord = useResolvedSkywriteRecord(record) ?? record;
-  const videoActive = stepKind === 'video' && Boolean(resolvedRecord.media.video?.uri);
-  const playbackMedia = mediaMix ?? resolvedRecord.media;
-  const displayVideo = playbackMedia.video ?? resolvedRecord.media.video;
+  const { record: resolvedRecord, status: remoteMediaStatus, mediaError, retry: retryRemoteMedia } =
+    useResolvedSkywriteRecord(record);
+  const playbackRecord = resolvedRecord ?? record;
+  const videoActive = stepKind === 'video' && Boolean(playbackRecord.media.video?.uri);
+  const playbackMedia = mediaMix ?? playbackRecord.media;
+  const displayVideo = playbackMedia.video ?? playbackRecord.media.video;
   const framingLayerRef = useRef<SkywriteFramedVideoLayerRef>(null);
-  const videoPlayback = useSkywriteImmersiveVideoPlayback(resolvedRecord, videoActive, playbackMedia, {
+  const videoPlayback = useSkywriteImmersiveVideoPlayback(playbackRecord, videoActive, playbackMedia, {
     onAutoplayBlocked: onVideoAutoplayBlocked,
   });
   const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize } = videoPlayback;
@@ -162,7 +164,7 @@ function SkywriteImmersiveMomentViewComponent({
     requestAutoPlay,
   ]);
 
-  const audioUri = resolvedRecord.media.audio?.uri ?? null;
+  const audioUri = playbackRecord.media.audio?.uri ?? null;
   const videoAspect = useMemo(() => {
     if (naturalSize?.width && naturalSize.height) {
       return naturalSize.width / naturalSize.height;
@@ -219,9 +221,10 @@ function SkywriteImmersiveMomentViewComponent({
             {record.text.trim() || '…'}
           </Text>
         ) : null}
-        {stepKind === 'photo' && resolvedRecord.media.photo?.uri ? (
+        {stepKind === 'photo' && playbackRecord.media.photo?.uri ? (
           <Image
-            source={{ uri: resolvedRecord.media.photo.uri }}
+            source={{ uri: playbackRecord.media.photo.uri }}
+            onError={() => retryRemoteMedia()}
             style={styles.heroImage}
             contentFit="contain"
           />
@@ -298,9 +301,10 @@ function SkywriteImmersiveMomentViewComponent({
           />
         ) : null}
 
-        {stepKind === 'photo' && record.media.photo?.uri ? (
+        {stepKind === 'photo' && playbackRecord.media.photo?.uri ? (
           <Image
-            source={{ uri: record.media.photo.uri }}
+            source={{ uri: playbackRecord.media.photo.uri }}
+            onError={() => retryRemoteMedia()}
             style={StyleSheet.absoluteFill}
             contentFit="contain"
             accessibilityIgnoresInvertColors

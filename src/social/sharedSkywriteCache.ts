@@ -25,3 +25,16 @@ export function getCachedSkywrite(skywriteId: string): SkywriteRecord | undefine
 export function getCachedAuthorSkywrites(authorUserId: string): SkywriteRecord[] {
   return byAuthor.get(authorUserId) ?? [];
 }
+
+/** Server-backed posts for a profile owner — merged without duplicating ids. */
+export function mergeCachedAuthorSkywrites(
+  authorUserId: string,
+  local: readonly SkywriteRecord[],
+): SkywriteRecord[] {
+  const cached = getCachedAuthorSkywrites(authorUserId);
+  if (cached.length === 0) return [...local];
+  const byId = new Map<string, SkywriteRecord>();
+  for (const post of local) byId.set(post.id, post);
+  for (const post of cached) byId.set(post.id, post);
+  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}

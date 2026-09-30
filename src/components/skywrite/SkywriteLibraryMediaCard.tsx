@@ -48,9 +48,11 @@ function SkywriteLibraryMediaCardComponent({
   isAudioPlaying,
   style,
 }: SkywriteLibraryMediaCardProps) {
-  const resolvedSkywrite =
-    useResolvedSkywriteRecord(skywrite as SkywriteRecord) ?? (skywrite as SkywriteRecord);
-  const media = useMemo(() => pickSkywriteMediaSource(resolvedSkywrite), [resolvedSkywrite]);
+  const { record: resolvedSkywrite, status, mediaError, retry } = useResolvedSkywriteRecord(
+    skywrite as SkywriteRecord,
+  );
+  const viewRecord = resolvedSkywrite ?? (skywrite as SkywriteRecord);
+  const media = useMemo(() => pickSkywriteMediaSource(viewRecord), [viewRecord]);
   const [imageFailed, setImageFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const previewId = `library-card-${skywrite.id}`;
@@ -114,7 +116,10 @@ function SkywriteLibraryMediaCardComponent({
               style={styles.mediaImage}
               contentFit={thumbnailFit}
               transition={120}
-              onError={() => setImageFailed(true)}
+              onError={() => {
+            setImageFailed(true);
+            if (mediaError || status === 'error') retry();
+          }}
               accessibilityIgnoresInvertColors
             />
             {showPlayOverlay ? (

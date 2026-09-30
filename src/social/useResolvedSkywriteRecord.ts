@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { resolveSkywriteRecord } from '@/social/resolveSkywriteRemoteMedia';
+import {
+  invalidateSkywriteRemoteMediaCache,
+  resolveSkywriteRecord,
+} from '@/social/resolveSkywriteRemoteMedia';
 import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
 import type { SkywriteRecord } from '@/skywrite/types';
+
+export type RemoteMediaResolveStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 function recordNeedsRemoteResolve(record: SkywriteRecord | null | undefined): boolean {
   if (!record) return false;
@@ -15,28 +20,53 @@ function recordNeedsRemoteResolve(record: SkywriteRecord | null | undefined): bo
   return parts.some((uri) => Boolean(parseRemoteAssetIdFromUri(uri)));
 }
 
-export function useResolvedSkywriteRecord(
-  record: SkywriteRecord | null | undefined,
-): SkywriteRecord | null {
-  const [resolved, setResolved] = useState<SkywriteRecord | null>(record ?? null);
+export function useResolvedSkywriteRecord(record: SkywriteRecord | null | undefined): {
+  record: SkywriteRecord | null;
+  status: RemoteMediaResolveStatus;
+  mediaError: boolean;
+  retry: () => void;
+} {
+  const needsRemote = recordNeedsRemoteResolve(record);
+  const [displayRecord, setDisplayRecord] = useState<SkywriteRecord | null>(record ?? null);
+  const [status, setStatus] = useState<RemoteMediaResolveStatus>(
+    record ? (needsRemote ? 'loading' : 'ready') : 'idle',
+  );
+  const [mediaError, setMediaError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+
+  const retry = useCallback(() => {
+    if (record) invalidateSkywriteRemoteMediaCache(record);
+    setMediaError(false);
+    setRetryNonce((n) => n + 1);
+  }, [record]);
 
   useEffect(() => {
     if (!record) {
-      setResolved(null);
+      setDisplayRecord(null);
+      setStatus('idle');
+      setMediaError(false);
       return;
     }
     if (!recordNeedsRemoteResolve(record)) {
-      setResolved(record);
+      setDisplayRecord(record);
+      setStatus('ready');
+      setMediaError(false);
       return;
     }
     let mounted = true;
-    void resolveSkywriteRecord(record).then((next) => {
-      if (mounted) setResolved(next);
+    setStatus('loading');
+    void resolveSkywriteRecord(record, { forceRefresh: retryNonce > 0 }).then(({ record: next, allOk }) => {
+      if (!mounted) return;
+      setDisplayRecord(next);
+      setStatus(allOk ? 'ready' : 'error');
+      setMediaError(!allOk);
     });
     return () => {
       mounted = false;
     };
-  }, [record]);
+  }, [record, retryNonce]);
 
-  return resolved;
+  const stableRecord = useMemo(() => displayRecord, [displayRecord]);
+
+  return { record: stableRecord, status, mediaError, retry };
 }
