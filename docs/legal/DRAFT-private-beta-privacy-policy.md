@@ -59,7 +59,7 @@ Optional Google contact flows, when enabled, use Google APIs according to Google
 
 ### 3.4 Information on your device
 
-Much of the experience uses local storage on your phone or browser, including Skywrite libraries, Skyreel timing, onboarding and personalization choices, session tokens, and preferences.
+Much of the experience uses local storage on your phone or browser, including Skywrite libraries, SkyReel timing, onboarding and personalization choices, session tokens, and preferences.
 
 **Moderation reports:** When the Reelyou backend is enabled and you are signed in, reports are sent to Reelyou’s servers for operator review. If the backend is unavailable, reports may be stored **only on your device** until a server submission succeeds.
 
@@ -112,7 +112,7 @@ Reelyou has **not** verified every OpenAI organization setting for the productio
 | Topic | Beta behavior |
 |-------|----------------|
 | **Saved Skywrites** | Kept until you delete them or your account is purged from active systems. |
-| **Skyreel** | **24-hour** visibility window (server timestamp when backend enabled); underlying saved Skywrite remains unless you delete it. |
+| **SkyReel** | **24-hour** visibility window (server timestamp when backend enabled); underlying saved Skywrite remains unless you delete it. |
 | **Deleted posts (server)** | Hidden from others **immediately**; **30-day recovery** for the author via API; scheduled **purge** of post and media from active systems after recovery window. |
 | **Account deletion** | **Settings → Delete account** or **reelyou.support@gmail.com**. Hidden from others **immediately**; **30-day** in-app cancellation window when backend enabled; **purge from active systems by 90 days** after request (scheduled server job). |
 | **Moderation reports (server)** | Stored for operator review while the beta operates; retention policy for reports **requires counsel/ops decision**. |

@@ -729,7 +729,7 @@ export function SkywriteDetailScreen() {
                       onPress={() => {
                         void repostToSkyreel(record.id, record).then((result) => {
                           if (result.ok) {
-                            Alert.alert('Skyreel', MySkywritesCopy.repostSkyreelSuccess);
+                            Alert.alert('SkyReel', MySkywritesCopy.repostSkyreelSuccess);
                           }
                         });
                       }}

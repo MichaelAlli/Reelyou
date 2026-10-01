@@ -158,6 +158,7 @@ function SkywriteImmersiveMomentViewComponent({
 
   useEffect(() => {
     if (!narrationActive || !narrationAutoplay || narrationPaused || narrationStartedRef.current) return;
+    if (remoteMediaStatus === 'loading') return;
     const uri = playbackMedia.audio?.uri;
     if (!uri) return;
     narrationStartedRef.current = true;
@@ -170,12 +171,13 @@ function SkywriteImmersiveMomentViewComponent({
     mediaStartNonce,
     onNarrationFinished,
     playbackMedia,
+    remoteMediaStatus,
   ]);
 
   useEffect(() => {
     if (!narrationActive) return;
-    if (narrationPaused && narration.isPlaying) void narration.togglePlayPause();
-  }, [narration, narrationActive, narrationPaused]);
+    if (narrationPaused && narration.isPlaying) void narration.pausePlayback();
+  }, [narration, narrationActive, narrationPaused, narration.isPlaying]);
 
   useEffect(() => {
     if (!narrationActive) return;
@@ -420,18 +422,6 @@ function SkywriteImmersiveMomentViewComponent({
         ) : null}
       </View>
 
-      {tapToPlayPrompt && onTapToPlayContinue ? (
-        <Pressable
-          style={styles.tapStartOverlay}
-          accessibilityRole="button"
-          accessibilityLabel={SkywritePlayCopy.tapToPlaySky}
-          onPress={onTapToPlayContinue}>
-          <View style={styles.tapBanner}>
-            <Text style={styles.tapBannerText}>{SkywritePlayCopy.tapToPlaySky}</Text>
-          </View>
-        </Pressable>
-      ) : null}
-
       <LinearGradient
         colors={['rgba(5, 5, 8, 0.82)', 'rgba(5, 5, 8, 0.35)', 'transparent']}
         style={[styles.topGradient, { paddingTop: insets.top + 6 }]}
@@ -526,7 +516,11 @@ function SkywriteImmersiveMomentViewComponent({
           <View style={styles.videoToolbar}>
             <Pressable
               style={styles.playChip}
-              onPress={() => void narration.togglePlayPause()}
+              onPress={() => {
+                const uri = playbackMedia.audio?.uri;
+                if (!uri) return;
+                void narration.toggleOrPlay(uri, playbackMedia, () => onNarrationFinished?.());
+              }}
               accessibilityLabel={narration.isPlaying ? 'Pause narration' : 'Play narration'}>
               <Text style={styles.playIcon}>{narration.isPlaying ? '❚❚' : '▶'}</Text>
             </Pressable>
@@ -534,6 +528,21 @@ function SkywriteImmersiveMomentViewComponent({
               {formatSkywriteAudioDuration(narrationPosition)} /{' '}
               {formatSkywriteAudioDuration(narrationDuration)}
             </Text>
+            {narration.playbackError || (mediaError && remoteMediaStatus === 'error') ? (
+              <Pressable
+                style={styles.toolbarChip}
+                onPress={() => {
+                  narration.clearError();
+                  if (mediaError) retryRemoteMedia();
+                  const uri = playbackMedia.audio?.uri;
+                  if (uri) {
+                    void narration.toggleOrPlay(uri, playbackMedia, () => onNarrationFinished?.());
+                  }
+                }}
+                accessibilityLabel="Retry narration playback">
+                <Text style={styles.toolbarChipText}>Retry audio</Text>
+              </Pressable>
+            ) : null}
             {showAudioMixControls && onMediaMixChange ? (
               <Pressable
                 style={styles.toolbarChip}
@@ -581,6 +590,18 @@ function SkywriteImmersiveMomentViewComponent({
           onChange={onMediaMixChange}
           onClose={() => setMixOpen(false)}
         />
+      ) : null}
+
+      {tapToPlayPrompt && onTapToPlayContinue ? (
+        <Pressable
+          style={styles.tapStartOverlay}
+          accessibilityRole="button"
+          accessibilityLabel={SkywritePlayCopy.tapToPlaySky}
+          onPress={onTapToPlayContinue}>
+          <View style={styles.tapBanner}>
+            <Text style={styles.tapBannerText}>{SkywritePlayCopy.tapToPlaySky}</Text>
+          </View>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -696,7 +717,7 @@ const styles = StyleSheet.create({
   },
   tapStartOverlay: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 15,
+    zIndex: 45,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,

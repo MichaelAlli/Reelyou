@@ -66,9 +66,7 @@ export function SkywriteGuidedPlayScreen() {
   const [steps, setSteps] = useState<SkywritePlayStep[]>([]);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [needsTapToPlay, setNeedsTapToPlay] = useState(
-    () => Platform.OS === 'web' && autoplay === '1',
-  );
+  const [needsTapToPlay, setNeedsTapToPlay] = useState(() => Platform.OS === 'web');
   const [manualPlayNonce, setManualPlayNonce] = useState(0);
   const [mediaStartNonce, setMediaStartNonce] = useState(0);
   const [userStartedPlayback, setUserStartedPlayback] = useState(false);
@@ -288,10 +286,10 @@ export function SkywriteGuidedPlayScreen() {
   }, [goNext, goPrevious, handleExit]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' && autoplay === '1' && !userStartedPlayback) {
+    if (Platform.OS === 'web' && !userStartedPlayback) {
       setNeedsTapToPlay(true);
     }
-  }, [autoplay, index, current?.stepId, userStartedPlayback]);
+  }, [index, current?.stepId, userStartedPlayback]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -411,11 +409,19 @@ export function SkywriteGuidedPlayScreen() {
           sequencePaused={paused}
           layoutMode="viewport"
           manualPlayNonce={manualPlayNonce}
-          onVideoAutoplayBlocked={() => setNeedsTapToPlay(true)}
+          onVideoAutoplayBlocked={() => {
+            if (!userStartedPlayback) setNeedsTapToPlay(true);
+          }}
           tapToPlayPrompt={needsTapToPlay}
           mediaStartNonce={mediaStartNonce}
           onTapToPlayContinue={handleTapToStartSkyreel}
-          onToggleSequencePause={() => setPaused((value) => !value)}
+          onToggleSequencePause={() => {
+            setPaused((value) => {
+              const next = !value;
+              if (!next) setMediaStartNonce((n) => n + 1);
+              return next;
+            });
+          }}
           navigationMode="edgeTap"
           narrationAutoplay={!paused && !needsTapToPlay}
           narrationPaused={paused}

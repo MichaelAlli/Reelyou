@@ -67,13 +67,19 @@ export function SkywriteComposePreviewOverlay({
     onClose();
   }, [audioPreview, onClose]);
 
+  const [mediaStartNonce, setMediaStartNonce] = useState(0);
+
   const handlePrevious = useCallback(() => {
+    void audioPreview.stopAll();
+    setMediaStartNonce((n) => n + 1);
     setStepIndex((index) => Math.max(0, index - 1));
-  }, []);
+  }, [audioPreview]);
 
   const handleNext = useCallback(() => {
+    void audioPreview.stopAll();
+    setMediaStartNonce((n) => n + 1);
     setStepIndex((index) => Math.min(steps.length - 1, index + 1));
-  }, [steps.length]);
+  }, [audioPreview, steps.length]);
 
   if (!visible || !step) return null;
 
@@ -125,6 +131,7 @@ export function SkywriteComposePreviewOverlay({
             canNext={stepIndex < steps.length - 1}
             onBeforeStepChange={() => void audioPreview.stopAll()}
             layoutMode="viewport"
+            mediaStartNonce={mediaStartNonce}
             mediaMix={draft.media}
             onMediaMixChange={onDraftMediaChange}
             showAudioMixControls

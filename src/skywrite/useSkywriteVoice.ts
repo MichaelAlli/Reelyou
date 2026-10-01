@@ -2,6 +2,7 @@ import { Audio } from 'expo-av';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
+import { createSkywriteAudioPlayback } from '@/skywrite/media/skywriteAudioPlayback';
 import { formatDurationMs, requestMicrophonePermission, WebVoiceRecorder } from '@/skywrite/mediaActions';
 import type { SkywriteAudioMedia } from '@/skywrite/types';
 
@@ -15,7 +16,7 @@ export function useSkywriteVoice() {
 
   const nativeRecordingRef = useRef<Audio.Recording | null>(null);
   const webRecorderRef = useRef<WebVoiceRecorder | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const playbackEngineRef = useRef<Awaited<ReturnType<typeof createSkywriteAudioPlayback>>>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartedAtRef = useRef(0);
   const pausedElapsedRef = useRef(0);
@@ -28,10 +29,10 @@ export function useSkywriteVoice() {
   }, []);
 
   const stopPlayback = useCallback(async () => {
-    if (soundRef.current) {
-      await soundRef.current.stopAsync().catch(() => undefined);
-      await soundRef.current.unloadAsync().catch(() => undefined);
-      soundRef.current = null;
+    const engine = playbackEngineRef.current;
+    playbackEngineRef.current = null;
+    if (engine) {
+      await engine.stop().catch(() => undefined);
     }
     setIsPlaying(false);
   }, []);
@@ -178,41 +179,40 @@ export function useSkywriteVoice() {
   const togglePlayback = useCallback(async () => {
     if (!audio?.uri) return;
 
-    if (isPlaying && soundRef.current) {
-      await soundRef.current.pauseAsync().catch(() => undefined);
+    if (isPlaying && playbackEngineRef.current) {
+      await playbackEngineRef.current.pause().catch(() => undefined);
       setIsPlaying(false);
       return;
     }
 
-    if (soundRef.current) {
-      await soundRef.current.playAsync().catch(() => undefined);
+    if (playbackEngineRef.current) {
+      await playbackEngineRef.current.play().catch(() => undefined);
       setIsPlaying(true);
       return;
     }
 
+    const engine = await createSkywriteAudioPlayback(audio.uri, 1, {
+      onFinish: () => {
+        setIsPlaying(false);
+        void stopPlayback();
+      },
+      onError: () => {
+        setIsPlaying(false);
+      },
+    });
+    if (!engine) {
+      setIsPlaying(false);
+      return;
+    }
+    playbackEngineRef.current = engine;
     try {
-      if (Platform.OS !== 'web') {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          playsInSilentModeIOS: true,
-        });
-      }
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: audio.uri },
-        { shouldPlay: true },
-        (status) => {
-          if (!status.isLoaded) return;
-          if (status.didJustFinish) {
-            setIsPlaying(false);
-          }
-        },
-      );
-      soundRef.current = sound;
+      await engine.play();
       setIsPlaying(true);
     } catch {
       setIsPlaying(false);
+      await stopPlayback();
     }
-  }, [audio, isPlaying]);
+  }, [audio, isPlaying, stopPlayback]);
 
   return {
     phase,

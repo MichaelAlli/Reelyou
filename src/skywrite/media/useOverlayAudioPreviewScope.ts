@@ -1,20 +1,20 @@
-import { Audio } from 'expo-av';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+
+import { createSkywriteAudioPlayback } from '@/skywrite/media/skywriteAudioPlayback';
 
 /** One manual audio preview at a time inside an overlay; stops when overlay closes. */
 export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const engineRef = useRef<Awaited<ReturnType<typeof createSkywriteAudioPlayback>>>(null);
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const unloadSound = useCallback(async () => {
-    const sound = soundRef.current;
-    soundRef.current = null;
-    if (!sound) return;
+  const unloadEngine = useCallback(async () => {
+    const engine = engineRef.current;
+    engineRef.current = null;
+    if (!engine) return;
     try {
-      await sound.stopAsync();
-      await sound.unloadAsync();
+      await engine.stop();
     } catch {
       /* quiet */
     }
@@ -23,8 +23,9 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
   const stopAll = useCallback(async () => {
     setIsPlaying(false);
     setActivePreviewId(null);
-    await unloadSound();
-  }, [unloadSound]);
+    setPreviewError(null);
+    await unloadEngine();
+  }, [unloadEngine]);
 
   useEffect(() => {
     if (!overlayVisible) {
@@ -34,50 +35,53 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
 
   useEffect(() => {
     return () => {
-      void unloadSound();
+      void unloadEngine();
     };
-  }, [unloadSound]);
+  }, [unloadEngine]);
 
   const togglePreview = useCallback(
     async (previewId: string, uri: string) => {
       if (activePreviewId === previewId && isPlaying) {
-        await unloadSound();
-        setIsPlaying(false);
-        setActivePreviewId(null);
+        await stopAll();
         return;
       }
 
       await stopAll();
+      setPreviewError(null);
 
+      const engine = await createSkywriteAudioPlayback(uri, 1, {
+        onPosition: (_pos, _dur, playing) => {
+          setIsPlaying(playing);
+        },
+        onFinish: () => {
+          setIsPlaying(false);
+          setActivePreviewId(null);
+          void unloadEngine();
+        },
+        onError: () => {
+          setPreviewError('Could not play this recording. Try re-recording or tap again.');
+          setIsPlaying(false);
+          setActivePreviewId(null);
+          void unloadEngine();
+        },
+      });
+      if (!engine) {
+        setPreviewError('Could not load audio for playback.');
+        return;
+      }
+      engineRef.current = engine;
+      setActivePreviewId(previewId);
       try {
-        if (Platform.OS !== 'web') {
-          await Audio.setAudioModeAsync({
-            allowsRecordingIOS: false,
-            playsInSilentModeIOS: true,
-          });
-        }
-        const { sound } = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: true },
-          (status) => {
-            if (!status.isLoaded) return;
-            if (status.didJustFinish) {
-              setIsPlaying(false);
-              setActivePreviewId(null);
-              void unloadSound();
-            }
-          },
-        );
-        soundRef.current = sound;
-        setActivePreviewId(previewId);
+        await engine.play();
         setIsPlaying(true);
       } catch {
+        setPreviewError('Playback was blocked. Tap play again.');
         setIsPlaying(false);
         setActivePreviewId(null);
-        await unloadSound();
+        await unloadEngine();
       }
     },
-    [activePreviewId, isPlaying, stopAll, unloadSound],
+    [activePreviewId, isPlaying, stopAll, unloadEngine],
   );
 
   const isPreviewPlaying = useCallback(
@@ -89,5 +93,7 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
     togglePreview,
     stopAll,
     isPreviewPlaying,
+    previewError,
+    clearPreviewError: () => setPreviewError(null),
   };
 }

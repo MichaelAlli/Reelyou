@@ -15,7 +15,7 @@ export const MySkywritesCopy = {
   archiveAction: 'Rest in archive',
   restoreAction: 'Bring back',
   close: 'Close',
-  repostPlaySky: 'Repost to Skyreel',
-  repostPlaySkyHint: 'Starts a fresh 24-hour Skyreel window without duplicating the post.',
-  repostSkyreelSuccess: 'Back in Skyreel for 24 hours.',
+  repostPlaySky: 'Repost to SkyReel',
+  repostPlaySkyHint: 'Starts a fresh 24-hour SkyReel window without duplicating the post.',
+  repostSkyreelSuccess: 'Back in SkyReel for 24 hours.',
 } as const;

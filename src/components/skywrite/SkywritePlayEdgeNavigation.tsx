@@ -36,12 +36,12 @@ function SkywritePlayEdgeNavigationComponent({
   const edgeStyle = { marginTop: topInset, marginBottom: bottomInset };
 
   return (
-    <View style={styles.root} pointerEvents="box-none">
+    <View style={styles.root} pointerEvents={disabled ? 'none' : 'box-none'}>
       <Pressable
         style={[styles.edge, styles.edgeLeft, edgeStyle]}
         disabled={disabled || !canPrevious}
         accessibilityRole="button"
-        accessibilityLabel="Previous Skyreel item"
+        accessibilityLabel="Previous SkyReel item"
         onPress={() => tryNav(onPrevious, canPrevious)}
       />
       <View style={styles.centerCorridor} pointerEvents="none" />
@@ -49,7 +49,7 @@ function SkywritePlayEdgeNavigationComponent({
         style={[styles.edge, styles.edgeRight, edgeStyle]}
         disabled={disabled || !canNext}
         accessibilityRole="button"
-        accessibilityLabel="Next Skyreel item"
+        accessibilityLabel="Next SkyReel item"
         onPress={() => tryNav(onNext, canNext)}
       />
     </View>

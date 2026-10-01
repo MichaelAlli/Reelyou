@@ -212,7 +212,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                     onPress: () => {
                       void repostToSkyreel(row.skywriteId, row.skywrite).then((result) => {
                         if (result.ok) {
-                          Alert.alert('Skyreel', MySkywritesCopy.repostSkyreelSuccess);
+                          Alert.alert('SkyReel', MySkywritesCopy.repostSkyreelSuccess);
                         }
                       });
                     },

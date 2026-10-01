@@ -1,24 +1,30 @@
-import { Audio } from 'expo-av';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
 
+import {
+  createSkywriteAudioPlayback,
+  type SkywriteAudioPlaybackError,
+} from '@/skywrite/media/skywriteAudioPlayback';
 import { resolveVoiceoverVolume } from '@/skywrite/media/skywriteVoiceoverVolume';
 import type { SkywriteMedia } from '@/skywrite/types';
 
+type Engine = Awaited<ReturnType<typeof createSkywriteAudioPlayback>>;
+
 export function useSkywriteNarrationPlayback(active: boolean) {
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const engineRef = useRef<Engine>(null);
+  const loadedUriRef = useRef<string | null>(null);
   const finishHandlerRef = useRef<(() => void) | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
+  const [playbackError, setPlaybackError] = useState<SkywriteAudioPlaybackError | null>(null);
 
   const unload = useCallback(async () => {
-    const sound = soundRef.current;
-    soundRef.current = null;
-    if (!sound) return;
+    const engine = engineRef.current;
+    engineRef.current = null;
+    loadedUriRef.current = null;
+    if (!engine) return;
     try {
-      await sound.stopAsync();
-      await sound.unloadAsync();
+      await engine.stop();
     } catch {
       /* quiet */
     }
@@ -36,64 +42,104 @@ export function useSkywriteNarrationPlayback(active: boolean) {
     }
   }, [active, stop]);
 
-  useEffect(() => () => {
-    void unload();
-  }, [unload]);
+  useEffect(
+    () => () => {
+      void unload();
+    },
+    [unload],
+  );
 
   const playUri = useCallback(
     async (uri: string, media: SkywriteMedia, onFinish?: () => void) => {
       finishHandlerRef.current = onFinish ?? null;
-      await stop();
+      setPlaybackError(null);
+      await unload();
+      const volume = resolveVoiceoverVolume(media);
+      const engine = await createSkywriteAudioPlayback(uri, volume, {
+        onPosition: (pos, dur, playing) => {
+          setPositionMs(pos);
+          if (dur > 0) setDurationMs(dur);
+          setIsPlaying(playing);
+        },
+        onFinish: () => {
+          setIsPlaying(false);
+          finishHandlerRef.current?.();
+          finishHandlerRef.current = null;
+          void unload();
+        },
+        onError: (err) => {
+          setPlaybackError(err);
+          setIsPlaying(false);
+        },
+      });
+      if (!engine) {
+        setPlaybackError('load_failed');
+        return false;
+      }
+      engineRef.current = engine;
+      loadedUriRef.current = uri;
+      if (media.audio?.durationMs) {
+        setDurationMs((prev) => prev || media.audio!.durationMs!);
+      }
       try {
-        if (Platform.OS !== 'web') {
-          await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
-        }
-        const volume = resolveVoiceoverVolume(media);
-        const { sound } = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: true, volume, progressUpdateIntervalMillis: 200 },
-          (status) => {
-            if (!status.isLoaded) return;
-            setPositionMs(status.positionMillis);
-            if (status.durationMillis != null) setDurationMs(status.durationMillis);
-            setIsPlaying(status.isPlaying);
-            if (status.didJustFinish) {
-              setIsPlaying(false);
-              finishHandlerRef.current?.();
-              finishHandlerRef.current = null;
-              void unload();
-            }
-          },
-        );
-        soundRef.current = sound;
+        await engine.play();
         setIsPlaying(true);
+        return true;
       } catch {
+        setPlaybackError('play_failed');
         setIsPlaying(false);
-        await unload();
+        return false;
       }
     },
-    [stop, unload],
+    [unload],
   );
 
-  const togglePlayPause = useCallback(async () => {
-    const sound = soundRef.current;
-    if (!sound) return;
-    const status = await sound.getStatusAsync();
-    if (!status.isLoaded) return;
-    if (status.isPlaying) {
-      await sound.pauseAsync();
-      setIsPlaying(false);
-    } else {
-      await sound.playAsync();
+  const toggleOrPlay = useCallback(
+    async (uri: string, media: SkywriteMedia, onFinish?: () => void) => {
+      if (!engineRef.current || loadedUriRef.current !== uri) {
+        return playUri(uri, media, onFinish);
+      }
+      const engine = engineRef.current;
+      if (isPlaying) {
+        await engine.pause();
+        setIsPlaying(false);
+      } else {
+        try {
+          await engine.play();
+          setIsPlaying(true);
+        } catch {
+          setPlaybackError('play_failed');
+        }
+      }
+      return true;
+    },
+    [isPlaying, playUri],
+  );
+
+  const pausePlayback = useCallback(async () => {
+    const engine = engineRef.current;
+    if (!engine || !isPlaying) return;
+    await engine.pause();
+    setIsPlaying(false);
+  }, [isPlaying]);
+
+  const resumePlayback = useCallback(async () => {
+    const engine = engineRef.current;
+    if (!engine || isPlaying) return;
+    try {
+      await engine.play();
       setIsPlaying(true);
+      setPlaybackError(null);
+    } catch {
+      setPlaybackError('play_failed');
     }
-  }, []);
+  }, [isPlaying]);
 
   const setVolumeFromMedia = useCallback(async (media: SkywriteMedia) => {
-    const sound = soundRef.current;
-    if (!sound) return;
+    const engine = engineRef.current;
+    if (!engine) return;
     try {
-      await sound.setVolumeAsync(resolveVoiceoverVolume(media));
+      await engine.setVolume(resolveVoiceoverVolume(media));
     } catch {
       /* not loaded */
     }
@@ -103,9 +149,13 @@ export function useSkywriteNarrationPlayback(active: boolean) {
     isPlaying,
     positionMs,
     durationMs,
+    playbackError,
     playUri,
-    togglePlayPause,
+    toggleOrPlay,
+    pausePlayback,
+    resumePlayback,
     stop,
     setVolumeFromMedia,
+    clearError: () => setPlaybackError(null),
   };
 }

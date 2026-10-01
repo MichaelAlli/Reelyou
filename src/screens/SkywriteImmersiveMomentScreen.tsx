@@ -107,7 +107,11 @@ export function SkywriteImmersiveMomentScreen() {
 
   const handleExit = useCallback(() => {
     void audioPreview.stopAll();
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/skywrite' as never);
   }, [audioPreview, router]);
 
   useEffect(() => {
