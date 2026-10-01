@@ -1,3 +1,5 @@
+import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
+import { isLegacyDemoEnabled } from '@/constants/devFlags';
 import { orbitUsers } from '@/data/mockData';
 import type {
   FriendDiscoveryState,
@@ -68,12 +70,15 @@ export function buildPeopleYouMayKnowSuggestions(
     consider(id, 'facebook', 'From Facebook');
   }
 
-  for (const orbit of orbitUsers) {
-    const mutual = countMutualSkyConnections(input.graph, input.viewerId, orbit.id);
-    if (mutual >= 1) {
-      const label =
-        mutual === 1 ? '1 mutual connection' : `${mutual} mutual connections`;
-      consider(orbit.id, 'mutual_connections', label, mutual);
+  const allowDemoMutualSuggestions = !isReelyouAuthConfigured() || isLegacyDemoEnabled();
+  if (allowDemoMutualSuggestions) {
+    for (const orbit of orbitUsers) {
+      const mutual = countMutualSkyConnections(input.graph, input.viewerId, orbit.id);
+      if (mutual >= 1) {
+        const label =
+          mutual === 1 ? '1 mutual connection' : `${mutual} mutual connections`;
+        consider(orbit.id, 'mutual_connections', label, mutual);
+      }
     }
   }
 

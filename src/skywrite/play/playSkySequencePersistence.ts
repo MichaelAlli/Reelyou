@@ -1,6 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import type { PlaySkySequenceRegistry } from '@/skywrite/play/playSkySequenceEligibility';
+import { readScopedJson, writeScopedJson } from '@/storage/scopedAsyncStorage';
 
 const STORAGE_KEY = '@reellyou/play-sky-sequence-registry';
 
@@ -35,15 +34,29 @@ export function parsePlaySkySequenceRegistry(raw: string | null): PlaySkySequenc
   }
 }
 
+function migratePlayRegistryForUser(
+  registry: PlaySkySequenceRegistry,
+  userId: string,
+): PlaySkySequenceRegistry {
+  const out: PlaySkySequenceRegistry = {};
+  for (const [id, entry] of Object.entries(registry)) {
+    if (entry.ownerId === userId) out[id] = entry;
+  }
+  return out;
+}
+
 export async function loadPlaySkySequenceRegistry(): Promise<PlaySkySequenceRegistry> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    return parsePlaySkySequenceRegistry(raw);
+    return await readScopedJson(
+      STORAGE_KEY,
+      parsePlaySkySequenceRegistry,
+      migratePlayRegistryForUser,
+    );
   } catch {
     return {};
   }
 }
 
 export async function savePlaySkySequenceRegistry(registry: PlaySkySequenceRegistry): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(registry));
+  await writeScopedJson(STORAGE_KEY, registry);
 }

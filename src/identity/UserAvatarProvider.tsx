@@ -9,7 +9,11 @@ import {
   type ReactNode,
 } from 'react';
 
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import { syncCanonicalProfilePhotoFromIdentity } from '@/identity/canonicalUserProfilePhoto';
+import { setActiveStorageUserId } from '@/storage/scopedAsyncStorage';
 import {
   pickProfilePhotoFromLibrary,
   takeProfilePhoto,
@@ -48,6 +52,8 @@ function publishSnapshot(identity: UserAvatarIdentity, revision: number) {
 }
 
 export function UserAvatarProvider({ children }: { children: ReactNode }) {
+  const { user: authUser } = useReelyouAuth();
+  const storageUserId = isReelyouAuthConfigured() ? resolveActiveUserId(authUser) : null;
   const [ready, setReady] = useState(false);
   const [identity, setIdentity] = useState<UserAvatarIdentity>(DEFAULT_USER_AVATAR_IDENTITY);
   const [profilePhotoRevision, setProfilePhotoRevision] = useState(0);
@@ -67,7 +73,9 @@ export function UserAvatarProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    setActiveStorageUserId(storageUserId);
     let live = true;
+    setReady(false);
     void loadUserAvatarIdentity().then((loadedRaw) => {
       if (!live) return;
       const uri = loadedRaw.profilePhotoUri;
@@ -94,7 +102,7 @@ export function UserAvatarProvider({ children }: { children: ReactNode }) {
       live = false;
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, []);
+  }, [storageUserId]);
 
   const applyIdentity = useCallback(
     (next: UserAvatarIdentity, bumpPhotoRevision: boolean) => {

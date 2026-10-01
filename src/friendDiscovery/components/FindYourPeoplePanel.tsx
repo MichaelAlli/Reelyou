@@ -10,10 +10,7 @@ import {
   FACEBOOK_DISCOVERY_BLOCKER,
   isFacebookFriendDiscoveryConfigured,
 } from '@/friendDiscovery/facebookDiscoveryConfig';
-import {
-  GOOGLE_CONTACTS_BLOCKER,
-  isGoogleContactsDiscoveryConfigured,
-} from '@/friendDiscovery/googleContactsDiscovery';
+import { isGoogleContactsDiscoveryConfigured } from '@/friendDiscovery/googleContactsDiscovery';
 import {
   copyInvitationLink,
   openEmailInvitationComposer,
@@ -82,7 +79,7 @@ export function FindYourPeoplePanel({
       flash(Copy.googleUnavailable);
       return;
     }
-    flash(GOOGLE_CONTACTS_BLOCKER, 5000);
+    flash(Copy.googleUnavailableConfigured, 6000);
   }, [flash]);
 
   const handleFacebook = useCallback(() => {
@@ -138,13 +135,23 @@ export function FindYourPeoplePanel({
 
       <OptionCard
         title={Copy.phoneTitle}
-        body={Copy.phoneBody}
+        body={Platform.OS === 'web' ? `${Copy.phoneBody} ${Copy.phoneWebHint}` : Copy.phoneBody}
         actionLabel={Copy.phoneAction}
         onPress={() => void handlePhone()}
         trailing={loading === 'phone' ? <ActivityIndicator color="#E8C872" /> : null}
+        hint={Platform.OS === 'web' ? Copy.contactsUnavailableWeb : undefined}
       />
 
-      <OptionCard title={Copy.googleTitle} body={Copy.googleBody} actionLabel={Copy.googleAction} onPress={handleGoogle} />
+      <OptionCard
+        title={Copy.googleTitle}
+        body={
+          isGoogleContactsDiscoveryConfigured()
+            ? Copy.googleBody
+            : `${Copy.googleBody} ${Copy.googleUnavailable}`
+        }
+        actionLabel={Copy.googleAction}
+        onPress={handleGoogle}
+      />
 
       {isFacebookFriendDiscoveryConfigured() ? (
         <OptionCard
@@ -227,17 +234,20 @@ function OptionCard({
   actionLabel,
   onPress,
   trailing,
+  hint,
 }: {
   title: string;
   body: string;
   actionLabel: string;
   onPress: () => void;
   trailing?: React.ReactNode;
+  hint?: string;
 }) {
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{title}</Text>
       <Text style={styles.cardBody}>{body}</Text>
+      {hint ? <Text style={styles.cardHint}>{hint}</Text> : null}
       <Pressable style={styles.secondaryBtn} onPress={onPress}>
         <Text style={styles.secondaryBtnText}>{actionLabel}</Text>
         {trailing}

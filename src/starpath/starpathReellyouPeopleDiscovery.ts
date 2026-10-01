@@ -1,3 +1,5 @@
+import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
+import { isLegacyDemoEnabled } from '@/constants/devFlags';
 import { orbitUsers } from '@/data/mockData';
 import { resolvePublicSkyOwnerProfile } from '@/mySky/skyIdentity';
 import type { OpportunityCandidate } from '@/starpath/starpathOpportunityTypes';
@@ -41,6 +43,10 @@ export function discoverReellyouPeopleCandidates(
 
   const blocked = new Set(input.blockedUserIds);
   const scored: { userId: string; score: number }[] = [];
+
+  if (isReelyouAuthConfigured() && !isLegacyDemoEnabled()) {
+    return [];
+  }
 
   for (const orbit of orbitUsers) {
     if (orbit.id === input.viewerId || blocked.has(orbit.id)) continue;

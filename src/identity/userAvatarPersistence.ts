@@ -1,22 +1,28 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import {
   DEFAULT_USER_AVATAR_IDENTITY,
   type UserAvatarIdentity,
 } from '@/identity/userAvatarTypes';
+import { readScopedJson, writeScopedJson } from '@/storage/scopedAsyncStorage';
 
 const STORAGE_KEY = '@reellyou/user-avatar-identity';
 
-export async function loadUserAvatarIdentity(): Promise<UserAvatarIdentity> {
+function parseIdentity(raw: string | null): UserAvatarIdentity {
+  if (!raw) return { ...DEFAULT_USER_AVATAR_IDENTITY };
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_USER_AVATAR_IDENTITY };
     return { ...DEFAULT_USER_AVATAR_IDENTITY, ...(JSON.parse(raw) as UserAvatarIdentity) };
   } catch {
     return { ...DEFAULT_USER_AVATAR_IDENTITY };
   }
 }
 
+export async function loadUserAvatarIdentity(): Promise<UserAvatarIdentity> {
+  try {
+    return await readScopedJson(STORAGE_KEY, parseIdentity);
+  } catch {
+    return { ...DEFAULT_USER_AVATAR_IDENTITY };
+  }
+}
+
 export async function saveUserAvatarIdentity(identity: UserAvatarIdentity): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
+  await writeScopedJson(STORAGE_KEY, identity);
 }

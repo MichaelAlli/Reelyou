@@ -1,5 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { SKYWRITE_SHOWING_UP_OPTIONS } from '@/constants/skywriteCopy';
 import { isSkywriteTextStyle } from '@/constants/skywriteTextStyles';
 import { isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
@@ -15,7 +13,9 @@ import type {
   SkywriteVideoOriginalAudioState,
   SkywritesState,
 } from '@/skywrite/types';
+import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import { isLegacyDemoEnabled } from '@/constants/devFlags';
+import { readScopedJson, writeScopedJson } from '@/storage/scopedAsyncStorage';
 import { ensureLegacyDemoSeed } from '@/legacy/ensureLegacyDemoSeed';
 import {
   buildMySkywritesLabeledDemoPosts,
@@ -208,7 +208,7 @@ function parseState(raw: string | null): SkywritesState {
 }
 
 function mergeLabeledRecentDemoPosts(state: SkywritesState): SkywritesState {
-  if (!isLegacyDemoEnabled()) return state;
+  if (isReelyouAuthConfigured() || !isLegacyDemoEnabled()) return state;
   const demos = buildMySkywritesLabeledDemoPosts();
   const existingIds = new Set(state.posts.map((post) => post.id));
   const toAdd = demos.filter((post) => !existingIds.has(post.id));
@@ -216,11 +216,20 @@ function mergeLabeledRecentDemoPosts(state: SkywritesState): SkywritesState {
   return { posts: [...toAdd, ...state.posts] };
 }
 
+function migrateSkywritesForUser(state: SkywritesState, userId: string): SkywritesState {
+  return {
+    posts: state.posts.filter(
+      (post) => !post.authorId || post.authorId === userId,
+    ),
+  };
+}
+
 export async function loadSkywrites(): Promise<SkywritesState> {
-  await ensureLegacyDemoSeed();
+  if (!isReelyouAuthConfigured()) {
+    await ensureLegacyDemoSeed();
+  }
   try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    let state = parseState(stored);
+    let state = await readScopedJson(STORAGE_KEY, parseState, migrateSkywritesForUser);
     const merged = mergeLabeledRecentDemoPosts(state);
     if (merged !== state) {
       state = merged;
@@ -239,10 +248,5 @@ export function stripLabeledDemoPostsFromState(state: SkywritesState): Skywrites
 }
 
 export async function saveSkywrites(state: SkywritesState): Promise<boolean> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    return true;
-  } catch {
-    return false;
-  }
+  return writeScopedJson(STORAGE_KEY, state);
 }

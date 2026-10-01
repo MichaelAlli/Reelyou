@@ -15,6 +15,7 @@ export function isEphemeralMediaUri(uri: string | undefined | null): boolean {
   if (!uri) return false;
   return (
     uri.startsWith('blob:') ||
+    uri.startsWith('data:') ||
     uri.startsWith('file:') ||
     uri.startsWith('content:') ||
     uri.startsWith('ph://') ||

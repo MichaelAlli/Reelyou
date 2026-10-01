@@ -105,6 +105,9 @@ function HomeTodayFocusSectionComponent({
         minWidth: 0,
         zIndex: 2,
       },
+      centerWithDismiss: {
+        paddingRight: 36,
+      },
       title: {
         fontFamily: Fonts.serif,
         fontSize: 15.5,
@@ -120,14 +123,14 @@ function HomeTodayFocusSectionComponent({
       },
       dismissBtn: {
         position: 'absolute',
-        top: 8,
-        right: 8,
-        zIndex: 2,
-        width: 32,
-        height: 32,
+        top: 4,
+        right: 4,
+        zIndex: 4,
+        width: 44,
+        height: 44,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 16,
+        borderRadius: 22,
       },
       dismissSymbol: {
         fontFamily: Fonts.sans,
@@ -135,23 +138,6 @@ function HomeTodayFocusSectionComponent({
         lineHeight: 22,
         fontWeight: '400',
         color: 'rgba(235, 228, 248, 0.55)',
-      },
-      editRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        flexShrink: 0,
-      },
-      editPress: {
-        minHeight: 44,
-        justifyContent: 'center',
-        flexShrink: 0,
-      },
-      edit: {
-        fontFamily: Fonts.sans,
-        fontSize: 11,
-        fontWeight: '600',
-        color: tokens.gold,
       },
       actionRow: {
         paddingLeft: FOCUS.iconCircle + FOCUS.gap,
@@ -167,6 +153,18 @@ function HomeTodayFocusSectionComponent({
         letterSpacing: 0.01,
         lineHeight: 16,
         opacity: 0.92,
+      },
+      reflectionRow: {
+        paddingLeft: FOCUS.iconCircle + FOCUS.gap,
+        minHeight: 40,
+        justifyContent: 'center',
+      },
+      reflectionAction: {
+        fontFamily: Fonts.sans,
+        fontSize: 11,
+        fontWeight: '600',
+        color: 'rgba(235, 228, 248, 0.62)',
+        lineHeight: 15,
       },
     }),
   );
@@ -212,19 +210,9 @@ function HomeTodayFocusSectionComponent({
             <View style={styles.iconCircle} importantForAccessibility="no-hide-descendants">
               <HomeTodayFocusIcon size={18} />
             </View>
-            <View style={styles.center}>
+            <View style={[styles.center, onDismiss ? styles.centerWithDismiss : null]}>
               <Text style={styles.title}>{HomeCopy.todayFocusTitle}</Text>
               <Text style={styles.prompt}>{promptText}</Text>
-            </View>
-            <View style={styles.editRow}>
-              <Pressable
-                hitSlop={8}
-                style={styles.editPress}
-                accessibilityRole="button"
-                accessibilityLabel="Edit Today's Focus"
-                onPress={() => router.push('/today-focus-edit' as never)}>
-                <Text style={styles.edit}>{HomeCopy.todayFocusEdit}</Text>
-              </Pressable>
             </View>
           </View>
 
@@ -232,9 +220,18 @@ function HomeTodayFocusSectionComponent({
             hitSlop={8}
             style={styles.actionRow}
             accessibilityRole="button"
+            accessibilityLabel="Edit or answer Today's Focus"
+            onPress={() => router.push('/today-focus-edit' as never)}>
+            <Text style={styles.action}>{HomeCopy.todayFocusEdit}</Text>
+          </Pressable>
+
+          <Pressable
+            hitSlop={8}
+            style={styles.reflectionRow}
+            accessibilityRole="button"
             accessibilityLabel="Answer your reflection prompt"
             onPress={() => router.push('/today-focus-reflection' as never)}>
-            <Text style={styles.action}>{HomeCopy.todayFocusAction}</Text>
+            <Text style={styles.reflectionAction}>{HomeCopy.todayFocusAction}</Text>
           </Pressable>
         </View>
       </View>

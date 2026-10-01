@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo } from 'react';
 import {
   ImageBackground,
   Platform,
@@ -6,8 +6,6 @@ import {
   Text,
   TextInput,
   View,
-  type NativeSyntheticEvent,
-  type TextInputContentSizeChangeEventData,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
@@ -31,18 +29,7 @@ function OnboardingNorthStarInputComponent({
   maxLength = MAX_NORTH_STAR_VISION_LENGTH,
 }: OnboardingNorthStarInputProps) {
   const { tokens, isLight } = useTheme();
-  const [inputHeight, setInputHeight] = useState<number>(OnboardingNorthStarLayout.inputMinHeight);
-
-  const handleContentSizeChange = useCallback(
-    (event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
-      const nextHeight = Math.max(
-        OnboardingNorthStarLayout.inputMinHeight,
-        event.nativeEvent.contentSize.height + OnboardingNorthStarLayout.inputPaddingTop + 28,
-      );
-      setInputHeight(nextHeight);
-    },
-    [],
-  );
+  const inputHeight = OnboardingNorthStarLayout.inputMinHeight;
 
   const showPlaceholder = value.length === 0;
 
@@ -51,7 +38,7 @@ function OnboardingNorthStarInputComponent({
       <ImageBackground
         source={ONBOARDING_SHARED_BACKGROUND}
         resizeMode="cover"
-        style={[styles.inputSurface, { minHeight: inputHeight }]}
+        style={[styles.inputSurface, { height: inputHeight }]}
         imageStyle={styles.inputImage}>
         {showPlaceholder ? (
           <View style={styles.placeholderRow} pointerEvents="none">
@@ -77,16 +64,16 @@ function OnboardingNorthStarInputComponent({
           value={value}
           onChangeText={onChangeText}
           maxLength={maxLength}
-          onContentSizeChange={handleContentSizeChange}
           style={[
             styles.input,
             {
-              minHeight: inputHeight - OnboardingNorthStarLayout.inputPaddingBottom,
+              flex: 1,
+              maxHeight: inputHeight - OnboardingNorthStarLayout.inputPaddingBottom - 24,
               color: isLight ? '#F8F9FC' : tokens.inputText,
             },
           ]}
           placeholder=""
-          scrollEnabled={false}
+          scrollEnabled
           autoCorrect
           autoCapitalize="sentences"
           returnKeyType="default"
@@ -118,6 +105,7 @@ const styles = StyleSheet.create({
     borderColor: gold,
     overflow: 'hidden',
     backgroundColor: '#050818',
+    flexDirection: 'column',
   },
   inputImage: {
     opacity: 0.92,

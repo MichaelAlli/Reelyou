@@ -1,11 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import {
   EMPTY_TODAY_FOCUS,
   type TodayFocusRecord,
   type TodayFocusSource,
 } from '@/onboarding/personalization/todayFocus/types';
 import { getLocalDateKey } from '@/onboarding/personalization/todayFocus/dateKey';
+import { readScopedJson, removeScopedKey, writeScopedJson } from '@/storage/scopedAsyncStorage';
 
 const STORAGE_KEY = '@reellyou/today-focus';
 
@@ -55,26 +54,17 @@ export function reconcileTodayFocusForToday(
 
 export async function loadTodayFocus(): Promise<TodayFocusRecord> {
   try {
-    const stored = await AsyncStorage.getItem(STORAGE_KEY);
-    return reconcileTodayFocusForToday(parseRecord(stored));
+    const record = await readScopedJson(STORAGE_KEY, parseRecord);
+    return reconcileTodayFocusForToday(record);
   } catch {
     return reconcileTodayFocusForToday(EMPTY_TODAY_FOCUS);
   }
 }
 
 export async function saveTodayFocus(record: TodayFocusRecord): Promise<boolean> {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(record));
-    return true;
-  } catch {
-    return false;
-  }
+  return writeScopedJson(STORAGE_KEY, record);
 }
 
 export async function clearTodayFocusStorage(): Promise<void> {
-  try {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Non-blocking.
-  }
+  await removeScopedKey(STORAGE_KEY);
 }

@@ -7,6 +7,10 @@ export const FindFamiliarSkiesCopy = {
   googleTitle: 'Google Contacts',
   googleBody: 'Works with your Google account. Sign-in and contact access are separate steps.',
   googleAction: 'Connect Google Contacts',
+  googleUnavailableConfigured:
+    'Google sign-in for contacts is not finished in this build. See docs/friend-discovery/GOOGLE-CONTACTS-SETUP.md for OAuth client, People API, and EXPO_PUBLIC_GOOGLE_CLIENT_ID.',
+  phoneWebHint:
+    'On desktop web, device contacts are not available. Use username search or invite links below—phone matching works in the Reelyou iOS/Android app after you allow contacts.',
   facebookTitle: 'Facebook',
   facebookBody: 'See Reelyou members Facebook allows us to suggest—never your whole friend list.',
   facebookAction: 'Connect Facebook',

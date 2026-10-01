@@ -26,24 +26,29 @@ async function blobFromUri(uri: string): Promise<{ blob: Blob; contentType: stri
 async function uploadLocalUri(
   uri: string,
   kind: MediaAssetKind,
-): Promise<{ assetId: string; placeholderUri: string } | null> {
+): Promise<
+  | { ok: true; assetId: string; placeholderUri: string }
+  | { ok: false; error: string }
+> {
   const payload = await blobFromUri(uri);
-  if (!payload) return null;
-  const session = await createMediaUploadSession({
+  if (!payload) return { ok: false, error: 'blob_read_failed' };
+  const sessionResult = await createMediaUploadSession({
     kind,
     contentType: payload.contentType,
     sizeBytes: payload.blob.size,
   });
-  if (!session) return null;
+  if (!sessionResult.ok) return { ok: false, error: sessionResult.error };
+  const session = sessionResult.session;
   const uploaded = await putUploadWithRetry(
     session.uploadUrl,
     payload.blob,
     session.uploadHeaders,
   );
-  if (!uploaded) return null;
+  if (!uploaded.ok) return { ok: false, error: 'photo_upload_failed' };
   const complete = await completeMediaUploadSession(session.assetId);
-  if (!complete) return null;
+  if (!complete.ok) return { ok: false, error: complete.error === 'not_signed_in' ? 'not_signed_in' : 'photo_upload_failed' };
   return {
+    ok: true,
     assetId: session.assetId,
     placeholderUri: buildRemoteAssetPlaceholderUri(session.assetId),
   };
@@ -80,7 +85,7 @@ export async function uploadSkywriteMediaForPublish(
 
   if (next.photo?.uri && !next.photo.remoteAssetId && isEphemeralMediaUri(next.photo.uri)) {
     const up = await uploadLocalUri(next.photo.uri, 'photo');
-    if (!up) return { ok: false, error: 'photo_upload_failed' };
+    if (!up.ok) return { ok: false, error: up.error };
     next.photo = { ...next.photo, uri: up.placeholderUri, remoteAssetId: up.assetId };
     serverRefs.photoAssetId = up.assetId;
   } else if (next.photo?.remoteAssetId) {
@@ -89,7 +94,7 @@ export async function uploadSkywriteMediaForPublish(
 
   if (next.video?.uri && !next.video.remoteAssetId && isEphemeralMediaUri(next.video.uri)) {
     const up = await uploadLocalUri(next.video.uri, 'video');
-    if (!up) return { ok: false, error: 'video_upload_failed' };
+    if (!up.ok) return { ok: false, error: up.error === 'photo_upload_failed' ? 'video_upload_failed' : up.error };
     next.video = { ...next.video, uri: up.placeholderUri, remoteAssetId: up.assetId };
     serverRefs.videoAssetId = up.assetId;
   } else if (next.video?.remoteAssetId) {
@@ -101,7 +106,7 @@ export async function uploadSkywriteMediaForPublish(
     isEphemeralMediaUri(next.video.thumbnailUri)
   ) {
     const thumb = await uploadLocalUri(next.video.thumbnailUri, 'thumbnail');
-    if (thumb) {
+    if (thumb.ok) {
       next.video = {
         ...next.video,
         thumbnailUri: thumb.placeholderUri,
@@ -112,7 +117,7 @@ export async function uploadSkywriteMediaForPublish(
 
   if (next.audio?.uri && !next.audio.remoteAssetId && isEphemeralMediaUri(next.audio.uri)) {
     const up = await uploadLocalUri(next.audio.uri, 'audio');
-    if (!up) return { ok: false, error: 'audio_upload_failed' };
+    if (!up.ok) return { ok: false, error: up.error === 'photo_upload_failed' ? 'audio_upload_failed' : up.error };
     next.audio = { ...next.audio, uri: up.placeholderUri, remoteAssetId: up.assetId };
     serverRefs.audioAssetId = up.assetId;
   } else if (next.audio?.remoteAssetId) {

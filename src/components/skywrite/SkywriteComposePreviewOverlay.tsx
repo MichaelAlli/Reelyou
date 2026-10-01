@@ -12,7 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SkywriteImmersiveMomentView } from '@/components/skywrite/SkywriteImmersiveMomentView';
 import { SkywriteCopy } from '@/constants/skywriteCopy';
 import { Fonts, Radius } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { buildSkywritePreviewRecord } from '@/skywrite/draft';
 import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPreviewScope';
 import { defaultStepsForSkywrite } from '@/skywrite/play/skywritePlayLogic';
@@ -41,6 +42,8 @@ export function SkywriteComposePreviewOverlay({
   onPost,
   onDraftMediaChange,
 }: SkywriteComposePreviewOverlayProps) {
+  const { user: authUser } = useReelyouAuth();
+  const authorId = resolveActiveUserId(authUser);
   const audioPreview = useOverlayAudioPreviewScope(visible);
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -48,10 +51,10 @@ export function SkywriteComposePreviewOverlay({
     () =>
       buildSkywritePreviewRecord(
         { ...draft, text: draft.text.trim(), userHashtags: mergedHashtags },
-        currentUser.id,
+        authorId,
         mergedHashtags,
       ),
-    [draft, mergedHashtags],
+    [authorId, draft, mergedHashtags],
   );
 
   const steps = useMemo(() => defaultStepsForSkywrite(previewRecord), [previewRecord]);

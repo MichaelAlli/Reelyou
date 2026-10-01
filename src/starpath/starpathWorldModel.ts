@@ -15,6 +15,7 @@ import {
   getReferenceBranchSpecs,
 } from '@/starpath/starpathReferenceLayout';
 import type { StarPathLayoutMetrics } from '@/starpath/starpathLayoutMetrics';
+import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 
 /** How prominently a node is drawn — drives density without removing data. */
 export type StarPathNodePresence = 'focus' | 'nearby' | 'distant' | 'summarized';
@@ -57,9 +58,10 @@ export interface StarPathWorldGraph {
 }
 
 export function createInitialStarPathWorldGraph(): StarPathWorldGraph {
+  const includeDecorativePortraits = !isReelyouAuthConfigured();
   return {
     version: 1,
-    portraitNodes: [...REF_PORTRAIT_NODES],
+    portraitNodes: includeDecorativePortraits ? [...REF_PORTRAIT_NODES] : [],
     symbolNodes: [...REF_SYMBOL_NODES],
     branches: getReferenceBranchSpecs(),
     traveler: { ...REF_TRAVELER },

@@ -88,8 +88,10 @@ import {
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { currentUser } from '@/data/mockData';
+import { formatSkywriteServerSyncError } from '@/social/formatSkywriteServerSyncError';
 import { syncPublishedSkywriteToServer } from '@/social/publishSharedSkywrite';
 import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
+import { setActiveStorageUserId } from '@/storage/scopedAsyncStorage';
 import {
   fetchAuthorServerSkywrites,
   fetchSkywriteFromServer,
@@ -303,6 +305,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   }, [skywritesState]);
 
   useEffect(() => {
+    setActiveStorageUserId(activeUserId);
     let live = true;
     void hydrateTodayFocusDismissState();
     loadTodayFocus().then((record) => {
@@ -323,6 +326,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     loadSkywrites().then((record) => {
       if (live) {
         setSkywritesState(record);
+        skywritesRef.current = record;
       }
     });
     loadProfileSkyAreaShortcutIds().then((ids) => {
@@ -343,7 +347,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return () => {
       live = false;
     };
-  }, []);
+  }, [activeUserId]);
 
   useEffect(() => {
     if (!isSharedSocialPersistenceEnabled() || !authUser?.id) return;
@@ -752,6 +756,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       }
       publishInFlightRef.current = true;
       let result: PublishSkywriteResult;
+      let lastServerSyncError: string | null = null;
       try {
         result = await publishSkywriteDraft(
           draft,
@@ -759,7 +764,10 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             let finalRecord = record;
             if (isSharedSocialPersistenceEnabled()) {
               const sync = await syncPublishedSkywriteToServer(record);
-              if (!sync.ok) return false;
+              if (!sync.ok) {
+                lastServerSyncError = sync.error;
+                return false;
+              }
               finalRecord = sync.record;
             }
             if (skywritesRef.current.posts.some((post) => post.id === finalRecord.id)) {
@@ -784,7 +792,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           activeUserId,
           onProgress,
         );
-        if (!result.ok && isSharedSocialPersistenceEnabled()) {
+        if (!result.ok && lastServerSyncError) {
+          result = {
+            ...result,
+            errorMessage: formatSkywriteServerSyncError(lastServerSyncError),
+          };
+        } else if (!result.ok && isSharedSocialPersistenceEnabled()) {
           result = {
             ...result,
             errorMessage:
