@@ -36,18 +36,20 @@ import {
 import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
+import { exitSkyreel, persistSkyreelReturnFromParam } from '@/skywrite/play/skyreelNavigation';
 import { stepUsesAttachedVoiceover } from '@/skywrite/voiceoverStepUtils';
 
 const STILL_DWELL_MS = 8500;
 
 export function SkywriteGuidedPlayScreen() {
   const router = useRouter();
-  const { scope, id, ownerId, start, autoplay } = useLocalSearchParams<{
+  const { scope, id, ownerId, start, autoplay, returnTo } = useLocalSearchParams<{
     scope?: SkywritePlayScope;
     id?: string;
     ownerId?: string;
     start?: string;
     autoplay?: string;
+    returnTo?: string;
   }>();
   const playScope: SkywritePlayScope =
     scope === 'single' ? 'single' : scope === 'owner' ? 'owner' : 'focused';
@@ -64,11 +66,19 @@ export function SkywriteGuidedPlayScreen() {
   const [steps, setSteps] = useState<SkywritePlayStep[]>([]);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [needsTapToPlay, setNeedsTapToPlay] = useState(false);
+  const [needsTapToPlay, setNeedsTapToPlay] = useState(
+    () => Platform.OS === 'web' && autoplay === '1',
+  );
   const [manualPlayNonce, setManualPlayNonce] = useState(0);
+  const [mediaStartNonce, setMediaStartNonce] = useState(0);
+  const [userStartedPlayback, setUserStartedPlayback] = useState(false);
   const startedRef = useRef(false);
   const skippedStepIdsRef = useRef<Set<string>>(new Set());
   const autoAdvancePulseRef = useRef(0);
+
+  useEffect(() => {
+    persistSkyreelReturnFromParam(returnTo);
+  }, [returnTo]);
 
   useEffect(() => {
     if (!isSharedSocialPersistenceEnabled() || playScope !== 'owner' || !ownerId) return;
@@ -226,11 +236,14 @@ export function SkywriteGuidedPlayScreen() {
 
   const handleExit = useCallback(() => {
     void audioPreview.stopAll();
-    router.back();
-  }, [audioPreview, router]);
+    setPaused(true);
+    setNeedsTapToPlay(false);
+    exitSkyreel(router, returnTo);
+  }, [audioPreview, returnTo, router]);
 
   const advance = useCallback(() => {
     void audioPreview.stopAll();
+    setMediaStartNonce((n) => n + 1);
     setIndex((value) => Math.min(value + 1, steps.length - 1));
   }, [audioPreview, steps.length]);
 
@@ -238,6 +251,7 @@ export function SkywriteGuidedPlayScreen() {
     autoAdvancePulseRef.current = Date.now();
     void audioPreview.stopAll();
     setNeedsTapToPlay(false);
+    setMediaStartNonce((n) => n + 1);
     setIndex((value) => Math.min(value + 1, steps.length - 1));
   }, [audioPreview, steps.length]);
 
@@ -245,8 +259,22 @@ export function SkywriteGuidedPlayScreen() {
     autoAdvancePulseRef.current = Date.now();
     void audioPreview.stopAll();
     setNeedsTapToPlay(false);
+    setMediaStartNonce((n) => n + 1);
     setIndex((value) => Math.max(value - 1, 0));
   }, [audioPreview]);
+
+  const handleTapToStartSkyreel = useCallback(() => {
+    setNeedsTapToPlay(false);
+    setPaused(false);
+    setUserStartedPlayback(true);
+    startedRef.current = true;
+    setManualPlayNonce((n) => n + 1);
+    setMediaStartNonce((n) => n + 1);
+    autoAdvancePulseRef.current = Date.now();
+    if (current?.kind === 'audio' && record?.media.audio?.uri) {
+      void audioPreview.togglePreview(previewId, record.media.audio.uri);
+    }
+  }, [audioPreview, current?.kind, previewId, record?.media.audio?.uri]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -260,9 +288,10 @@ export function SkywriteGuidedPlayScreen() {
   }, [goNext, goPrevious, handleExit]);
 
   useEffect(() => {
-    startedRef.current = false;
-    setNeedsTapToPlay(false);
-  }, [index, current?.stepId]);
+    if (Platform.OS === 'web' && autoplay === '1' && !userStartedPlayback) {
+      setNeedsTapToPlay(true);
+    }
+  }, [autoplay, index, current?.stepId, userStartedPlayback]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -384,11 +413,8 @@ export function SkywriteGuidedPlayScreen() {
           manualPlayNonce={manualPlayNonce}
           onVideoAutoplayBlocked={() => setNeedsTapToPlay(true)}
           tapToPlayPrompt={needsTapToPlay}
-          onTapToPlayContinue={() => {
-            setNeedsTapToPlay(false);
-            startedRef.current = true;
-            setManualPlayNonce((n) => n + 1);
-          }}
+          mediaStartNonce={mediaStartNonce}
+          onTapToPlayContinue={handleTapToStartSkyreel}
           onToggleSequencePause={() => setPaused((value) => !value)}
           navigationMode="edgeTap"
           narrationAutoplay={!paused && !needsTapToPlay}

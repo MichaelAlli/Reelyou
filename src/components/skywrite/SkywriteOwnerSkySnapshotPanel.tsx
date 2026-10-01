@@ -18,6 +18,7 @@ import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtur
 import { isExploreDemoOwnerId } from '@/explore/exploreDemoSkies';
 import { buildVisitorProfileHref } from '@/profile/visitorProfileRoute';
 import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
+import { pushSkyreelPlay } from '@/skywrite/play/skyreelNavigation';
 import { resolveOwnerPlaySkySteps } from '@/skywrite/play/resolveOwnerPlaySkySteps';
 import type { SkywriteRecord } from '@/skywrite/types';
 
@@ -113,8 +114,9 @@ function SkywriteOwnerSkySnapshotPanelComponent({
 
   const openPlaySky = () => {
     if (!canPlay) return;
-    router.push(
-      `/skywrite/play?scope=owner&ownerId=${encodeURIComponent(ownerId)}&autoplay=1` as never,
+    pushSkyreelPlay(
+      router,
+      `/skywrite/play?scope=owner&ownerId=${encodeURIComponent(ownerId)}&autoplay=1`,
     );
   };
 

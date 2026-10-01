@@ -1,6 +1,7 @@
 import { getCommunityById } from '@/constants/communitiesData';
 import type { SkyNode } from '@/mySky/skyNodeTypes';
 import type { MySkyStarDisplay } from '@/mySky/types';
+import { pushSkyreelPlay } from '@/skywrite/play/skyreelNavigation';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import type { SkywriteRecord } from '@/skywrite/types';
 
@@ -140,7 +141,7 @@ export function pushStarNavigationTarget(
   const { visitorMode = false, publicSkyOwnerId, skyOwnerId } = options;
   switch (target.kind) {
     case 'skywrite-play':
-      router.push(`/skywrite/play?scope=single&id=${target.skywriteId}` as never);
+      pushSkyreelPlay(router, `/skywrite/play?scope=single&id=${target.skywriteId}`);
       return;
     case 'skywrite-detail':
       router.push(`/skywrite/${target.skywriteId}` as never);

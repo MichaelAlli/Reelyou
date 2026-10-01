@@ -71,6 +71,8 @@ interface SkywriteImmersiveMomentViewProps {
   onNarrationFinished?: () => void;
   narrationAutoplay?: boolean;
   narrationPaused?: boolean;
+  /** Bumps when user taps to start or changes Skyreel item — restarts narration. */
+  mediaStartNonce?: number;
 }
 
 function ProgressSegments({ index, count }: { index: number; count: number }) {
@@ -120,6 +122,7 @@ function SkywriteImmersiveMomentViewComponent({
   onNarrationFinished,
   narrationAutoplay = false,
   narrationPaused = false,
+  mediaStartNonce = 0,
 }: SkywriteImmersiveMomentViewProps) {
   const insets = useSafeAreaInsets();
   const { record: resolvedRecord, status: remoteMediaStatus, mediaError, retry: retryRemoteMedia } =
@@ -151,7 +154,7 @@ function SkywriteImmersiveMomentViewComponent({
   useEffect(() => {
     autoPlayIssuedRef.current = false;
     narrationStartedRef.current = false;
-  }, [record.id, stepKind]);
+  }, [record.id, stepKind, mediaStartNonce]);
 
   useEffect(() => {
     if (!narrationActive || !narrationAutoplay || narrationPaused || narrationStartedRef.current) return;
@@ -164,6 +167,7 @@ function SkywriteImmersiveMomentViewComponent({
     narrationActive,
     narrationAutoplay,
     narrationPaused,
+    mediaStartNonce,
     onNarrationFinished,
     playbackMedia,
   ]);
@@ -335,12 +339,13 @@ function SkywriteImmersiveMomentViewComponent({
 
   return (
     <View style={styles.immersiveRoot}>
-      {navigationMode === 'edgeTap' && !framingAdjustActive ? (
+      {navigationMode === 'edgeTap' && !framingAdjustActive && !tapToPlayPrompt ? (
         <SkywritePlayEdgeNavigation
           canPrevious={canPrevious}
           canNext={canNext}
           onPrevious={handlePrevious}
           onNext={handleNext}
+          disabled={tapToPlayPrompt}
           topInset={insets.top + 52}
           bottomInset={Math.max(insets.bottom, 10) + (bottomSlot ? 200 : 150)}
         />
@@ -415,6 +420,18 @@ function SkywriteImmersiveMomentViewComponent({
         ) : null}
       </View>
 
+      {tapToPlayPrompt && onTapToPlayContinue ? (
+        <Pressable
+          style={styles.tapStartOverlay}
+          accessibilityRole="button"
+          accessibilityLabel={SkywritePlayCopy.tapToPlaySky}
+          onPress={onTapToPlayContinue}>
+          <View style={styles.tapBanner}>
+            <Text style={styles.tapBannerText}>{SkywritePlayCopy.tapToPlaySky}</Text>
+          </View>
+        </Pressable>
+      ) : null}
+
       <LinearGradient
         colors={['rgba(5, 5, 8, 0.82)', 'rgba(5, 5, 8, 0.35)', 'transparent']}
         style={[styles.topGradient, { paddingTop: insets.top + 6 }]}
@@ -432,11 +449,6 @@ function SkywriteImmersiveMomentViewComponent({
             {SkywritePlayCopy.progress(stepIndex + 1, stepCount)}
           </Text>
         </View>
-        {tapToPlayPrompt ? (
-          <Pressable style={styles.tapBanner} onPress={onTapToPlayContinue}>
-            <Text style={styles.tapBannerText}>{SkywritePlayCopy.tapToPlaySky}</Text>
-          </Pressable>
-        ) : null}
       </LinearGradient>
 
       <LinearGradient
@@ -666,19 +678,30 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 12,
     paddingBottom: 28,
-    zIndex: 2,
+    zIndex: 25,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     minHeight: 44,
+    zIndex: 4,
   },
   closeBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 5,
+  },
+  tapStartOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 72,
+    backgroundColor: 'rgba(5, 5, 8, 0.55)',
   },
   closeIcon: {
     color: '#FFF8F0',
@@ -729,7 +752,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 12,
     paddingTop: 48,
-    zIndex: 2,
+    zIndex: 3,
   },
   captionOverlay: {
     fontFamily: Fonts.sans,

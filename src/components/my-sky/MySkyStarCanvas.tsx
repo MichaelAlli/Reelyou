@@ -39,6 +39,7 @@ import {
   resolveCanonicalSkywriteIdForStar,
   resolveStarNavigation,
 } from '@/mySky/resolveStarNavigation';
+import { pushSkyreelPlay } from '@/skywrite/play/skyreelNavigation';
 import { resolveVisitorStarNavigation } from '@/mySky/resolveVisitorStarNavigation';
 import type { MySkyLayerId } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
@@ -442,7 +443,7 @@ function MySkyStarCanvasComponent({
   const openImmersiveSkywriteById = useCallback(
     (skywriteId: string) => {
       closeInsightBubble();
-      router.push(`/skywrite/play?scope=single&id=${skywriteId}` as never);
+      pushSkyreelPlay(router, `/skywrite/play?scope=single&id=${skywriteId}`);
     },
     [closeInsightBubble, router],
   );

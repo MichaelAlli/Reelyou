@@ -10,6 +10,7 @@ import { MySkywritesIndicator } from '@/components/focused-sky/MySkywritesIndica
 import { MySkywritesSheet } from '@/components/focused-sky/MySkywritesSheet';
 import { PlaySkyCue } from '@/components/skywrite/PlaySkyCue';
 import { SkywriteSkyOwnerHeader } from '@/components/skywrite/SkywriteSkyOwnerHeader';
+import { pushSkyreelPlay } from '@/skywrite/play/skyreelNavigation';
 import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
 import { loadSkyHeaderStyleId } from '@/profile/skyHeaderStylePersistence';
 import type { SkyHeaderStyleId } from '@/profile/skyHeaderStyleTypes';
@@ -148,7 +149,7 @@ export function FocusedSkywriteScreen() {
   }, [mySkyView.stars, router]);
 
   const openPlaySky = useCallback(() => {
-    router.push('/skywrite/play?scope=focused&autoplay=1' as never);
+    pushSkyreelPlay(router, '/skywrite/play?scope=focused&autoplay=1');
   }, [router]);
 
   const openOwnerProfile = useCallback(() => {
