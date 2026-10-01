@@ -40,6 +40,10 @@ export interface StoredSkywrite {
   deletedAt: number | null;
   /** When set with deletedAt, active systems purge media after this timestamp. */
   deletionPurgeAfter?: number | null;
+  /** UTC ms — visible in Skyreel until this time. */
+  skyreelActiveUntilMs?: number | null;
+  /** Last owner repost into Skyreel (UTC ms). */
+  skyreelRepostedAtMs?: number | null;
 }
 
 export interface CreateSkywriteInput {

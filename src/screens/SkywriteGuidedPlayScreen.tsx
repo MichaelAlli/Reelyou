@@ -24,8 +24,9 @@ import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { loadSkywritePlaySequence } from '@/skywrite/play/skywritePlayPersistence';
 import type { SkywritePlayScope, SkywritePlayStep } from '@/skywrite/play/skywritePlayTypes';
 import {
-  fetchAuthorSkywritesFromServer,
+  fetchAuthorServerSkywrites,
   fetchSkywriteFromServer,
+  mapServerSkywriteToRecord,
 } from '@/social/sharedSkywriteApi';
 import {
   cacheRemoteSkywrite,
@@ -52,7 +53,7 @@ export function SkywriteGuidedPlayScreen() {
   const { skywrites, mySkyView, aroundYourSkyFeed } = useOnboarding();
   const { messages, skyFollowGraph } = useReelyouConnect();
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
-  const { registry, ready: registryReady, repost } = usePlaySkySequenceRegistry();
+  const { registry, ready: registryReady, mergeServerRows } = usePlaySkySequenceRegistry();
   const audioPreview = useOverlayAudioPreviewScope(true);
   const [remoteSingleRecord, setRemoteSingleRecord] = useState<import('@/skywrite/types').SkywriteRecord | null>(
     null,
@@ -65,20 +66,25 @@ export function SkywriteGuidedPlayScreen() {
   const [needsTapToPlay, setNeedsTapToPlay] = useState(false);
   const [manualPlayNonce, setManualPlayNonce] = useState(0);
   const startedRef = useRef(false);
+  const skippedStepIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isSharedSocialPersistenceEnabled() || playScope !== 'owner' || !ownerId) return;
     if (ownerId === currentUser.id) return;
     let mounted = true;
-    void fetchAuthorSkywritesFromServer(ownerId).then((posts) => {
-      if (!mounted || posts.length === 0) return;
+    void fetchAuthorServerSkywrites(ownerId).then((serverRows) => {
+      if (!mounted || serverRows.length === 0) return;
+      const posts = serverRows.map((row) =>
+        mapServerSkywriteToRecord(row),
+      );
       cacheRemoteSkywrites(ownerId, posts);
+      void mergeServerRows(serverRows);
       setRemoteFetchTick((tick) => tick + 1);
     });
     return () => {
       mounted = false;
     };
-  }, [ownerId, playScope]);
+  }, [mergeServerRows, ownerId, playScope]);
 
   useEffect(() => {
     if (!isSharedSocialPersistenceEnabled() || playScope !== 'single' || !id) return;
@@ -175,13 +181,38 @@ export function SkywriteGuidedPlayScreen() {
   }, [start, steps.length]);
 
   const current = steps[index];
-  const record = useMemo(
-    () =>
-      current
-        ? resolveSkywriteById(skywrites, current.skywriteId, contentLifecycle)
-        : undefined,
-    [contentLifecycle, current, skywrites],
-  );
+  const record = useMemo(() => {
+    if (!current) return undefined;
+    const local = resolveSkywriteById(skywrites, current.skywriteId, contentLifecycle);
+    if (local) return local;
+    if (remoteSingleRecord?.id === current.skywriteId) return remoteSingleRecord;
+    if (ownerId && playScope === 'owner') {
+      const cached = getCachedAuthorSkywrites(ownerId).find((p) => p.id === current.skywriteId);
+      if (cached) return cached;
+    }
+    return undefined;
+  }, [
+    contentLifecycle,
+    current,
+    ownerId,
+    playScope,
+    remoteSingleRecord,
+    skywrites,
+  ]);
+
+  useEffect(() => {
+    if (!stepsLoaded || !current || record) return;
+    if (skippedStepIdsRef.current.has(current.stepId)) return;
+    skippedStepIdsRef.current.add(current.stepId);
+    void audioPreview.stopAll();
+    if (index < steps.length - 1) {
+      setIndex((value) => Math.min(value + 1, steps.length - 1));
+    }
+  }, [audioPreview, current, index, record, steps.length, stepsLoaded]);
+
+  useEffect(() => () => {
+    void audioPreview.stopAll();
+  }, [audioPreview]);
 
   const previewId = current ? `guided-play-${current.skywriteId}-${current.stepId}` : '';
   const audioPlaying = audioPreview.isPreviewPlaying(previewId);

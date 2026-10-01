@@ -92,6 +92,8 @@ function normalizeLegacySkywrite(
     media: {},
     deletedAt: null,
     deletionPurgeAfter: null,
+    skyreelActiveUntilMs: legacy.createdAt + 24 * 60 * 60 * 1000,
+    skyreelRepostedAtMs: null,
   };
 }
 

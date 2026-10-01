@@ -62,7 +62,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const [query, setQuery] = useState('');
   const audioPreview = useOverlayAudioPreviewScope(visible);
   const applyDeletion = useApplySkywriteContentDeletion();
-  const { repost } = usePlaySkySequenceRegistry();
+  const { repostToSkyreel } = usePlaySkySequenceRegistry();
 
   const rows = useMemo(() => {
     if (tab === 'contributed') {
@@ -210,7 +210,11 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                     id: 'repost-play-sky',
                     label: MySkywritesCopy.repostPlaySky,
                     onPress: () => {
-                      repost(row.skywriteId);
+                      void repostToSkyreel(row.skywriteId, row.skywrite).then((result) => {
+                        if (result.ok) {
+                          Alert.alert('Skyreel', MySkywritesCopy.repostSkyreelSuccess);
+                        }
+                      });
                     },
                   });
                   menuActions.push({

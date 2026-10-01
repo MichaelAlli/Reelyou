@@ -134,7 +134,7 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
     post({
       id: 'demo-avery-sw-archived',
       authorId: 'demo-sky-avery',
-      text: 'An older saved moment — still on the Sky, not in Play Sky.',
+      text: 'An older saved moment — still on the Sky, not in Skyreel.',
       mediaMode: 'text',
       media: { photo: null, video: null, audio: null },
       visibility: 'public',
@@ -236,7 +236,7 @@ export const EXPLORE_DEMO_SKYWRITES: Record<ExploreDemoOwnerId, SkywriteRecord[]
     post({
       id: 'demo-noor-sw-archived',
       authorId: 'demo-sky-noor',
-      text: 'Quiet note from last season — not in today’s Play Sky.',
+      text: 'Quiet note from last season — not in today’s Skyreel.',
       mediaMode: 'text',
       media: { photo: null, video: null, audio: null },
       visibility: 'public',

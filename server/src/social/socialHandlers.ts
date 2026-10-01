@@ -12,6 +12,7 @@ import {
   listRecoverableSkywritesForAuthor,
   listSkywritesForAuthor,
   recoverSkywrite,
+  repostSkyreel,
   removeBlock,
   removeFollow,
 } from './socialRepository.js';
@@ -73,6 +74,12 @@ export function handleRecoverSkywrite(viewerId: string, skywriteId: string) {
 
 export function handleListRecoverableSkywrites(viewerId: string) {
   return { skywrites: listRecoverableSkywritesForAuthor(viewerId) };
+}
+
+export function handleRepostSkyreel(viewerId: string, skywriteId: string) {
+  const skywrite = repostSkyreel(viewerId, skywriteId);
+  if (!skywrite) return { ok: false as const, error: 'not_allowed' };
+  return { ok: true as const, skywrite };
 }
 
 export function handleListComments(skywriteId: string) {

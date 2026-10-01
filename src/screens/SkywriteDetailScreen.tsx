@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -45,7 +46,9 @@ import { fetchSkywriteFromServer } from '@/social/sharedSkywriteApi';
 import { cacheRemoteSkywrite } from '@/social/sharedSkywriteCache';
 import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
+import { MySkywritesCopy } from '@/constants/mySkywritesCopy';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
+import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
 import { useSkywriteBeacon } from '@/skywrite/beacon/SkywriteBeaconProvider';
@@ -401,6 +404,7 @@ export function SkywriteDetailScreen() {
   } = useSkywriteThreads();
   const { getLifecycle, resolveAuthorBeacon, reactivateAuthorBeacon } = useSkywriteBeacon();
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
+  const { repostToSkyreel } = usePlaySkySequenceRegistry();
 
   const [remoteRecord, setRemoteRecord] = useState<import('@/skywrite/types').SkywriteRecord | null>(
     null,
@@ -716,6 +720,21 @@ export function SkywriteDetailScreen() {
                       disabled={remoteMediaStatus === 'loading'}
                       accessibilityLabel={SkywritePlayCopy.playSky}>
                       <Text style={styles.saveBtnText}>{SkywritePlayCopy.playSky}</Text>
+                    </Pressable>
+                  ) : null}
+
+                  {isAuthor && record ? (
+                    <Pressable
+                      style={styles.saveBtn}
+                      onPress={() => {
+                        void repostToSkyreel(record.id, record).then((result) => {
+                          if (result.ok) {
+                            Alert.alert('Skyreel', MySkywritesCopy.repostSkyreelSuccess);
+                          }
+                        });
+                      }}
+                      accessibilityLabel={MySkywritesCopy.repostPlaySky}>
+                      <Text style={styles.saveBtnText}>{MySkywritesCopy.repostPlaySky}</Text>
                     </Pressable>
                   ) : null}
 

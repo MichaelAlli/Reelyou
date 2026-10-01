@@ -39,6 +39,8 @@ export interface ServerSkywrite {
   allowAIContext?: boolean;
   experiencedAt?: string;
   media: ServerSkywriteMediaRefs;
+  skyreelActiveUntilMs?: number | null;
+  skyreelRepostedAtMs?: number | null;
 }
 
 export function mapServerSkywriteToRecord(row: ServerSkywrite): SkywriteRecord {
@@ -126,9 +128,9 @@ export async function publishSkywriteToServer(
   return { id: body.skywrite.id };
 }
 
-export async function fetchAuthorSkywritesFromServer(
+export async function fetchAuthorServerSkywrites(
   authorUserId: string,
-): Promise<SkywriteRecord[]> {
+): Promise<ServerSkywrite[]> {
   if (!isSharedSocialPersistenceEnabled()) return [];
   const res = await authenticatedReellyouFetch(
     `/v1/content/skywrites?authorUserId=${encodeURIComponent(authorUserId)}`,
@@ -136,7 +138,14 @@ export async function fetchAuthorSkywritesFromServer(
   );
   if (!res?.ok) return [];
   const body = (await res.json()) as { skywrites?: ServerSkywrite[] };
-  return (body.skywrites ?? []).map(mapServerSkywriteToRecord);
+  return body.skywrites ?? [];
+}
+
+export async function fetchAuthorSkywritesFromServer(
+  authorUserId: string,
+): Promise<SkywriteRecord[]> {
+  const rows = await fetchAuthorServerSkywrites(authorUserId);
+  return rows.map(mapServerSkywriteToRecord);
 }
 
 export async function fetchSkywriteFromServer(skywriteId: string): Promise<SkywriteRecord | null> {
@@ -149,6 +158,20 @@ export async function fetchSkywriteFromServer(skywriteId: string): Promise<Skywr
   const body = (await res.json()) as { ok?: boolean; skywrite?: ServerSkywrite };
   if (!body.ok || !body.skywrite) return null;
   return mapServerSkywriteToRecord(body.skywrite);
+}
+
+export async function repostSkyreelOnServer(
+  skywriteId: string,
+): Promise<ServerSkywrite | null> {
+  if (!isSharedSocialPersistenceEnabled()) return null;
+  const res = await authenticatedReellyouFetch(
+    `/v1/content/skywrites/${encodeURIComponent(skywriteId)}/skyreel/repost`,
+    { method: 'POST' },
+  );
+  if (!res?.ok) return null;
+  const body = (await res.json()) as { ok?: boolean; skywrite?: ServerSkywrite };
+  if (!body.ok || !body.skywrite) return null;
+  return body.skywrite;
 }
 
 export async function deleteSkywriteOnServer(skywriteId: string): Promise<boolean> {

@@ -57,6 +57,7 @@ import {
   handleListRecoverableSkywrites,
   handleListSkywrites,
   handleRecoverSkywrite,
+  handleRepostSkyreel,
   handleUnblock,
   handleUnfollow,
 } from './social/socialHandlers.js';
@@ -478,6 +479,14 @@ const server = createServer(async (req, res) => {
     if (!session) return;
     const skywriteId = url.pathname.split('/')[4] ?? '';
     sendJson(res, 200, handleRecoverSkywrite(session.userId, skywriteId), origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/skyreel\/repost$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const skywriteId = url.pathname.split('/')[4] ?? '';
+    sendJson(res, 200, handleRepostSkyreel(session.userId, skywriteId), origin);
     return;
   }
 

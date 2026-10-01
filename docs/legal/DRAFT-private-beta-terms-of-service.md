@@ -45,7 +45,7 @@ Much of the app also stores data on your device; local data may remain even when
 
 **Deletion and recovery (server-backed content).** When you delete a server-backed Skywrite, it becomes **inaccessible to others immediately**. You may **recover** it within **30 days** using Reelyou’s API (recoverable list and recover action when the backend is enabled). After that window, Reelyou **purges** the post and associated media from active systems on a scheduled basis.
 
-**Play Sky and saved Skywrites.** Saved Skywrites remain until you delete them or your account is purged. **Play Sky** is a **24-hour** visibility window on your device for recent Skywrites; when it ends, the saved Skywrite remains in your library unless you delete it.
+**Skyreel and saved Skywrites.** Saved Skywrites remain until you delete them or your account is purged. **Skyreel** is a **24-hour** visibility window for recent Skywrites (timed on Reelyou’s servers when the backend is enabled, and on your device otherwise); when it ends, the saved Skywrite remains in your library unless you delete it.
 
 ---
 

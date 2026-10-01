@@ -94,6 +94,7 @@ import {
 } from '../media/mediaRepository.js';
 import { canViewerAccessSkywrite } from './contentVisibility.js';
 import { SKYWRITE_RECOVERY_WINDOW_MS } from './skywriteDeletionConstants.js';
+import { SKYREEL_WINDOW_MS } from './skyreelConstants.js';
 
 export interface StoredComment {
   id: string;
@@ -147,6 +148,8 @@ export function createSkywrite(
     media,
     deletedAt: null,
     deletionPurgeAfter: null,
+    skyreelActiveUntilMs: (Number.isFinite(createdAt) ? createdAt : Date.now()) + SKYREEL_WINDOW_MS,
+    skyreelRepostedAtMs: null,
   };
   db().skywrites!.push(entry);
   attachAssetsToSkywrite(entry.id, authorUserId, media);
@@ -221,6 +224,23 @@ export function getSkywriteForViewer(id: string, viewerId: string): StoredSkywri
   ) {
     return undefined;
   }
+  return row;
+}
+
+export function isSkyreelActive(row: StoredSkywrite, now = Date.now()): boolean {
+  if (row.deletedAt) return false;
+  const until =
+    row.skyreelActiveUntilMs ??
+    row.createdAt + SKYREEL_WINDOW_MS;
+  return now < until;
+}
+
+export function repostSkyreel(authorUserId: string, skywriteId: string, now = Date.now()): StoredSkywrite | null {
+  const row = findSkywriteRow(skywriteId);
+  if (!row || row.authorUserId !== authorUserId || row.deletedAt) return null;
+  row.skyreelActiveUntilMs = now + SKYREEL_WINDOW_MS;
+  row.skyreelRepostedAtMs = now;
+  persistAccountDatabase();
   return row;
 }
 

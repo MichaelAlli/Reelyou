@@ -91,8 +91,9 @@ import { currentUser } from '@/data/mockData';
 import { syncPublishedSkywriteToServer } from '@/social/publishSharedSkywrite';
 import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
 import {
-  fetchAuthorSkywritesFromServer,
+  fetchAuthorServerSkywrites,
   fetchSkywriteFromServer,
+  mapServerSkywriteToRecord,
 } from '@/social/sharedSkywriteApi';
 import { cacheRemoteSkywrites } from '@/social/sharedSkywriteCache';
 import {
@@ -347,8 +348,18 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isSharedSocialPersistenceEnabled() || !authUser?.id) return;
     let live = true;
-    void fetchAuthorSkywritesFromServer(authUser.id).then((remote) => {
-      if (!live || remote.length === 0) return;
+    void fetchAuthorServerSkywrites(authUser.id).then(async (serverRows) => {
+      if (!live || serverRows.length === 0) return;
+      const remote = serverRows.map((row) => mapServerSkywriteToRecord(row));
+      const { mergeServerSkyreelIntoRegistry } = await import(
+        '@/skywrite/play/mergeServerSkyreelRegistry'
+      );
+      const { loadPlaySkySequenceRegistry, savePlaySkySequenceRegistry } = await import(
+        '@/skywrite/play/playSkySequencePersistence'
+      );
+      const registry = await loadPlaySkySequenceRegistry();
+      await savePlaySkySequenceRegistry(mergeServerSkyreelIntoRegistry(registry, serverRows));
+      if (!live) return;
       cacheRemoteSkywrites(authUser.id, remote);
       setSkywritesState((current) => {
         const byId = new Map(current.posts.map((post) => [post.id, post]));

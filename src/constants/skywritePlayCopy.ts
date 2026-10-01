@@ -1,7 +1,7 @@
 export const SkywritePlayCopy = {
-  playSky: 'Play Sky',
-  playSkyUnavailable: 'Play Sky unavailable',
-  playSkyNoRecent: 'No recent Skywrites in Play Sky',
+  playSky: 'Skyreel',
+  playSkyUnavailable: 'Skyreel unavailable',
+  playSkyNoRecent: 'No recent Skywrites in Skyreel',
   playHint: 'Tap a star or press play to let your Sky unfold.',
   skySubtitle: 'Your moments, arranged in a living sky.',
   editSequence: 'Edit sequence',
@@ -18,10 +18,10 @@ export const SkywritePlayCopy = {
   progress: (current: number, total: number) => `${current} of ${total}`,
   emptySequence: 'Add a Skywrite to play your Sky in sequence.',
   playSkyEmptyOwnerHint:
-    'Posts stay in Skywritings after 24 hours — repost one from My Skywrites to play it again.',
+    'Posts stay in Skywritings after 24 hours — repost one from My Skywrites to Skyreel.',
   pause: 'Pause',
   resume: 'Resume',
-  tapToPlaySky: 'Tap to start Play Sky (sound requires your tap in the browser)',
+  tapToPlaySky: 'Tap to start Skyreel (sound requires your tap in the browser)',
   addSkywrite: 'Add a Skywrite',
   openMySkywrites: 'Open My Skywrites',
   exploreFullSkySelf: 'Explore your full Sky',
