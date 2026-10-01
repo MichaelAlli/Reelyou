@@ -6,6 +6,7 @@ import type { Mood, Privacy } from '@/types';
 
 export type SkywriteMediaMode =
   | 'text'
+  | 'text_voiceover'
   | 'photo'
   | 'voice'
   | 'photo_voiceover'

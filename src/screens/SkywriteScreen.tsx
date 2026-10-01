@@ -148,8 +148,8 @@ export function SkywriteScreen() {
   const hasVoice = Boolean(draft.media.audio?.uri);
   const canShare = hasSkywriteContent(draft);
   const mediaActions = useMemo(
-    () => getSkywriteMediaActionLabels(hasPhoto, hasVoice, hasVideo),
-    [hasPhoto, hasVideo, hasVoice],
+    () => getSkywriteMediaActionLabels(hasPhoto, hasVoice, hasVideo, draft.text.trim().length > 0),
+    [draft.text, hasPhoto, hasVideo, hasVoice],
   );
 
   const textStyle = draft.textStyle ?? 'plain';
@@ -594,6 +594,7 @@ export function SkywriteScreen() {
                   photo={draft.media.photo}
                   video={draft.media.video}
                   suppressVideoPreview={hasVideo}
+                  hasText={draft.text.trim().length > 0}
                   audio={draft.media.audio}
                   onVideoDimensionsResolved={(width, height) =>
                     setDraft((current) =>

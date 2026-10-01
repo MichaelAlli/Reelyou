@@ -30,6 +30,7 @@ interface SkywriteMediaAttachmentsProps {
   onVideoDimensionsResolved?: (width: number, height: number) => void;
   /** When true, video is shown in an external immersive stage. */
   suppressVideoPreview?: boolean;
+  hasText?: boolean;
 }
 
 function SkywriteMediaAttachmentsComponent({
@@ -53,10 +54,11 @@ function SkywriteMediaAttachmentsComponent({
   onRemoveAudio,
   onVideoDimensionsResolved,
   suppressVideoPreview = false,
+  hasText = false,
 }: SkywriteMediaAttachmentsProps) {
   const { width: screenWidth } = useWindowDimensions();
   const previewWidth = Math.min(screenWidth - 48, 420);
-  const isVoiceover = Boolean(photo || video);
+  const isVoiceover = Boolean(photo || video || hasText);
 
   const photoAspect =
     photo?.width && photo?.height && photo.height > 0 ? photo.width / photo.height : 1;

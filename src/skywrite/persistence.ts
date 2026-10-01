@@ -27,6 +27,7 @@ import type { Mood, Privacy } from '@/types';
 const SHOWING_UP_IDS = new Set(SKYWRITE_SHOWING_UP_OPTIONS.map((option) => option.id));
 const MEDIA_MODES = new Set<SkywriteMediaMode>([
   'text',
+  'text_voiceover',
   'photo',
   'voice',
   'photo_voiceover',

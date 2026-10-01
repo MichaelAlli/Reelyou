@@ -1,5 +1,6 @@
 import { SkywriteCopy } from '@/constants/skywriteCopy';
 import { inferSkywriteIntentFromShowingUp } from '@/skywrite/skywriteIntent';
+import { inferMediaModeFromParts } from '@/skywrite/voiceoverStepUtils';
 import type { SkywriteDraft, SkywriteMedia, SkywriteMediaMode, SkywriteRecord } from '@/skywrite/types';
 import { EMPTY_SKYWRITE_MEDIA } from '@/skywrite/types';
 
@@ -11,16 +12,12 @@ export interface SkywriteMediaActionLabels {
 }
 
 export function deriveMediaMode(media: SkywriteMedia, text: string): SkywriteMediaMode {
-  const hasPhoto = Boolean(media.photo?.uri);
-  const hasVideo = Boolean(media.video?.uri);
-  const hasAudio = Boolean(media.audio?.uri);
-  if (hasVideo && hasAudio) return 'video_voiceover';
-  if (hasVideo) return 'video';
-  if (hasPhoto && hasAudio) return 'photo_voiceover';
-  if (hasPhoto) return 'photo';
-  if (hasAudio) return 'voice';
-  if (text.trim().length > 0) return 'text';
-  return 'text';
+  return inferMediaModeFromParts({
+    text,
+    hasPhoto: Boolean(media.photo?.uri),
+    hasVideo: Boolean(media.video?.uri),
+    hasAudio: Boolean(media.audio?.uri),
+  });
 }
 
 /** Progressive media action labels — makes photo + voiceover combination obvious. */
@@ -28,6 +25,7 @@ export function getSkywriteMediaActionLabels(
   hasPhoto: boolean,
   hasVoice: boolean,
   hasVideo = false,
+  hasText = false,
 ): SkywriteMediaActionLabels {
   if (hasVideo && !hasVoice) {
     return {
@@ -43,6 +41,22 @@ export function getSkywriteMediaActionLabels(
       voiceLabel: SkywriteCopy.mediaReRecordVoiceover,
       photoA11y: 'Change video',
       voiceA11y: 'Re-record voiceover',
+    };
+  }
+  if (!hasPhoto && !hasVideo && hasText && !hasVoice) {
+    return {
+      photoLabel: SkywriteCopy.mediaPhoto,
+      voiceLabel: SkywriteCopy.mediaAddVoiceover,
+      photoA11y: 'Add photo',
+      voiceA11y: 'Add narration to this text',
+    };
+  }
+  if (!hasPhoto && !hasVideo && hasText && hasVoice) {
+    return {
+      photoLabel: SkywriteCopy.mediaPhoto,
+      voiceLabel: SkywriteCopy.mediaReRecordVoiceover,
+      photoA11y: 'Add photo',
+      voiceA11y: 'Re-record narration for this text',
     };
   }
   if (!hasPhoto && !hasVoice) {

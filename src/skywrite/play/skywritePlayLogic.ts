@@ -8,6 +8,7 @@ import type {
   SkywritePlayStep,
   SkywritePlayStepKind,
 } from '@/skywrite/play/skywritePlayTypes';
+import { isStandaloneAudioRecord } from '@/skywrite/voiceoverStepUtils';
 
 const STEP_KIND_ORDER: SkywritePlayStepKind[] = ['text', 'photo', 'video', 'audio'];
 
@@ -52,17 +53,12 @@ export function defaultStepsForSkywrite(skywrite: SkywriteRecord): SkywritePlayS
       kind: 'video',
     });
   }
-  if (skywrite.media.audio?.uri) {
-    const videoVoiceover =
-      Boolean(skywrite.media.video?.uri) &&
-      (skywrite.mediaMode === 'video_voiceover' || skywrite.mediaMode === 'video');
-    if (!videoVoiceover) {
-      steps.push({
-        stepId: stepIdFor('audio'),
-        skywriteId: skywrite.id,
-        kind: 'audio',
-      });
-    }
+  if (skywrite.media.audio?.uri && isStandaloneAudioRecord(skywrite)) {
+    steps.push({
+      stepId: stepIdFor('audio'),
+      skywriteId: skywrite.id,
+      kind: 'audio',
+    });
   }
   if (steps.length === 0) {
     steps.push({

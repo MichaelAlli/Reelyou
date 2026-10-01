@@ -36,6 +36,7 @@ import {
 import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
+import { stepUsesAttachedVoiceover } from '@/skywrite/voiceoverStepUtils';
 
 const STILL_DWELL_MS = 8500;
 
@@ -67,6 +68,7 @@ export function SkywriteGuidedPlayScreen() {
   const [manualPlayNonce, setManualPlayNonce] = useState(0);
   const startedRef = useRef(false);
   const skippedStepIdsRef = useRef<Set<string>>(new Set());
+  const autoAdvancePulseRef = useRef(0);
 
   useEffect(() => {
     if (!isSharedSocialPersistenceEnabled() || playScope !== 'owner' || !ownerId) return;
@@ -233,12 +235,14 @@ export function SkywriteGuidedPlayScreen() {
   }, [audioPreview, steps.length]);
 
   const goNext = useCallback(() => {
+    autoAdvancePulseRef.current = Date.now();
     void audioPreview.stopAll();
     setNeedsTapToPlay(false);
     setIndex((value) => Math.min(value + 1, steps.length - 1));
   }, [audioPreview, steps.length]);
 
   const goPrevious = useCallback(() => {
+    autoAdvancePulseRef.current = Date.now();
     void audioPreview.stopAll();
     setNeedsTapToPlay(false);
     setIndex((value) => Math.max(value - 1, 0));
@@ -248,10 +252,12 @@ export function SkywriteGuidedPlayScreen() {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') handleExit();
+      if (event.key === 'ArrowLeft') goPrevious();
+      if (event.key === 'ArrowRight') goNext();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleExit]);
+  }, [goNext, goPrevious, handleExit]);
 
   useEffect(() => {
     startedRef.current = false;
@@ -265,10 +271,19 @@ export function SkywriteGuidedPlayScreen() {
     return () => sub.remove();
   }, []);
 
+  const attachedVoiceoverStep =
+    record && current ? stepUsesAttachedVoiceover(record, current.kind) : false;
+
   useEffect(() => {
     if (!current || paused || needsTapToPlay) return;
+    if (attachedVoiceoverStep && (current.kind === 'text' || current.kind === 'photo')) {
+      return;
+    }
     if (current.kind === 'text' || current.kind === 'photo') {
-      const timer = setTimeout(() => advance(), STILL_DWELL_MS);
+      const timer = setTimeout(() => {
+        autoAdvancePulseRef.current = Date.now();
+        advance();
+      }, STILL_DWELL_MS);
       return () => clearTimeout(timer);
     }
     if (current.kind === 'audio' && record?.media.audio?.uri && !audioPlaying) {
@@ -277,6 +292,7 @@ export function SkywriteGuidedPlayScreen() {
     return undefined;
   }, [
     advance,
+    attachedVoiceoverStep,
     audioPlaying,
     audioPreview,
     current,
@@ -374,8 +390,20 @@ export function SkywriteGuidedPlayScreen() {
             setManualPlayNonce((n) => n + 1);
           }}
           onToggleSequencePause={() => setPaused((value) => !value)}
+          navigationMode="edgeTap"
+          narrationAutoplay={!paused && !needsTapToPlay}
+          narrationPaused={paused}
+          onNarrationFinished={() => {
+            if (paused || needsTapToPlay) return;
+            if (Date.now() - autoAdvancePulseRef.current < 500) return;
+            autoAdvancePulseRef.current = Date.now();
+            advance();
+          }}
           onVideoFinished={() => {
-            if (!paused) advance();
+            if (paused || needsTapToPlay) return;
+            if (Date.now() - autoAdvancePulseRef.current < 500) return;
+            autoAdvancePulseRef.current = Date.now();
+            advance();
           }}
         />
       </SafeAreaView>

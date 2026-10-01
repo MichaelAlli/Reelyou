@@ -27,13 +27,41 @@ const sample: SkywriteRecord = {
   createdAt: new Date().toISOString(),
 };
 
-assert(defaultStepsForSkywrite(sample).length === 3, 'text photo audio steps');
+const photoVoiceSteps = defaultStepsForSkywrite(sample);
+assert(photoVoiceSteps.length === 2, 'photo voiceover: text + photo (no separate audio step)');
+assert(photoVoiceSteps.some((step) => step.kind === 'photo'), 'includes photo step');
 assert(
-  resolveStepsForSkywrite(sample, { orderedStepIds: ['audio', 'text'], excludedStepIds: [] })
+  resolveStepsForSkywrite(sample, { orderedStepIds: ['text'], excludedStepIds: [] })
     .map((step) => step.stepId)
-    .join(',') === 'audio,text,photo',
+    .join(',') === 'text,photo',
   'custom step order preserves remaining steps',
 );
+
+const textVoiceover: SkywriteRecord = {
+  ...sample,
+  id: 'sw-text-vo',
+  media: {
+    photo: null,
+    video: null,
+    audio: { uri: 'file://narration.m4a', durationMs: 12000 },
+  },
+  mediaMode: 'text_voiceover',
+};
+const textVoSteps = defaultStepsForSkywrite(textVoiceover);
+assert(textVoSteps.length === 1 && textVoSteps[0]?.kind === 'text', 'text voiceover: single text step');
+
+const voiceOnly: SkywriteRecord = {
+  ...sample,
+  id: 'sw-voice-only',
+  text: '',
+  media: {
+    photo: null,
+    video: null,
+    audio: { uri: 'file://solo.m4a', durationMs: 5000 },
+  },
+  mediaMode: 'voice',
+};
+assert(defaultStepsForSkywrite(voiceOnly).some((step) => step.kind === 'audio'), 'standalone audio step');
 assert(reorderIds(['a', 'b', 'c'], 'b', 'up').join('') === 'bac', 'reorder up');
 
 const videoVoiceover: SkywriteRecord = {
