@@ -696,11 +696,11 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
         visibilityContext: params.threadId ? 'direct_message' : 'profile',
       });
       if (!result.ok) {
-        return { ok: false, localOnly: true as const, reportId: '' };
+        return { ok: false, localOnly: result.localOnly, reportId: '' };
       }
       return {
         ok: true,
-        localOnly: true as const,
+        localOnly: result.localOnly,
         reportId: result.reportId,
         duplicate: result.duplicate,
       };

@@ -87,9 +87,13 @@ export function removeBlock(blockerId: string, blockedId: string): void {
 
 export type { StoredSkywrite, CreateSkywriteInput } from './skywriteTypes.js';
 import type { CreateSkywriteInput, StoredSkywrite, SkywriteVisibility } from './skywriteTypes.js';
-import { attachAssetsToSkywrite, assertAssetsReadyForPublish, softDeleteMediaForSkywrite } from '../media/mediaRepository.js';
-import { deleteObject } from '../media/mediaStorage.js';
+import {
+  attachAssetsToSkywrite,
+  assertAssetsReadyForPublish,
+  purgeMediaForSkywrite,
+} from '../media/mediaRepository.js';
 import { canViewerAccessSkywrite } from './contentVisibility.js';
+import { SKYWRITE_RECOVERY_WINDOW_MS } from './skywriteDeletionConstants.js';
 
 export interface StoredComment {
   id: string;
@@ -142,6 +146,7 @@ export function createSkywrite(
     experiencedAt: body.experiencedAt,
     media,
     deletedAt: null,
+    deletionPurgeAfter: null,
   };
   db().skywrites!.push(entry);
   attachAssetsToSkywrite(entry.id, authorUserId, media);
@@ -167,15 +172,46 @@ export function listSkywritesForAuthor(
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
+function findSkywriteRow(id: string): StoredSkywrite | undefined {
+  return db().skywrites!.find((s) => s.id === id);
+}
+
+export function isSkywriteInRecovery(row: StoredSkywrite, now = Date.now()): boolean {
+  if (!row.deletedAt) return false;
+  const purgeAfter = row.deletionPurgeAfter ?? row.deletedAt + SKYWRITE_RECOVERY_WINDOW_MS;
+  return now < purgeAfter;
+}
+
 export function getSkywrite(id: string): StoredSkywrite | undefined {
-  const row = db().skywrites!.find((s) => s.id === id);
+  const row = findSkywriteRow(id);
   if (!row || row.deletedAt) return undefined;
   return row;
 }
 
-export function getSkywriteForViewer(id: string, viewerId: string): StoredSkywrite | undefined {
-  const row = getSkywrite(id);
+export function getSkywriteRowIncludingDeleted(id: string): StoredSkywrite | undefined {
+  const row = findSkywriteRow(id);
   if (!row) return undefined;
+  if (row.deletedAt && !isSkywriteInRecovery(row)) return undefined;
+  return row;
+}
+
+export function listRecoverableSkywritesForAuthor(authorUserId: string, now = Date.now()): StoredSkywrite[] {
+  return db()
+    .skywrites!.filter(
+      (s) =>
+        s.authorUserId === authorUserId &&
+        s.deletedAt != null &&
+        isSkywriteInRecovery(s, now),
+    )
+    .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+}
+
+export function getSkywriteForViewer(id: string, viewerId: string): StoredSkywrite | undefined {
+  const row = getSkywriteRowIncludingDeleted(id);
+  if (!row) return undefined;
+  if (row.deletedAt) {
+    return viewerId === row.authorUserId ? row : undefined;
+  }
   if (
     !canViewerAccessSkywrite({
       viewerId,
@@ -189,13 +225,43 @@ export function getSkywriteForViewer(id: string, viewerId: string): StoredSkywri
 }
 
 export async function deleteSkywrite(authorUserId: string, skywriteId: string): Promise<boolean> {
-  const row = getSkywrite(skywriteId);
-  if (!row || row.authorUserId !== authorUserId) return false;
-  row.deletedAt = Date.now();
-  const keys = softDeleteMediaForSkywrite(skywriteId, authorUserId);
+  const row = findSkywriteRow(skywriteId);
+  if (!row || row.authorUserId !== authorUserId || row.deletedAt) return false;
+  const now = Date.now();
+  row.deletedAt = now;
+  row.deletionPurgeAfter = now + SKYWRITE_RECOVERY_WINDOW_MS;
   persistAccountDatabase();
-  await Promise.all(keys.map((key) => deleteObject(key).catch(() => undefined)));
   return true;
+}
+
+export function recoverSkywrite(authorUserId: string, skywriteId: string): boolean {
+  const row = findSkywriteRow(skywriteId);
+  if (!row || row.authorUserId !== authorUserId || !row.deletedAt) return false;
+  if (!isSkywriteInRecovery(row)) return false;
+  row.deletedAt = null;
+  row.deletionPurgeAfter = null;
+  persistAccountDatabase();
+  return true;
+}
+
+export async function purgeSkywritePermanently(skywriteId: string): Promise<void> {
+  const row = findSkywriteRow(skywriteId);
+  if (!row) return;
+  await purgeMediaForSkywrite(skywriteId, row.authorUserId);
+  const store = db();
+  store.skywrites = store.skywrites!.filter((s) => s.id !== skywriteId);
+  store.comments = (store.comments ?? []).filter((c) => c.skywriteId !== skywriteId);
+  persistAccountDatabase();
+}
+
+export async function processScheduledSkywritePurges(now = Date.now()): Promise<number> {
+  const pending = db().skywrites!.filter(
+    (s) => s.deletedAt != null && !isSkywriteInRecovery(s, now),
+  );
+  for (const row of pending) {
+    await purgeSkywritePermanently(row.id);
+  }
+  return pending.length;
 }
 
 export function addComment(skywriteId: string, authorUserId: string, text: string): StoredComment | null {

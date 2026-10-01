@@ -38,6 +38,8 @@ export interface StoredSkywrite {
   experiencedAt?: string;
   media: StoredSkywriteMediaRefs;
   deletedAt: number | null;
+  /** When set with deletedAt, active systems purge media after this timestamp. */
+  deletionPurgeAfter?: number | null;
 }
 
 export interface CreateSkywriteInput {

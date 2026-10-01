@@ -10,20 +10,20 @@ const tmpDb = path.join(os.tmpdir(), `reellyou-friend-prod-test-${Date.now()}.js
 process.env.REELYOU_DB_PATH = tmpDb;
 
 const { resetAccountDatabaseForTests, closeAccountDatabase } = await import('./db/accountStore.js');
-const { handleRegister } = await import('./auth/authHandlers.js');
+const { registerWithLegalConsent } = await import('./test/registerWithLegalConsent.js');
 const { updateDiscoveryPreferences, blockUser } = await import('./db/accountRepository.js');
 const { handleMatchContacts } = await import('./friendMatch/matchContactsService.js');
 const { verifyAccessToken } = await import('./auth/jwt.js');
 
 resetAccountDatabaseForTests(tmpDb);
 
-const userA = handleRegister({
+const userA = registerWithLegalConsent({
   email: 'alpha@reellyou.test',
   password: 'password-alpha',
   fullName: 'Alpha Tester',
   phone: '+14045559001',
 });
-const userB = handleRegister({
+const userB = registerWithLegalConsent({
   email: 'beta@reellyou.test',
   password: 'password-beta',
   fullName: 'Beta Tester',

@@ -10,7 +10,7 @@ const tmpDb = path.join(os.tmpdir(), `reellyou-social-${Date.now()}.json`);
 process.env.REELYOU_DB_PATH = tmpDb;
 
 const { resetAccountDatabaseForTests, closeAccountDatabase } = await import('./db/accountStore.js');
-const { handleRegister } = await import('./auth/authHandlers.js');
+const { registerWithLegalConsent } = await import('./test/registerWithLegalConsent.js');
 const {
   handleFollow,
   handleGetSocialState,
@@ -22,12 +22,12 @@ const {
 
 resetAccountDatabaseForTests(tmpDb);
 
-const a = handleRegister({
+const a = registerWithLegalConsent({
   email: 'social-a@test.local',
   password: 'password-aaaa',
   fullName: 'Social A',
 });
-const b = handleRegister({
+const b = registerWithLegalConsent({
   email: 'social-b@test.local',
   password: 'password-bbbb',
   fullName: 'Social B',

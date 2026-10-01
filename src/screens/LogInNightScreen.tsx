@@ -162,9 +162,9 @@ export function LogInNightScreen() {
         <View style={styles.rememberBlock}>
           <AuthCheckbox
             checked={values.rememberMe}
-            onToggle={() => updateField('rememberMe', !values.rememberMe)}>
-            {AuthCopy.rememberMe}
-          </AuthCheckbox>
+            onToggle={() => updateField('rememberMe', !values.rememberMe)}
+            label={AuthCopy.rememberMe}
+          />
         </View>
 
         <Pressable

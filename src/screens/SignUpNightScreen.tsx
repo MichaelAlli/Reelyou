@@ -35,6 +35,9 @@ import {
   SignUpNightBrandHeader,
 } from '@/components/auth';
 import { SignUpAppearanceDevPreview } from '@/components/dev/SignUpAppearanceDevPreview';
+import { recordLegalConsent } from '@/auth/legalConsentPersistence';
+import { LEGAL_DOCUMENT_VERSION } from '@/constants/legalDocuments';
+import { isThirdPartyOAuthSignInEnabled } from '@/config/betaReleaseFlags';
 import { AuthCopy } from '@/constants/auth';
 import {
   SignUpNightLayout,
@@ -67,10 +70,19 @@ export function SignUpNightScreen() {
     isSubmitting,
     updateField,
     markTouched,
+    toggleTermsAccepted,
     handleSubmit,
     setShowPassword,
     setShowConfirmPassword,
   } = useSignUpForm();
+
+  const openTerms = useCallback(() => {
+    router.push('/legal/terms-of-service' as never);
+  }, [router]);
+
+  const openPrivacy = useCallback(() => {
+    router.push('/legal/privacy-policy' as never);
+  }, [router]);
 
   useEffect(() => {
     let mounted = true;
@@ -194,35 +206,41 @@ export function SignUpNightScreen() {
         <View style={styles.termsBlock}>
           <AuthCheckbox
             checked={values.termsAccepted}
-            onToggle={() => {
-              updateField('termsAccepted', !values.termsAccepted);
-              markTouched('termsAccepted');
-            }}
-            error={errors.termsAccepted}>
-            {AuthCopy.termsPrefix}
-            <Text style={styles.link}>{AuthCopy.termsOfService}</Text>
-            {AuthCopy.termsMiddle}
-            <Text style={styles.link}>{AuthCopy.privacyPolicy}</Text>
-          </AuthCheckbox>
+            onToggle={toggleTermsAccepted}
+            error={errors.termsAccepted}
+            labelPrefix={AuthCopy.termsPrefix}
+            termsLabel={AuthCopy.termsOfService}
+            onTermsPress={openTerms}
+            labelMiddle={AuthCopy.termsMiddle}
+            privacyLabel={AuthCopy.privacyPolicy}
+            onPrivacyPress={openPrivacy}
+            linkStyle={styles.link}
+          />
         </View>
 
         <View style={styles.ctaBlock}>
           <AuthPrimaryButton
             label={AuthCopy.createAccount}
-            onPress={handleSubmit}
+            onPress={() => {
+              if (values.termsAccepted) void recordLegalConsent(true, LEGAL_DOCUMENT_VERSION);
+              handleSubmit();
+            }}
             disabled={!canSubmit}
             loading={isSubmitting}
           />
         </View>
 
         <View style={styles.socialBlock}>
-          <AuthDivider label={AuthCopy.socialDivider} />
-
-          <View style={styles.socialRow}>
-            <AuthSocialButton provider="google" />
-            <AuthSocialButton provider="apple" />
-            <AuthSocialButton provider="facebook" />
-          </View>
+          {isThirdPartyOAuthSignInEnabled() ? (
+            <>
+              <AuthDivider label={AuthCopy.socialDivider} />
+              <View style={styles.socialRow}>
+                <AuthSocialButton provider="google" />
+                <AuthSocialButton provider="apple" />
+                <AuthSocialButton provider="facebook" />
+              </View>
+            </>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"

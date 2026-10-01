@@ -1,5 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 
+import { assertUserMayAuthenticate } from './accountDeletion.js';
 import { verifyAccessToken } from './jwt.js';
 
 export function extractBearerToken(req: IncomingMessage): string | null {
@@ -16,5 +17,6 @@ export function authenticateRequest(req: IncomingMessage): { userId: string } | 
   if (!token) return null;
   const claims = verifyAccessToken(token);
   if (!claims?.sub) return null;
+  if (!assertUserMayAuthenticate(claims.sub)) return null;
   return { userId: claims.sub };
 }

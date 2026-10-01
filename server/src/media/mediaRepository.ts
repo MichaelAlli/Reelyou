@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { loadAccountDatabase, persistAccountDatabase } from '../db/accountStore.js';
 import { getSkywrite } from '../social/socialRepository.js';
+import { SKYWRITE_RECOVERY_WINDOW_MS } from '../social/skywriteDeletionConstants.js';
 import type { StoredSkywriteMediaRefs } from '../social/skywriteTypes.js';
 import { extensionForContentType, buildStorageKey } from './mediaStorage.js';
 import { validateUploadRequest } from './mediaLimits.js';
@@ -100,6 +101,15 @@ export function softDeleteMediaForSkywrite(skywriteId: string, ownerUserId: stri
   return keys;
 }
 
+export async function purgeMediaForSkywrite(
+  skywriteId: string,
+  ownerUserId: string,
+): Promise<void> {
+  const { deleteObject } = await import('./mediaStorage.js');
+  const keys = softDeleteMediaForSkywrite(skywriteId, ownerUserId);
+  await Promise.all(keys.map((key) => deleteObject(key).catch(() => undefined)));
+}
+
 export function assertAssetsReadyForPublish(
   ownerUserId: string,
   refs: StoredSkywriteMediaRefs,
@@ -122,9 +132,18 @@ export function assertAssetsReadyForPublish(
   return { ok: true };
 }
 
-export function resolveSkywriteVisibilityForAsset(asset: StoredMediaAsset): import('../social/skywriteTypes.js').SkywriteVisibility | null {
+export function resolveSkywriteVisibilityForAsset(
+  asset: StoredMediaAsset,
+  viewerId?: string,
+): import('../social/skywriteTypes.js').SkywriteVisibility | null {
   if (!asset.skywriteId) return null;
-  const sw = getSkywrite(asset.skywriteId);
-  if (!sw || sw.deletedAt) return null;
+  const sw = db().skywrites?.find((s) => s.id === asset.skywriteId);
+  if (!sw) return null;
+  if (sw.deletedAt) {
+    const purgeAfter = sw.deletionPurgeAfter ?? sw.deletedAt + SKYWRITE_RECOVERY_WINDOW_MS;
+    if (Date.now() >= purgeAfter) return null;
+    if (viewerId === sw.authorUserId) return sw.visibility;
+    return null;
+  }
   return sw.visibility;
 }

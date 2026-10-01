@@ -1,6 +1,12 @@
-import { useEffect, type ReactNode } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { type ReactNode } from 'react';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  type TextStyle,
+  View,
+} from 'react-native';
 
 import { AuthIcon } from '@/components/auth/AuthIcon';
 import { SignUpDayLayout, signUpDayTextReadabilityShadow } from '@/constants/signUpDayLayout';
@@ -8,74 +14,95 @@ import { Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAuthAppearance } from '@/hooks/use-auth-appearance';
 import { useTheme, useThemedStyles } from '@/theme';
 
-const CHECK_DURATION = 200;
+const CHECKBOX_HIT = 44;
 
-interface AuthCheckboxProps {
+type AuthCheckboxLegalProps = {
+  labelPrefix: string;
+  termsLabel: string;
+  onTermsPress: () => void;
+  labelMiddle: string;
+  privacyLabel: string;
+  onPrivacyPress: () => void;
+  linkStyle: TextStyle;
+  label?: never;
+};
+
+type AuthCheckboxSimpleProps = {
+  label: ReactNode;
+  labelPrefix?: never;
+  termsLabel?: never;
+  onTermsPress?: never;
+  labelMiddle?: never;
+  privacyLabel?: never;
+  onPrivacyPress?: never;
+  linkStyle?: never;
+};
+
+type AuthCheckboxProps = {
   checked: boolean;
   onToggle: () => void;
   error?: string;
-  children: ReactNode;
-}
+} & (AuthCheckboxLegalProps | AuthCheckboxSimpleProps);
 
-export function AuthCheckbox({ checked, onToggle, error, children }: AuthCheckboxProps) {
+export function AuthCheckbox(props: AuthCheckboxProps) {
+  const { checked, onToggle, error } = props;
+  const isLegal = 'termsLabel' in props && props.termsLabel != null;
   const { tokens } = useTheme();
   const isLight = useAuthAppearance();
   const day = SignUpDayLayout;
   const textLift = signUpDayTextReadabilityShadow();
-  const checkProgress = useSharedValue(checked ? 1 : 0);
 
-  useEffect(() => {
-    checkProgress.value = withTiming(checked ? 1 : 0, { duration: CHECK_DURATION });
-  }, [checked, checkProgress]);
+  const checkedFill = day.goldAccent;
+  const checkmarkColor = day.navyText;
+  const uncheckedBorder = isLight ? day.navyBorder : 'rgba(248, 249, 252, 0.45)';
 
-  const checkStyle = useAnimatedStyle(() => ({
-    opacity: checkProgress.value,
-    transform: [{ scale: 0.82 + checkProgress.value * 0.18 }],
-  }));
-
-  const styles = useThemedStyles((tokens) =>
+  const styles = useThemedStyles(() =>
     StyleSheet.create({
       row: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        gap: 11,
-        paddingVertical: isLight ? 1 : 0,
+        gap: 8,
       },
-      box: {
-        width: 20,
-        height: 20,
-        borderRadius: Radius.sm,
-        borderWidth: 1.5,
-        borderColor: error ? '#C24141' : isLight ? day.goldAccent : tokens.gold,
+      checkboxPressable: {
+        width: CHECKBOX_HIT,
+        height: CHECKBOX_HIT,
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 1,
         flexShrink: 0,
-        backgroundColor: checked ? (isLight ? day.goldAccent : tokens.primaryAction) : 'transparent',
+        marginTop: isLegal ? 0 : -3,
       },
-      check: {
-        color: isLight ? day.navyText : tokens.appBackground,
-        fontSize: 11,
-        fontWeight: '700',
-        lineHeight: 12,
+      box: {
+        width: 22,
+        height: 22,
+        borderRadius: Radius.sm,
+        borderWidth: 1.5,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+      labelPressable: {
+        flex: 1,
+        minHeight: CHECKBOX_HIT,
+        justifyContent: 'center',
+        paddingVertical: isLegal ? 10 : 12,
       },
       label: {
-        flex: 1,
         fontFamily: Fonts.sans,
         fontSize: 13,
         lineHeight: 19,
         letterSpacing: 0.02,
         color: isLight ? day.legalTextColor : tokens.primaryText,
-        paddingTop: 1,
         ...textLift,
         ...(Platform.OS === 'web'
           ? ({ WebkitFontSmoothing: 'antialiased' } as object)
           : null),
       },
+      link: {
+        ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as object) : null),
+      },
       errorSlot: {
         minHeight: 16,
         marginTop: Spacing.two,
-        paddingLeft: 30,
+        paddingLeft: CHECKBOX_HIT + 8,
         justifyContent: 'center',
       },
       error: {
@@ -87,25 +114,91 @@ export function AuthCheckbox({ checked, onToggle, error, children }: AuthCheckbo
     }),
   );
 
+  const handleCheckboxKeyPress = (event: { nativeEvent: { key: string } }) => {
+    const key = event.nativeEvent.key;
+    if (key === ' ' || key === 'Enter') {
+      onToggle();
+    }
+  };
+
+  const accessibilityLabel = isLegal
+    ? `${props.labelPrefix}${props.termsLabel}${props.labelMiddle}${props.privacyLabel}`
+    : typeof props.label === 'string'
+      ? props.label
+      : 'Checkbox';
+
+  const openTerms = (event?: { stopPropagation?: () => void }) => {
+    event?.stopPropagation?.();
+    if (isLegal) props.onTermsPress();
+  };
+
+  const openPrivacy = (event?: { stopPropagation?: () => void }) => {
+    event?.stopPropagation?.();
+    if (isLegal) props.onPrivacyPress();
+  };
+
   return (
     <View>
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked }}
-        hitSlop={4}
-        onPress={onToggle}
-        style={({ pressed }) => [styles.row, pressed && { opacity: 0.88 }]}>
-        <View style={styles.box}>
-          {isLight ? (
-            <Animated.View style={checkStyle}>
-              <AuthIcon name="checkmark" size={12} color={day.navyText} />
-            </Animated.View>
-          ) : checked ? (
-            <Text style={styles.check}>✓</Text>
-          ) : null}
-        </View>
-        <Text style={styles.label}>{children}</Text>
-      </Pressable>
+      <View style={styles.row}>
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked }}
+          accessibilityLabel={accessibilityLabel}
+          hitSlop={8}
+          onPress={onToggle}
+          {...(Platform.OS === 'web'
+            ? ({ onKeyPress: handleCheckboxKeyPress, focusable: true } as object)
+            : null)}
+          style={({ pressed }) => [styles.checkboxPressable, pressed && { opacity: 0.9 }]}>
+          <View
+            style={[
+              styles.box,
+              {
+                borderColor: error ? '#C24141' : checked ? checkedFill : uncheckedBorder,
+                backgroundColor: checked ? checkedFill : 'transparent',
+              },
+            ]}
+            pointerEvents="none">
+            {checked ? (
+              <AuthIcon name="checkmark" size={13} color={checkmarkColor} />
+            ) : null}
+          </View>
+        </Pressable>
+
+        {isLegal ? (
+          <View style={styles.labelPressable} accessible={false} importantForAccessibility="no-hide-descendants">
+            <Text style={styles.label}>
+              <Text onPress={onToggle} suppressHighlighting>
+                {props.labelPrefix}
+              </Text>
+              <Text
+                accessibilityRole="link"
+                onPress={openTerms}
+                style={[props.linkStyle, styles.link]}
+                suppressHighlighting>
+                {props.termsLabel}
+              </Text>
+              <Text onPress={onToggle} suppressHighlighting>
+                {props.labelMiddle}
+              </Text>
+              <Text
+                accessibilityRole="link"
+                onPress={openPrivacy}
+                style={[props.linkStyle, styles.link]}
+                suppressHighlighting>
+                {props.privacyLabel}
+              </Text>
+            </Text>
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="none"
+            onPress={onToggle}
+            style={styles.labelPressable}>
+            <Text style={styles.label}>{props.label}</Text>
+          </Pressable>
+        )}
+      </View>
       <View style={styles.errorSlot}>{error ? <Text style={styles.error}>{error}</Text> : null}</View>
     </View>
   );

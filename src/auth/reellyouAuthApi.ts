@@ -10,6 +10,10 @@ export async function registerAccount(input: {
   password: string;
   fullName: string;
   phone?: string;
+  termsAccepted: boolean;
+  termsVersion: string;
+  privacyVersion: string;
+  consentAcceptedAt: number;
 }): Promise<AuthApiResult> {
   const base = resolveAuthApiBaseUrl();
   if (!base) return { ok: false, error: 'auth_not_configured' };

@@ -19,3 +19,8 @@ export function isProductionFriendDiscoveryReady(): boolean {
   const api = process.env.EXPO_PUBLIC_REELYOU_API_URL?.trim();
   return Boolean(api) && isReelyouServerAuthEnabled();
 }
+
+/** Google/Apple/Facebook sign-in is not wired in private beta — hide nonfunctional buttons. */
+export function isThirdPartyOAuthSignInEnabled(): boolean {
+  return process.env.EXPO_PUBLIC_OAUTH_SIGNIN_ENABLED === 'true';
+}

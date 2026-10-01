@@ -3,7 +3,7 @@
  * Rollback tag: "Daytime Sign Up v1.0 Design Lock"
  */
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
   KeyboardAvoidingView,
@@ -33,23 +33,13 @@ import {
 import { AuthCopy } from '@/constants/auth';
 import { SignUpDayLayout, resolveSignUpDayLogoWidth, resolveSignUpDayTopInset, signUpDayFontRender, signUpDayTextReadabilityShadow, signUpDayWebViewportStyle } from '@/constants/signUpDayLayout';
 import { Fonts } from '@/constants/theme';
+import { recordLegalConsent } from '@/auth/legalConsentPersistence';
+import { LEGAL_DOCUMENT_VERSION } from '@/constants/legalDocuments';
+import { isThirdPartyOAuthSignInEnabled } from '@/config/betaReleaseFlags';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
-import {
-  isSignUpFormValid,
-  validateSignUpField,
-  type SignUpFieldErrors,
-  type SignUpFormValues,
-} from '@/utils/signUpValidation';
+import { useSignUpForm } from '@/hooks/use-sign-up-form';
+import { isSignUpFormValid } from '@/utils/signUpValidation';
 import { useThemedStyles } from '@/theme';
-
-const INITIAL_VALUES: SignUpFormValues = {
-  fullName: '',
-  email: '',
-  phone: '',
-  password: '',
-  confirmPassword: '',
-  termsAccepted: false,
-};
 
 export function SignUpDayScreen() {
   const router = useRouter();
@@ -65,11 +55,19 @@ export function SignUpDayScreen() {
   const foregroundTranslateY = useSharedValue(12);
   const [reduceMotion, setReduceMotion] = useState(false);
 
-  const [values, setValues] = useState<SignUpFormValues>(INITIAL_VALUES);
-  const [touched, setTouched] = useState<Partial<Record<keyof SignUpFormValues, boolean>>>({});
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const {
+    values,
+    errors,
+    showPassword,
+    showConfirmPassword,
+    updateField,
+    markTouched,
+    markAllTouched,
+    toggleTermsAccepted,
+    setShowPassword,
+    setShowConfirmPassword,
+  } = useSignUpForm();
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -100,41 +98,18 @@ export function SignUpDayScreen() {
     transform: [{ translateY: foregroundTranslateY.value }],
   }));
 
-  const errors = useMemo(() => {
-    const next: SignUpFieldErrors = {};
-    (Object.keys(values) as (keyof SignUpFormValues)[]).forEach((field) => {
-      if (touched[field]) {
-        const message = validateSignUpField(field, values);
-        if (message) {
-          next[field] = message;
-        }
-      }
-    });
-    return next;
-  }, [touched, values]);
+  const canSubmitAccount = isSignUpFormValid(values) && !isSubmittingAuth;
 
-  const canSubmit = isSignUpFormValid(values) && !isSubmitting;
+  const openTerms = useCallback(() => {
+    router.push('/legal/terms-of-service' as never);
+  }, [router]);
 
-  const updateField = useCallback(
-    <K extends keyof SignUpFormValues>(field: K, value: SignUpFormValues[K]) => {
-      setValues((current) => ({ ...current, [field]: value }));
-    },
-    [],
-  );
-
-  const markTouched = useCallback((field: keyof SignUpFormValues) => {
-    setTouched((current) => ({ ...current, [field]: true }));
-  }, []);
+  const openPrivacy = useCallback(() => {
+    router.push('/legal/privacy-policy' as never);
+  }, [router]);
 
   const handleSubmit = useCallback(async () => {
-    setTouched({
-      fullName: true,
-      email: true,
-      phone: true,
-      password: true,
-      confirmPassword: true,
-      termsAccepted: true,
-    });
+    markAllTouched();
 
     if (!isSignUpFormValid(values)) {
       return;
@@ -142,27 +117,35 @@ export function SignUpDayScreen() {
 
     if (auth.configured) {
       setAuthError(null);
-      setIsSubmitting(true);
+      setIsSubmittingAuth(true);
+      const consentAcceptedAt = Date.now();
       const result = await auth.register({
         email: values.email.trim(),
         password: values.password,
         fullName: values.fullName.trim(),
         phone: values.phone.trim() || undefined,
+        termsAccepted: values.termsAccepted,
+        termsVersion: LEGAL_DOCUMENT_VERSION,
+        privacyVersion: LEGAL_DOCUMENT_VERSION,
+        consentAcceptedAt,
       });
-      setIsSubmitting(false);
+      setIsSubmittingAuth(false);
       if (!result.ok) {
         setAuthError('Could not create your account. Try a different email.');
         return;
+      }
+      if (values.termsAccepted) {
+        await recordLegalConsent(true, LEGAL_DOCUMENT_VERSION);
       }
       router.replace('/onboarding/profile' as never);
       return;
     }
 
-    setIsSubmitting(true);
+    setIsSubmittingAuth(true);
     setTimeout(() => {
-      setIsSubmitting(false);
+      setIsSubmittingAuth(false);
     }, 1200);
-  }, [auth, router, values]);
+  }, [auth, markAllTouched, router, values]);
 
   const goToLogIn = useCallback(() => {
     router.replace('/login' as never);
@@ -261,35 +244,38 @@ export function SignUpDayScreen() {
         <View style={styles.termsBlock}>
           <AuthCheckbox
             checked={values.termsAccepted}
-            onToggle={() => {
-              updateField('termsAccepted', !values.termsAccepted);
-              markTouched('termsAccepted');
-            }}
-            error={errors.termsAccepted}>
-            {AuthCopy.termsPrefix}
-            <Text style={styles.link}>{AuthCopy.termsOfService}</Text>
-            {AuthCopy.termsMiddle}
-            <Text style={styles.link}>{AuthCopy.privacyPolicy}</Text>
-          </AuthCheckbox>
+            onToggle={toggleTermsAccepted}
+            error={errors.termsAccepted}
+            labelPrefix={AuthCopy.termsPrefix}
+            termsLabel={AuthCopy.termsOfService}
+            onTermsPress={openTerms}
+            labelMiddle={AuthCopy.termsMiddle}
+            privacyLabel={AuthCopy.privacyPolicy}
+            onPrivacyPress={openPrivacy}
+            linkStyle={styles.link}
+          />
         </View>
 
         <View style={styles.ctaBlock}>
           <AuthPrimaryButton
             label={AuthCopy.createAccount}
             onPress={() => void handleSubmit()}
-            disabled={!canSubmit}
-            loading={isSubmitting}
+            disabled={!canSubmitAccount}
+            loading={isSubmittingAuth}
           />
         </View>
 
         <View style={styles.socialBlock}>
-          <AuthDivider label={AuthCopy.socialDivider} />
-
-          <View style={styles.socialRow}>
-            <AuthSocialButton provider="google" />
-            <AuthSocialButton provider="apple" />
-            <AuthSocialButton provider="facebook" />
-          </View>
+          {isThirdPartyOAuthSignInEnabled() ? (
+            <>
+              <AuthDivider label={AuthCopy.socialDivider} />
+              <View style={styles.socialRow}>
+                <AuthSocialButton provider="google" />
+                <AuthSocialButton provider="apple" />
+                <AuthSocialButton provider="facebook" />
+              </View>
+            </>
+          ) : null}
 
           <Pressable
             accessibilityRole="button"

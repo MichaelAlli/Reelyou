@@ -1,3 +1,4 @@
+import { authenticatedReellyouFetch } from '@/backend/authenticatedReellyouFetch';
 import { isReellyouBackendConfigured, resolveReellyouApiBaseUrl } from '@/backend/reellyouApiConfig';
 import type { OpportunityCandidate } from '@/starpath/starpathOpportunityTypes';
 
@@ -54,5 +55,19 @@ export async function fetchStarpathExplanation(input: {
   focusSnippet?: string | null;
 }): Promise<ExplainResponse | null> {
   if (!isReellyouBackendConfigured()) return null;
-  return postJson<ExplainResponse>('/v1/starpath/explain', input);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  try {
+    const res = await authenticatedReellyouFetch('/v1/starpath/explain', {
+      method: 'POST',
+      body: JSON.stringify(input),
+      signal: controller.signal,
+    });
+    if (!res?.ok) return null;
+    return (await res.json()) as ExplainResponse;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }

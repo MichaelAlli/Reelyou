@@ -25,6 +25,11 @@ export function createUser(input: {
   password: string;
   fullName: string;
   phone?: string | null;
+  legalConsent?: {
+    termsVersion: string;
+    privacyVersion: string;
+    acceptedAt: number;
+  } | null;
 }): PublicUser {
   const emailNormalized = normalizeEmail(input.email);
   if (!emailNormalized) throw new Error('invalid_email');
@@ -40,6 +45,7 @@ export function createUser(input: {
     phoneE164,
     createdAt: now,
     deletedAt: null,
+    legalConsent: input.legalConsent ?? null,
   };
   const db = loadAccountDatabase();
   db.users.push(user);
@@ -63,7 +69,7 @@ export function authenticateUser(email: string, password: string): PublicUser | 
 export function getUserById(userId: string): PublicUser | null {
   const db = loadAccountDatabase();
   const row = db.users.find((u) => u.id === userId && u.deletedAt == null);
-  if (!row) return null;
+  if (!row || row.deletionRequestedAt != null) return null;
   return { id: row.id, fullName: row.fullName, email: row.emailNormalized };
 }
 

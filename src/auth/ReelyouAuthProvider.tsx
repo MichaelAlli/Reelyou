@@ -29,6 +29,10 @@ interface ReelyouAuthContextValue {
     password: string;
     fullName: string;
     phone?: string;
+    termsAccepted: boolean;
+    termsVersion: string;
+    privacyVersion: string;
+    consentAcceptedAt: number;
   }) => Promise<{ ok: boolean; error?: string }>;
   login: (input: { email: string; password: string }) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -69,7 +73,16 @@ export function ReelyouAuthProvider({ children }: { children: ReactNode }) {
   }, [configured]);
 
   const register = useCallback(
-    async (input: { email: string; password: string; fullName: string; phone?: string }) => {
+    async (input: {
+      email: string;
+      password: string;
+      fullName: string;
+      phone?: string;
+      termsAccepted: boolean;
+      termsVersion: string;
+      privacyVersion: string;
+      consentAcceptedAt: number;
+    }) => {
       if (!configured) return { ok: false, error: 'auth_not_configured' };
       const result = await registerAccount(input);
       if (!result.ok) return { ok: false, error: result.error };

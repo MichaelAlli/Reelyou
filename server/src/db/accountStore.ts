@@ -16,6 +16,15 @@ export interface StoredUser {
   phoneE164: string | null;
   createdAt: number;
   deletedAt: number | null;
+  /** When set, account is hidden from others; cancel within 30d; purge by deletionPurgeAfter. */
+  deletionRequestedAt?: number | null;
+  deletionPurgeAfter?: number | null;
+  /** Terms + Privacy versions accepted at signup (server record). */
+  legalConsent?: {
+    termsVersion: string;
+    privacyVersion: string;
+    acceptedAt: number;
+  } | null;
 }
 
 export interface StoredDiscoveryPreferences {
@@ -41,6 +50,7 @@ export interface AccountDatabase {
     text: string;
     createdAt: number;
   }[];
+  moderationReports?: import('../moderation/moderationReportStore.js').StoredModerationReport[];
 }
 
 const EMPTY_DB: AccountDatabase = {
@@ -63,6 +73,7 @@ function normalizeLoaded(parsed: AccountDatabase): AccountDatabase {
     skywrites: (parsed.skywrites ?? []).map(normalizeLegacySkywrite),
     comments: parsed.comments ?? [],
     mediaAssets: parsed.mediaAssets ?? [],
+    moderationReports: parsed.moderationReports ?? [],
   };
 }
 
@@ -80,6 +91,7 @@ function normalizeLegacySkywrite(
     mediaMode: 'text',
     media: {},
     deletedAt: null,
+    deletionPurgeAfter: null,
   };
 }
 

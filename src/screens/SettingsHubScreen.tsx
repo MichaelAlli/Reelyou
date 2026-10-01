@@ -121,6 +121,18 @@ export function SettingsHubScreen() {
         <Section title="Privacy & Safety">
           <LinkRow label="Privacy" onPress={() => router.push('/settings/privacy' as never)} />
           <LinkRow
+            label="Private Beta Privacy (Draft)"
+            onPress={() => router.push('/legal/privacy-policy' as never)}
+          />
+          <LinkRow
+            label="Private Beta Terms (Draft)"
+            onPress={() => router.push('/legal/terms-of-service' as never)}
+          />
+          <LinkRow
+            label="Delete account"
+            onPress={() => router.push('/settings/account-deletion' as never)}
+          />
+          <LinkRow
             label="Connected Skies"
             onPress={() => router.push('/sky-friends' as never)}
           />

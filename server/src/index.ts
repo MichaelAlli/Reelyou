@@ -1,7 +1,15 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { authenticateRequest } from './auth/authenticateRequest.js';
-import { handleLogin, handleRegister, handleSession } from './auth/authHandlers.js';
+import { processScheduledAccountDeletions } from './auth/accountDeletion.js';
+import { submitModerationReport } from './moderation/moderationReportStore.js';
+import {
+  handleCancelAccountDeletion,
+  handleLogin,
+  handleRegister,
+  handleRequestAccountDeletion,
+  handleSession,
+} from './auth/authHandlers.js';
 import {
   assertProductionSecrets,
   authConfigured,
@@ -46,10 +54,13 @@ import {
   handleGetSkywrite,
   handleGetSocialState,
   handleListComments,
+  handleListRecoverableSkywrites,
   handleListSkywrites,
+  handleRecoverSkywrite,
   handleUnblock,
   handleUnfollow,
 } from './social/socialHandlers.js';
+import { processScheduledSkywritePurges } from './social/socialRepository.js';
 import { canViewerAccessMediaAsset } from './social/contentVisibility.js';
 
 assertProductionSecrets();
@@ -146,6 +157,10 @@ const server = createServer(async (req, res) => {
         password?: string;
         fullName?: string;
         phone?: string | null;
+        termsAccepted?: boolean;
+        termsVersion?: string;
+        privacyVersion?: string;
+        consentAcceptedAt?: number;
       }>(req);
       const result = handleRegister(body);
       sendJson(res, result.ok ? 201 : 400, result, origin);
@@ -175,6 +190,32 @@ const server = createServer(async (req, res) => {
     if (!session) return;
     const result = handleSession(session.userId);
     sendJson(res, result.ok ? 200 : 404, result, origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/auth/account/deletion-request') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{ confirm?: boolean }>(req);
+      if (!body.confirm) {
+        sendJson(res, 400, { ok: false, error: 'confirmation_required' }, origin);
+        return;
+      }
+      const result = handleRequestAccountDeletion(session.userId);
+      void processScheduledAccountDeletions();
+      sendJson(res, result.ok ? 200 : 404, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/auth/account/deletion-cancel') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const result = handleCancelAccountDeletion(session.userId);
+    sendJson(res, result.ok ? 200 : 400, result, origin);
     return;
   }
 
@@ -360,7 +401,7 @@ const server = createServer(async (req, res) => {
       sendJson(res, 404, { error: 'not_found' }, origin);
       return;
     }
-    const visibility = resolveSkywriteVisibilityForAsset(asset);
+    const visibility = resolveSkywriteVisibilityForAsset(asset, session.userId);
     const allowed = canViewerAccessMediaAsset({
       viewerId: session.userId,
       ownerUserId: asset.ownerUserId,
@@ -425,6 +466,62 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/v1/content/skywrites/recoverable') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    sendJson(res, 200, handleListRecoverableSkywrites(session.userId), origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/recover$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const skywriteId = url.pathname.split('/')[4] ?? '';
+    sendJson(res, 200, handleRecoverSkywrite(session.userId, skywriteId), origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/moderation/reports') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{
+        targetType?: string;
+        targetId?: string;
+        targetOwnerUserId?: string;
+        reason?: string;
+        optionalNote?: string;
+        visibilityContext?: string;
+        provenanceIds?: string[];
+      }>(req);
+      const targetType = body.targetType?.trim();
+      if (
+        targetType !== 'user' &&
+        targetType !== 'skywrite' &&
+        targetType !== 'message' &&
+        targetType !== 'reply' &&
+        targetType !== 'community_post'
+      ) {
+        sendJson(res, 400, { ok: false, error: 'invalid_target_type' }, origin);
+        return;
+      }
+      const result = submitModerationReport({
+        reporterUserId: session.userId,
+        targetType,
+        targetId: body.targetId ?? '',
+        targetOwnerUserId: body.targetOwnerUserId ?? null,
+        reason: body.reason ?? '',
+        optionalNote: body.optionalNote ?? null,
+        visibilityContext: body.visibilityContext ?? null,
+        provenanceIds: body.provenanceIds ?? [],
+      });
+      sendJson(res, result.ok ? 201 : 400, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/comments$/)) {
     const skywriteId = url.pathname.split('/')[4] ?? '';
     sendJson(res, 200, handleListComments(skywriteId), origin);
@@ -445,6 +542,8 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/v1/starpath/explain') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
     try {
       const body = await readJson<VerifiedFactsPayload>(req);
       const result = await explainWithOpenAi(body);
@@ -479,6 +578,8 @@ const server = createServer(async (req, res) => {
 
 async function main(): Promise<void> {
   await initAccountDatabase();
+  await processScheduledAccountDeletions();
+  await processScheduledSkywritePurges();
   server.listen(config.port, () => {
     console.log(
       `[reellyou-server] listening on :${config.port} auth=${authConfigured()} friendMatch=${friendMatchConfigured()} db=${config.databaseUrl ? 'postgres' : 'file'}`,

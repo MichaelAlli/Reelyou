@@ -57,7 +57,7 @@ export async function handleMediaAccess(userId: string, assetId: string) {
   if (!asset || asset.status !== 'ready' || asset.deletedAt) {
     return { ok: false as const, error: 'not_found' };
   }
-  const visibility = resolveSkywriteVisibilityForAsset(asset);
+  const visibility = resolveSkywriteVisibilityForAsset(asset, userId);
   const allowed = canViewerAccessMediaAsset({
     viewerId: userId,
     ownerUserId: asset.ownerUserId,

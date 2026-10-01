@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { readSignUpFormDraft, writeSignUpFormDraft } from '@/auth/signUpFormDraft';
 import {
   isSignUpFormValid,
   validateSignUpField,
@@ -16,8 +17,12 @@ const INITIAL_VALUES: SignUpFormValues = {
   termsAccepted: false,
 };
 
+function resolveInitialValues(): SignUpFormValues {
+  return readSignUpFormDraft() ?? INITIAL_VALUES;
+}
+
 export function useSignUpForm() {
-  const [values, setValues] = useState<SignUpFormValues>(INITIAL_VALUES);
+  const [values, setValues] = useState<SignUpFormValues>(resolveInitialValues);
   const [touched, setTouched] = useState<Partial<Record<keyof SignUpFormValues, boolean>>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -40,7 +45,11 @@ export function useSignUpForm() {
 
   const updateField = useCallback(
     <K extends keyof SignUpFormValues>(field: K, value: SignUpFormValues[K]) => {
-      setValues((current) => ({ ...current, [field]: value }));
+      setValues((current) => {
+        const next = { ...current, [field]: value };
+        writeSignUpFormDraft(next);
+        return next;
+      });
     },
     [],
   );
@@ -49,7 +58,7 @@ export function useSignUpForm() {
     setTouched((current) => ({ ...current, [field]: true }));
   }, []);
 
-  const handleSubmit = useCallback(() => {
+  const markAllTouched = useCallback(() => {
     setTouched({
       fullName: true,
       email: true,
@@ -58,6 +67,27 @@ export function useSignUpForm() {
       confirmPassword: true,
       termsAccepted: true,
     });
+  }, []);
+
+  const setTermsAccepted = useCallback(
+    (accepted: boolean) => {
+      updateField('termsAccepted', accepted);
+      markTouched('termsAccepted');
+    },
+    [markTouched, updateField],
+  );
+
+  const toggleTermsAccepted = useCallback(() => {
+    setValues((current) => {
+      const next = { ...current, termsAccepted: !current.termsAccepted };
+      writeSignUpFormDraft(next);
+      return next;
+    });
+    markTouched('termsAccepted');
+  }, [markTouched]);
+
+  const handleSubmit = useCallback(() => {
+    markAllTouched();
 
     if (!isSignUpFormValid(values)) {
       return;
@@ -67,7 +97,7 @@ export function useSignUpForm() {
     setTimeout(() => {
       setIsSubmitting(false);
     }, 1200);
-  }, [values]);
+  }, [markAllTouched, values]);
 
   return {
     values,
@@ -78,6 +108,9 @@ export function useSignUpForm() {
     isSubmitting,
     updateField,
     markTouched,
+    markAllTouched,
+    setTermsAccepted,
+    toggleTermsAccepted,
     handleSubmit,
     setShowPassword,
     setShowConfirmPassword,

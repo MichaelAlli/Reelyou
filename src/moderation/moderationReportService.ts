@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { submitModerationReportToBackend } from '@/moderation/moderationReportBackend';
 import { CREDIBLE_STEWARDSHIP_SAFETY_REASONS } from '@/moderation/moderationReasons';
+import { isReelyouServerAuthEnabled } from '@/config/betaReleaseFlags';
 import { registerModerationContentAction } from '@/moderation/moderationContentRegistry';
 import { suggestModerationTriage } from '@/moderation/moderationTriage';
 import type {
@@ -84,6 +86,20 @@ export async function submitModerationReport(
 ): Promise<SubmitModerationReportResult> {
   const trimmedNote = input.optionalNote?.trim();
   const now = Date.now();
+
+  if (isReelyouServerAuthEnabled()) {
+    const remote = await submitModerationReportToBackend(input);
+    if (remote.ok) {
+      queueStewardshipIfCredible(input);
+      return {
+        ok: true,
+        localOnly: false,
+        reportId: remote.reportId,
+        duplicate: remote.duplicate,
+      };
+    }
+  }
+
   const reports = await loadReports();
   const duplicate = findRecentDuplicate(reports, input, now);
   if (duplicate) {

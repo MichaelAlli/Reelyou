@@ -13,7 +13,7 @@ process.env.REELYOU_DB_PATH = tmpDb;
 process.env.MEDIA_LOCAL_ROOT = tmpMedia;
 
 const { resetAccountDatabaseForTests, closeAccountDatabase } = await import('./db/accountStore.js');
-const { handleRegister } = await import('./auth/authHandlers.js');
+const { registerWithLegalConsent } = await import('./test/registerWithLegalConsent.js');
 const { handleCreateSkywrite } = await import('./social/socialHandlers.js');
 const {
   handleCreateUploadSession,
@@ -25,12 +25,12 @@ const { getMediaAsset } = await import('./media/mediaRepository.js');
 
 resetAccountDatabaseForTests(tmpDb);
 
-const author = handleRegister({
+const author = registerWithLegalConsent({
   email: 'media-author@test.local',
   password: 'password-aaaa',
   fullName: 'Media Author',
 });
-const viewer = handleRegister({
+const viewer = registerWithLegalConsent({
   email: 'media-viewer@test.local',
   password: 'password-bbbb',
   fullName: 'Media Viewer',

@@ -9,7 +9,9 @@ import {
   listFollowing,
   deleteSkywrite,
   getSkywriteForViewer,
+  listRecoverableSkywritesForAuthor,
   listSkywritesForAuthor,
+  recoverSkywrite,
   removeBlock,
   removeFollow,
 } from './socialRepository.js';
@@ -62,6 +64,15 @@ export function handleGetSkywrite(viewerId: string, skywriteId: string) {
 export async function handleDeleteSkywrite(viewerId: string, skywriteId: string) {
   const ok = await deleteSkywrite(viewerId, skywriteId);
   return ok ? { ok: true as const } : { ok: false as const, error: 'not_found' };
+}
+
+export function handleRecoverSkywrite(viewerId: string, skywriteId: string) {
+  const ok = recoverSkywrite(viewerId, skywriteId);
+  return ok ? { ok: true as const } : { ok: false as const, error: 'not_recoverable' };
+}
+
+export function handleListRecoverableSkywrites(viewerId: string) {
+  return { skywrites: listRecoverableSkywritesForAuthor(viewerId) };
 }
 
 export function handleListComments(skywriteId: string) {
