@@ -1,7 +1,15 @@
 import { ResizeMode, Video } from 'expo-av';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import type { SkywriteFramedVideoLayerRef } from '@/components/skywrite/SkywriteFramedVideoLayer';
 import {
   SkywriteFramedVideoLayer,
@@ -599,68 +607,70 @@ function SkywriteImmersiveMomentViewComponent({
         ) : null}
 
         {showNarrationToolbar ? (
-          <View style={styles.videoToolbar}>
-            <Pressable
-              style={styles.playChip}
-              onPress={() => {
-                const uri = playbackMedia.audio?.uri;
-                if (!uri) return;
-                void narration.toggleOrPlay(uri, playbackMedia, () => onNarrationFinished?.());
-              }}
-              accessibilityLabel={narration.isPlaying ? 'Pause narration' : 'Play narration'}>
-              <Text style={styles.playIcon}>{narration.isPlaying ? '❚❚' : '▶'}</Text>
-            </Pressable>
-            <Text style={styles.timeLabel}>
-              {formatSkywriteAudioDuration(narrationPosition)} /{' '}
-              {formatSkywriteAudioDuration(narrationDuration)}
-            </Text>
-            {narration.playbackError || (mediaError && remoteMediaStatus === 'error') ? (
+          <>
+            <View style={styles.videoToolbar}>
               <Pressable
-                style={styles.toolbarChip}
-                onPress={() => {
-                  narration.clearError();
-                  if (mediaError) retryRemoteMedia();
-                  const uri = playbackMedia.audio?.uri;
-                  if (uri) {
-                    void narration.toggleOrPlay(uri, playbackMedia, () => onNarrationFinished?.());
-                  }
-                }}
-                accessibilityLabel="Retry narration playback">
-                <Text style={styles.toolbarChipText}>Retry audio</Text>
-              </Pressable>
-            ) : null}
-            {showAudioMixControls && onMediaMixChange ? (
-              <Pressable
-                style={styles.toolbarChip}
-                onPress={() => setMixOpen(true)}
-                accessibilityLabel="Voiceover volume">
-                <Text style={styles.toolbarChipText}>Voiceover</Text>
-              </Pressable>
-            ) : null}
-            {enablePreviewPlaybackChrome && narration.hasEnded ? (
-              <Pressable
-                style={styles.toolbarChip}
+                style={styles.playChip}
                 onPress={() => {
                   const uri = playbackMedia.audio?.uri;
                   if (!uri) return;
-                  void narration.replay(uri, playbackMedia, () => onNarrationFinished?.());
+                  void narration.toggleOrPlay(uri, playbackMedia, () => onNarrationFinished?.());
                 }}
-                accessibilityLabel="Replay narration">
-                <Text style={styles.toolbarChipText}>Replay</Text>
+                accessibilityLabel={narration.isPlaying ? 'Pause narration' : 'Play narration'}>
+                <Text style={styles.playIcon}>{narration.isPlaying ? '❚❚' : '▶'}</Text>
               </Pressable>
+              <Text style={styles.timeLabel}>
+                {formatSkywriteAudioDuration(narrationPosition)} /{' '}
+                {formatSkywriteAudioDuration(narrationDuration)}
+              </Text>
+              {narration.playbackError || (mediaError && remoteMediaStatus === 'error') ? (
+                <Pressable
+                  style={styles.toolbarChip}
+                  onPress={() => {
+                    narration.clearError();
+                    if (mediaError) retryRemoteMedia();
+                    const uri = playbackMedia.audio?.uri;
+                    if (uri) {
+                      void narration.toggleOrPlay(uri, playbackMedia, () => onNarrationFinished?.());
+                    }
+                  }}
+                  accessibilityLabel="Retry narration playback">
+                  <Text style={styles.toolbarChipText}>Retry audio</Text>
+                </Pressable>
+              ) : null}
+              {showAudioMixControls && onMediaMixChange ? (
+                <Pressable
+                  style={styles.toolbarChip}
+                  onPress={() => setMixOpen(true)}
+                  accessibilityLabel="Voiceover volume">
+                  <Text style={styles.toolbarChipText}>Voiceover</Text>
+                </Pressable>
+              ) : null}
+              {enablePreviewPlaybackChrome && narration.hasEnded ? (
+                <Pressable
+                  style={styles.toolbarChip}
+                  onPress={() => {
+                    const uri = playbackMedia.audio?.uri;
+                    if (!uri) return;
+                    void narration.replay(uri, playbackMedia, () => onNarrationFinished?.());
+                  }}
+                  accessibilityLabel="Replay narration">
+                  <Text style={styles.toolbarChipText}>Replay</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {enablePreviewPlaybackChrome ? (
+              <SkywritePlaybackSeekBar
+                positionMs={narration.positionMs}
+                durationMs={narration.durationMs || playbackMedia.audio?.durationMs || 0}
+                disabled={(narration.durationMs || playbackMedia.audio?.durationMs || 0) <= 0}
+                onScrubStart={() => void narration.beginScrub()}
+                onScrub={(ms) => void narration.seekToMs(ms, false)}
+                onScrubEnd={(ms) => void narration.endScrub(ms)}
+                accessibilityLabel="Narration playback position"
+              />
             ) : null}
-          </View>
-          {enablePreviewPlaybackChrome && showNarrationToolbar ? (
-            <SkywritePlaybackSeekBar
-              positionMs={narration.positionMs}
-              durationMs={narration.durationMs || playbackMedia.audio?.durationMs || 0}
-              disabled={(narration.durationMs || playbackMedia.audio?.durationMs || 0) <= 0}
-              onScrubStart={() => void narration.beginScrub()}
-              onScrub={(ms) => void narration.seekToMs(ms, false)}
-              onScrubEnd={(ms) => void narration.endScrub(ms)}
-              accessibilityLabel="Narration playback position"
-            />
-          ) : null}
+          </>
         ) : null}
 
         {navigationMode === 'buttons' ? (
