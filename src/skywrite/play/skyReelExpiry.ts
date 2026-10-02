@@ -1,21 +1,16 @@
-import {
-  type PlaySkySequenceRegistry,
-  playSkyActiveUntilFromTimestamp,
-} from '@/skywrite/play/playSkySequenceEligibility';
+import type { PlaySkySequenceRegistry } from '@/skywrite/play/playSkySequenceEligibility';
 
 /** Persisted SkyReel visibility end — not playback duration. */
 export function resolveSkyReelActiveUntilMs(
   skywriteId: string,
   registry: PlaySkySequenceRegistry,
-  createdAt: string,
+  _createdAt?: string,
 ): number | null {
   const entry = registry[skywriteId];
   if (entry?.activeUntilMs && Number.isFinite(entry.activeUntilMs)) {
     return entry.activeUntilMs;
   }
-  const publishedMs = Date.parse(createdAt);
-  if (!Number.isFinite(publishedMs)) return null;
-  return playSkyActiveUntilFromTimestamp(publishedMs);
+  return null;
 }
 
 export function isSkyReelAppearanceActive(

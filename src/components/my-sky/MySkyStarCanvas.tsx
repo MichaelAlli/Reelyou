@@ -443,7 +443,10 @@ function MySkyStarCanvasComponent({
   const openImmersiveSkywriteById = useCallback(
     (skywriteId: string) => {
       closeInsightBubble();
-      pushSkyreelPlay(router, `/skywrite/play?scope=single&id=${skywriteId}`);
+      pushSkyreelPlay(
+        router,
+        `/skywrite/play?scope=single&id=${skywriteId}&autoplay=1`,
+      );
     },
     [closeInsightBubble, router],
   );

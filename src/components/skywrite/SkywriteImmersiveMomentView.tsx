@@ -30,7 +30,11 @@ import { SkywriteAudioWaveform } from '@/components/skywrite/SkywriteAudioWavefo
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { getSkywriteWriteInputStyle } from '@/constants/skywriteTextStyles';
 import { Fonts, Spacing } from '@/constants/theme';
-import { formatSkywriteAudioDuration } from '@/skywrite/media/skywriteMediaPreviewUtils';
+import {
+  formatSkywriteAudioDuration,
+  formatSkywritePlaybackDurationLabel,
+} from '@/skywrite/media/skywriteMediaPreviewUtils';
+import { resolveCombinedTimelineMs } from '@/skywrite/media/skywritePlaybackTime';
 import {
   skywriteVideoAspectRatio,
   skywriteVideoElementStyle,
@@ -195,6 +199,7 @@ function SkywriteImmersiveMomentViewComponent({
     onRegisterMediaStop?.(stopVideoAndNarration);
   }, [onRegisterMediaStop, stopVideoAndNarration]);
   const autoPlayIssuedRef = useRef(false);
+  const prevRemoteMediaStatusRef = useRef(remoteMediaStatus);
   const [mixOpen, setMixOpen] = useState(false);
   const [framingAdjustActive, setFramingAdjustActive] = useState(false);
   const [expiryTick, setExpiryTick] = useState(0);
@@ -213,6 +218,17 @@ function SkywriteImmersiveMomentViewComponent({
     autoPlayIssuedRef.current = false;
     narrationStartedRef.current = false;
   }, [record.id, stepKind, mediaStartNonce]);
+
+  useEffect(() => {
+    const prev = prevRemoteMediaStatusRef.current;
+    prevRemoteMediaStatusRef.current = remoteMediaStatus;
+    if (prev === 'loading' && remoteMediaStatus === 'ready' && stepKind === 'video') {
+      autoPlayIssuedRef.current = false;
+      if (autoPlayVideo && !sequencePaused) {
+        requestAutoPlay();
+      }
+    }
+  }, [autoPlayVideo, remoteMediaStatus, requestAutoPlay, sequencePaused, stepKind]);
 
   useEffect(() => {
     if (!narrationActive || !narrationAutoplay || narrationPaused || narrationStartedRef.current) return;
@@ -253,14 +269,16 @@ function SkywriteImmersiveMomentViewComponent({
 
   useEffect(() => {
     if (mediaStartNonce <= 0 || stepKind !== 'video') return;
-    void seekTo(0);
-  }, [mediaStartNonce, seekTo, stepKind]);
+    if (remoteMediaStatus === 'loading') return;
+    void seekTo(0, false);
+  }, [mediaStartNonce, remoteMediaStatus, seekTo, stepKind]);
 
   useEffect(() => {
     if (!autoPlayVideo || stepKind !== 'video' || autoPlayIssuedRef.current || sequencePaused) return;
+    if (remoteMediaStatus === 'loading') return;
     autoPlayIssuedRef.current = true;
     requestAutoPlay();
-  }, [autoPlayVideo, sequencePaused, stepKind, record.id, requestAutoPlay]);
+  }, [autoPlayVideo, remoteMediaStatus, sequencePaused, stepKind, record.id, requestAutoPlay]);
 
   useEffect(() => {
     if (!manualPlayNonce || stepKind !== 'video') return;
@@ -280,8 +298,17 @@ function SkywriteImmersiveMomentViewComponent({
     if (stepKind !== 'video' || !autoPlayVideo || sequencePaused || videoIsPlaying || !videoIsLoaded) {
       return;
     }
+    if (remoteMediaStatus === 'loading') return;
     requestAutoPlay();
-  }, [autoPlayVideo, requestAutoPlay, sequencePaused, stepKind, videoIsLoaded, videoIsPlaying]);
+  }, [
+    autoPlayVideo,
+    remoteMediaStatus,
+    requestAutoPlay,
+    sequencePaused,
+    stepKind,
+    videoIsLoaded,
+    videoIsPlaying,
+  ]);
 
   const audioUri = playbackRecord.media.audio?.uri ?? null;
   const videoAspect = useMemo(() => {
@@ -403,6 +430,15 @@ function SkywriteImmersiveMomentViewComponent({
   const skyReelRemainingMs =
     skyReelActiveUntilMs != null ? skyReelActiveUntilMs - Date.now() : null;
   void expiryTick;
+  const publishedVideoDurationMs = resolveCombinedTimelineMs(
+    videoPlayback.durationMs,
+    displayVideo?.durationMs,
+    playbackRecord.media.video?.durationMs,
+    playbackRecord.media.audio?.durationMs,
+  );
+  const publishedDurationKnown =
+    remoteMediaStatus !== 'loading' &&
+    (videoPlayback.isLoaded || publishedVideoDurationMs > 0);
 
   return (
     <View style={styles.immersiveRoot}>
@@ -545,13 +581,13 @@ function SkywriteImmersiveMomentViewComponent({
             </Pressable>
             <Text style={styles.timeLabel}>
               {formatSkywriteAudioDuration(videoPlayback.positionMs)} /{' '}
-              {formatSkywriteAudioDuration(
+              {formatSkywritePlaybackDurationLabel(
                 enablePreviewPlaybackChrome
-                  ? combinedDurationMs || displayVideo.durationMs || 0
-                  : Math.max(
-                      videoPlayback.durationMs || displayVideo.durationMs || 0,
-                      playbackRecord.media.audio?.durationMs ?? 0,
-                    ),
+                  ? combinedDurationMs || displayVideo?.durationMs
+                  : publishedVideoDurationMs,
+                enablePreviewPlaybackChrome
+                  ? combinedDurationMs > 0 || Boolean(displayVideo?.durationMs)
+                  : publishedDurationKnown,
               )}
             </Text>
             {enablePreviewPlaybackChrome && playbackPhase === 'ended' ? (
@@ -581,8 +617,13 @@ function SkywriteImmersiveMomentViewComponent({
           {enablePreviewPlaybackChrome ? (
             <SkywritePlaybackSeekBar
               positionMs={videoPlayback.positionMs}
-              durationMs={combinedDurationMs || videoPlayback.durationMs || displayVideo.durationMs || 0}
-              disabled={!videoPlayback.isLoaded || combinedDurationMs <= 0}
+              durationMs={resolveCombinedTimelineMs(
+                combinedDurationMs,
+                videoPlayback.durationMs,
+                displayVideo?.durationMs,
+                playbackRecord.media.audio?.durationMs,
+              )}
+              disabled={combinedDurationMs <= 0 && !displayVideo?.durationMs}
               onScrubStart={() => void beginScrub()}
               onScrub={(ms) => void scrubTo(ms)}
               onScrubEnd={(ms) => void endScrub(ms)}

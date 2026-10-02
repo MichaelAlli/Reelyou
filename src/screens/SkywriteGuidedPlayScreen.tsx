@@ -76,7 +76,7 @@ export function SkywriteGuidedPlayScreen() {
   const [steps, setSteps] = useState<SkywritePlayStep[]>([]);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [needsTapToPlay, setNeedsTapToPlay] = useState(() => Platform.OS === 'web');
+  const [needsTapToPlay, setNeedsTapToPlay] = useState(false);
   const [manualPlayNonce, setManualPlayNonce] = useState(0);
   const [mediaStartNonce, setMediaStartNonce] = useState(0);
   const [userStartedPlayback, setUserStartedPlayback] = useState(false);
@@ -242,7 +242,10 @@ export function SkywriteGuidedPlayScreen() {
   const shouldAutoplayVideo =
     !paused &&
     !needsTapToPlay &&
-    (autoplay === '1' || playScope === 'focused' || playScope === 'owner') &&
+    (autoplay === '1' ||
+      playScope === 'focused' ||
+      playScope === 'owner' ||
+      playScope === 'single') &&
     current?.kind === 'video';
 
   const handleExit = useCallback(() => {
@@ -365,12 +368,6 @@ export function SkywriteGuidedPlayScreen() {
   }, [index]);
 
   useEffect(() => {
-    if (Platform.OS === 'web' && !userStartedPlayback) {
-      setNeedsTapToPlay(true);
-    }
-  }, [index, current?.stepId, userStartedPlayback]);
-
-  useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') setPaused(true);
       if (state === 'active') setExpiryClockTick((t) => t + 1);
@@ -391,6 +388,7 @@ export function SkywriteGuidedPlayScreen() {
   void expiryClockTick;
 
   useEffect(() => {
+    if (playScope === 'single') return;
     if (!record || skyReelActiveUntilMs == null) return;
     if (!isSkyReelAppearanceActive(skyReelActiveUntilMs)) {
       if (index < steps.length - 1) {
@@ -399,7 +397,7 @@ export function SkywriteGuidedPlayScreen() {
         setSequenceComplete(true);
       }
     }
-  }, [advance, expiryClockTick, index, record, skyReelActiveUntilMs, steps.length]);
+  }, [advance, expiryClockTick, index, playScope, record, skyReelActiveUntilMs, steps.length]);
 
   const attachedVoiceoverStep =
     record && current ? stepUsesAttachedVoiceover(record, current.kind) : false;

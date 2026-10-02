@@ -18,6 +18,7 @@ assert.equal(
 
 assert.equal(isSkyReelAppearanceActive(until, until - 1), true);
 assert.equal(isSkyReelAppearanceActive(until, until + 1), false);
+assert.equal(resolveSkyReelActiveUntilMs('missing', {}, createdAt), null);
 assert.equal(formatSkyReelRemainingLabel(90 * 60_000), '1h 30m left');
 assert.equal(formatSkyReelRemainingLabel(45 * 60_000), '45m left');
 

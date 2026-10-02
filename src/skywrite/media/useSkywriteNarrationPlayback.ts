@@ -5,6 +5,7 @@ import {
   type SkywriteAudioPlaybackError,
 } from '@/skywrite/media/skywriteAudioPlayback';
 import { resolveVoiceoverVolume } from '@/skywrite/media/skywriteVoiceoverVolume';
+import { clampSeekTargetMs, finiteMs, sanitizeDurationMs } from '@/skywrite/media/skywritePlaybackTime';
 import type { SkywriteMedia } from '@/skywrite/types';
 
 type Engine = Awaited<ReturnType<typeof createSkywriteAudioPlayback>>;
@@ -66,8 +67,10 @@ export function useSkywriteNarrationPlayback(active: boolean) {
             setPositionMs(pos);
             return;
           }
-          setPositionMs(pos);
-          if (dur > 0) setDurationMs(dur);
+          const safePos = finiteMs(pos) ?? 0;
+          setPositionMs(safePos);
+          const safeDur = sanitizeDurationMs(dur, media.audio?.durationMs);
+          if (safeDur > 0) setDurationMs(safeDur);
           setIsPlaying(playing);
         },
         onFinish: () => {
@@ -150,14 +153,24 @@ export function useSkywriteNarrationPlayback(active: boolean) {
   const seekToMs = useCallback(async (ms: number, shouldPlay?: boolean) => {
     const engine = engineRef.current;
     if (!engine) return;
-    const cap = durationMs > 0 ? durationMs : ms;
-    const target = Math.max(0, Math.min(ms, cap));
-    await engine.seekToMs(target);
+    const cap = sanitizeDurationMs(durationMs);
+    const target = clampSeekTargetMs(ms, cap);
+    if (target == null) return;
+    try {
+      await engine.seekToMs(target);
+    } catch {
+      return;
+    }
     setPositionMs(target);
     setHasEnded(false);
     if (shouldPlay) {
-      await engine.play();
-      setIsPlaying(true);
+      try {
+        await engine.play();
+        setIsPlaying(true);
+      } catch {
+        setPlaybackError('play_failed');
+        setIsPlaying(false);
+      }
     } else {
       await engine.pause();
       setIsPlaying(false);

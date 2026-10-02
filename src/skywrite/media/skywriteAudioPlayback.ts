@@ -2,6 +2,12 @@ import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 
 import { isLikelyLocalEphemeralAudioUri } from '@/skywrite/media/skywriteAudioUriUtils';
+import {
+  clampSeekTargetMs,
+  finiteMs,
+  msToMediaElementSeconds,
+  sanitizeDurationMs,
+} from '@/skywrite/media/skywritePlaybackTime';
 
 export { isLikelyLocalEphemeralAudioUri } from '@/skywrite/media/skywriteAudioUriUtils';
 
@@ -76,8 +82,11 @@ async function createWebHtmlEngine(
   }
 
   const tick = () => {
-    const durationMs = Number.isFinite(el.duration) ? el.duration * 1000 : 0;
-    callbacks.onPosition?.(el.currentTime * 1000, durationMs, !el.paused && !el.ended);
+    const durationMs = sanitizeDurationMs(
+      Number.isFinite(el.duration) ? el.duration * 1000 : 0,
+    );
+    const posMs = finiteMs(el.currentTime * 1000) ?? 0;
+    callbacks.onPosition?.(posMs, durationMs, !el.paused && !el.ended);
   };
 
   const interval = setInterval(tick, 200);
@@ -111,7 +120,14 @@ async function createWebHtmlEngine(
       el.volume = v;
     },
     seekToMs: async (positionMs: number) => {
-      el.currentTime = Math.max(0, positionMs / 1000);
+      const durationCap = sanitizeDurationMs(
+        Number.isFinite(el.duration) ? el.duration * 1000 : 0,
+      );
+      const target = clampSeekTargetMs(positionMs, durationCap);
+      if (target == null) return;
+      const seconds = msToMediaElementSeconds(target);
+      if (seconds == null) return;
+      el.currentTime = seconds;
       tick();
     },
   };
@@ -156,7 +172,13 @@ async function createExpoAvEngine(
         await sound.setVolumeAsync(v);
       },
       seekToMs: async (positionMs: number) => {
-        await sound.setPositionAsync(positionMs);
+        const status = await sound.getStatusAsync();
+        const durationCap = status.isLoaded
+          ? sanitizeDurationMs(status.durationMillis)
+          : 0;
+        const target = clampSeekTargetMs(positionMs, durationCap);
+        if (target == null) return;
+        await sound.setPositionAsync(target);
       },
     };
   } catch {

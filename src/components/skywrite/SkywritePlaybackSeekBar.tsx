@@ -1,15 +1,21 @@
 import { memo, useCallback, useRef, useState } from 'react';
 import {
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
+  type GestureResponderEvent,
   type LayoutChangeEvent,
 } from 'react-native';
 
 import { Fonts } from '@/constants/theme';
-import { formatSkywriteAudioDuration } from '@/skywrite/media/skywriteMediaPreviewUtils';
+import {
+  formatSkywriteAudioDuration,
+  formatSkywritePlaybackDurationLabel,
+} from '@/skywrite/media/skywriteMediaPreviewUtils';
+import { finiteMs } from '@/skywrite/media/skywritePlaybackTime';
 
 interface SkywritePlaybackSeekBarProps {
   positionMs: number;
@@ -23,7 +29,16 @@ interface SkywritePlaybackSeekBarProps {
 
 function clampSeek(positionMs: number, durationMs: number): number {
   if (durationMs <= 0) return 0;
-  return Math.max(0, Math.min(positionMs, durationMs));
+  const pos = finiteMs(positionMs) ?? 0;
+  return Math.max(0, Math.min(pos, durationMs));
+}
+
+function localXFromEvent(event: GestureResponderEvent): number {
+  const ne = event.nativeEvent as { locationX?: number; offsetX?: number };
+  if (Platform.OS === 'web' && typeof ne.offsetX === 'number' && Number.isFinite(ne.offsetX)) {
+    return ne.offsetX;
+  }
+  return finiteMs(ne.locationX) ?? 0;
 }
 
 function SkywritePlaybackSeekBarComponent({
@@ -36,17 +51,21 @@ function SkywritePlaybackSeekBarComponent({
   accessibilityLabel = 'Playback position',
 }: SkywritePlaybackSeekBarProps) {
   const trackWidthRef = useRef(0);
+  const lastScrubMsRef = useRef(0);
   const [scrubMs, setScrubMs] = useState<number | null>(null);
   const displayMs = scrubMs ?? positionMs;
-  const ready = durationMs > 0 && !disabled;
-  const ratio = ready ? clampSeek(displayMs, durationMs) / durationMs : 0;
+  const safeDuration = finiteMs(durationMs) ?? 0;
+  const ready = safeDuration > 0 && !disabled;
+  const ratioRaw = ready ? clampSeek(displayMs, safeDuration) / safeDuration : 0;
+  const ratio = Number.isFinite(ratioRaw) ? Math.max(0, Math.min(1, ratioRaw)) : 0;
 
   const applyFromX = useCallback(
     (localX: number, commit: boolean) => {
       if (!ready) return;
       const width = trackWidthRef.current;
       if (width <= 0) return;
-      const next = clampSeek((localX / width) * durationMs, durationMs);
+      const next = clampSeek((localX / width) * safeDuration, safeDuration);
+      lastScrubMsRef.current = next;
       setScrubMs(next);
       onScrub(next);
       if (commit) {
@@ -54,7 +73,7 @@ function SkywritePlaybackSeekBarComponent({
         onScrubEnd(next);
       }
     },
-    [durationMs, onScrub, onScrubEnd, ready],
+    [onScrub, onScrubEnd, ready, safeDuration],
   );
 
   const onTrackLayout = useCallback((event: LayoutChangeEvent) => {
@@ -67,15 +86,16 @@ function SkywritePlaybackSeekBarComponent({
       onMoveShouldSetPanResponder: () => ready,
       onPanResponderGrant: (event) => {
         onScrubStart();
-        applyFromX(event.nativeEvent.locationX, false);
+        applyFromX(localXFromEvent(event), false);
       },
       onPanResponderMove: (event) => {
-        applyFromX(event.nativeEvent.locationX, false);
+        applyFromX(localXFromEvent(event), false);
       },
       onPanResponderRelease: (event) => {
-        applyFromX(event.nativeEvent.locationX, true);
+        applyFromX(localXFromEvent(event), true);
       },
       onPanResponderTerminate: () => {
+        onScrubEnd(lastScrubMsRef.current);
         setScrubMs(null);
       },
     }),
@@ -84,7 +104,8 @@ function SkywritePlaybackSeekBarComponent({
   return (
     <View style={styles.wrap} pointerEvents="box-none">
       <Text style={styles.timeRow} accessibilityElementsHidden importantForAccessibility="no">
-        {formatSkywriteAudioDuration(displayMs)} / {formatSkywriteAudioDuration(durationMs)}
+        {formatSkywriteAudioDuration(displayMs)} /{' '}
+        {formatSkywritePlaybackDurationLabel(safeDuration, ready)}
       </Text>
       <View
         style={[styles.trackOuter, !ready && styles.trackDisabled]}
@@ -103,7 +124,7 @@ function SkywritePlaybackSeekBarComponent({
           style={styles.trackHit}
           onPress={(event) => {
             onScrubStart();
-            applyFromX(event.nativeEvent.locationX, true);
+            applyFromX(localXFromEvent(event), true);
           }}>
           <View style={styles.track}>
             <View style={[styles.fill, { width: `${ratio * 100}%` }]} />

@@ -141,7 +141,10 @@ export function pushStarNavigationTarget(
   const { visitorMode = false, publicSkyOwnerId, skyOwnerId } = options;
   switch (target.kind) {
     case 'skywrite-play':
-      pushSkyreelPlay(router, `/skywrite/play?scope=single&id=${target.skywriteId}`);
+      pushSkyreelPlay(
+        router,
+        `/skywrite/play?scope=single&id=${target.skywriteId}&autoplay=1`,
+      );
       return;
     case 'skywrite-detail':
       router.push(`/skywrite/${target.skywriteId}` as never);

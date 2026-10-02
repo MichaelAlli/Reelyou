@@ -8,8 +8,24 @@ export type SkywriteMediaPreviewKind =
   | 'video'
   | 'video_audio';
 
+export function formatSkywritePlaybackDurationLabel(
+  durationMs: number | undefined,
+  durationKnown = true,
+): string {
+  if (
+    !durationKnown ||
+    durationMs == null ||
+    typeof durationMs !== 'number' ||
+    !Number.isFinite(durationMs) ||
+    durationMs <= 0
+  ) {
+    return '--:--';
+  }
+  return formatSkywriteAudioDuration(durationMs);
+}
+
 export function formatSkywriteAudioDuration(durationMs: number | undefined): string {
-  if (!durationMs || durationMs <= 0) return '0:00';
+  if (!durationMs || !Number.isFinite(durationMs) || durationMs <= 0) return '0:00';
   const totalSec = Math.floor(durationMs / 1000);
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
