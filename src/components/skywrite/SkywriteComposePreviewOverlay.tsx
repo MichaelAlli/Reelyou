@@ -47,6 +47,7 @@ export function SkywriteComposePreviewOverlay({
   const audioPreview = useOverlayAudioPreviewScope(visible);
   const stopImmersiveMediaRef = useRef<() => void>(() => undefined);
   const [stepIndex, setStepIndex] = useState(0);
+  const [previewSession, setPreviewSession] = useState(0);
 
   const previewMedia = useMemo(
     () => draft.media,
@@ -85,6 +86,7 @@ export function SkywriteComposePreviewOverlay({
     void audioPreview.stopAll();
     setStepIndex(0);
     setMediaStartNonce(0);
+    setPreviewSession((s) => s + 1);
     onClose();
   }, [audioPreview, onClose]);
 
@@ -136,6 +138,7 @@ export function SkywriteComposePreviewOverlay({
       <View style={styles.root}>
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           <SkywriteImmersiveMomentView
+            key={`compose-preview-${previewSession}`}
             record={previewRecord}
             stepKind={step.kind}
             stepIndex={stepIndex}
@@ -161,6 +164,7 @@ export function SkywriteComposePreviewOverlay({
             onRegisterMediaStop={(stop) => {
               stopImmersiveMediaRef.current = stop;
             }}
+            enablePreviewPlaybackChrome
             bottomSlot={postActions}
           />
         </SafeAreaView>

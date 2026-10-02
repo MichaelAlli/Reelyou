@@ -28,6 +28,7 @@ import {
   skywriteVideoElementStyle,
   skywriteVideoFrameStyle,
 } from '@/skywrite/media/skywriteVideoLayout';
+import { SkywritePlaybackSeekBar } from '@/components/skywrite/SkywritePlaybackSeekBar';
 import { SkywritePlayEdgeNavigation } from '@/components/skywrite/SkywritePlayEdgeNavigation';
 import { useSkywriteImmersiveVideoPlayback } from '@/skywrite/media/useSkywriteImmersiveVideoPlayback';
 import { useSkywriteNarrationPlayback } from '@/skywrite/media/useSkywriteNarrationPlayback';
@@ -78,6 +79,8 @@ interface SkywriteImmersiveMomentViewProps {
   onMediaPlaybackStarted?: () => void;
   /** Compose preview: stop video + narration when Back to editing bypasses handleExit. */
   onRegisterMediaStop?: (stop: () => void) => void;
+  /** Compose preview: seek bar + replay without changing SkyReel chrome. */
+  enablePreviewPlaybackChrome?: boolean;
 }
 
 function ProgressSegments({ index, count }: { index: number; count: number }) {
@@ -131,6 +134,7 @@ function SkywriteImmersiveMomentViewComponent({
   skyReelActiveUntilMs = null,
   onMediaPlaybackStarted,
   onRegisterMediaStop,
+  enablePreviewPlaybackChrome = false,
 }: SkywriteImmersiveMomentViewProps) {
   const insets = useSafeAreaInsets();
   const { record: resolvedRecord, status: remoteMediaStatus, mediaError, retry: retryRemoteMedia } =
@@ -160,8 +164,20 @@ function SkywriteImmersiveMomentViewComponent({
     playbackMedia,
     videoPlaybackOptions,
   );
-  const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize, seekTo, togglePlayPause } =
-    videoPlayback;
+  const {
+    requestAutoPlay,
+    cleanup: cleanupVideo,
+    handleVideoLoad,
+    naturalSize,
+    seekTo,
+    togglePlayPause,
+    beginScrub,
+    scrubTo,
+    endScrub,
+    replay: replayVideo,
+    playbackPhase,
+    combinedDurationMs,
+  } = videoPlayback;
   const stopVideoAndNarration = useCallback(() => {
     void cleanupVideo();
     void narration.stop();
@@ -522,12 +538,22 @@ function SkywriteImmersiveMomentViewComponent({
             <Text style={styles.timeLabel}>
               {formatSkywriteAudioDuration(videoPlayback.positionMs)} /{' '}
               {formatSkywriteAudioDuration(
-                Math.max(
-                  videoPlayback.durationMs || displayVideo.durationMs || 0,
-                  playbackRecord.media.audio?.durationMs ?? 0,
-                ),
+                enablePreviewPlaybackChrome
+                  ? combinedDurationMs || displayVideo.durationMs || 0
+                  : Math.max(
+                      videoPlayback.durationMs || displayVideo.durationMs || 0,
+                      playbackRecord.media.audio?.durationMs ?? 0,
+                    ),
               )}
             </Text>
+            {enablePreviewPlaybackChrome && playbackPhase === 'ended' ? (
+              <Pressable
+                style={styles.toolbarChip}
+                onPress={() => void replayVideo()}
+                accessibilityLabel="Replay">
+                <Text style={styles.toolbarChipText}>Replay</Text>
+              </Pressable>
+            ) : null}
             {showMixSheet ? (
               <Pressable
                 style={styles.toolbarChip}
@@ -544,6 +570,17 @@ function SkywriteImmersiveMomentViewComponent({
               </Pressable>
             ) : null}
           </View>
+          {enablePreviewPlaybackChrome ? (
+            <SkywritePlaybackSeekBar
+              positionMs={videoPlayback.positionMs}
+              durationMs={combinedDurationMs || videoPlayback.durationMs || displayVideo.durationMs || 0}
+              disabled={!videoPlayback.isLoaded || combinedDurationMs <= 0}
+              onScrubStart={() => void beginScrub()}
+              onScrub={(ms) => void scrubTo(ms)}
+              onScrubEnd={(ms) => void endScrub(ms)}
+              accessibilityLabel="Video playback position"
+            />
+          ) : null}
           </>
         ) : null}
 
@@ -600,7 +637,30 @@ function SkywriteImmersiveMomentViewComponent({
                 <Text style={styles.toolbarChipText}>Voiceover</Text>
               </Pressable>
             ) : null}
+            {enablePreviewPlaybackChrome && narration.hasEnded ? (
+              <Pressable
+                style={styles.toolbarChip}
+                onPress={() => {
+                  const uri = playbackMedia.audio?.uri;
+                  if (!uri) return;
+                  void narration.replay(uri, playbackMedia, () => onNarrationFinished?.());
+                }}
+                accessibilityLabel="Replay narration">
+                <Text style={styles.toolbarChipText}>Replay</Text>
+              </Pressable>
+            ) : null}
           </View>
+          {enablePreviewPlaybackChrome && showNarrationToolbar ? (
+            <SkywritePlaybackSeekBar
+              positionMs={narration.positionMs}
+              durationMs={narration.durationMs || playbackMedia.audio?.durationMs || 0}
+              disabled={(narration.durationMs || playbackMedia.audio?.durationMs || 0) <= 0}
+              onScrubStart={() => void narration.beginScrub()}
+              onScrub={(ms) => void narration.seekToMs(ms, false)}
+              onScrubEnd={(ms) => void narration.endScrub(ms)}
+              accessibilityLabel="Narration playback position"
+            />
+          ) : null}
         ) : null}
 
         {navigationMode === 'buttons' ? (

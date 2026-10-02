@@ -13,7 +13,10 @@ export function useSkywriteNarrationPlayback(active: boolean) {
   const engineRef = useRef<Engine>(null);
   const loadedUriRef = useRef<string | null>(null);
   const finishHandlerRef = useRef<(() => void) | null>(null);
+  const scrubbingRef = useRef(false);
+  const wasPlayingBeforeScrubRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hasEnded, setHasEnded] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [playbackError, setPlaybackError] = useState<SkywriteAudioPlaybackError | null>(null);
@@ -32,6 +35,7 @@ export function useSkywriteNarrationPlayback(active: boolean) {
 
   const stop = useCallback(async () => {
     setIsPlaying(false);
+    setHasEnded(false);
     setPositionMs(0);
     await unload();
   }, [unload]);
@@ -53,16 +57,22 @@ export function useSkywriteNarrationPlayback(active: boolean) {
     async (uri: string, media: SkywriteMedia, onFinish?: () => void) => {
       finishHandlerRef.current = onFinish ?? null;
       setPlaybackError(null);
+      setHasEnded(false);
       await unload();
       const volume = resolveVoiceoverVolume(media);
       const engine = await createSkywriteAudioPlayback(uri, volume, {
         onPosition: (pos, dur, playing) => {
+          if (scrubbingRef.current) {
+            setPositionMs(pos);
+            return;
+          }
           setPositionMs(pos);
           if (dur > 0) setDurationMs(dur);
           setIsPlaying(playing);
         },
         onFinish: () => {
           setIsPlaying(false);
+          setHasEnded(true);
           finishHandlerRef.current?.();
           finishHandlerRef.current = null;
           void unload();
@@ -96,7 +106,7 @@ export function useSkywriteNarrationPlayback(active: boolean) {
 
   const toggleOrPlay = useCallback(
     async (uri: string, media: SkywriteMedia, onFinish?: () => void) => {
-      if (!engineRef.current || loadedUriRef.current !== uri) {
+      if (hasEnded || !engineRef.current || loadedUriRef.current !== uri) {
         return playUri(uri, media, onFinish);
       }
       const engine = engineRef.current;
@@ -107,13 +117,14 @@ export function useSkywriteNarrationPlayback(active: boolean) {
         try {
           await engine.play();
           setIsPlaying(true);
+          setHasEnded(false);
         } catch {
           setPlaybackError('play_failed');
         }
       }
       return true;
     },
-    [isPlaying, playUri],
+    [hasEnded, isPlaying, playUri],
   );
 
   const pausePlayback = useCallback(async () => {
@@ -130,10 +141,49 @@ export function useSkywriteNarrationPlayback(active: boolean) {
       await engine.play();
       setIsPlaying(true);
       setPlaybackError(null);
+      setHasEnded(false);
     } catch {
       setPlaybackError('play_failed');
     }
   }, [isPlaying]);
+
+  const seekToMs = useCallback(async (ms: number, shouldPlay?: boolean) => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const cap = durationMs > 0 ? durationMs : ms;
+    const target = Math.max(0, Math.min(ms, cap));
+    await engine.seekToMs(target);
+    setPositionMs(target);
+    setHasEnded(false);
+    if (shouldPlay) {
+      await engine.play();
+      setIsPlaying(true);
+    } else {
+      await engine.pause();
+      setIsPlaying(false);
+    }
+  }, [durationMs]);
+
+  const beginScrub = useCallback(async () => {
+    wasPlayingBeforeScrubRef.current = isPlaying;
+    scrubbingRef.current = true;
+    if (isPlaying) await pausePlayback();
+  }, [isPlaying, pausePlayback]);
+
+  const endScrub = useCallback(
+    async (ms: number) => {
+      scrubbingRef.current = false;
+      await seekToMs(ms, wasPlayingBeforeScrubRef.current);
+    },
+    [seekToMs],
+  );
+
+  const replay = useCallback(
+    async (uri: string, media: SkywriteMedia, onFinish?: () => void) => {
+      return playUri(uri, media, onFinish);
+    },
+    [playUri],
+  );
 
   const setVolumeFromMedia = useCallback(async (media: SkywriteMedia) => {
     const engine = engineRef.current;
@@ -150,6 +200,7 @@ export function useSkywriteNarrationPlayback(active: boolean) {
   return useMemo(
     () => ({
       isPlaying,
+      hasEnded,
       positionMs,
       durationMs,
       playbackError,
@@ -157,19 +208,28 @@ export function useSkywriteNarrationPlayback(active: boolean) {
       toggleOrPlay,
       pausePlayback,
       resumePlayback,
+      seekToMs,
+      beginScrub,
+      endScrub,
+      replay,
       stop,
       setVolumeFromMedia,
       clearError,
     }),
     [
+      beginScrub,
       clearError,
       durationMs,
+      endScrub,
+      hasEnded,
       isPlaying,
       pausePlayback,
       playbackError,
       playUri,
       positionMs,
+      replay,
       resumePlayback,
+      seekToMs,
       setVolumeFromMedia,
       stop,
       toggleOrPlay,

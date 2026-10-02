@@ -22,14 +22,28 @@ function voiceoverVolumeForMedia(media: SkywriteMedia | undefined): number {
   return resolveVoiceoverVolume(media);
 }
 
+export type SkywriteVideoPlaybackPhase =
+  | 'idle'
+  | 'loading'
+  | 'playing'
+  | 'paused'
+  | 'ended'
+  | 'error';
+
 export interface SkywriteImmersiveVideoPlayback {
   videoRef: React.RefObject<Video | null>;
   isPlaying: boolean;
   isLoaded: boolean;
+  playbackPhase: SkywriteVideoPlaybackPhase;
   positionMs: number;
   durationMs: number;
+  combinedDurationMs: number;
   togglePlayPause: () => Promise<void>;
   seekTo: (ms: number) => Promise<void>;
+  beginScrub: () => Promise<void>;
+  scrubTo: (ms: number) => Promise<void>;
+  endScrub: (ms: number) => Promise<void>;
+  replay: () => Promise<void>;
   toggleMute: () => void;
   muted: boolean;
   cleanup: () => Promise<void>;
@@ -67,10 +81,17 @@ export function useSkywriteImmersiveVideoPlayback(
   const lastVoiceSyncPosRef = useRef(-1);
   const cleanupGenerationRef = useRef(0);
   const voiceExtendedFinishRef = useRef(false);
+  const endedLatchRef = useRef(false);
+  const scrubbingRef = useRef(false);
+  const wasPlayingBeforeScrubRef = useRef(false);
+  const lastUiUpdateMsRef = useRef(0);
+  const positionMsRef = useRef(0);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [playbackPhase, setPlaybackPhase] = useState<SkywriteVideoPlaybackPhase>('idle');
   const [positionMs, setPositionMs] = useState(0);
+  positionMsRef.current = positionMs;
   const [durationMs, setDurationMs] = useState(record?.media.video?.durationMs ?? 0);
   const [muted, setMuted] = useState(false);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
@@ -78,6 +99,7 @@ export function useSkywriteImmersiveVideoPlayback(
   const videoUri = mediaOverride?.video?.uri ?? record?.media.video?.uri;
   const audioUri = mediaOverride?.audio?.uri ?? record?.media.audio?.uri;
   const audioDurationMs = mediaOverride?.audio?.durationMs ?? record?.media.audio?.durationMs;
+  const combinedDurationMs = Math.max(durationMs, audioDurationMs ?? 0, 0);
 
   const hasVoiceover =
     Boolean(audioUri) &&
@@ -105,8 +127,11 @@ export function useSkywriteImmersiveVideoPlayback(
     pendingPlayRef.current = false;
     videoEndedVoiceContinuesRef.current = false;
     voiceExtendedFinishRef.current = false;
+    endedLatchRef.current = false;
+    scrubbingRef.current = false;
     setIsPlaying(false);
     setIsLoaded(false);
+    setPlaybackPhase('idle');
     setPositionMs(0);
     void stopVoiceoverEngine();
     try {
@@ -144,12 +169,19 @@ export function useSkywriteImmersiveVideoPlayback(
     }
   }, []);
 
-  const finishCombinedPlayback = useCallback(() => {
+  const markEnded = useCallback(() => {
+    if (endedLatchRef.current) return;
+    endedLatchRef.current = true;
     videoEndedVoiceContinuesRef.current = false;
-    voiceExtendedFinishRef.current = false;
     setIsPlaying(false);
+    setPlaybackPhase('ended');
     optionsRef.current?.onCombinedPlaybackFinished?.();
   }, []);
+
+  const finishCombinedPlayback = useCallback(() => {
+    voiceExtendedFinishRef.current = true;
+    markEnded();
+  }, [markEnded]);
 
   const ensureVoiceoverEngine = useCallback(async (): Promise<SkywriteAudioPlaybackEngine | null> => {
     const uri = audioUri;
@@ -165,8 +197,7 @@ export function useSkywriteImmersiveVideoPlayback(
         }
       },
       onFinish: () => {
-        if (videoEndedVoiceContinuesRef.current && !voiceExtendedFinishRef.current) {
-          voiceExtendedFinishRef.current = true;
+        if (videoEndedVoiceContinuesRef.current) {
           finishCombinedPlayback();
         }
       },
@@ -245,6 +276,8 @@ export function useSkywriteImmersiveVideoPlayback(
     const generation = cleanupGenerationRef.current;
 
     try {
+      setPlaybackPhase('loading');
+      endedLatchRef.current = false;
       let status = await video.getStatusAsync();
       if (!status.isLoaded) {
         pendingPlayRef.current = true;
@@ -263,12 +296,14 @@ export function useSkywriteImmersiveVideoPlayback(
       await video.playAsync();
       await syncVoiceover(loaded.positionMillis ?? 0, true, true);
       setIsPlaying(true);
+      setPlaybackPhase('playing');
       pendingPlayRef.current = false;
       optionsRef.current?.onPlaybackStarted?.();
       return 'started';
     } catch {
       pendingPlayRef.current = false;
       setIsPlaying(false);
+      setPlaybackPhase('error');
       optionsRef.current?.onAutoplayBlocked?.();
       return 'blocked';
     }
@@ -278,14 +313,34 @@ export function useSkywriteImmersiveVideoPlayback(
     (status: AVPlaybackStatus) => {
       if (!status.isLoaded) return;
       setIsLoaded(true);
+      if (scrubbingRef.current) {
+        setPositionMs(status.positionMillis);
+        return;
+      }
+      if (endedLatchRef.current) return;
+
+      const now = Date.now();
+      const pos = status.positionMillis ?? 0;
+      if (!status.isPlaying && !videoEndedVoiceContinuesRef.current) {
+        if (now - lastUiUpdateMsRef.current < 750 && Math.abs(pos - positionMsRef.current) < 120) {
+          return;
+        }
+      }
+      lastUiUpdateMsRef.current = now;
+
       if (!videoEndedVoiceContinuesRef.current) {
         setIsPlaying(status.isPlaying);
-        setPositionMs(status.positionMillis);
+        setPositionMs(pos);
+        if (status.isPlaying) {
+          setPlaybackPhase('playing');
+        } else if (!endedLatchRef.current) {
+          setPlaybackPhase('paused');
+        }
       }
       if (status.durationMillis != null) {
         setDurationMs(status.durationMillis);
       }
-      if (status.didJustFinish) {
+      if (status.didJustFinish && !endedLatchRef.current) {
         const voiceDur = audioDurationMs ?? 0;
         const endMs = status.durationMillis ?? status.positionMillis ?? 0;
         if (hasVoiceover && voiceDur > endMs + 80) {
@@ -299,14 +354,15 @@ export function useSkywriteImmersiveVideoPlayback(
             }
             await syncVoiceover(endMs, true, true);
             setIsPlaying(true);
+            setPlaybackPhase('playing');
           })();
           return;
         }
         void stopVoiceoverEngine();
-        finishCombinedPlayback();
+        markEnded();
       }
     },
-    [audioDurationMs, finishCombinedPlayback, hasVoiceover, stopVoiceoverEngine, syncVoiceover],
+    [audioDurationMs, hasVoiceover, markEnded, stopVoiceoverEngine, syncVoiceover],
   );
 
   const handleVideoLoad = useCallback(
@@ -337,7 +393,50 @@ export function useSkywriteImmersiveVideoPlayback(
     }
   }, []);
 
+  const seekTo = useCallback(
+    async (ms: number, shouldPlay?: boolean) => {
+      const video = videoRef.current;
+      if (!video) return;
+      const combined = Math.max(durationMs, audioDurationMs ?? 0, 1);
+      const target = Math.max(0, Math.min(ms, combined));
+      const videoCap = durationMs > 0 ? durationMs : combined;
+      const videoPos = Math.min(target, videoCap);
+      endedLatchRef.current = false;
+      voiceExtendedFinishRef.current = false;
+      videoEndedVoiceContinuesRef.current = target > videoCap + 40;
+      await video.setPositionAsync(videoPos);
+      if (target >= videoCap - 40) {
+        await video.pauseAsync().catch(() => undefined);
+      }
+      setPositionMs(target);
+      const playVoice =
+        shouldPlay ??
+        (await video.getStatusAsync().then((s) => s.isLoaded && s.isPlaying));
+      await syncVoiceover(target, Boolean(playVoice), true);
+      if (playVoice) {
+        setIsPlaying(true);
+        setPlaybackPhase('playing');
+      } else {
+        setIsPlaying(false);
+        setPlaybackPhase('paused');
+      }
+    },
+    [audioDurationMs, durationMs, syncVoiceover],
+  );
+
+  const replay = useCallback(async () => {
+    endedLatchRef.current = false;
+    voiceExtendedFinishRef.current = false;
+    videoEndedVoiceContinuesRef.current = false;
+    await seekTo(0, false);
+    await startPlayback();
+  }, [seekTo, startPlayback]);
+
   const togglePlayPause = useCallback(async () => {
+    if (endedLatchRef.current) {
+      await replay();
+      return;
+    }
     const video = videoRef.current;
     if (!video) return;
     const status = await video.getStatusAsync();
@@ -349,26 +448,44 @@ export function useSkywriteImmersiveVideoPlayback(
       await video.pauseAsync();
       await syncVoiceover(status.positionMillis, false, true);
       setIsPlaying(false);
+      setPlaybackPhase('paused');
     } else {
       const pos = status.positionMillis ?? 0;
       await video.setVolumeAsync(muted ? 0 : originalVolume);
       await video.playAsync();
       await syncVoiceover(pos, true, true);
       setIsPlaying(true);
+      setPlaybackPhase('playing');
     }
-  }, [muted, originalVolume, startPlayback, syncVoiceover]);
+  }, [muted, originalVolume, replay, startPlayback, syncVoiceover]);
 
-  const seekTo = useCallback(
+  const beginScrub = useCallback(async () => {
+    wasPlayingBeforeScrubRef.current = isPlaying;
+    scrubbingRef.current = true;
+    const video = videoRef.current;
+    if (!video) return;
+    const status = await video.getStatusAsync();
+    if (status.isLoaded && status.isPlaying) {
+      await video.pauseAsync();
+      await syncVoiceover(status.positionMillis, false, true);
+      setIsPlaying(false);
+      setPlaybackPhase('paused');
+    }
+  }, [isPlaying, syncVoiceover]);
+
+  const scrubTo = useCallback(
     async (ms: number) => {
-      const video = videoRef.current;
-      if (!video) return;
-      await video.setPositionAsync(ms);
-      setPositionMs(ms);
-      const status = await video.getStatusAsync();
-      const playing = status.isLoaded && status.isPlaying;
-      await syncVoiceover(ms, playing, true);
+      await seekTo(ms, false);
     },
-    [syncVoiceover],
+    [seekTo],
+  );
+
+  const endScrub = useCallback(
+    async (ms: number) => {
+      scrubbingRef.current = false;
+      await seekTo(ms, wasPlayingBeforeScrubRef.current);
+    },
+    [seekTo],
   );
 
   const toggleMute = useCallback(() => {
@@ -410,10 +527,16 @@ export function useSkywriteImmersiveVideoPlayback(
       videoRef,
       isPlaying,
       isLoaded,
+      playbackPhase,
       positionMs,
       durationMs,
+      combinedDurationMs,
       togglePlayPause,
       seekTo,
+      beginScrub,
+      scrubTo,
+      endScrub,
+      replay,
       toggleMute,
       muted,
       cleanup,
@@ -426,22 +549,28 @@ export function useSkywriteImmersiveVideoPlayback(
       naturalSize,
     }),
     [
+      applyVideoVolume,
+      applyVoiceoverVolume,
+      beginScrub,
       cleanup,
+      combinedDurationMs,
       durationMs,
+      endScrub,
       handleVideoLoad,
       isLoaded,
       isPlaying,
       muted,
       naturalSize,
       onPlaybackStatusUpdate,
+      playbackPhase,
       positionMs,
+      replay,
       reportNaturalSize,
       requestAutoPlay,
+      scrubTo,
       seekTo,
       toggleMute,
       togglePlayPause,
-      applyVideoVolume,
-      applyVoiceoverVolume,
     ],
   );
 }
