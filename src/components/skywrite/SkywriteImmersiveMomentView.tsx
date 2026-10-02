@@ -87,6 +87,8 @@ interface SkywriteImmersiveMomentViewProps {
   narrationPaused?: boolean;
   /** Bumps when user taps to start or changes Skyreel item — restarts narration. */
   mediaStartNonce?: number;
+  /** Bumped when SkyReel navigation changes — cancels stale narration completion. */
+  playSessionId?: number;
   skyReelActiveUntilMs?: number | null;
   onMediaPlaybackStarted?: () => void;
   /** Compose preview: stop video + narration when Back to editing bypasses handleExit. */
@@ -143,6 +145,7 @@ function SkywriteImmersiveMomentViewComponent({
   narrationAutoplay = false,
   narrationPaused = false,
   mediaStartNonce = 0,
+  playSessionId = 0,
   skyReelActiveUntilMs = null,
   onMediaPlaybackStarted,
   onRegisterMediaStop,
@@ -161,6 +164,9 @@ function SkywriteImmersiveMomentViewComponent({
     attachedVoiceover && (stepKind === 'text' || stepKind === 'photo') && Boolean(playbackMedia.audio?.uri);
   const narration = useSkywriteNarrationPlayback(narrationActive);
   const narrationStartedRef = useRef(false);
+  const narrationSessionRef = useRef(0);
+  const playSessionIdRef = useRef(playSessionId);
+  playSessionIdRef.current = playSessionId;
 
   const videoPlaybackOptions = useMemo(
     () => ({
@@ -217,7 +223,8 @@ function SkywriteImmersiveMomentViewComponent({
   useEffect(() => {
     autoPlayIssuedRef.current = false;
     narrationStartedRef.current = false;
-  }, [record.id, stepKind, mediaStartNonce]);
+    narration.stopImmediate();
+  }, [record.id, stepKind, mediaStartNonce, playSessionId, narration]);
 
   useEffect(() => {
     const prev = prevRemoteMediaStatusRef.current;
@@ -236,7 +243,13 @@ function SkywriteImmersiveMomentViewComponent({
     const uri = playbackMedia.audio?.uri;
     if (!uri) return;
     narrationStartedRef.current = true;
-    void narration.playUri(uri, playbackMedia, () => onNarrationFinished?.()).then((ok) => {
+    narrationSessionRef.current = playSessionIdRef.current;
+    void narration
+      .playUri(uri, playbackMedia, () => {
+        if (narrationSessionRef.current !== playSessionIdRef.current) return;
+        onNarrationFinished?.();
+      })
+      .then((ok) => {
       if (ok) onMediaPlaybackStarted?.();
     });
   }, [
@@ -247,6 +260,7 @@ function SkywriteImmersiveMomentViewComponent({
     mediaStartNonce,
     onMediaPlaybackStarted,
     onNarrationFinished,
+    playSessionId,
     playbackMedia,
     remoteMediaStatus,
   ]);
@@ -335,27 +349,29 @@ function SkywriteImmersiveMomentViewComponent({
     });
   };
 
+  const haltMediaForNavigation = () => {
+    narration.stopImmediate();
+    void cleanupVideo();
+  };
+
   const handlePrevious = () => {
     onBeforeStepChange?.();
     setMixOpen(false);
-    void cleanupVideo();
-    void narration.stop();
+    haltMediaForNavigation();
     onPrevious();
   };
 
   const handleNext = () => {
     onBeforeStepChange?.();
     setMixOpen(false);
-    void cleanupVideo();
-    void narration.stop();
+    haltMediaForNavigation();
     onNext();
   };
 
   const handleExit = () => {
     onBeforeStepChange?.();
     setMixOpen(false);
-    void cleanupVideo();
-    void narration.stop();
+    haltMediaForNavigation();
     onExit();
   };
 

@@ -44,6 +44,10 @@ export interface StoredSkywrite {
   skyreelActiveUntilMs?: number | null;
   /** Last owner repost into Skyreel (UTC ms). */
   skyreelRepostedAtMs?: number | null;
+  publishedAtMs?: number | null;
+  recentVisibleUntilMs?: number | null;
+  inYourJourney?: boolean | null;
+  journeyAddedAtMs?: number | null;
 }
 
 export interface CreateSkywriteInput {
@@ -64,4 +68,5 @@ export interface CreateSkywriteInput {
   media?: StoredSkywriteMediaRefs;
   /** Asset ids uploaded in this publish request — must be owned by author and ready. */
   mediaAssetIds?: string[];
+  inYourJourney?: boolean;
 }

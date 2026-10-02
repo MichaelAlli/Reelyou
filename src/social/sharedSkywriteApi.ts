@@ -1,6 +1,7 @@
 import { authenticatedReellyouFetch } from '@/backend/authenticatedReellyouFetch';
 import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
 import { buildRemoteAssetPlaceholderUri } from '@/social/sharedMediaConstants';
+import { mergeServerRetentionOntoRecord } from '@/skywrite/library/skywriteLibraryRetention';
 import type { SkywriteRecord, SkywriteMediaMode } from '@/skywrite/types';
 import type { Mood, Privacy } from '@/types';
 
@@ -41,12 +42,16 @@ export interface ServerSkywrite {
   media: ServerSkywriteMediaRefs;
   skyreelActiveUntilMs?: number | null;
   skyreelRepostedAtMs?: number | null;
+  publishedAtMs?: number | null;
+  recentVisibleUntilMs?: number | null;
+  inYourJourney?: boolean | null;
+  journeyAddedAtMs?: number | null;
 }
 
 export function mapServerSkywriteToRecord(row: ServerSkywrite): SkywriteRecord {
   const media = row.media ?? {};
   const videoMeta = media.videoMeta ?? null;
-  return {
+  const base: SkywriteRecord = {
     id: row.id,
     authorId: row.authorUserId,
     text: row.text,
@@ -95,12 +100,13 @@ export function mapServerSkywriteToRecord(row: ServerSkywrite): SkywriteRecord {
       voiceoverVolume: media.voiceoverVolume,
     },
   };
+  return mergeServerRetentionOntoRecord(base, row);
 }
 
 export async function publishSkywriteToServer(
   record: SkywriteRecord,
   serverMedia: ServerSkywriteMediaRefs,
-): Promise<{ id: string } | null> {
+): Promise<{ id: string; record: SkywriteRecord } | null> {
   if (!isSharedSocialPersistenceEnabled()) return null;
   const res = await authenticatedReellyouFetch('/v1/content/skywrites', {
     method: 'POST',
@@ -120,12 +126,13 @@ export async function publishSkywriteToServer(
       experiencedAt: record.experiencedAt,
       createdAt: record.createdAt,
       media: serverMedia,
+      inYourJourney: record.inYourJourney === true,
     }),
   });
   if (!res?.ok) return null;
   const body = (await res.json()) as { ok?: boolean; skywrite?: ServerSkywrite };
   if (!body.ok || !body.skywrite) return null;
-  return { id: body.skywrite.id };
+  return { id: body.skywrite.id, record: mapServerSkywriteToRecord(body.skywrite) };
 }
 
 export async function fetchAuthorServerSkywrites(
@@ -158,6 +165,20 @@ export async function fetchSkywriteFromServer(skywriteId: string): Promise<Skywr
   const body = (await res.json()) as { ok?: boolean; skywrite?: ServerSkywrite };
   if (!body.ok || !body.skywrite) return null;
   return mapServerSkywriteToRecord(body.skywrite);
+}
+
+export async function addToYourJourneyOnServer(
+  skywriteId: string,
+): Promise<ServerSkywrite | null> {
+  if (!isSharedSocialPersistenceEnabled()) return null;
+  const res = await authenticatedReellyouFetch(
+    `/v1/content/skywrites/${encodeURIComponent(skywriteId)}/your-journey`,
+    { method: 'POST' },
+  );
+  if (!res?.ok) return null;
+  const body = (await res.json()) as { ok?: boolean; skywrite?: ServerSkywrite };
+  if (!body.ok || !body.skywrite) return null;
+  return body.skywrite;
 }
 
 export async function repostSkyreelOnServer(

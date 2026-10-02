@@ -192,6 +192,21 @@ function parsePost(raw: unknown): SkywriteRecord | null {
       typeof entry.experiencedAt === 'string' && entry.experiencedAt.length > 0
         ? entry.experiencedAt
         : undefined,
+    publishedAtMs:
+      typeof entry.publishedAtMs === 'number' && Number.isFinite(entry.publishedAtMs)
+        ? entry.publishedAtMs
+        : undefined,
+    recentVisibleUntilMs:
+      typeof entry.recentVisibleUntilMs === 'number' && Number.isFinite(entry.recentVisibleUntilMs)
+        ? entry.recentVisibleUntilMs
+        : undefined,
+    inYourJourney: entry.inYourJourney === true ? true : undefined,
+    journeyAddedAtMs:
+      typeof entry.journeyAddedAtMs === 'number' && Number.isFinite(entry.journeyAddedAtMs)
+        ? entry.journeyAddedAtMs
+        : entry.journeyAddedAtMs === null
+          ? null
+          : undefined,
   };
 }
 

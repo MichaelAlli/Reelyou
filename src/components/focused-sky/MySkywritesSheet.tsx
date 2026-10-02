@@ -22,6 +22,7 @@ import {
   buildArchivedSavedThreadLibraryRows,
   buildAuthoredLibraryRows,
   buildContributedLibraryRows,
+  buildYourJourneyLibraryRows,
   buildSavedThreadLibraryRows,
   type MySkywriteLibraryRow,
   type MySkywritesTabId,
@@ -53,7 +54,7 @@ function formatWhen(ms: number): string {
 
 function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) {
   const router = useRouter();
-  const { skywrites } = useOnboarding();
+  const { skywrites, addSkywriteToYourJourney } = useOnboarding();
   const { library, archiveSkywrite, restoreSkywrite } = useSkywriteLibrary();
   const { threadState, contributions } = useSkywriteThreads();
   const { state: savedThreadsState, archiveThread, restoreThread } = useSavedThreads();
@@ -73,6 +74,13 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
         contributions,
         blockedUserIds: messages.blockedUserIds,
         followGraph: skyFollowGraph,
+        query,
+      });
+    }
+    if (tab === 'journey') {
+      return buildYourJourneyLibraryRows({
+        localPosts: skywrites,
+        library,
         query,
       });
     }
@@ -125,11 +133,13 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const emptyCopy =
     tab === 'archived'
       ? MySkywritesCopy.emptyArchived
-      : tab === 'saved'
-        ? MySkywritesCopy.emptySaved
-        : tab === 'contributed'
-          ? MySkywritesCopy.emptyContributed
-          : MySkywritesCopy.emptyRecent;
+      : tab === 'journey'
+        ? MySkywritesCopy.emptyYourJourney
+        : tab === 'saved'
+          ? MySkywritesCopy.emptySaved
+          : tab === 'contributed'
+            ? MySkywritesCopy.emptyContributed
+            : MySkywritesCopy.emptyRecent;
 
   const openMedia = useCallback(
     (row: MySkywriteLibraryRow) => {
@@ -151,7 +161,8 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
 
   const tabs: { id: MySkywritesTabId; label: string }[] = [
     { id: 'recent', label: MySkywritesCopy.tabRecent },
-    { id: 'saved', label: MySkywritesCopy.tabSaved },
+    { id: 'journey', label: MySkywritesCopy.tabYourJourney },
+    { id: 'saved', label: MySkywritesCopy.tabSavedThreads },
     { id: 'archived', label: MySkywritesCopy.tabArchived },
     { id: 'contributed', label: MySkywritesCopy.tabContributed },
   ];
@@ -205,7 +216,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                       : archiveThread(row.savedThreadId!),
                 });
               } else if (isOwner && tab !== 'contributed' && tab !== 'saved') {
-                if (tab === 'recent') {
+                if (tab === 'recent' || tab === 'journey') {
                   menuActions.push({
                     id: 'repost-play-sky',
                     label: MySkywritesCopy.repostPlaySky,
@@ -217,6 +228,21 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                       });
                     },
                   });
+                }
+                if (tab === 'recent' && !row.inYourJourney) {
+                  menuActions.push({
+                    id: 'add-to-journey',
+                    label: MySkywritesCopy.addToYourJourney,
+                    onPress: () => {
+                      void addSkywriteToYourJourney(row.skywriteId).then((result) => {
+                        if (result.ok) {
+                          Alert.alert('Your Journey', MySkywritesCopy.journeyAddedSuccess);
+                        }
+                      });
+                    },
+                  });
+                }
+                if (tab === 'recent' || tab === 'journey') {
                   menuActions.push({
                     id: 'edit-skywrite',
                     label: ProfileSkywritingsCopy.editPost,

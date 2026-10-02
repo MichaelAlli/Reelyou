@@ -1,7 +1,7 @@
 import { buildSkywriteRecord } from '@/skywrite/draft';
 import type { SkywriteDraft, SkywriteRecord } from '@/skywrite/types';
 
-export type PublishSkywritePhase = 'saving';
+export type PublishSkywritePhase = 'saving' | 'uploading_media' | 'finalizing';
 
 export type PublishSkywriteProgress = {
   phase: PublishSkywritePhase;

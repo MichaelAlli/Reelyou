@@ -32,6 +32,7 @@ import { SkywriteSkyAreaPicker } from '@/components/skywrite/SkywriteSkyAreaPick
 import { SkywriteComposePreviewOverlay } from '@/components/skywrite/SkywriteComposePreviewOverlay';
 import { SkywriteComposeImmersiveVideoStage } from '@/components/skywrite/SkywriteComposeImmersiveVideoStage';
 import { SkywriteVisibilityControl } from '@/components/skywrite/SkywriteVisibilityControl';
+import { MySkywritesCopy } from '@/constants/mySkywritesCopy';
 import { detectSkyAreaSuggestionFromHashtags } from '@/skyAreas/skyAreaHashtagSuggestion';
 import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
 import { inferSkywriteIntentFromShowingUp } from '@/skywrite/skywriteIntent';
@@ -416,9 +417,15 @@ export function SkywriteScreen() {
     setPublishError(null);
     setPostingLabel(SkywriteCopy.publishing);
     const starsBeforeSubmit = takeFocusedSkywriteComposeStars() ?? mySkyView.stars;
-    const onProgress = (progress: { elapsedMs: number }) => {
+    const onProgress = (progress: { phase: string; elapsedMs: number }) => {
       const seconds = Math.max(1, Math.round(progress.elapsedMs / 1000));
-      setPostingLabel(SkywriteCopy.publishingElapsed(seconds));
+      const phaseLabel =
+        progress.phase === 'uploading_media'
+          ? SkywriteCopy.publishingUploading
+          : progress.phase === 'finalizing'
+            ? SkywriteCopy.publishingFinalizing
+            : SkywriteCopy.publishing;
+      setPostingLabel(SkywriteCopy.publishingPhase(phaseLabel, seconds));
     };
     const result = editingSkywriteId
       ? await replaceSkywrite(editingSkywriteId, publishDraft, onProgress)
@@ -768,6 +775,13 @@ export function SkywriteScreen() {
                   value={draft.allowAIContext ?? true}
                   onValueChange={(allowAIContext) => updateDraft({ allowAIContext })}
                   accessibilityLabel="Help personalize my REELYOU experience"
+                />
+                <SkywriteToggleRow
+                  title={MySkywritesCopy.publishAddToYourJourney}
+                  description={MySkywritesCopy.publishAddToYourJourneyHint}
+                  value={draft.addToYourJourney === true}
+                  onValueChange={(addToYourJourney) => updateDraft({ addToYourJourney })}
+                  accessibilityLabel={MySkywritesCopy.publishAddToYourJourney}
                 />
               </SkywriteAccordionRow>
             </View>

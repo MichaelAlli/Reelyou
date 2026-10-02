@@ -94,7 +94,7 @@ import {
 } from '../media/mediaRepository.js';
 import { canViewerAccessSkywrite } from './contentVisibility.js';
 import { SKYWRITE_RECOVERY_WINDOW_MS } from './skywriteDeletionConstants.js';
-import { SKYREEL_WINDOW_MS } from './skyreelConstants.js';
+import { SKYREEL_WINDOW_MS, SKYWRITE_RECENT_RETENTION_MS } from './skyreelConstants.js';
 
 export interface StoredComment {
   id: string;
@@ -150,6 +150,11 @@ export function createSkywrite(
     deletionPurgeAfter: null,
     skyreelActiveUntilMs: (Number.isFinite(createdAt) ? createdAt : Date.now()) + SKYREEL_WINDOW_MS,
     skyreelRepostedAtMs: null,
+    publishedAtMs: Number.isFinite(createdAt) ? createdAt : Date.now(),
+    recentVisibleUntilMs:
+      (Number.isFinite(createdAt) ? createdAt : Date.now()) + SKYWRITE_RECENT_RETENTION_MS,
+    inYourJourney: body.inYourJourney === true,
+    journeyAddedAtMs: body.inYourJourney === true ? Date.now() : null,
   };
   db().skywrites!.push(entry);
   attachAssetsToSkywrite(entry.id, authorUserId, media);
@@ -233,6 +238,26 @@ export function isSkyreelActive(row: StoredSkywrite, now = Date.now()): boolean 
     row.skyreelActiveUntilMs ??
     row.createdAt + SKYREEL_WINDOW_MS;
   return now < until;
+}
+
+export function addSkywriteToYourJourney(
+  authorUserId: string,
+  skywriteId: string,
+  now = Date.now(),
+): StoredSkywrite | null {
+  const row = findSkywriteRow(skywriteId);
+  if (!row || row.authorUserId !== authorUserId || row.deletedAt) return null;
+  if (row.inYourJourney) return row;
+  row.inYourJourney = true;
+  row.journeyAddedAtMs = now;
+  if (row.publishedAtMs == null || !Number.isFinite(row.publishedAtMs)) {
+    row.publishedAtMs = row.createdAt;
+  }
+  if (row.recentVisibleUntilMs == null || !Number.isFinite(row.recentVisibleUntilMs)) {
+    row.recentVisibleUntilMs = row.publishedAtMs + SKYWRITE_RECENT_RETENTION_MS;
+  }
+  persistAccountDatabase();
+  return row;
 }
 
 export function repostSkyreel(authorUserId: string, skywriteId: string, now = Date.now()): StoredSkywrite | null {

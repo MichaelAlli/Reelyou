@@ -34,12 +34,18 @@ export function useSkywriteNarrationPlayback(active: boolean) {
     }
   }, []);
 
-  const stop = useCallback(async () => {
+  const stopImmediate = useCallback(() => {
+    finishHandlerRef.current = null;
+    scrubbingRef.current = false;
     setIsPlaying(false);
     setHasEnded(false);
     setPositionMs(0);
-    await unload();
+    void unload();
   }, [unload]);
+
+  const stop = useCallback(async () => {
+    stopImmediate();
+  }, [stopImmediate]);
 
   useEffect(() => {
     if (!active) {
@@ -226,6 +232,7 @@ export function useSkywriteNarrationPlayback(active: boolean) {
       endScrub,
       replay,
       stop,
+      stopImmediate,
       setVolumeFromMedia,
       clearError,
     }),
@@ -245,6 +252,7 @@ export function useSkywriteNarrationPlayback(active: boolean) {
       seekToMs,
       setVolumeFromMedia,
       stop,
+      stopImmediate,
       toggleOrPlay,
     ],
   );

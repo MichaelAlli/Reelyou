@@ -12,11 +12,15 @@ import type { SkywriteLibraryState } from '@/skywrite/library/skywriteLibraryTyp
 import type { SavedThreadsState } from '@/skywrite/savedThreads/savedThreadTypes';
 import { latestReflectionAt } from '@/skywrite/savedThreads/savedThreadLogic';
 import { resolveSavedThreadSourceAccess } from '@/skywrite/savedThreads/savedThreadAccess';
+import {
+  isSkywriteInRecentLibrary,
+  isSkywriteInYourJourney,
+} from '@/skywrite/library/skywriteLibraryRetention';
 import type { SkywriteRecord } from '@/skywrite/types';
 import { resolveSkywriteIntent, SKYWRITE_INTENT_OPTIONS } from '@/skywrite/skywriteIntent';
 import { getSkyAreaCategory, isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 
-export type MySkywritesTabId = 'recent' | 'saved' | 'archived' | 'contributed';
+export type MySkywritesTabId = 'recent' | 'journey' | 'saved' | 'archived' | 'contributed';
 
 export interface MySkywriteLibraryRow {
   skywriteId: string;
@@ -29,6 +33,7 @@ export interface MySkywriteLibraryRow {
   contributedResponseId?: string;
   savedThreadId?: string;
   latestReflectionAt?: number | null;
+  inYourJourney?: boolean;
 }
 
 function areaLabelFor(skyAreaId: string | undefined): string | null {
@@ -91,6 +96,7 @@ export function buildAuthoredLibraryRows(input: {
     const archived = isArchived(input.library, record.id);
     if (input.tab === 'recent' && archived) continue;
     if (input.tab === 'archived' && !archived) continue;
+    if (input.tab === 'recent' && !isSkywriteInRecentLibrary(record)) continue;
 
     const areaLabel = areaLabelFor(record.skyAreaId);
     const excerptText = excerpt(record.text);
@@ -110,6 +116,43 @@ export function buildAuthoredLibraryRows(input: {
           ? input.library.archivedAtBySkywriteId[record.id] ?? Date.parse(record.createdAt)
           : Date.parse(record.createdAt) || 0,
       visibility: record.visibility,
+      inYourJourney: isSkywriteInYourJourney(record),
+    });
+  }
+
+  return rows.sort((a, b) => b.sortMs - a.sortMs);
+}
+
+export function buildYourJourneyLibraryRows(input: {
+  localPosts: readonly SkywriteRecord[];
+  library: SkywriteLibraryState;
+  query?: string;
+}): MySkywriteLibraryRow[] {
+  const q = input.query?.trim().toLowerCase() ?? '';
+  const rows: MySkywriteLibraryRow[] = [];
+
+  for (const post of input.localPosts) {
+    const record = { ...post, authorId: post.authorId ?? currentUser.id };
+    if (!authoredByViewer(record)) continue;
+    if (isSkywriteDeleted(record.id, input.library.deletionTombstonesBySkywriteId)) continue;
+    if (!isSkywriteInYourJourney(record)) continue;
+
+    const areaLabel = areaLabelFor(record.skyAreaId);
+    const excerptText = excerpt(record.text);
+    if (q) {
+      const haystack = `${excerptText} ${areaLabel ?? ''}`.toLowerCase();
+      if (!haystack.includes(q)) continue;
+    }
+
+    rows.push({
+      skywriteId: record.id,
+      skywrite: record,
+      areaLabel,
+      intentLabel: intentLabelFor(record),
+      excerpt: excerptText,
+      sortMs: record.journeyAddedAtMs ?? (Date.parse(record.createdAt) || 0),
+      visibility: record.visibility,
+      inYourJourney: true,
     });
   }
 

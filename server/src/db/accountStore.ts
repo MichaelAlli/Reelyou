@@ -94,6 +94,10 @@ function normalizeLegacySkywrite(
     deletionPurgeAfter: null,
     skyreelActiveUntilMs: legacy.createdAt + 24 * 60 * 60 * 1000,
     skyreelRepostedAtMs: null,
+    publishedAtMs: legacy.createdAt,
+    recentVisibleUntilMs: null,
+    inYourJourney: false,
+    journeyAddedAtMs: null,
   };
 }
 

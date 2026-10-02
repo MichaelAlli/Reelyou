@@ -82,6 +82,14 @@ export interface SkywriteRecord {
   /** Lightweight intent for beacon routing — explicit choice wins over showingUp inference. */
   intent?: SkywriteIntentId;
   createdAt: string;
+  /** UTC ms — original successful publication (immutable). */
+  publishedAtMs?: number;
+  /** UTC ms — owner Recent visibility ends (30d from publication; not reset by SkyReel repost). */
+  recentVisibleUntilMs?: number;
+  /** Owner chose Your Journey — kept until user deletes. */
+  inYourJourney?: boolean;
+  /** UTC ms — when added to Your Journey (publish or later). */
+  journeyAddedAtMs?: number | null;
 }
 
 export interface SkywriteDraft {
@@ -96,6 +104,8 @@ export interface SkywriteDraft {
   allowAIContext?: boolean;
   skyAreaId?: string;
   intent?: SkywriteIntentId;
+  /** Pre-publish: preserve in Your Journey (unchecked by default). */
+  addToYourJourney?: boolean;
 }
 
 export interface SkywritesState {

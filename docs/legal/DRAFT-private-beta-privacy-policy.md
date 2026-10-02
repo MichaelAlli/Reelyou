@@ -141,6 +141,14 @@ We do **not** sell personal information as part of the beta product.
 - Personalization toggles in Settings  
 - Request access, correction, or deletion by emailing **reelyou.support@gmail.com**  
 
+### Owner library (draft product behavior — counsel review)
+
+- **SkyReel:** rolling **24-hour visibility** window for eligible posts (repost starts a new window; does not duplicate the post).  
+- **Recent:** owner posts stay in **Recent for 30 days** from **original publication** (repost does not reset this clock).  
+- **Your Journey:** optional preserve-until-you-delete collection; posts can be added at publish or within the Recent window.  
+- **Expiry:** posts that leave Recent without Your Journey follow the app’s **deletion/recovery/purge** process (distinct from SkyReel expiry).  
+- **Backups/logs:** provider retention remains **UNVERIFIED** in beta (see internal checklist).  
+
 ---
 
 ## 9. Security

@@ -8,8 +8,10 @@
 
 | Policy | Implementation status |
 |--------|------------------------|
-| Saved Skywrites until owner/account delete | **Partial** — local + server; lifecycle varies by sync |
-| Play Sky 24h; saved copy remains | **Partial** — `PLAY_SKY_SEQUENCE_WINDOW_MS` in client |
+| Your Journey (owner library preserve) | **Partial (Oct 2026)** — `inYourJourney` on server + client; `/your-journey` API |
+| Recent 30 days from original publication | **Partial (Oct 2026)** — `recentVisibleUntilMs`; legacy posts grandfathered in Recent |
+| SkyReel 24h visibility | **Partial** — `skyreelActiveUntilMs` server + registry; repost refreshes window only |
+| Saved threads (others’ content) | **Separate** — `Saved threads` tab; not Your Journey |
 | Deleted posts hidden immediately; 30d recovery | **Partial** — server `deletedAt` + media purge attempt; **30d recovery not built** |
 | Account deletion hidden immediately; 30d cancel; 90d purge | **Implemented (beta)** — `server/src/auth/accountDeletion.ts`, API routes, Settings UI |
 | Backups/logs retention | **UNVERIFIED** — see provider checklist below |

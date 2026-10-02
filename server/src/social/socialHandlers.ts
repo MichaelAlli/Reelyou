@@ -12,6 +12,7 @@ import {
   listRecoverableSkywritesForAuthor,
   listSkywritesForAuthor,
   recoverSkywrite,
+  addSkywriteToYourJourney,
   repostSkyreel,
   removeBlock,
   removeFollow,
@@ -78,6 +79,12 @@ export function handleListRecoverableSkywrites(viewerId: string) {
 
 export function handleRepostSkyreel(viewerId: string, skywriteId: string) {
   const skywrite = repostSkyreel(viewerId, skywriteId);
+  if (!skywrite) return { ok: false as const, error: 'not_allowed' };
+  return { ok: true as const, skywrite };
+}
+
+export function handleAddToYourJourney(viewerId: string, skywriteId: string) {
+  const skywrite = addSkywriteToYourJourney(viewerId, skywriteId);
   if (!skywrite) return { ok: false as const, error: 'not_allowed' };
   return { ok: true as const, skywrite };
 }
