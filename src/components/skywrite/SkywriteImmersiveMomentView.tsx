@@ -34,6 +34,7 @@ import { useSkywriteNarrationPlayback } from '@/skywrite/media/useSkywriteNarrat
 import type { SkywritePlayStepKind } from '@/skywrite/play/skywritePlayTypes';
 import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
+import { formatSkyReelRemainingLabel } from '@/skywrite/play/skyReelExpiry';
 import { stepUsesAttachedVoiceover } from '@/skywrite/voiceoverStepUtils';
 
 interface SkywriteImmersiveMomentViewProps {
@@ -73,6 +74,8 @@ interface SkywriteImmersiveMomentViewProps {
   narrationPaused?: boolean;
   /** Bumps when user taps to start or changes Skyreel item — restarts narration. */
   mediaStartNonce?: number;
+  skyReelActiveUntilMs?: number | null;
+  onMediaPlaybackStarted?: () => void;
 }
 
 function ProgressSegments({ index, count }: { index: number; count: number }) {
@@ -123,6 +126,8 @@ function SkywriteImmersiveMomentViewComponent({
   narrationAutoplay = false,
   narrationPaused = false,
   mediaStartNonce = 0,
+  skyReelActiveUntilMs = null,
+  onMediaPlaybackStarted,
 }: SkywriteImmersiveMomentViewProps) {
   const insets = useSafeAreaInsets();
   const { record: resolvedRecord, status: remoteMediaStatus, mediaError, retry: retryRemoteMedia } =
@@ -141,11 +146,19 @@ function SkywriteImmersiveMomentViewComponent({
   const videoPlayback = useSkywriteImmersiveVideoPlayback(playbackRecord, videoActive, playbackMedia, {
     onAutoplayBlocked: onVideoAutoplayBlocked,
     onCombinedPlaybackFinished: onVideoFinished,
+    onPlaybackStarted: onMediaPlaybackStarted,
   });
   const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize } = videoPlayback;
   const autoPlayIssuedRef = useRef(false);
   const [mixOpen, setMixOpen] = useState(false);
   const [framingAdjustActive, setFramingAdjustActive] = useState(false);
+  const [expiryTick, setExpiryTick] = useState(0);
+
+  useEffect(() => {
+    if (skyReelActiveUntilMs == null) return;
+    const timer = setInterval(() => setExpiryTick((t) => t + 1), 30_000);
+    return () => clearInterval(timer);
+  }, [skyReelActiveUntilMs]);
 
   const onStageLayout = (_event: LayoutChangeEvent) => {
     /* stage is always full bleed in viewport mode */
@@ -162,13 +175,16 @@ function SkywriteImmersiveMomentViewComponent({
     const uri = playbackMedia.audio?.uri;
     if (!uri) return;
     narrationStartedRef.current = true;
-    void narration.playUri(uri, playbackMedia, () => onNarrationFinished?.());
+    void narration.playUri(uri, playbackMedia, () => onNarrationFinished?.()).then((ok) => {
+      if (ok) onMediaPlaybackStarted?.();
+    });
   }, [
     narration,
     narrationActive,
     narrationAutoplay,
     narrationPaused,
     mediaStartNonce,
+    onMediaPlaybackStarted,
     onNarrationFinished,
     playbackMedia,
     remoteMediaStatus,
@@ -188,7 +204,14 @@ function SkywriteImmersiveMomentViewComponent({
     return () => {
       void narration.stop();
     };
-  }, [narration, record.id, stepKind]);
+  }, [record.id, stepKind, narration.stop]);
+
+  useEffect(() => {
+    if (mediaStartNonce <= 0) return;
+    if (stepKind === 'video') {
+      void videoPlayback.seekTo(0);
+    }
+  }, [mediaStartNonce, stepKind, videoPlayback]);
 
   useEffect(() => {
     if (!autoPlayVideo || stepKind !== 'video' || autoPlayIssuedRef.current || sequencePaused) return;
@@ -338,6 +361,9 @@ function SkywriteImmersiveMomentViewComponent({
     0;
   const narrationPosition = narrationActive ? narration.positionMs : 0;
   const showNarrationToolbar = narrationActive && Boolean(playbackMedia.audio?.uri);
+  const skyReelRemainingMs =
+    skyReelActiveUntilMs != null ? skyReelActiveUntilMs - Date.now() : null;
+  void expiryTick;
 
   return (
     <View style={styles.immersiveRoot}>
@@ -435,6 +461,14 @@ function SkywriteImmersiveMomentViewComponent({
             <Text style={styles.closeIcon}>✕</Text>
           </Pressable>
           <ProgressSegments index={stepIndex} count={stepCount} />
+          {skyReelRemainingMs != null ? (
+            <Text
+              style={styles.skyReelExpiry}
+              accessibilityLabel={`SkyReel visibility ${formatSkyReelRemainingLabel(skyReelRemainingMs)}`}
+              pointerEvents="none">
+              {formatSkyReelRemainingLabel(skyReelRemainingMs)}
+            </Text>
+          ) : null}
           <Text style={styles.progressCompact}>
             {SkywritePlayCopy.progress(stepIndex + 1, stepCount)}
           </Text>
@@ -749,6 +783,14 @@ const styles = StyleSheet.create({
     color: 'rgba(248,244,236,0.75)',
     minWidth: 36,
     textAlign: 'right',
+  },
+  skyReelExpiry: {
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(232, 200, 114, 0.88)',
+    marginLeft: 4,
+    maxWidth: 88,
   },
   tapBanner: {
     marginTop: 8,

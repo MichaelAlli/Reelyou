@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { createSkywriteAudioPlayback } from '@/skywrite/media/skywriteAudioPlayback';
+import {
+  createSkywriteAudioPlayback,
+  type SkywriteAudioPlaybackEngine,
+} from '@/skywrite/media/skywriteAudioPlayback';
+
+export type AudioPreviewCallbacks = {
+  onStarted?: () => void;
+  onFinished?: () => void;
+};
 
 /** One manual audio preview at a time inside an overlay; stops when overlay closes. */
 export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
-  const engineRef = useRef<Awaited<ReturnType<typeof createSkywriteAudioPlayback>>>(null);
+  const engineRef = useRef<SkywriteAudioPlaybackEngine | null>(null);
+  const finishRef = useRef<(() => void) | null>(null);
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -12,6 +21,7 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
   const unloadEngine = useCallback(async () => {
     const engine = engineRef.current;
     engineRef.current = null;
+    finishRef.current = null;
     if (!engine) return;
     try {
       await engine.stop();
@@ -40,7 +50,7 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
   }, [unloadEngine]);
 
   const togglePreview = useCallback(
-    async (previewId: string, uri: string) => {
+    async (previewId: string, uri: string, callbacks?: AudioPreviewCallbacks) => {
       if (activePreviewId === previewId && isPlaying) {
         await stopAll();
         return;
@@ -48,6 +58,7 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
 
       await stopAll();
       setPreviewError(null);
+      finishRef.current = callbacks?.onFinished ?? null;
 
       const engine = await createSkywriteAudioPlayback(uri, 1, {
         onPosition: (_pos, _dur, playing) => {
@@ -56,6 +67,8 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
         onFinish: () => {
           setIsPlaying(false);
           setActivePreviewId(null);
+          finishRef.current?.();
+          finishRef.current = null;
           void unloadEngine();
         },
         onError: () => {
@@ -74,6 +87,7 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
       try {
         await engine.play();
         setIsPlaying(true);
+        callbacks?.onStarted?.();
       } catch {
         setPreviewError('Playback was blocked. Tap play again.');
         setIsPlaying(false);

@@ -40,11 +40,38 @@ function sessionClear(): void {
   }
 }
 
+const ALLOWED_RETURN_PREFIXES = [
+  '/',
+  '/skywrite',
+  '/my-sky',
+  '/focused-sky',
+  '/public-sky',
+  '/explore',
+  '/settings',
+  '/messages',
+  '/profile',
+  '/owner',
+  '/visitor',
+  '/today',
+  '/starpath',
+  '/home',
+  '/communities',
+  '/companion',
+] as const;
+
+export function isAllowedSkyreelReturnHref(href: string): boolean {
+  if (!href.startsWith('/') || href.includes('://')) return false;
+  if (href.includes('/skywrite/play')) return false;
+  const path = href.split('?')[0] ?? href;
+  return ALLOWED_RETURN_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
+}
+
 function normalizeReturnTo(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
-  if (!trimmed || trimmed.includes('/skywrite/play')) return null;
-  if (!trimmed.startsWith('/')) return null;
+  if (!trimmed || !isAllowedSkyreelReturnHref(trimmed)) return null;
   return trimmed;
 }
 

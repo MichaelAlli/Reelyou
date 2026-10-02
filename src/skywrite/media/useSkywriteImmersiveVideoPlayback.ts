@@ -2,6 +2,10 @@ import { Audio, Video, type AVPlaybackStatus, type AVPlaybackStatusSuccess } fro
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
+import {
+  createSkywriteAudioPlayback,
+  type SkywriteAudioPlaybackEngine,
+} from '@/skywrite/media/skywriteAudioPlayback';
 import { resolveOriginalVideoVolume } from '@/skywrite/media/skywriteOriginalVideoVolume';
 import { resolveVoiceoverVolume } from '@/skywrite/media/skywriteVoiceoverVolume';
 import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
@@ -46,10 +50,12 @@ export function useSkywriteImmersiveVideoPlayback(
     onAutoplayBlocked?: () => void;
     /** Fired when video and any extended voiceover have both finished. */
     onCombinedPlaybackFinished?: () => void;
+    onPlaybackStarted?: () => void;
   },
 ): SkywriteImmersiveVideoPlayback {
   const videoRef = useRef<Video>(null);
-  const voiceoverRef = useRef<Audio.Sound | null>(null);
+  const voiceoverEngineRef = useRef<SkywriteAudioPlaybackEngine | null>(null);
+  const voiceoverUriRef = useRef<string | null>(null);
   const pendingPlayRef = useRef(false);
   const preMuteOriginalRef = useRef(1);
   const videoEndedVoiceContinuesRef = useRef(false);
@@ -87,14 +93,14 @@ export function useSkywriteImmersiveVideoPlayback(
     } catch {
       /* unloaded */
     }
-    if (voiceoverRef.current) {
+    if (voiceoverEngineRef.current) {
       try {
-        await voiceoverRef.current.stopAsync();
-        await voiceoverRef.current.unloadAsync();
+        await voiceoverEngineRef.current.stop();
       } catch {
         /* unloaded */
       }
-      voiceoverRef.current = null;
+      voiceoverEngineRef.current = null;
+      voiceoverUriRef.current = null;
     }
   }, []);
 
@@ -116,11 +122,17 @@ export function useSkywriteImmersiveVideoPlayback(
     }
   }, []);
 
+  const finishCombinedPlayback = useCallback(() => {
+    videoEndedVoiceContinuesRef.current = false;
+    setIsPlaying(false);
+    options?.onCombinedPlaybackFinished?.();
+  }, [options]);
+
   const applyVoiceoverVolume = useCallback(async () => {
-    const sound = voiceoverRef.current;
-    if (!sound) return;
+    const engine = voiceoverEngineRef.current;
+    if (!engine) return;
     try {
-      await sound.setVolumeAsync(voiceoverVolume);
+      await engine.setVolume(voiceoverVolume);
     } catch {
       /* not loaded */
     }
@@ -131,30 +143,43 @@ export function useSkywriteImmersiveVideoPlayback(
       const uri = media?.audio?.uri;
       if (!hasVoiceover || !uri) return;
 
-      if (!voiceoverRef.current) {
-        const { sound } = await Audio.Sound.createAsync(
-          { uri },
-          { shouldPlay: false, positionMillis: position, volume: voiceoverVolume },
-        );
-        voiceoverRef.current = sound;
+      if (!voiceoverEngineRef.current || voiceoverUriRef.current !== uri) {
+        if (voiceoverEngineRef.current) {
+          await voiceoverEngineRef.current.stop().catch(() => undefined);
+        }
+        const engine = await createSkywriteAudioPlayback(uri, voiceoverVolume, {
+          onPosition: (pos) => {
+            if (videoEndedVoiceContinuesRef.current) {
+              setPositionMs(pos);
+            }
+          },
+          onFinish: () => {
+            if (videoEndedVoiceContinuesRef.current) {
+              finishCombinedPlayback();
+            }
+          },
+        });
+        if (!engine) return;
+        voiceoverEngineRef.current = engine;
+        voiceoverUriRef.current = uri;
       }
 
-      const sound = voiceoverRef.current;
-      await sound.setVolumeAsync(voiceoverVolume);
+      const engine = voiceoverEngineRef.current;
+      await engine.setVolume(voiceoverVolume);
       const voiceDuration = media?.audio?.durationMs;
       if (voiceDuration != null && position >= voiceDuration) {
-        await sound.pauseAsync();
+        await engine.pause();
         return;
       }
 
-      await sound.setPositionAsync(position);
+      await engine.seekToMs(position);
       if (shouldPlay) {
-        await sound.playAsync();
+        await engine.play();
       } else {
-        await sound.pauseAsync();
+        await engine.pause();
       }
     },
-    [hasVoiceover, media?.audio?.durationMs, media?.audio?.uri, voiceoverVolume],
+    [finishCombinedPlayback, hasVoiceover, media?.audio?.durationMs, media?.audio?.uri, voiceoverVolume],
   );
 
   const applyVideoVolume = useCallback(async () => {
@@ -194,6 +219,7 @@ export function useSkywriteImmersiveVideoPlayback(
       await syncVoiceover(loaded.positionMillis ?? 0, true);
       setIsPlaying(true);
       pendingPlayRef.current = false;
+      options?.onPlaybackStarted?.();
       return 'started';
     } catch {
       pendingPlayRef.current = false;
@@ -202,12 +228,6 @@ export function useSkywriteImmersiveVideoPlayback(
       return 'blocked';
     }
   }, [muted, originalVolume, options, syncVoiceover, videoUri]);
-
-  const finishCombinedPlayback = useCallback(() => {
-    videoEndedVoiceContinuesRef.current = false;
-    setIsPlaying(false);
-    options?.onCombinedPlaybackFinished?.();
-  }, [options]);
 
   const onPlaybackStatusUpdate = useCallback(
     (status: AVPlaybackStatus) => {
@@ -233,16 +253,6 @@ export function useSkywriteImmersiveVideoPlayback(
             }
             await syncVoiceover(endMs, true);
             setIsPlaying(true);
-            const sound = voiceoverRef.current;
-            if (sound) {
-              sound.setOnPlaybackStatusUpdate((voiceStatus) => {
-                if (!voiceStatus.isLoaded) return;
-                setPositionMs(voiceStatus.positionMillis);
-                if (voiceStatus.didJustFinish) {
-                  finishCombinedPlayback();
-                }
-              });
-            }
           })();
           return;
         }

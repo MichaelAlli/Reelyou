@@ -137,6 +137,7 @@ export function SkywriteComposePreviewOverlay({
             showAudioMixControls
             allowVideoFramingEdit
             navigationMode="buttons"
+            narrationAutoplay={false}
             bottomSlot={postActions}
           />
         </SafeAreaView>

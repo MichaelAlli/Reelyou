@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   createSkywriteAudioPlayback,
@@ -145,17 +145,34 @@ export function useSkywriteNarrationPlayback(active: boolean) {
     }
   }, []);
 
-  return {
-    isPlaying,
-    positionMs,
-    durationMs,
-    playbackError,
-    playUri,
-    toggleOrPlay,
-    pausePlayback,
-    resumePlayback,
-    stop,
-    setVolumeFromMedia,
-    clearError: () => setPlaybackError(null),
-  };
+  const clearError = useCallback(() => setPlaybackError(null), []);
+
+  return useMemo(
+    () => ({
+      isPlaying,
+      positionMs,
+      durationMs,
+      playbackError,
+      playUri,
+      toggleOrPlay,
+      pausePlayback,
+      resumePlayback,
+      stop,
+      setVolumeFromMedia,
+      clearError,
+    }),
+    [
+      clearError,
+      durationMs,
+      isPlaying,
+      pausePlayback,
+      playbackError,
+      playUri,
+      positionMs,
+      resumePlayback,
+      setVolumeFromMedia,
+      stop,
+      toggleOrPlay,
+    ],
+  );
 }

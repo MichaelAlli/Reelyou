@@ -283,6 +283,20 @@ export function formatDurationMs(ms: number): string {
 
 /** Web-only MediaRecorder session — native uses expo-av in the voice hook. */
 export class WebVoiceRecorder {
+  static pickSupportedMimeType(): string | undefined {
+    if (typeof MediaRecorder === 'undefined') return undefined;
+    const candidates = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+    ];
+    for (const type of candidates) {
+      if (MediaRecorder.isTypeSupported(type)) return type;
+    }
+    return undefined;
+  }
+
   private mediaRecorder: MediaRecorder | null = null;
   private chunks: BlobPart[] = [];
   private startedAt = 0;
@@ -292,7 +306,10 @@ export class WebVoiceRecorder {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.chunks = [];
-      this.mediaRecorder = new MediaRecorder(stream);
+      const mimeType = WebVoiceRecorder.pickSupportedMimeType();
+      this.mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       this.startedAt = Date.now();
       this.mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) this.chunks.push(event.data);

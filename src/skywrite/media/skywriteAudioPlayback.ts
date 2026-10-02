@@ -13,11 +13,12 @@ export type SkywriteAudioPlaybackCallbacks = {
   onError?: (error: SkywriteAudioPlaybackError) => void;
 };
 
-type PlaybackEngine = {
+export type SkywriteAudioPlaybackEngine = {
   play: () => Promise<void>;
   pause: () => Promise<void>;
   stop: () => Promise<void>;
   setVolume: (volume: number) => Promise<void>;
+  seekToMs: (positionMs: number) => Promise<void>;
 };
 
 /** Web blob/data URIs use HTMLAudio — expo-av often fails on MediaRecorder webm. */
@@ -25,7 +26,7 @@ async function createWebHtmlEngine(
   uri: string,
   volume: number,
   callbacks: SkywriteAudioPlaybackCallbacks,
-): Promise<PlaybackEngine | null> {
+): Promise<SkywriteAudioPlaybackEngine | null> {
   if (typeof window === 'undefined' || typeof window.Audio === 'undefined') return null;
 
   const el = new window.Audio();
@@ -36,12 +37,21 @@ async function createWebHtmlEngine(
   let loaded = false;
   try {
     await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        if (el.readyState >= HTMLMediaElement.HAVE_METADATA) {
+          cleanup();
+          loaded = true;
+          resolve();
+        }
+      }, 6000);
       const onReady = () => {
+        clearTimeout(timeout);
         cleanup();
         loaded = true;
         resolve();
       };
       const onFail = () => {
+        clearTimeout(timeout);
         cleanup();
         reject(new Error('load_failed'));
       };
@@ -100,6 +110,10 @@ async function createWebHtmlEngine(
     setVolume: async (v: number) => {
       el.volume = v;
     },
+    seekToMs: async (positionMs: number) => {
+      el.currentTime = Math.max(0, positionMs / 1000);
+      tick();
+    },
   };
 }
 
@@ -107,7 +121,7 @@ async function createExpoAvEngine(
   uri: string,
   volume: number,
   callbacks: SkywriteAudioPlaybackCallbacks,
-): Promise<PlaybackEngine | null> {
+): Promise<SkywriteAudioPlaybackEngine | null> {
   try {
     if (Platform.OS !== 'web') {
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
@@ -141,6 +155,9 @@ async function createExpoAvEngine(
       setVolume: async (v: number) => {
         await sound.setVolumeAsync(v);
       },
+      seekToMs: async (positionMs: number) => {
+        await sound.setPositionAsync(positionMs);
+      },
     };
   } catch {
     callbacks.onError?.('load_failed');
@@ -152,7 +169,7 @@ export async function createSkywriteAudioPlayback(
   uri: string,
   volume: number,
   callbacks: SkywriteAudioPlaybackCallbacks,
-): Promise<PlaybackEngine | null> {
+): Promise<SkywriteAudioPlaybackEngine | null> {
   if (Platform.OS === 'web' && isLikelyLocalEphemeralAudioUri(uri)) {
     const web = await createWebHtmlEngine(uri, volume, callbacks);
     if (web) return web;
