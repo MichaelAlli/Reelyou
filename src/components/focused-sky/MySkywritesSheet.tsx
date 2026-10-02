@@ -16,6 +16,8 @@ import { ProfileSkywritingsCopy } from '@/constants/profileSkywritingsCopy';
 import { MySkywritesCopy } from '@/constants/mySkywritesCopy';
 import { SavedThreadsCopy } from '@/constants/savedThreadsCopy';
 import { Fonts, Radius } from '@/constants/theme';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { currentUser } from '@/data/mockData';
 import { useOnboarding } from '@/onboarding';
 import {
@@ -54,6 +56,8 @@ function formatWhen(ms: number): string {
 
 function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) {
   const router = useRouter();
+  const { user: authUser } = useReelyouAuth();
+  const ownerUserId = resolveActiveUserId(authUser);
   const { skywrites, addSkywriteToYourJourney } = useOnboarding();
   const { library, archiveSkywrite, restoreSkywrite } = useSkywriteLibrary();
   const { threadState, contributions } = useSkywriteThreads();
@@ -82,6 +86,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
         localPosts: skywrites,
         library,
         query,
+        ownerUserId,
       });
     }
     if (tab === 'saved') {
@@ -101,6 +106,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
           library,
           tab: 'archived',
           query,
+          ownerUserId,
         }),
         ...buildArchivedSavedThreadLibraryRows({
           localPosts: skywrites,
@@ -117,11 +123,13 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
       library,
       tab: 'recent',
       query,
+      ownerUserId,
     });
   }, [
     contributions,
     library,
     messages.blockedUserIds,
+    ownerUserId,
     skyFollowGraph,
     query,
     savedThreadsState,
@@ -201,7 +209,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
             <Text style={styles.empty}>{emptyCopy}</Text>
           ) : (
             rows.map((row) => {
-              const isOwner = row.skywrite.authorId === currentUser.id;
+              const isOwner = row.skywrite.authorId === ownerUserId;
               const menuActions = [];
               if (row.savedThreadId && (tab === 'saved' || tab === 'archived')) {
                 menuActions.push({

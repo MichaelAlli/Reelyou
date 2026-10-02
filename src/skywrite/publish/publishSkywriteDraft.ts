@@ -1,15 +1,21 @@
 import { buildSkywriteRecord } from '@/skywrite/draft';
 import type { SkywriteDraft, SkywriteRecord } from '@/skywrite/types';
 
-export type PublishSkywritePhase = 'saving' | 'uploading_media' | 'finalizing';
+export type PublishSkywritePhase = 'posting' | 'uploading_media' | 'finalizing';
 
 export type PublishSkywriteProgress = {
   phase: PublishSkywritePhase;
   elapsedMs: number;
 };
 
+export type PublishTimingMs = {
+  totalMs: number;
+  uploadMs?: number;
+  serverMs?: number;
+};
+
 export type PublishSkywriteResult =
-  | { ok: true; record: SkywriteRecord; saveMs: number }
+  | { ok: true; record: SkywriteRecord; saveMs: number; timing?: PublishTimingMs }
   | { ok: false; errorMessage: string; saveMs: number };
 
 /** Persists the post immediately — video thumbnails are generated afterward (non-blocking). */
@@ -20,37 +26,38 @@ export type PublishSkywriteOptions = {
 
 export async function publishSkywriteDraft(
   draft: SkywriteDraft,
-  persist: (record: SkywriteRecord) => Promise<boolean>,
+  persist: (record: SkywriteRecord) => Promise<SkywriteRecord | false>,
   authorId: string,
   onProgress?: (progress: PublishSkywriteProgress) => void,
   options?: PublishSkywriteOptions,
 ): Promise<PublishSkywriteResult> {
   const started = Date.now();
-  const tick = () => onProgress?.({ phase: 'saving', elapsedMs: Date.now() - started });
+  const tick = (phase: PublishSkywritePhase = 'posting') =>
+    onProgress?.({ phase, elapsedMs: Date.now() - started });
 
   try {
-    tick();
+    tick('posting');
     const record = buildSkywriteRecord(
       draft,
       options?.existingId ?? `skywrite-${Date.now()}`,
       options?.createdAt ?? new Date().toISOString(),
       authorId,
     );
-    tick();
-    const saved = await persist(record);
+    tick('posting');
+    const persisted = await persist(record);
     const saveMs = Date.now() - started;
-    if (!saved) {
+    if (!persisted) {
       return {
         ok: false,
-        errorMessage: 'We couldn’t save your Skywrite. Check storage and try again.',
+        errorMessage: 'We couldn’t post your Skywrite. Your draft is still here.',
         saveMs,
       };
     }
-    return { ok: true, record, saveMs };
+    return { ok: true, record: persisted, saveMs };
   } catch {
     return {
       ok: false,
-      errorMessage: 'Something went wrong while saving. Your draft is still here.',
+      errorMessage: 'Something went wrong while posting. Your draft is still here.',
       saveMs: Date.now() - started,
     };
   }

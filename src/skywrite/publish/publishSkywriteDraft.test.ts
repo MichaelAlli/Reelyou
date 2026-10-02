@@ -9,7 +9,11 @@ void (async () => {
   const draft = createEmptySkywriteDraft();
   draft.text = 'Hello sky';
 
-  const ok = await publishSkywriteDraft(draft, async () => true, 'user-michael');
+  const ok = await publishSkywriteDraft(
+    draft,
+    async (record) => record,
+    'user-michael',
+  );
   assert(ok.ok === true, 'persist success');
   if (ok.ok) {
     assert(ok.record.text === 'Hello sky', 'record text preserved');

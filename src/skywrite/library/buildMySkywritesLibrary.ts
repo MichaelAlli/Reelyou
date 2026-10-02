@@ -58,8 +58,11 @@ function isArchived(library: SkywriteLibraryState, skywriteId: string): boolean 
   return typeof library.archivedAtBySkywriteId[skywriteId] === 'number';
 }
 
-function authoredByViewer(record: SkywriteRecord & { authorId: string }): boolean {
-  return record.authorId === currentUser.id;
+function authoredByViewer(
+  record: SkywriteRecord & { authorId: string },
+  ownerUserId: string,
+): boolean {
+  return record.authorId === ownerUserId;
 }
 
 function contributorMayViewSkywrite(
@@ -84,14 +87,16 @@ export function buildAuthoredLibraryRows(input: {
   library: SkywriteLibraryState;
   tab: 'recent' | 'archived';
   query?: string;
+  ownerUserId?: string;
 }): MySkywriteLibraryRow[] {
+  const ownerUserId = input.ownerUserId ?? currentUser.id;
   const q = input.query?.trim().toLowerCase() ?? '';
   const rows: MySkywriteLibraryRow[] = [];
   const lifecycle = buildSkywriteLifecycleView(input.library);
 
   for (const post of input.localPosts) {
-    const record = { ...post, authorId: post.authorId ?? currentUser.id };
-    if (!authoredByViewer(record)) continue;
+    const record = { ...post, authorId: post.authorId ?? ownerUserId };
+    if (!authoredByViewer(record, ownerUserId)) continue;
     if (isSkywriteDeleted(record.id, input.library.deletionTombstonesBySkywriteId)) continue;
     const archived = isArchived(input.library, record.id);
     if (input.tab === 'recent' && archived) continue;
@@ -127,13 +132,15 @@ export function buildYourJourneyLibraryRows(input: {
   localPosts: readonly SkywriteRecord[];
   library: SkywriteLibraryState;
   query?: string;
+  ownerUserId?: string;
 }): MySkywriteLibraryRow[] {
+  const ownerUserId = input.ownerUserId ?? currentUser.id;
   const q = input.query?.trim().toLowerCase() ?? '';
   const rows: MySkywriteLibraryRow[] = [];
 
   for (const post of input.localPosts) {
-    const record = { ...post, authorId: post.authorId ?? currentUser.id };
-    if (!authoredByViewer(record)) continue;
+    const record = { ...post, authorId: post.authorId ?? ownerUserId };
+    if (!authoredByViewer(record, ownerUserId)) continue;
     if (isSkywriteDeleted(record.id, input.library.deletionTombstonesBySkywriteId)) continue;
     if (!isSkywriteInYourJourney(record)) continue;
 

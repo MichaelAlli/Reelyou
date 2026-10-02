@@ -46,13 +46,24 @@ async function uploadLocalUri(
   );
   if (!uploaded.ok) return { ok: false, error: 'photo_upload_failed' };
   const complete = await completeMediaUploadSession(session.assetId);
-  if (!complete.ok) return { ok: false, error: complete.error === 'not_signed_in' ? 'not_signed_in' : 'photo_upload_failed' };
+  if (!complete.ok) {
+    return {
+      ok: false,
+      error: complete.error === 'not_signed_in' ? 'not_signed_in' : 'photo_upload_failed',
+    };
+  }
   return {
     ok: true,
     assetId: session.assetId,
     placeholderUri: buildRemoteAssetPlaceholderUri(session.assetId),
   };
 }
+
+type UploadSlot =
+  | { slot: 'photo'; uri: string }
+  | { slot: 'video'; uri: string }
+  | { slot: 'audio'; uri: string }
+  | { slot: 'thumbnail'; uri: string };
 
 export async function uploadSkywriteMediaForPublish(
   media: SkywriteMedia,
@@ -83,45 +94,73 @@ export async function uploadSkywriteMediaForPublish(
     voiceoverVolume: next.voiceoverVolume,
   };
 
-  if (next.photo?.uri && !next.photo.remoteAssetId && isEphemeralMediaUri(next.photo.uri)) {
-    const up = await uploadLocalUri(next.photo.uri, 'photo');
-    if (!up.ok) return { ok: false, error: up.error };
-    next.photo = { ...next.photo, uri: up.placeholderUri, remoteAssetId: up.assetId };
-    serverRefs.photoAssetId = up.assetId;
-  } else if (next.photo?.remoteAssetId) {
+  if (next.photo?.remoteAssetId) {
     serverRefs.photoAssetId = next.photo.remoteAssetId;
   }
-
-  if (next.video?.uri && !next.video.remoteAssetId && isEphemeralMediaUri(next.video.uri)) {
-    const up = await uploadLocalUri(next.video.uri, 'video');
-    if (!up.ok) return { ok: false, error: up.error === 'photo_upload_failed' ? 'video_upload_failed' : up.error };
-    next.video = { ...next.video, uri: up.placeholderUri, remoteAssetId: up.assetId };
-    serverRefs.videoAssetId = up.assetId;
-  } else if (next.video?.remoteAssetId) {
+  if (next.video?.remoteAssetId) {
     serverRefs.videoAssetId = next.video.remoteAssetId;
   }
-
-  if (
-    next.video?.thumbnailUri &&
-    isEphemeralMediaUri(next.video.thumbnailUri)
-  ) {
-    const thumb = await uploadLocalUri(next.video.thumbnailUri, 'thumbnail');
-    if (thumb.ok) {
-      next.video = {
-        ...next.video,
-        thumbnailUri: thumb.placeholderUri,
-      };
-      serverRefs.thumbnailAssetId = thumb.assetId;
-    }
+  if (next.audio?.remoteAssetId) {
+    serverRefs.audioAssetId = next.audio.remoteAssetId;
   }
 
+  const pending: UploadSlot[] = [];
+  if (next.photo?.uri && !next.photo.remoteAssetId && isEphemeralMediaUri(next.photo.uri)) {
+    pending.push({ slot: 'photo', uri: next.photo.uri });
+  }
+  if (next.video?.uri && !next.video.remoteAssetId && isEphemeralMediaUri(next.video.uri)) {
+    pending.push({ slot: 'video', uri: next.video.uri });
+  }
   if (next.audio?.uri && !next.audio.remoteAssetId && isEphemeralMediaUri(next.audio.uri)) {
-    const up = await uploadLocalUri(next.audio.uri, 'audio');
-    if (!up.ok) return { ok: false, error: up.error === 'photo_upload_failed' ? 'audio_upload_failed' : up.error };
-    next.audio = { ...next.audio, uri: up.placeholderUri, remoteAssetId: up.assetId };
-    serverRefs.audioAssetId = up.assetId;
-  } else if (next.audio?.remoteAssetId) {
-    serverRefs.audioAssetId = next.audio.remoteAssetId;
+    pending.push({ slot: 'audio', uri: next.audio.uri });
+  }
+  if (next.video?.thumbnailUri && isEphemeralMediaUri(next.video.thumbnailUri)) {
+    pending.push({ slot: 'thumbnail', uri: next.video.thumbnailUri });
+  }
+
+  if (pending.length > 0) {
+    const results = await Promise.all(
+      pending.map(async (item) => {
+        const kind: MediaAssetKind =
+          item.slot === 'photo'
+            ? 'photo'
+            : item.slot === 'video'
+              ? 'video'
+              : item.slot === 'audio'
+                ? 'audio'
+                : 'thumbnail';
+        const up = await uploadLocalUri(item.uri, kind);
+        return { slot: item.slot, up };
+      }),
+    );
+
+    for (const { slot, up } of results) {
+      if (!up.ok) {
+        const error =
+          slot === 'video' && up.error === 'photo_upload_failed'
+            ? 'video_upload_failed'
+            : slot === 'audio' && up.error === 'photo_upload_failed'
+              ? 'audio_upload_failed'
+              : up.error;
+        return { ok: false, error };
+      }
+      if (slot === 'photo' && next.photo) {
+        next.photo = { ...next.photo, uri: up.placeholderUri, remoteAssetId: up.assetId };
+        serverRefs.photoAssetId = up.assetId;
+      } else if (slot === 'video' && next.video) {
+        next.video = { ...next.video, uri: up.placeholderUri, remoteAssetId: up.assetId };
+        serverRefs.videoAssetId = up.assetId;
+      } else if (slot === 'audio' && next.audio) {
+        next.audio = { ...next.audio, uri: up.placeholderUri, remoteAssetId: up.assetId };
+        serverRefs.audioAssetId = up.assetId;
+      } else if (slot === 'thumbnail' && next.video) {
+        next.video = {
+          ...next.video,
+          thumbnailUri: up.placeholderUri,
+        };
+        serverRefs.thumbnailAssetId = up.assetId;
+      }
+    }
   }
 
   return { ok: true, media: next, serverMediaRefs: serverRefs };

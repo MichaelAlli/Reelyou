@@ -95,6 +95,7 @@ import {
   applyAddToYourJourney,
   applyPublishRetentionFields,
 } from '@/skywrite/library/skywriteLibraryRetention';
+import { mergeOwnerSkywritePosts } from '@/skywrite/library/mergeOwnerSkywritePosts';
 import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
 import { setActiveStorageUserId } from '@/storage/scopedAsyncStorage';
 import {
@@ -373,12 +374,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (!live) return;
       cacheRemoteSkywrites(authUser.id, remote);
       setSkywritesState((current) => {
-        const byId = new Map(current.posts.map((post) => [post.id, post]));
-        for (const post of remote) {
-          byId.set(post.id, post);
-        }
         const merged: SkywritesState = {
-          posts: [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+          posts: mergeOwnerSkywritePosts(current.posts, remote),
         };
         skywritesRef.current = merged;
         void saveSkywrites(merged);
@@ -757,13 +754,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (publishInFlightRef.current) {
         return {
           ok: false,
-          errorMessage: 'Your Skywrite is already saving. Please wait a moment.',
+          errorMessage: 'Your Skywrite is already posting. Please wait a moment.',
           saveMs: 0,
         };
       }
       publishInFlightRef.current = true;
       let result: PublishSkywriteResult;
       let lastServerSyncError: string | null = null;
+      let publishTiming: { uploadMs: number; serverMs: number } | undefined;
       try {
         result = await publishSkywriteDraft(
           draft,
@@ -775,8 +773,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 lastServerSyncError = sync.error;
                 return false;
               }
-              finalRecord = sync.record;
+              finalRecord = applyPublishRetentionFields(sync.record, draft);
+              publishTiming = sync.timingMs;
             }
+            finalRecord = {
+              ...finalRecord,
+              authorId: finalRecord.authorId ?? activeUserId,
+            };
             const withoutDup = skywritesRef.current.posts.filter((post) => post.id !== finalRecord.id);
             const next: SkywritesState = {
               posts: [finalRecord, ...withoutDup],
@@ -792,11 +795,21 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                 }),
               );
             }
-            return saved;
+            return saved ? finalRecord : false;
           },
           activeUserId,
           onProgress,
         );
+        if (result.ok && publishTiming) {
+          result = {
+            ...result,
+            timing: {
+              totalMs: result.saveMs,
+              uploadMs: publishTiming.uploadMs,
+              serverMs: publishTiming.serverMs,
+            },
+          };
+        }
         if (!result.ok && lastServerSyncError) {
           result = {
             ...result,
@@ -815,6 +828,20 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       if (result.ok) {
         scheduleSkywritePostPublishEffects(result.record);
+        if (isSharedSocialPersistenceEnabled() && authUser?.id) {
+          void fetchAuthorServerSkywrites(authUser.id).then((serverRows) => {
+            if (serverRows.length === 0) return;
+            const remote = serverRows.map((row) => mapServerSkywriteToRecord(row));
+            setSkywritesState((current) => {
+              const merged: SkywritesState = {
+                posts: mergeOwnerSkywritePosts(current.posts, remote),
+              };
+              skywritesRef.current = merged;
+              void saveSkywrites(merged);
+              return merged;
+            });
+          });
+        }
       }
 
       if (result.ok && result.record.media.video?.uri && !result.record.media.video.thumbnailUri) {
@@ -837,7 +864,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       return result;
     },
-    [activeUserId, recordSkyEvolution],
+    [activeUserId, authUser?.id, recordSkyEvolution],
   );
 
   const addSkywriteToYourJourney = useCallback(
@@ -896,7 +923,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             setSkywritesState(next);
             skywritesRef.current = next;
           }
-          return saved;
+          return saved ? finalRecord : false;
         },
         existing.authorId ?? activeUserId,
         onProgress,
@@ -920,7 +947,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       return result;
     },
-    [],
+    [activeUserId],
   );
 
   const setProfileSkyAreaShortcutIds = useCallback((ids: SkyAreaCategoryId[]) => {

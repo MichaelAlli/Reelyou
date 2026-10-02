@@ -425,7 +425,7 @@ export function SkywriteScreen() {
           : progress.phase === 'finalizing'
             ? SkywriteCopy.publishingFinalizing
             : SkywriteCopy.publishing;
-      setPostingLabel(SkywriteCopy.publishingPhase(phaseLabel, seconds));
+      setPostingLabel(`${phaseLabel} ${seconds}s`);
     };
     const result = editingSkywriteId
       ? await replaceSkywrite(editingSkywriteId, publishDraft, onProgress)
@@ -436,6 +436,10 @@ export function SkywriteScreen() {
     if (!result.ok) {
       setPublishError(result.errorMessage);
       return;
+    }
+
+    if (__DEV__ && result.timing) {
+      console.info('[skywrite-publish]', result.timing);
     }
 
     setPreviewOpen(false);

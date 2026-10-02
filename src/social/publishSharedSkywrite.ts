@@ -15,7 +15,7 @@ export async function syncPublishedSkywriteToServer(
   | { ok: false; error: string; record?: SkywriteRecord }
 > {
   if (!isSharedSocialPersistenceEnabled()) {
-    return { ok: true, record };
+    return { ok: true, record, timingMs: { uploadMs: 0, serverMs: 0 } };
   }
 
   const hasLocalMedia =
@@ -72,6 +72,6 @@ export async function syncPublishedSkywriteToServer(
 
   const authoritative = published.record;
   cacheRemoteSkywrite(authoritative);
-  tick('saving');
+  tick('posting');
   return { ok: true, record: authoritative, timingMs: { uploadMs, serverMs } };
 }
