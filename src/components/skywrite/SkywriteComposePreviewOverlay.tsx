@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -45,7 +45,25 @@ export function SkywriteComposePreviewOverlay({
   const { user: authUser } = useReelyouAuth();
   const authorId = resolveActiveUserId(authUser);
   const audioPreview = useOverlayAudioPreviewScope(visible);
+  const stopImmersiveMediaRef = useRef<() => void>(() => undefined);
   const [stepIndex, setStepIndex] = useState(0);
+
+  const previewMedia = useMemo(
+    () => draft.media,
+    [
+      draft.media.audio?.durationMs,
+      draft.media.audio?.uri,
+      draft.media.originalVideoAudio,
+      draft.media.originalVideoVolume,
+      draft.media.photo?.uri,
+      draft.media.video?.durationMs,
+      draft.media.video?.framingOffsetX,
+      draft.media.video?.framingOffsetY,
+      draft.media.video?.stageFit,
+      draft.media.video?.uri,
+      draft.media.voiceoverVolume,
+    ],
+  );
 
   const previewRecord = useMemo(
     () =>
@@ -60,14 +78,15 @@ export function SkywriteComposePreviewOverlay({
   const steps = useMemo(() => defaultStepsForSkywrite(previewRecord), [previewRecord]);
   const step = steps[stepIndex] ?? steps[0];
   const previewId = `compose-preview-${step?.kind ?? 'text'}`;
+  const [mediaStartNonce, setMediaStartNonce] = useState(0);
 
   const handleClose = useCallback(() => {
+    stopImmersiveMediaRef.current();
     void audioPreview.stopAll();
     setStepIndex(0);
+    setMediaStartNonce(0);
     onClose();
   }, [audioPreview, onClose]);
-
-  const [mediaStartNonce, setMediaStartNonce] = useState(0);
 
   const handlePrevious = useCallback(() => {
     void audioPreview.stopAll();
@@ -132,12 +151,16 @@ export function SkywriteComposePreviewOverlay({
             onBeforeStepChange={() => void audioPreview.stopAll()}
             layoutMode="viewport"
             mediaStartNonce={mediaStartNonce}
-            mediaMix={draft.media}
+            mediaMix={previewMedia}
             onMediaMixChange={onDraftMediaChange}
             showAudioMixControls
             allowVideoFramingEdit
             navigationMode="buttons"
             narrationAutoplay={false}
+            autoPlayVideo={false}
+            onRegisterMediaStop={(stop) => {
+              stopImmersiveMediaRef.current = stop;
+            }}
             bottomSlot={postActions}
           />
         </SafeAreaView>

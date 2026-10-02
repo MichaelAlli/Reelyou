@@ -76,6 +76,8 @@ interface SkywriteImmersiveMomentViewProps {
   mediaStartNonce?: number;
   skyReelActiveUntilMs?: number | null;
   onMediaPlaybackStarted?: () => void;
+  /** Compose preview: stop video + narration when Back to editing bypasses handleExit. */
+  onRegisterMediaStop?: (stop: () => void) => void;
 }
 
 function ProgressSegments({ index, count }: { index: number; count: number }) {
@@ -128,6 +130,7 @@ function SkywriteImmersiveMomentViewComponent({
   mediaStartNonce = 0,
   skyReelActiveUntilMs = null,
   onMediaPlaybackStarted,
+  onRegisterMediaStop,
 }: SkywriteImmersiveMomentViewProps) {
   const insets = useSafeAreaInsets();
   const { record: resolvedRecord, status: remoteMediaStatus, mediaError, retry: retryRemoteMedia } =
@@ -143,12 +146,30 @@ function SkywriteImmersiveMomentViewComponent({
   const narration = useSkywriteNarrationPlayback(narrationActive);
   const narrationStartedRef = useRef(false);
 
-  const videoPlayback = useSkywriteImmersiveVideoPlayback(playbackRecord, videoActive, playbackMedia, {
-    onAutoplayBlocked: onVideoAutoplayBlocked,
-    onCombinedPlaybackFinished: onVideoFinished,
-    onPlaybackStarted: onMediaPlaybackStarted,
-  });
-  const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize } = videoPlayback;
+  const videoPlaybackOptions = useMemo(
+    () => ({
+      onAutoplayBlocked: onVideoAutoplayBlocked,
+      onCombinedPlaybackFinished: onVideoFinished,
+      onPlaybackStarted: onMediaPlaybackStarted,
+    }),
+    [onMediaPlaybackStarted, onVideoAutoplayBlocked, onVideoFinished],
+  );
+  const videoPlayback = useSkywriteImmersiveVideoPlayback(
+    playbackRecord,
+    videoActive,
+    playbackMedia,
+    videoPlaybackOptions,
+  );
+  const { requestAutoPlay, cleanup: cleanupVideo, handleVideoLoad, naturalSize, seekTo, togglePlayPause } =
+    videoPlayback;
+  const stopVideoAndNarration = useCallback(() => {
+    void cleanupVideo();
+    void narration.stop();
+  }, [cleanupVideo, narration]);
+
+  useEffect(() => {
+    onRegisterMediaStop?.(stopVideoAndNarration);
+  }, [onRegisterMediaStop, stopVideoAndNarration]);
   const autoPlayIssuedRef = useRef(false);
   const [mixOpen, setMixOpen] = useState(false);
   const [framingAdjustActive, setFramingAdjustActive] = useState(false);
@@ -207,11 +228,9 @@ function SkywriteImmersiveMomentViewComponent({
   }, [record.id, stepKind, narration.stop]);
 
   useEffect(() => {
-    if (mediaStartNonce <= 0) return;
-    if (stepKind === 'video') {
-      void videoPlayback.seekTo(0);
-    }
-  }, [mediaStartNonce, stepKind, videoPlayback]);
+    if (mediaStartNonce <= 0 || stepKind !== 'video') return;
+    void seekTo(0);
+  }, [mediaStartNonce, seekTo, stepKind]);
 
   useEffect(() => {
     if (!autoPlayVideo || stepKind !== 'video' || autoPlayIssuedRef.current || sequencePaused) return;
@@ -225,24 +244,20 @@ function SkywriteImmersiveMomentViewComponent({
     requestAutoPlay();
   }, [manualPlayNonce, requestAutoPlay, stepKind]);
 
+  const videoIsPlaying = videoPlayback.isPlaying;
+  const videoIsLoaded = videoPlayback.isLoaded;
+
   useEffect(() => {
-    if (stepKind !== 'video') return;
-    if (sequencePaused && videoPlayback.isPlaying) {
-      void videoPlayback.togglePlayPause();
+    if (stepKind !== 'video' || !sequencePaused || !videoIsPlaying) return;
+    void togglePlayPause();
+  }, [sequencePaused, stepKind, togglePlayPause, videoIsPlaying]);
+
+  useEffect(() => {
+    if (stepKind !== 'video' || !autoPlayVideo || sequencePaused || videoIsPlaying || !videoIsLoaded) {
       return;
     }
-    if (!sequencePaused && autoPlayVideo && !videoPlayback.isPlaying && videoPlayback.isLoaded) {
-      requestAutoPlay();
-    }
-  }, [
-    autoPlayVideo,
-    sequencePaused,
-    stepKind,
-    videoPlayback,
-    videoPlayback.isLoaded,
-    videoPlayback.isPlaying,
-    requestAutoPlay,
-  ]);
+    requestAutoPlay();
+  }, [autoPlayVideo, requestAutoPlay, sequencePaused, stepKind, videoIsLoaded, videoIsPlaying]);
 
   const audioUri = playbackRecord.media.audio?.uri ?? null;
   const videoAspect = useMemo(() => {
