@@ -21,6 +21,7 @@ import {
   buildMySkywritesLabeledDemoPosts,
   isMySkywritesLabeledDemoPost,
 } from '@/skywrite/library/mySkywritesLabeledDemoPosts';
+import { migrateSkywritesForUser } from '@/skywrite/skywritePersistenceMigration';
 import { EMPTY_SKYWRITE_MEDIA, EMPTY_SKYWRITES } from '@/skywrite/types';
 import type { Mood, Privacy } from '@/types';
 
@@ -230,14 +231,6 @@ function mergeLabeledRecentDemoPosts(state: SkywritesState): SkywritesState {
   const toAdd = demos.filter((post) => !existingIds.has(post.id));
   if (toAdd.length === 0) return state;
   return { posts: [...toAdd, ...state.posts] };
-}
-
-function migrateSkywritesForUser(state: SkywritesState, userId: string): SkywritesState {
-  return {
-    posts: state.posts.filter(
-      (post) => !post.authorId || post.authorId === userId,
-    ),
-  };
 }
 
 export async function loadSkywrites(): Promise<SkywritesState> {

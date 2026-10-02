@@ -124,7 +124,7 @@ export function SkywriteComposePreviewOverlay({
         {isPosting ? (
           <View style={styles.postingRow}>
             <ActivityIndicator color="#1a1028" />
-            {postingLabel ? <Text style={styles.postingText}>{postingLabel}</Text> : null}
+            <Text style={styles.postingText}>{postingLabel ?? SkywriteCopy.publishing}</Text>
           </View>
         ) : (
           <Text style={styles.primaryText}>{SkywriteCopy.previewPost}</Text>

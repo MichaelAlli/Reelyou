@@ -356,36 +356,39 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     };
   }, [activeUserId]);
 
+  const mergeAuthorSkywritesFromServer = useCallback(async (authorUserId: string) => {
+    if (!isSharedSocialPersistenceEnabled()) return;
+    const serverRows = await fetchAuthorServerSkywrites(authorUserId);
+    const remote = serverRows.map((row) => mapServerSkywriteToRecord(row));
+    const { mergeServerSkyreelIntoRegistry } = await import(
+      '@/skywrite/play/mergeServerSkyreelRegistry'
+    );
+    const { loadPlaySkySequenceRegistry, savePlaySkySequenceRegistry } = await import(
+      '@/skywrite/play/playSkySequencePersistence'
+    );
+    const registry = await loadPlaySkySequenceRegistry();
+    await savePlaySkySequenceRegistry(mergeServerSkyreelIntoRegistry(registry, serverRows));
+    cacheRemoteSkywrites(authorUserId, remote);
+    setSkywritesState((current) => {
+      const merged: SkywritesState = {
+        posts: mergeOwnerSkywritePosts(current.posts, remote),
+      };
+      skywritesRef.current = merged;
+      void saveSkywrites(merged);
+      return merged;
+    });
+  }, []);
+
   useEffect(() => {
     if (!isSharedSocialPersistenceEnabled() || !authUser?.id) return;
     let live = true;
-    void fetchAuthorServerSkywrites(authUser.id).then(async (serverRows) => {
+    void mergeAuthorSkywritesFromServer(authUser.id).finally(() => {
       if (!live) return;
-      if (serverRows.length === 0) return;
-      const remote = serverRows.map((row) => mapServerSkywriteToRecord(row));
-      const { mergeServerSkyreelIntoRegistry } = await import(
-        '@/skywrite/play/mergeServerSkyreelRegistry'
-      );
-      const { loadPlaySkySequenceRegistry, savePlaySkySequenceRegistry } = await import(
-        '@/skywrite/play/playSkySequencePersistence'
-      );
-      const registry = await loadPlaySkySequenceRegistry();
-      await savePlaySkySequenceRegistry(mergeServerSkyreelIntoRegistry(registry, serverRows));
-      if (!live) return;
-      cacheRemoteSkywrites(authUser.id, remote);
-      setSkywritesState((current) => {
-        const merged: SkywritesState = {
-          posts: mergeOwnerSkywritePosts(current.posts, remote),
-        };
-        skywritesRef.current = merged;
-        void saveSkywrites(merged);
-        return merged;
-      });
     });
     return () => {
       live = false;
     };
-  }, [authUser?.id]);
+  }, [authUser?.id, mergeAuthorSkywritesFromServer]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -829,18 +832,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (result.ok) {
         scheduleSkywritePostPublishEffects(result.record);
         if (isSharedSocialPersistenceEnabled() && authUser?.id) {
-          void fetchAuthorServerSkywrites(authUser.id).then((serverRows) => {
-            if (serverRows.length === 0) return;
-            const remote = serverRows.map((row) => mapServerSkywriteToRecord(row));
-            setSkywritesState((current) => {
-              const merged: SkywritesState = {
-                posts: mergeOwnerSkywritePosts(current.posts, remote),
-              };
-              skywritesRef.current = merged;
-              void saveSkywrites(merged);
-              return merged;
-            });
-          });
+          await mergeAuthorSkywritesFromServer(authUser.id);
         }
       }
 
@@ -864,7 +856,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
       return result;
     },
-    [activeUserId, authUser?.id, recordSkyEvolution],
+    [activeUserId, authUser?.id, mergeAuthorSkywritesFromServer, recordSkyEvolution],
   );
 
   const addSkywriteToYourJourney = useCallback(

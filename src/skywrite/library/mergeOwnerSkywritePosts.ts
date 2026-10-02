@@ -16,10 +16,19 @@ export function mergeOwnerSkywritePosts(
       byId.set(remote.id, remote);
       continue;
     }
+    const remotePublished =
+      typeof remote.publishedAtMs === 'number' && Number.isFinite(remote.publishedAtMs)
+        ? remote.publishedAtMs
+        : 0;
+    const localPublished =
+      typeof existing.publishedAtMs === 'number' && Number.isFinite(existing.publishedAtMs)
+        ? existing.publishedAtMs
+        : 0;
+    const preferRemoteBody = remotePublished >= localPublished;
     const merged = mergeServerRetentionOntoRecord(
       {
-        ...existing,
-        ...remote,
+        ...(preferRemoteBody ? existing : remote),
+        ...(preferRemoteBody ? remote : existing),
         authorId: remote.authorId ?? existing.authorId,
         media: remote.media?.video?.uri || remote.media?.photo?.uri || remote.media?.audio?.uri
           ? remote.media

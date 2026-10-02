@@ -94,7 +94,7 @@ export const SkywriteCopy = {
   commentSendError: 'We couldn’t send that comment. Try again.',
   commentForbidden: 'Comments aren’t available on this Skywrite.',
   deleteOwnComment: 'Delete',
-  publishError: 'We couldn’t save your Skywrite. Please try again.',
+  publishError: 'We couldn’t post your Skywrite. Please try again.',
   publishing: 'Posting…',
   publishingUploading: 'Uploading media…',
   publishingFinalizing: 'Posting…',
