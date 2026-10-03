@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   invalidateSkywriteRemoteMediaCache,
@@ -33,6 +33,7 @@ export function useResolvedSkywriteRecord(record: SkywriteRecord | null | undefi
   );
   const [mediaError, setMediaError] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
+  const resolveGenerationRef = useRef(0);
 
   const retry = useCallback(() => {
     if (record) invalidateSkywriteRemoteMediaCache(record);
@@ -53,16 +54,25 @@ export function useResolvedSkywriteRecord(record: SkywriteRecord | null | undefi
       setMediaError(false);
       return;
     }
-    let mounted = true;
+    const generation = ++resolveGenerationRef.current;
     setStatus('loading');
-    void resolveSkywriteRecord(record, { forceRefresh: retryNonce > 0 }).then(({ record: next, allOk }) => {
-      if (!mounted) return;
-      setDisplayRecord(next);
-      setStatus(allOk ? 'ready' : 'error');
-      setMediaError(!allOk);
-    });
+    void resolveSkywriteRecord(record, { forceRefresh: retryNonce > 0 })
+      .then(({ record: next, allOk }) => {
+        if (generation !== resolveGenerationRef.current) return;
+        setDisplayRecord(next);
+        setStatus(allOk ? 'ready' : 'error');
+        setMediaError(!allOk);
+      })
+      .catch(() => {
+        if (generation !== resolveGenerationRef.current) return;
+        setDisplayRecord(record);
+        setStatus('error');
+        setMediaError(true);
+      });
     return () => {
-      mounted = false;
+      if (generation === resolveGenerationRef.current) {
+        resolveGenerationRef.current += 1;
+      }
     };
   }, [record, retryNonce]);
 

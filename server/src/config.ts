@@ -1,6 +1,13 @@
 function parseOrigins(raw: string | undefined): string[] {
   if (!raw?.trim()) {
-    return ['http://localhost:8090', 'http://localhost:8094', 'http://localhost:8096'];
+    return [
+      'http://localhost:8081',
+      'http://localhost:8090',
+      'http://localhost:8091',
+      'http://localhost:8094',
+      'http://localhost:8096',
+      'http://localhost:19006',
+    ];
   }
   return raw.split(',').map((s) => s.trim()).filter(Boolean);
 }

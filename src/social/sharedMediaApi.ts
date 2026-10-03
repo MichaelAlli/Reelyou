@@ -1,4 +1,4 @@
-import { authenticatedReellyouFetch } from '@/backend/authenticatedReellyouFetch';
+import { authenticatedReellyouFetch, readLastAuthenticatedFetchFailure } from '@/backend/authenticatedReellyouFetch';
 import { FetchTimeoutError, fetchWithTimeout } from '@/backend/fetchWithTimeout';
 import { resolveReellyouApiBaseUrl } from '@/backend/reellyouApiConfig';
 import type { MediaAssetKind } from '@/social/sharedMediaTypes';
@@ -11,8 +11,22 @@ export type UploadSession = {
 };
 
 const accessCache = new Map<string, { url: string; expiresAt: number }>();
+const accessInFlight = new Map<string, Promise<string | null>>();
 
 export type MediaUploadSessionError = 'not_signed_in' | 'api_unreachable' | 'upload_session_rejected';
+
+export type MediaAccessFailure =
+  | 'not_signed_in'
+  | 'not_configured'
+  | 'network'
+  | 'timeout'
+  | 'not_found'
+  | 'forbidden'
+  | 'invalid_response';
+
+export type MediaAccessResult =
+  | { ok: true; url: string }
+  | { ok: false; failure: MediaAccessFailure };
 
 export async function createMediaUploadSession(input: {
   kind: MediaAssetKind;
@@ -27,7 +41,11 @@ export async function createMediaUploadSession(input: {
     body: JSON.stringify(input),
   });
   if (res === null) {
-    return { ok: false, error: 'not_signed_in' };
+    const failure = readLastAuthenticatedFetchFailure();
+    return {
+      ok: false,
+      error: failure === 'not_signed_in' ? 'not_signed_in' : 'api_unreachable',
+    };
   }
   if (!res.ok) {
     return { ok: false, error: 'upload_session_rejected' };
@@ -53,7 +71,12 @@ export async function completeMediaUploadSession(
     `/v1/media/upload-sessions/${encodeURIComponent(assetId)}/complete`,
     { method: 'POST', body: JSON.stringify({}) },
   );
-  if (res === null) return { ok: false, error: 'not_signed_in' };
+  if (res === null) {
+    return {
+      ok: false,
+      error: readLastAuthenticatedFetchFailure() === 'not_signed_in' ? 'not_signed_in' : 'upload_complete_failed',
+    };
+  }
   if (!res.ok) return { ok: false, error: 'upload_complete_failed' };
   const body = (await res.json()) as { ok?: boolean };
   return body.ok ? { ok: true } : { ok: false, error: 'upload_complete_failed' };
@@ -93,25 +116,72 @@ export async function putUploadWithRetry(
   return { ok: false, status: Number.isFinite(statusMatch) ? statusMatch : undefined };
 }
 
+async function fetchMediaAccessUrlOnce(assetId: string): Promise<MediaAccessResult> {
+  const res = await authenticatedReellyouFetch(
+    `/v1/media/assets/${encodeURIComponent(assetId)}/access`,
+    { method: 'GET', timeoutMs: 45_000 },
+  );
+  if (res === null) {
+    const failure = readLastAuthenticatedFetchFailure();
+    if (failure === 'not_signed_in') return { ok: false, failure: 'not_signed_in' };
+    if (failure === 'not_configured') return { ok: false, failure: 'not_configured' };
+    if (failure === 'timeout') return { ok: false, failure: 'timeout' };
+    return { ok: false, failure: 'network' };
+  }
+  if (res.status === 401 || res.status === 403) {
+    return { ok: false, failure: res.status === 401 ? 'not_signed_in' : 'forbidden' };
+  }
+  if (!res.ok) {
+    return { ok: false, failure: res.status === 404 ? 'not_found' : 'invalid_response' };
+  }
+  let body: { ok?: boolean; access?: { url: string; expiresAt: number }; error?: string };
+  try {
+    body = (await res.json()) as typeof body;
+  } catch {
+    return { ok: false, failure: 'invalid_response' };
+  }
+  if (!body.ok || !body.access?.url) {
+    if (body.error === 'forbidden') return { ok: false, failure: 'forbidden' };
+    if (body.error === 'not_found') return { ok: false, failure: 'not_found' };
+    return { ok: false, failure: 'invalid_response' };
+  }
+  const base = resolveReellyouApiBaseUrl();
+  const url = body.access.url.startsWith('http')
+    ? body.access.url
+    : `${base}${body.access.url}`;
+  accessCache.set(assetId, { url, expiresAt: body.access.expiresAt });
+  return { ok: true, url };
+}
+
 export async function resolveMediaAccessUrl(assetId: string): Promise<string | null> {
   const cached = accessCache.get(assetId);
   if (cached && cached.expiresAt > Date.now() + 30_000) return cached.url;
 
-  const res = await authenticatedReellyouFetch(
-    `/v1/media/assets/${encodeURIComponent(assetId)}/access`,
-    { method: 'GET' },
-  );
-  if (!res?.ok) return null;
-  const body = (await res.json()) as {
-    ok?: boolean;
-    access?: { url: string; expiresAt: number };
-  };
-  if (!body.ok || !body.access?.url) return null;
-  const url = body.access.url.startsWith('http')
-    ? body.access.url
-    : `${resolveReellyouApiBaseUrl()}${body.access.url}`;
-  accessCache.set(assetId, { url, expiresAt: body.access.expiresAt });
-  return url;
+  const inFlight = accessInFlight.get(assetId);
+  if (inFlight) return inFlight;
+
+  const task = (async () => {
+    const retryable = new Set<MediaAccessFailure>(['network', 'timeout']);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const result = await fetchMediaAccessUrlOnce(assetId);
+      if (result.ok) return result.url;
+      if (!retryable.has(result.failure) || attempt >= 2) {
+        if (__DEV__) {
+          console.warn('[reellyou-media-access]', { assetId, failure: result.failure });
+        }
+        return null;
+      }
+      await sleep(350 * (attempt + 1));
+    }
+    return null;
+  })();
+
+  accessInFlight.set(assetId, task);
+  try {
+    return await task;
+  } finally {
+    accessInFlight.delete(assetId);
+  }
 }
 
 export function clearMediaAccessCache(): void {
