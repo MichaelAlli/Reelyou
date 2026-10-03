@@ -23,29 +23,38 @@ async function blobFromUri(uri: string): Promise<{ blob: Blob; contentType: stri
   }
 }
 
+type UploadStage = 'sessions' | 'transfer' | 'finalize_asset';
+
 async function uploadLocalUri(
   uri: string,
   kind: MediaAssetKind,
+  onStage?: (stage: UploadStage, ms: number) => void,
 ): Promise<
   | { ok: true; assetId: string; placeholderUri: string }
   | { ok: false; error: string }
 > {
   const payload = await blobFromUri(uri);
   if (!payload) return { ok: false, error: 'blob_read_failed' };
+  const sessionStarted = Date.now();
   const sessionResult = await createMediaUploadSession({
     kind,
     contentType: payload.contentType,
     sizeBytes: payload.blob.size,
   });
+  onStage?.('sessions', Date.now() - sessionStarted);
   if (!sessionResult.ok) return { ok: false, error: sessionResult.error };
   const session = sessionResult.session;
+  const transferStarted = Date.now();
   const uploaded = await putUploadWithRetry(
     session.uploadUrl,
     payload.blob,
     session.uploadHeaders,
   );
+  onStage?.('transfer', Date.now() - transferStarted);
   if (!uploaded.ok) return { ok: false, error: 'photo_upload_failed' };
+  const finalizeStarted = Date.now();
   const complete = await completeMediaUploadSession(session.assetId);
+  onStage?.('finalize_asset', Date.now() - finalizeStarted);
   if (!complete.ok) {
     return {
       ok: false,
@@ -67,10 +76,14 @@ type UploadSlot =
 
 export async function uploadSkywriteMediaForPublish(
   media: SkywriteMedia,
+  options?: {
+    onStage?: (stage: UploadStage, ms: number) => void;
+  },
 ): Promise<
   | { ok: true; media: SkywriteMedia; serverMediaRefs: ServerSkywriteMediaRefs }
   | { ok: false; error: string }
 > {
+  const onStage = options?.onStage;
   const next: SkywriteMedia = {
     ...media,
     photo: media.photo ? { ...media.photo } : null,
@@ -129,7 +142,7 @@ export async function uploadSkywriteMediaForPublish(
               : item.slot === 'audio'
                 ? 'audio'
                 : 'thumbnail';
-        const up = await uploadLocalUri(item.uri, kind);
+        const up = await uploadLocalUri(item.uri, kind, onStage);
         return { slot: item.slot, up };
       }),
     );

@@ -1,17 +1,31 @@
 import { buildSkywriteRecord } from '@/skywrite/draft';
 import type { SkywriteDraft, SkywriteRecord } from '@/skywrite/types';
 
-export type PublishSkywritePhase = 'posting' | 'uploading_media' | 'finalizing';
+export type PublishSkywritePhase =
+  | 'preparing_media'
+  | 'uploading_media'
+  | 'finalizing'
+  | 'posting';
 
 export type PublishSkywriteProgress = {
   phase: PublishSkywritePhase;
   elapsedMs: number;
 };
 
+export type PublishStageTimingMs = {
+  preparingMs?: number;
+  uploadSessionMs?: number;
+  uploadTransferMs?: number;
+  finalizeAssetsMs?: number;
+  createPostMs?: number;
+  libraryReconcileMs?: number;
+};
+
 export type PublishTimingMs = {
   totalMs: number;
   uploadMs?: number;
   serverMs?: number;
+  stages?: PublishStageTimingMs;
 };
 
 export type PublishSkywriteResult =
@@ -36,7 +50,7 @@ export async function publishSkywriteDraft(
     onProgress?.({ phase, elapsedMs: Date.now() - started });
 
   try {
-    tick('posting');
+    tick('preparing_media');
     const record = buildSkywriteRecord(
       draft,
       options?.existingId ?? `skywrite-${Date.now()}`,

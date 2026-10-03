@@ -95,6 +95,7 @@ export const SkywriteCopy = {
   commentForbidden: 'Comments aren’t available on this Skywrite.',
   deleteOwnComment: 'Delete',
   publishError: 'We couldn’t post your Skywrite. Please try again.',
+  publishingPreparing: 'Preparing media…',
   publishing: 'Posting…',
   publishingUploading: 'Uploading media…',
   publishingFinalizing: 'Posting…',

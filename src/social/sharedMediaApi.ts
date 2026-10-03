@@ -1,4 +1,5 @@
 import { authenticatedReellyouFetch } from '@/backend/authenticatedReellyouFetch';
+import { FetchTimeoutError, fetchWithTimeout } from '@/backend/fetchWithTimeout';
 import { resolveReellyouApiBaseUrl } from '@/backend/reellyouApiConfig';
 import type { MediaAssetKind } from '@/social/sharedMediaTypes';
 
@@ -71,15 +72,16 @@ export async function putUploadWithRetry(
   let lastError: unknown;
   for (let i = 0; i < attempts; i += 1) {
     try {
-      const res = await fetch(uploadUrl, {
+      const res = await fetchWithTimeout(uploadUrl, {
         method: 'PUT',
         headers,
         body: blob,
+        timeoutMs: Math.min(300_000, 60_000 + blob.size / 20_000),
       });
       if (res.ok || res.status === 204) return { ok: true };
       lastError = new Error(`upload_status_${res.status}`);
     } catch (err) {
-      lastError = err;
+      lastError = err instanceof FetchTimeoutError ? new Error('upload_timeout') : err;
     }
     if (i < attempts - 1) await sleep(400 * (i + 1));
   }

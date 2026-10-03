@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -101,6 +101,12 @@ export function SkywriteComposePreviewOverlay({
     setMediaStartNonce((n) => n + 1);
     setStepIndex((index) => Math.min(steps.length - 1, index + 1));
   }, [audioPreview, steps.length]);
+
+  useEffect(() => {
+    if (!isPosting) return;
+    stopImmersiveMediaRef.current();
+    void audioPreview.stopAll();
+  }, [audioPreview, isPosting]);
 
   if (!visible || !step) return null;
 

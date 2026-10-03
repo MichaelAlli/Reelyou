@@ -15,6 +15,10 @@ export function formatSkywriteServerSyncError(code: string): string {
       return 'We couldn’t read the selected file from this browser. Re-select the photo or video and try again.';
     case 'server_publish_failed':
       return 'Your media uploaded, but saving the Skywrite failed. Try again — we won’t duplicate the post.';
+    case 'server_publish_timeout':
+      return 'Posting took too long to confirm. We’ll check whether it already posted — try again only if it doesn’t appear in Recent.';
+    case 'upload_timeout':
+      return 'Media upload timed out. Your draft is unchanged — check your connection and try again.';
     default:
       return 'We couldn’t upload or save your Skywrite to the server. Check your connection and try again.';
   }

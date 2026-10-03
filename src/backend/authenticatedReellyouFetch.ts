@@ -1,9 +1,10 @@
 import { loadAccessToken } from '@/auth/reellyouAuthPersistence';
 import { isReellyouBackendConfigured, resolveReellyouApiBaseUrl } from '@/backend/reellyouApiConfig';
+import { fetchWithTimeout } from '@/backend/fetchWithTimeout';
 
 export async function authenticatedReellyouFetch(
   path: string,
-  init: RequestInit = {},
+  init: RequestInit & { timeoutMs?: number } = {},
 ): Promise<Response | null> {
   const base = resolveReellyouApiBaseUrl();
   if (!base || !isReellyouBackendConfigured()) return null;
@@ -14,5 +15,6 @@ export async function authenticatedReellyouFetch(
   if (init.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  return fetch(`${base}${path}`, { ...init, headers });
+  const { timeoutMs = 120_000, ...rest } = init;
+  return fetchWithTimeout(`${base}${path}`, { ...rest, headers, timeoutMs });
 }

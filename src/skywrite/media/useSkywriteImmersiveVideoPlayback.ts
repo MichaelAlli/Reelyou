@@ -17,6 +17,7 @@ import {
 import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
 
 const VOICE_SYNC_MIN_DRIFT_MS = 280;
+const UI_POSITION_MIN_INTERVAL_MS = 200;
 
 function videoVolumeForMedia(media: SkywriteMedia | undefined): number {
   if (!media) return 1;
@@ -368,8 +369,15 @@ export function useSkywriteImmersiveVideoPlayback(
 
       const now = Date.now();
       const pos = finiteMs(status.positionMillis) ?? 0;
-      if (!status.isPlaying && !videoEndedVoiceContinuesRef.current) {
-        if (now - lastUiUpdateMsRef.current < 750 && Math.abs(pos - positionMsRef.current) < 120) {
+      const uiInterval = status.isPlaying ? UI_POSITION_MIN_INTERVAL_MS : 750;
+      if (
+        now - lastUiUpdateMsRef.current < uiInterval &&
+        Math.abs(pos - positionMsRef.current) < 120 &&
+        !videoEndedVoiceContinuesRef.current
+      ) {
+        if (status.didJustFinish) {
+          /* fall through for end handling */
+        } else {
           return;
         }
       }

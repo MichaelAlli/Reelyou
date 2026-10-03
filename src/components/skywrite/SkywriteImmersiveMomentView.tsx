@@ -312,10 +312,12 @@ function SkywriteImmersiveMomentViewComponent({
     if (stepKind !== 'video' || !autoPlayVideo || sequencePaused || videoIsPlaying || !videoIsLoaded) {
       return;
     }
+    if (playbackPhase === 'ended' || playbackPhase === 'error') return;
     if (remoteMediaStatus === 'loading') return;
     requestAutoPlay();
   }, [
     autoPlayVideo,
+    playbackPhase,
     remoteMediaStatus,
     requestAutoPlay,
     sequencePaused,

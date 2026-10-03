@@ -420,11 +420,13 @@ export function SkywriteScreen() {
     const onProgress = (progress: { phase: string; elapsedMs: number }) => {
       const seconds = Math.max(1, Math.round(progress.elapsedMs / 1000));
       const phaseLabel =
-        progress.phase === 'uploading_media'
-          ? SkywriteCopy.publishingUploading
-          : progress.phase === 'finalizing'
-            ? SkywriteCopy.publishingFinalizing
-            : SkywriteCopy.publishing;
+        progress.phase === 'preparing_media'
+          ? SkywriteCopy.publishingPreparing
+          : progress.phase === 'uploading_media'
+            ? SkywriteCopy.publishingUploading
+            : progress.phase === 'finalizing'
+              ? SkywriteCopy.publishingFinalizing
+              : SkywriteCopy.publishing;
       setPostingLabel(`${phaseLabel} ${seconds}s`);
     };
     const result = editingSkywriteId
@@ -438,8 +440,13 @@ export function SkywriteScreen() {
       return;
     }
 
-    if (__DEV__ && result.timing) {
-      console.info('[skywrite-publish]', result.timing);
+    if (result.timing) {
+      console.info('[skywrite-publish]', {
+        totalMs: result.timing.totalMs,
+        uploadMs: result.timing.uploadMs,
+        serverMs: result.timing.serverMs,
+        stages: result.timing.stages,
+      });
     }
 
     setPreviewOpen(false);
@@ -537,6 +544,7 @@ export function SkywriteScreen() {
                 video={draft.media.video}
                 media={draft.media}
                 edgeBleed={padH}
+                playbackActive={!previewOpen && !isPosting}
                 onMediaChange={(media) => setDraft((current) => ({ ...current, media }))}
                 onReplace={handleVideoPress}
                 onRemove={handleRemoveVideo}

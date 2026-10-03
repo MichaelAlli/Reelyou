@@ -764,7 +764,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       publishInFlightRef.current = true;
       let result: PublishSkywriteResult;
       let lastServerSyncError: string | null = null;
-      let publishTiming: { uploadMs: number; serverMs: number } | undefined;
+      let publishTiming:
+        | { uploadMs: number; serverMs: number; stages?: import('@/skywrite/publish/publishSkywriteDraft').PublishStageTimingMs }
+        | undefined;
       try {
         result = await publishSkywriteDraft(
           draft,
@@ -810,6 +812,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
               totalMs: result.saveMs,
               uploadMs: publishTiming.uploadMs,
               serverMs: publishTiming.serverMs,
+              stages: publishTiming.stages,
             },
           };
         }
@@ -832,7 +835,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (result.ok) {
         scheduleSkywritePostPublishEffects(result.record);
         if (isSharedSocialPersistenceEnabled() && authUser?.id) {
-          await mergeAuthorSkywritesFromServer(authUser.id);
+          const reconcileStarted = Date.now();
+          void mergeAuthorSkywritesFromServer(authUser.id)
+            .then(() => {
+              if (__DEV__) {
+                console.info('[skywrite-publish]', {
+                  libraryReconcileMs: Date.now() - reconcileStarted,
+                });
+              }
+            })
+            .catch(() => undefined);
         }
       }
 

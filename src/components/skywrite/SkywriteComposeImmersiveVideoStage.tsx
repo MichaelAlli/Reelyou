@@ -30,6 +30,8 @@ interface SkywriteComposeImmersiveVideoStageProps {
   edgeBleed: number;
   onDimensionsResolved?: (width: number, height: number) => void;
   onFramingAdjustChange?: (active: boolean) => void;
+  /** When false, suspends decode/playback (e.g. full-screen preview modal open). */
+  playbackActive?: boolean;
 }
 
 function SkywriteComposeImmersiveVideoStageComponent({
@@ -41,6 +43,7 @@ function SkywriteComposeImmersiveVideoStageComponent({
   edgeBleed,
   onDimensionsResolved,
   onFramingAdjustChange,
+  playbackActive = true,
 }: SkywriteComposeImmersiveVideoStageProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const stageHeight = Math.max(320, Math.round(screenHeight * 0.58));
@@ -53,7 +56,7 @@ function SkywriteComposeImmersiveVideoStageComponent({
     return buildSkywritePreviewRecord(draft, 'compose-preview', []);
   }, [media]);
 
-  const videoPlayback = useSkywriteImmersiveVideoPlayback(previewRecord, true, media);
+  const videoPlayback = useSkywriteImmersiveVideoPlayback(previewRecord, playbackActive, media);
   const { handleVideoLoad, videoRef, naturalSize } = videoPlayback;
 
   const aspectRatio = useMemo(() => {

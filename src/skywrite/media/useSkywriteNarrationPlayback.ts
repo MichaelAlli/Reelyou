@@ -21,6 +21,7 @@ export function useSkywriteNarrationPlayback(active: boolean) {
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [playbackError, setPlaybackError] = useState<SkywriteAudioPlaybackError | null>(null);
+  const lastUiTickRef = useRef(0);
 
   const unload = useCallback(async () => {
     const engine = engineRef.current;
@@ -73,11 +74,15 @@ export function useSkywriteNarrationPlayback(active: boolean) {
             setPositionMs(pos);
             return;
           }
+          const now = Date.now();
           const safePos = finiteMs(pos) ?? 0;
-          setPositionMs(safePos);
-          const safeDur = sanitizeDurationMs(dur, media.audio?.durationMs);
-          if (safeDur > 0) setDurationMs(safeDur);
-          setIsPlaying(playing);
+          if (now - lastUiTickRef.current >= 200) {
+            lastUiTickRef.current = now;
+            setPositionMs(safePos);
+            const safeDur = sanitizeDurationMs(dur, media.audio?.durationMs);
+            if (safeDur > 0) setDurationMs(safeDur);
+            setIsPlaying(playing);
+          }
         },
         onFinish: () => {
           setIsPlaying(false);
