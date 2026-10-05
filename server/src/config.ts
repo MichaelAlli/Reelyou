@@ -14,6 +14,20 @@ function parseOrigins(raw: string | undefined): string[] {
 
 const nodeEnv = process.env.NODE_ENV?.trim() || 'development';
 
+/** Reflect request Origin in dev for any localhost port (Metro often moves between 8081/8090). */
+export function resolveCorsAllowOrigin(requestOrigin: string | undefined): string {
+  const fallback = config.corsOrigins[0] ?? '*';
+  if (!requestOrigin) return fallback;
+  if (config.corsOrigins.includes(requestOrigin)) return requestOrigin;
+  if (
+    !config.isProduction &&
+    /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(requestOrigin)
+  ) {
+    return requestOrigin;
+  }
+  return fallback;
+}
+
 export const config = {
   nodeEnv,
   isProduction: nodeEnv === 'production',

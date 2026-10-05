@@ -38,6 +38,7 @@ async function createWebHtmlEngine(
   const el = new window.Audio();
   el.preload = 'auto';
   el.volume = volume;
+  // Do not set crossOrigin for signed CDN URLs — many buckets omit ACAO and playback then fails despite HTTP 200.
   el.src = uri;
 
   let loaded = false;
@@ -192,12 +193,18 @@ async function createExpoAvEngine(
   }
 }
 
+function preferWebHtmlAudioEngine(uri: string): boolean {
+  if (Platform.OS !== 'web') return false;
+  if (isLikelyLocalEphemeralAudioUri(uri)) return true;
+  return uri.startsWith('https://') || uri.startsWith('http://');
+}
+
 export async function createSkywriteAudioPlayback(
   uri: string,
   volume: number,
   callbacks: SkywriteAudioPlaybackCallbacks,
 ): Promise<SkywriteAudioPlaybackEngine | null> {
-  if (Platform.OS === 'web' && isLikelyLocalEphemeralAudioUri(uri)) {
+  if (preferWebHtmlAudioEngine(uri)) {
     const web = await createWebHtmlEngine(uri, volume, callbacks);
     if (web) return web;
   }

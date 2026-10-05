@@ -117,6 +117,8 @@ export function resolveFocusedSkyPlaySteps(
   options?: {
     playSkyRegistry?: PlaySkySequenceRegistry;
     nowMs?: number;
+    /** Playback: keep expired posts in order (show expired state). Listing: omit expired. */
+    retainExpiredInSequence?: boolean;
   },
 ): SkywritePlayStep[] {
   const defaultOrder = defaultFocusedSkywriteIds(stars, skywrites);
@@ -132,7 +134,7 @@ export function resolveFocusedSkyPlaySteps(
       : defaultOrder.filter((id) => !excluded.has(id));
 
   const byId = new Map(skywrites.map((post) => [post.id, post]));
-  if (options?.playSkyRegistry) {
+  if (options?.playSkyRegistry && !options.retainExpiredInSequence) {
     order = filterSkywriteIdsForPlaySkySequence(
       order,
       options.playSkyRegistry,

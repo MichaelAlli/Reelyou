@@ -47,9 +47,14 @@ import {
   isSkyReelAppearanceActive,
   resolveSkyReelActiveUntilMs,
 } from '@/skywrite/play/skyReelExpiry';
+import {
+  resolveStorySegmentCount,
+  resolveStorySegmentIndex,
+} from '@/skywrite/play/skywriteStorySegments';
 import { stepUsesAttachedVoiceover } from '@/skywrite/voiceoverStepUtils';
 
 const STILL_DWELL_MS = 8500;
+const MANUAL_NAV_AUTO_ADVANCE_BLOCK_MS = 900;
 
 export function SkywriteGuidedPlayScreen() {
   const router = useRouter();
@@ -84,12 +89,13 @@ export function SkywriteGuidedPlayScreen() {
   const stopPlaybackRef = useRef<() => void>(() => undefined);
   const [userStartedPlayback, setUserStartedPlayback] = useState(false);
   const startedRef = useRef(false);
-  const skippedStepIdsRef = useRef<Set<string>>(new Set());
   const autoAdvancePulseRef = useRef(0);
+  const manualNavUntilRef = useRef(0);
   const firstPostLeftRef = useRef<FirstPostLeftTapState>(resetFirstPostLeftTapState());
   const [expiryClockTick, setExpiryClockTick] = useState(0);
   const [sequenceComplete, setSequenceComplete] = useState(false);
-  const prevPlayIndexRef = useRef(0);
+  const [recordHydration, setRecordHydration] = useState<'idle' | 'loading' | 'failed'>('idle');
+  const [recordFetchNonce, setRecordFetchNonce] = useState(0);
 
   useEffect(() => {
     persistSkyreelReturnFromParam(returnTo);
@@ -97,7 +103,6 @@ export function SkywriteGuidedPlayScreen() {
 
   useEffect(() => {
     if (!isSharedSocialPersistenceEnabled() || playScope !== 'owner' || !ownerId) return;
-    if (ownerId === currentUser.id) return;
     let mounted = true;
     void fetchAuthorServerSkywrites(ownerId).then((serverRows) => {
       if (!mounted || serverRows.length === 0) return;
@@ -148,6 +153,7 @@ export function SkywriteGuidedPlayScreen() {
             ownerSkywrites: ownerPosts,
             registry,
             nowMs: Date.now(),
+            retainExpiredInSequence: true,
           }),
         );
       } else if (playScope === 'single' && id) {
@@ -175,7 +181,7 @@ export function SkywriteGuidedPlayScreen() {
             skywrites,
             config.focusedSky,
             config.singleBySkywriteId,
-            { playSkyRegistry: registry },
+            { playSkyRegistry: registry, retainExpiredInSequence: true },
           ),
         );
       }
@@ -228,14 +234,30 @@ export function SkywriteGuidedPlayScreen() {
   ]);
 
   useEffect(() => {
-    if (!stepsLoaded || !current || record) return;
-    if (skippedStepIdsRef.current.has(current.stepId)) return;
-    skippedStepIdsRef.current.add(current.stepId);
-    void audioPreview.stopAll();
-    if (index < steps.length - 1) {
-      setIndex((value) => Math.min(value + 1, steps.length - 1));
+    if (!stepsLoaded || !current || record) {
+      if (record) setRecordHydration('idle');
+      return;
     }
-  }, [audioPreview, current, index, record, steps.length, stepsLoaded]);
+    if (!isSharedSocialPersistenceEnabled()) {
+      setRecordHydration('failed');
+      return;
+    }
+    setRecordHydration('loading');
+    let mounted = true;
+    void fetchSkywriteFromServer(current.skywriteId).then((remote) => {
+      if (!mounted) return;
+      if (remote) {
+        cacheRemoteSkywrite(remote);
+        setRemoteFetchTick((tick) => tick + 1);
+        setRecordHydration('idle');
+      } else {
+        setRecordHydration('failed');
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [current, record, recordFetchNonce, stepsLoaded]);
 
   useEffect(() => () => {
     void audioPreview.stopAll();
@@ -292,6 +314,8 @@ export function SkywriteGuidedPlayScreen() {
 
   const goNext = useCallback(() => {
     firstPostLeftRef.current = resetFirstPostLeftTapState();
+    manualNavUntilRef.current = Date.now() + MANUAL_NAV_AUTO_ADVANCE_BLOCK_MS;
+    autoAdvancePulseRef.current = Date.now();
     haltOutgoingPlayback();
     bumpPlaySession();
     setNeedsTapToPlay(false);
@@ -307,6 +331,8 @@ export function SkywriteGuidedPlayScreen() {
 
   const goPrevious = useCallback(() => {
     firstPostLeftRef.current = resetFirstPostLeftTapState();
+    manualNavUntilRef.current = Date.now() + MANUAL_NAV_AUTO_ADVANCE_BLOCK_MS;
+    autoAdvancePulseRef.current = Date.now();
     haltOutgoingPlayback();
     bumpPlaySession();
     setNeedsTapToPlay(false);
@@ -404,33 +430,35 @@ export function SkywriteGuidedPlayScreen() {
 
   void expiryClockTick;
 
-  useEffect(() => {
-    const wentBack = index < prevPlayIndexRef.current;
-    prevPlayIndexRef.current = index;
-    if (playScope === 'single') return;
-    if (wentBack) return;
-    if (!record || skyReelActiveUntilMs == null) return;
-    if (!isSkyReelAppearanceActive(skyReelActiveUntilMs)) {
-      if (index < steps.length - 1) {
-        advance();
-      } else {
-        setSequenceComplete(true);
-      }
-    }
-  }, [advance, expiryClockTick, index, playScope, record, skyReelActiveUntilMs, steps.length]);
+  const skyReelAppearanceActive =
+    playScope === 'single' ||
+    skyReelActiveUntilMs == null ||
+    isSkyReelAppearanceActive(skyReelActiveUntilMs);
+
+  const storySegmentIndex = resolveStorySegmentIndex(steps, index);
+  const storySegmentCount = resolveStorySegmentCount(steps);
+
+  const tryAutoAdvance = useCallback(() => {
+    if (paused || needsTapToPlay) return;
+    if (Date.now() < manualNavUntilRef.current) return;
+    if (Date.now() - autoAdvancePulseRef.current < 500) return;
+    const sessionAtFinish = playSessionRef.current;
+    autoAdvancePulseRef.current = Date.now();
+    if (sessionAtFinish !== playSessionRef.current) return;
+    advance();
+  }, [advance, needsTapToPlay, paused]);
 
   const attachedVoiceoverStep =
     record && current ? stepUsesAttachedVoiceover(record, current.kind) : false;
 
   useEffect(() => {
-    if (!current || paused || needsTapToPlay) return;
+    if (!current || paused || needsTapToPlay || !skyReelAppearanceActive) return;
     if (attachedVoiceoverStep && (current.kind === 'text' || current.kind === 'photo')) {
       return;
     }
     if (current.kind === 'text' || current.kind === 'photo') {
       const timer = setTimeout(() => {
-        autoAdvancePulseRef.current = Date.now();
-        advance();
+        tryAutoAdvance();
       }, STILL_DWELL_MS);
       return () => clearTimeout(timer);
     }
@@ -438,16 +466,12 @@ export function SkywriteGuidedPlayScreen() {
       void audioPreview.togglePreview(previewId, record.media.audio.uri, {
         onStarted: dismissTapToPlay,
         onFinished: () => {
-          if (paused || needsTapToPlay) return;
-          if (Date.now() - autoAdvancePulseRef.current < 500) return;
-          autoAdvancePulseRef.current = Date.now();
-          advance();
+          tryAutoAdvance();
         },
       });
     }
     return undefined;
   }, [
-    advance,
     attachedVoiceoverStep,
     audioPlaying,
     audioPreview,
@@ -457,6 +481,8 @@ export function SkywriteGuidedPlayScreen() {
     paused,
     previewId,
     record?.media.audio?.uri,
+    skyReelAppearanceActive,
+    tryAutoAdvance,
   ]);
 
   if (!stepsLoaded || !registryReady) {
@@ -470,7 +496,7 @@ export function SkywriteGuidedPlayScreen() {
     );
   }
 
-  if (steps.length === 0 || !current || !record) {
+  if (steps.length === 0 || !current) {
     const isOwner =
       playScope === 'focused' ||
       (playScope === 'owner' && ownerId === currentUser.id);
@@ -510,6 +536,43 @@ export function SkywriteGuidedPlayScreen() {
     );
   }
 
+  if (!record) {
+    return (
+      <View style={styles.root}>
+        <HomeBackdrop />
+        <SafeAreaView style={styles.safe}>
+          {recordHydration === 'loading' ? (
+            <Text style={styles.loading}>…</Text>
+          ) : (
+            <>
+              <Text style={styles.empty}>{SkywritePlayCopy.postLoadFailedTitle}</Text>
+              <Text style={styles.emptyHint}>{SkywritePlayCopy.postLoadFailedHint}</Text>
+              <Text style={styles.emptyHint} accessibilityLabel="Post identifier">
+                {current.skywriteId}
+              </Text>
+              <View style={styles.emptyActions}>
+                <Pressable
+                  onPress={() => {
+                    setRecordHydration('idle');
+                    setRecordFetchNonce((n) => n + 1);
+                  }}
+                  style={styles.exitBtn}>
+                  <Text style={styles.exitText}>{SkywritePlayCopy.retryLoadPost}</Text>
+                </Pressable>
+                <Pressable onPress={goNext} style={styles.exitBtn}>
+                  <Text style={styles.exitText}>{SkywritePlayCopy.skipUnavailablePost}</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+          <Pressable onPress={handleExit} style={styles.exitBtn}>
+            <Text style={styles.exitText}>{SkywritePlayCopy.exitPlay}</Text>
+          </Pressable>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
   if (sequenceComplete && index >= steps.length - 1) {
     return (
       <View style={styles.root}>
@@ -532,6 +595,8 @@ export function SkywriteGuidedPlayScreen() {
           stepKind={current.kind}
           stepIndex={index}
           stepCount={steps.length}
+          storySegmentIndex={storySegmentIndex}
+          storySegmentCount={storySegmentCount}
           previewId={previewId}
           audioPlaying={audioPlaying}
           overlayAudioProgress={audioPreview.getPreviewProgress(previewId)}
@@ -543,6 +608,8 @@ export function SkywriteGuidedPlayScreen() {
           canNext={index < steps.length - 1}
           skyReelActiveUntilMs={playScope === 'single' ? null : skyReelActiveUntilMs}
           showSkyReelExpiry={playScope !== 'single'}
+          skyReelAppearanceExpired={playScope !== 'single' && !skyReelAppearanceActive}
+          onSkipExpiredAppearance={goNext}
           onMediaPlaybackStarted={dismissTapToPlay}
           onRegisterMediaStop={(stop) => {
             stopPlaybackRef.current = stop;
@@ -567,21 +634,13 @@ export function SkywriteGuidedPlayScreen() {
             });
           }}
           navigationMode="edgeTap"
-          narrationAutoplay={!paused && !needsTapToPlay}
+          narrationAutoplay={!paused && !needsTapToPlay && skyReelAppearanceActive}
           narrationPaused={paused}
           onNarrationFinished={() => {
-            const sessionAtFinish = playSessionRef.current;
-            if (paused || needsTapToPlay) return;
-            if (Date.now() - autoAdvancePulseRef.current < 500) return;
-            if (sessionAtFinish !== playSessionRef.current) return;
-            autoAdvancePulseRef.current = Date.now();
-            advance();
+            tryAutoAdvance();
           }}
           onVideoFinished={() => {
-            if (paused || needsTapToPlay) return;
-            if (Date.now() - autoAdvancePulseRef.current < 500) return;
-            autoAdvancePulseRef.current = Date.now();
-            advance();
+            tryAutoAdvance();
           }}
         />
       </SafeAreaView>

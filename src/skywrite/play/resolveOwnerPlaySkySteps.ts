@@ -14,6 +14,7 @@ export function resolveOwnerPlaySkySteps(input: {
   ownerSkywrites?: readonly SkywriteRecord[];
   registry?: PlaySkySequenceRegistry;
   nowMs?: number;
+  retainExpiredInSequence?: boolean;
 }) {
   const posts =
     input.ownerId === currentUser.id
@@ -35,6 +36,10 @@ export function resolveOwnerPlaySkySteps(input: {
     [...posts],
     EMPTY_SKYWRITE_PLAY_SEQUENCE.focusedSky,
     EMPTY_SKYWRITE_PLAY_SEQUENCE.singleBySkywriteId,
-    { playSkyRegistry: registry, nowMs: input.nowMs },
+    {
+      playSkyRegistry: registry,
+      nowMs: input.nowMs,
+      retainExpiredInSequence: input.retainExpiredInSequence,
+    },
   );
 }

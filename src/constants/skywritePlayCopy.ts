@@ -29,4 +29,12 @@ export const SkywritePlayCopy = {
   stepText: 'Reflection',
   stepPhoto: 'Image',
   stepAudio: 'Voice',
+  skyReelAppearanceExpiredTitle: 'This SkyReel appearance has ended',
+  skyReelAppearanceExpiredHint:
+    'Repost from My Skywrites to show this post in SkyReel again for 24 hours. Your Journey and Recent are unchanged.',
+  skipToNextSkywrite: 'Skip to next',
+  postLoadFailedTitle: 'This post could not be loaded',
+  postLoadFailedHint: 'Check your connection or try again.',
+  retryLoadPost: 'Retry',
+  skipUnavailablePost: 'Skip',
 } as const;

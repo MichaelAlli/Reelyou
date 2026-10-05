@@ -57,6 +57,12 @@ interface SkywriteImmersiveMomentViewProps {
   stepKind: SkywritePlayStepKind;
   stepIndex: number;
   stepCount: number;
+  /** One progress segment per Skywrite post (defaults to step index/count). */
+  storySegmentIndex?: number;
+  storySegmentCount?: number;
+  /** SkyReel 24h appearance ended for this post — block autoplay; explicit skip only. */
+  skyReelAppearanceExpired?: boolean;
+  onSkipExpiredAppearance?: () => void;
   previewId: string;
   audioPlaying: boolean;
   onToggleAudio: (previewId: string, uri: string) => void;
@@ -110,6 +116,10 @@ function SkywriteImmersiveMomentViewComponent({
   stepKind,
   stepIndex,
   stepCount,
+  storySegmentIndex,
+  storySegmentCount,
+  skyReelAppearanceExpired = false,
+  onSkipExpiredAppearance,
   previewId,
   audioPlaying,
   onToggleAudio,
@@ -148,6 +158,8 @@ function SkywriteImmersiveMomentViewComponent({
   overlayAudioProgress,
 }: SkywriteImmersiveMomentViewProps) {
   const insets = useSafeAreaInsets();
+  const segmentIndex = storySegmentIndex ?? stepIndex;
+  const segmentCount = storySegmentCount ?? stepCount;
   const { record: resolvedRecord, status: remoteMediaStatus, mediaError, retry: retryRemoteMedia } =
     useResolvedSkywriteRecord(record);
   const playbackRecord = resolvedRecord ?? record;
@@ -682,6 +694,23 @@ function SkywriteImmersiveMomentViewComponent({
           bottomInset={Math.max(insets.bottom, 10) + (bottomSlot ? 200 : 150)}
         />
       ) : null}
+      {skyReelAppearanceExpired && isPublishedPlayer ? (
+        <View style={styles.expiredOverlay} pointerEvents="box-none">
+          <View style={styles.expiredCard}>
+            <Text style={styles.expiredTitle}>{SkywritePlayCopy.skyReelAppearanceExpiredTitle}</Text>
+            <Text style={styles.expiredHint}>{SkywritePlayCopy.skyReelAppearanceExpiredHint}</Text>
+            {canNext && onSkipExpiredAppearance ? (
+              <Pressable
+                style={styles.expiredSkipBtn}
+                onPress={onSkipExpiredAppearance}
+                accessibilityRole="button"
+                accessibilityLabel={SkywritePlayCopy.skipToNextSkywrite}>
+                <Text style={styles.expiredSkipText}>{SkywritePlayCopy.skipToNextSkywrite}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
       <View style={styles.immersiveStage} onLayout={onStageLayout}>
         {stepKind === 'video' && displayVideo?.uri ? (
           <SkywriteFramedVideoLayer
@@ -775,13 +804,13 @@ function SkywriteImmersiveMomentViewComponent({
             </Text>
           ) : null}
           <Text style={styles.progressCompact}>
-            {SkywritePlayCopy.progress(stepIndex + 1, stepCount)}
+            {SkywritePlayCopy.progress(segmentIndex + 1, segmentCount)}
           </Text>
         </View>
         {showStoryProgress ? (
           <SkywriteStoryProgressBar
-            stepIndex={stepIndex}
-            stepCount={stepCount}
+            stepIndex={segmentIndex}
+            stepCount={segmentCount}
             currentSegmentFill={currentStorySegmentFill}
             style={styles.storyProgressRow}
           />
@@ -1370,5 +1399,54 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     bottom: 120,
+  },
+  expiredOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
+  },
+  expiredCard: {
+    maxWidth: 340,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderRadius: 16,
+    backgroundColor: 'rgba(12, 14, 32, 0.92)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.35)',
+  },
+  expiredTitle: {
+    fontFamily: Fonts.sans,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF8F0',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  expiredHint: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 19,
+    color: 'rgba(248, 244, 236, 0.78)',
+    textAlign: 'center',
+  },
+  expiredSkipBtn: {
+    marginTop: 16,
+    alignSelf: 'center',
+    minHeight: 44,
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    borderRadius: 999,
+    backgroundColor: 'rgba(232, 200, 114, 0.18)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.45)',
+  },
+  expiredSkipText: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#E8C872',
   },
 });

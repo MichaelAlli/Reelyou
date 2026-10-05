@@ -17,6 +17,7 @@ import {
   friendMatchConfigured,
   openAiConfigured,
   mediaStorageConfigured,
+  resolveCorsAllowOrigin,
 } from './config.js';
 import { markImportedDiscoveryData } from './db/accountRepository.js';
 import { initAccountDatabase } from './db/accountStore.js';
@@ -68,8 +69,7 @@ import { canViewerAccessMediaAsset } from './social/contentVisibility.js';
 assertProductionSecrets();
 
 function corsHeaders(origin: string | undefined): Record<string, string> {
-  const allowed =
-    origin && config.corsOrigins.includes(origin) ? origin : config.corsOrigins[0] ?? '*';
+  const allowed = resolveCorsAllowOrigin(origin);
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
