@@ -198,6 +198,7 @@ export function SkywriteImmersiveMomentScreen() {
           stepCount={steps.length}
           previewId={previewId}
           audioPlaying={audioPlaying}
+          overlayAudioProgress={audioPreview.getPreviewProgress(previewId)}
           onToggleAudio={(id, uri) => void audioPreview.togglePreview(id, uri)}
           onExit={handleExit}
           onPrevious={goPrevious}

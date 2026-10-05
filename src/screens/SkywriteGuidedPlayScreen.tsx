@@ -530,6 +530,7 @@ export function SkywriteGuidedPlayScreen() {
           stepCount={steps.length}
           previewId={previewId}
           audioPlaying={audioPlaying}
+          overlayAudioProgress={audioPreview.getPreviewProgress(previewId)}
           onToggleAudio={(pid, uri) => void audioPreview.togglePreview(pid, uri)}
           onExit={handleExit}
           onPrevious={handleEdgePrevious}

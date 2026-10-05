@@ -17,6 +17,8 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewPositionMs, setPreviewPositionMs] = useState(0);
+  const [previewDurationMs, setPreviewDurationMs] = useState(0);
 
   const unloadEngine = useCallback(async () => {
     const engine = engineRef.current;
@@ -34,6 +36,8 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
     setIsPlaying(false);
     setActivePreviewId(null);
     setPreviewError(null);
+    setPreviewPositionMs(0);
+    setPreviewDurationMs(0);
     await unloadEngine();
   }, [unloadEngine]);
 
@@ -61,8 +65,10 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
       finishRef.current = callbacks?.onFinished ?? null;
 
       const engine = await createSkywriteAudioPlayback(uri, 1, {
-        onPosition: (_pos, _dur, playing) => {
+        onPosition: (pos, dur, playing) => {
           setIsPlaying(playing);
+          setPreviewPositionMs(pos);
+          if (dur > 0) setPreviewDurationMs(dur);
         },
         onFinish: () => {
           setIsPlaying(false);
@@ -103,10 +109,21 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
     [activePreviewId, isPlaying],
   );
 
+  const getPreviewProgress = useCallback(
+    (previewId: string) => {
+      if (activePreviewId !== previewId) {
+        return { positionMs: 0, durationMs: 0, isPlaying: false };
+      }
+      return { positionMs: previewPositionMs, durationMs: previewDurationMs, isPlaying };
+    },
+    [activePreviewId, isPlaying, previewDurationMs, previewPositionMs],
+  );
+
   return {
     togglePreview,
     stopAll,
     isPreviewPlaying,
+    getPreviewProgress,
     previewError,
     clearPreviewError: () => setPreviewError(null),
   };
