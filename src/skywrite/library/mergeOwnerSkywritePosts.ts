@@ -1,5 +1,33 @@
 import { mergeServerRetentionOntoRecord } from '@/skywrite/library/skywriteLibraryRetention';
-import type { SkywriteRecord } from '@/skywrite/types';
+import {
+  isEphemeralMediaUri,
+  parseRemoteAssetIdFromUri,
+} from '@/social/sharedMediaConstants';
+import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
+
+function mediaHasPersistedRemoteRefs(media: SkywriteMedia): boolean {
+  const uris = [media.photo?.uri, media.video?.uri, media.video?.thumbnailUri, media.audio?.uri];
+  return uris.some(
+    (uri) =>
+      Boolean(parseRemoteAssetIdFromUri(uri)) ||
+      (Boolean(uri) && uri!.startsWith('https://') && !isEphemeralMediaUri(uri)),
+  );
+}
+
+function mergePublishedMedia(local: SkywriteMedia, remote: SkywriteMedia): SkywriteMedia {
+  const remotePersisted = mediaHasPersistedRemoteRefs(remote);
+  const localEphemeral =
+    isEphemeralMediaUri(local.photo?.uri) ||
+    isEphemeralMediaUri(local.video?.uri) ||
+    isEphemeralMediaUri(local.audio?.uri);
+  if (remotePersisted && (localEphemeral || !mediaHasPersistedRemoteRefs(local))) {
+    return remote;
+  }
+  if (remote.video?.uri || remote.photo?.uri || remote.audio?.uri) {
+    return remote;
+  }
+  return local;
+}
 
 /** Merge server-authoritative posts with local cache without dropping retention or owner fields. */
 export function mergeOwnerSkywritePosts(
@@ -30,9 +58,7 @@ export function mergeOwnerSkywritePosts(
         ...(preferRemoteBody ? existing : remote),
         ...(preferRemoteBody ? remote : existing),
         authorId: remote.authorId ?? existing.authorId,
-        media: remote.media?.video?.uri || remote.media?.photo?.uri || remote.media?.audio?.uri
-          ? remote.media
-          : existing.media,
+        media: mergePublishedMedia(existing.media, remote.media),
       },
       remote,
     );

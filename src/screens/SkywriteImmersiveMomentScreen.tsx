@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -35,6 +35,10 @@ export function SkywriteImmersiveMomentScreen() {
   const [remoteRecord, setRemoteRecord] = useState<
     import('@/skywrite/types').SkywriteRecord | null
   >(null);
+  const [playSessionId, setPlaySessionId] = useState(0);
+  const [mediaStartNonce, setMediaStartNonce] = useState(0);
+  const playSessionRef = useRef(0);
+  const stopPlaybackRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     if (!skywriteId || !isSharedSocialPersistenceEnabled()) return;
@@ -60,11 +64,11 @@ export function SkywriteImmersiveMomentScreen() {
     let mounted = true;
     void loadSkywritePlaySequence().then((config) => {
       if (!mounted) return;
-      const record =
+      const resolved =
         resolveSkywriteById(skywrites, skywriteId, contentLifecycle) ??
         (remoteRecord?.id === skywriteId ? remoteRecord : null);
-      if (record) {
-        setSteps(resolveStepsForSkywrite(record, config.singleBySkywriteId[skywriteId]));
+      if (resolved) {
+        setSteps(resolveStepsForSkywrite(resolved, config.singleBySkywriteId[skywriteId]));
       } else {
         setSteps([]);
       }
@@ -83,16 +87,26 @@ export function SkywriteImmersiveMomentScreen() {
   }, [step, steps.length]);
 
   const current = steps[index];
-  const record = useMemo(
-    () =>
-      current && skywriteId
-        ? resolveSkywriteById(skywrites, skywriteId, contentLifecycle)
-        : undefined,
-    [contentLifecycle, current, skywriteId, skywrites],
-  );
+  const record = useMemo(() => {
+    if (!current || !skywriteId) return undefined;
+    return (
+      resolveSkywriteById(skywrites, skywriteId, contentLifecycle) ??
+      (remoteRecord?.id === skywriteId ? remoteRecord : undefined)
+    );
+  }, [contentLifecycle, current, remoteRecord, skywriteId, skywrites]);
 
   const previewId = current ? `immersive-${current.skywriteId}-${current.stepId}` : '';
   const audioPlaying = audioPreview.isPreviewPlaying(previewId);
+
+  const bumpPlaySession = useCallback(() => {
+    playSessionRef.current += 1;
+    setPlaySessionId(playSessionRef.current);
+  }, []);
+
+  const haltOutgoingPlayback = useCallback(() => {
+    stopPlaybackRef.current();
+    void audioPreview.stopAll();
+  }, [audioPreview]);
 
   const viewerCanView = useMemo(() => {
     if (!record) return false;
@@ -106,13 +120,15 @@ export function SkywriteImmersiveMomentScreen() {
   }, [messages.blockedUserIds, record, skyFollowGraph]);
 
   const handleExit = useCallback(() => {
+    haltOutgoingPlayback();
+    bumpPlaySession();
     void audioPreview.stopAll();
     if (router.canGoBack()) {
       router.back();
       return;
     }
     router.replace('/skywrite' as never);
-  }, [audioPreview, router]);
+  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback, router]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -123,15 +139,21 @@ export function SkywriteImmersiveMomentScreen() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleExit]);
 
+  useEffect(() => () => void audioPreview.stopAll(), [audioPreview]);
+
   const goNext = useCallback(() => {
-    void audioPreview.stopAll();
+    haltOutgoingPlayback();
+    bumpPlaySession();
+    setMediaStartNonce((n) => n + 1);
     setIndex((value) => Math.min(value + 1, steps.length - 1));
-  }, [audioPreview, steps.length]);
+  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback, steps.length]);
 
   const goPrevious = useCallback(() => {
-    void audioPreview.stopAll();
+    haltOutgoingPlayback();
+    bumpPlaySession();
+    setMediaStartNonce((n) => n + 1);
     setIndex((value) => Math.max(value - 1, 0));
-  }, [audioPreview]);
+  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback]);
 
   if (!ready) {
     return (
@@ -182,8 +204,17 @@ export function SkywriteImmersiveMomentScreen() {
           onNext={goNext}
           canPrevious={index > 0}
           canNext={index < steps.length - 1}
-          onBeforeStepChange={() => void audioPreview.stopAll()}
+          onBeforeStepChange={haltOutgoingPlayback}
+          onRegisterMediaStop={(stop) => {
+            stopPlaybackRef.current = stop;
+          }}
           layoutMode="viewport"
+          showSkyReelExpiry={false}
+          skyReelActiveUntilMs={null}
+          mediaStartNonce={mediaStartNonce}
+          playSessionId={playSessionId}
+          narrationAutoplay
+          autoPlayVideo
           commentsSlot={<SkywriteCommentsPanel skywrite={record} compact />}
         />
       </SafeAreaView>

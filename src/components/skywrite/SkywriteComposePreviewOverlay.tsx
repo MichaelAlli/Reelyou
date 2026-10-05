@@ -82,13 +82,14 @@ export function SkywriteComposePreviewOverlay({
   const [mediaStartNonce, setMediaStartNonce] = useState(0);
 
   const handleClose = useCallback(() => {
+    if (isPosting) return;
     stopImmersiveMediaRef.current();
     void audioPreview.stopAll();
     setStepIndex(0);
     setMediaStartNonce(0);
     setPreviewSession((s) => s + 1);
     onClose();
-  }, [audioPreview, onClose]);
+  }, [audioPreview, isPosting, onClose]);
 
   const handlePrevious = useCallback(() => {
     void audioPreview.stopAll();
@@ -140,7 +141,13 @@ export function SkywriteComposePreviewOverlay({
   );
 
   return (
-    <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={handleClose}>
+    <Modal
+      visible
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={() => {
+        if (!isPosting) handleClose();
+      }}>
       <View style={styles.root}>
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           <SkywriteImmersiveMomentView

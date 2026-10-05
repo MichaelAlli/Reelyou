@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildAuthoredLibraryRows } from '@/skywrite/library/buildMySkywritesLibrary';
 import { mergeOwnerSkywritePosts } from '@/skywrite/library/mergeOwnerSkywritePosts';
 import { EMPTY_SKYWRITE_LIBRARY_STATE } from '@/skywrite/library/skywriteLibraryTypes';
+import { buildRemoteAssetPlaceholderUri } from '@/social/sharedMediaConstants';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 const base: SkywriteRecord = {
@@ -45,5 +46,35 @@ const merged = mergeOwnerSkywritePosts(
 );
 assert.equal(merged[0]?.text, 'server');
 assert.equal(merged[0]?.inYourJourney, true);
+
+const blobLocal: SkywriteRecord = {
+  ...base,
+  id: 'sw-blob',
+  media: {
+    photo: { uri: 'blob:draft-photo', width: 100, height: 100 },
+    video: null,
+    audio: null,
+  },
+  mediaMode: 'photo',
+};
+const remotePersisted: SkywriteRecord = {
+  ...blobLocal,
+  media: {
+    photo: {
+      uri: buildRemoteAssetPlaceholderUri('asset-photo-1'),
+      remoteAssetId: 'asset-photo-1',
+      width: 100,
+      height: 100,
+    },
+    video: null,
+    audio: null,
+  },
+};
+const mediaMerged = mergeOwnerSkywritePosts([blobLocal], [remotePersisted]);
+assert.equal(
+  mediaMerged[0]?.media.photo?.remoteAssetId,
+  'asset-photo-1',
+  'drops draft blob when server has persisted media refs',
+);
 
 console.log('mergeOwnerSkywritePosts.test.ts — OK');

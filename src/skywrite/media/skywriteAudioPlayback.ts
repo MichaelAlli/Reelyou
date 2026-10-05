@@ -126,8 +126,12 @@ async function createWebHtmlEngine(
       const target = clampSeekTargetMs(positionMs, durationCap);
       if (target == null) return;
       const seconds = msToMediaElementSeconds(target);
-      if (seconds == null) return;
-      el.currentTime = seconds;
+      if (seconds == null || !Number.isFinite(seconds)) return;
+      try {
+        el.currentTime = seconds;
+      } catch {
+        return;
+      }
       tick();
     },
   };

@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   StyleSheet,
@@ -18,6 +19,7 @@ import {
   pickSkywriteMediaSource,
   skywritePreviewExcerpt,
 } from '@/skywrite/media/skywriteMediaPreviewUtils';
+import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
 import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import type { SkywriteRecord } from '@/skywrite/types';
 
@@ -69,6 +71,13 @@ function SkywriteLibraryMediaCardComponent({
         ? media.photoUri
         : null;
 
+  useEffect(() => {
+    setImageFailed(false);
+  }, [skywrite.id, imageUri]);
+
+  const thumbnailResolving =
+    Boolean(imageUri && parseRemoteAssetIdFromUri(imageUri) && status === 'loading' && !imageFailed);
+
   const showPlayOverlay =
     media.kind === 'video' ||
     media.kind === 'video_audio' ||
@@ -109,6 +118,10 @@ function SkywriteLibraryMediaCardComponent({
               {formatSkywriteAudioDuration(media.audioDurationMs)}
             </Text>
           </LinearGradient>
+        ) : thumbnailResolving ? (
+          <View style={[styles.mediaFill, styles.fallback]}>
+            <ActivityIndicator color="#E8C872" />
+          </View>
         ) : imageUri && !imageFailed ? (
           <>
             <Image

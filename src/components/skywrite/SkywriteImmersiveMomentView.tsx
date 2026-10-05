@@ -170,14 +170,29 @@ function SkywriteImmersiveMomentViewComponent({
   const narrationSessionRef = useRef(0);
   const playSessionIdRef = useRef(playSessionId);
   playSessionIdRef.current = playSessionId;
+  const autoPlayBlockedRef = useRef(false);
+  const narrationHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [narrationNeedsUserStart, setNarrationNeedsUserStart] = useState(false);
+  const [narrationCenterHint, setNarrationCenterHint] = useState<string | null>(null);
+
+  const flashNarrationHint = useCallback((text: string) => {
+    setNarrationCenterHint(text);
+    if (narrationHintTimerRef.current) clearTimeout(narrationHintTimerRef.current);
+    narrationHintTimerRef.current = setTimeout(() => setNarrationCenterHint(null), 1600);
+  }, []);
+
+  const handleVideoAutoplayBlocked = useCallback(() => {
+    autoPlayBlockedRef.current = true;
+    onVideoAutoplayBlocked?.();
+  }, [onVideoAutoplayBlocked]);
 
   const videoPlaybackOptions = useMemo(
     () => ({
-      onAutoplayBlocked: onVideoAutoplayBlocked,
+      onAutoplayBlocked: handleVideoAutoplayBlocked,
       onCombinedPlaybackFinished: onVideoFinished,
       onPlaybackStarted: onMediaPlaybackStarted,
     }),
-    [onMediaPlaybackStarted, onVideoAutoplayBlocked, onVideoFinished],
+    [handleVideoAutoplayBlocked, onMediaPlaybackStarted, onVideoFinished],
   );
   const videoPlayback = useSkywriteImmersiveVideoPlayback(
     playbackRecord,
@@ -225,9 +240,19 @@ function SkywriteImmersiveMomentViewComponent({
 
   useEffect(() => {
     autoPlayIssuedRef.current = false;
+    autoPlayBlockedRef.current = false;
     narrationStartedRef.current = false;
+    setNarrationNeedsUserStart(false);
+    setNarrationCenterHint(null);
     stopVideoAndNarration();
   }, [record.id, stepKind, mediaStartNonce, playSessionId, stopVideoAndNarration]);
+
+  useEffect(
+    () => () => {
+      if (narrationHintTimerRef.current) clearTimeout(narrationHintTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     const prev = prevRemoteMediaStatusRef.current;
@@ -253,8 +278,13 @@ function SkywriteImmersiveMomentViewComponent({
         onNarrationFinished?.();
       })
       .then((ok) => {
-      if (ok) onMediaPlaybackStarted?.();
-    });
+        if (ok) {
+          setNarrationNeedsUserStart(false);
+          onMediaPlaybackStarted?.();
+        } else {
+          setNarrationNeedsUserStart(true);
+        }
+      });
   }, [
     narration,
     narrationActive,
@@ -292,6 +322,7 @@ function SkywriteImmersiveMomentViewComponent({
 
   useEffect(() => {
     if (!autoPlayVideo || stepKind !== 'video' || autoPlayIssuedRef.current || sequencePaused) return;
+    if (autoPlayBlockedRef.current) return;
     if (remoteMediaStatus === 'loading') return;
     autoPlayIssuedRef.current = true;
     requestAutoPlay();
@@ -310,24 +341,6 @@ function SkywriteImmersiveMomentViewComponent({
     if (stepKind !== 'video' || !sequencePaused || !videoIsPlaying) return;
     void togglePlayPause();
   }, [sequencePaused, stepKind, togglePlayPause, videoIsPlaying]);
-
-  useEffect(() => {
-    if (stepKind !== 'video' || !autoPlayVideo || sequencePaused || videoIsPlaying || !videoIsLoaded) {
-      return;
-    }
-    if (playbackPhase === 'ended' || playbackPhase === 'error') return;
-    if (remoteMediaStatus === 'loading') return;
-    requestAutoPlay();
-  }, [
-    autoPlayVideo,
-    playbackPhase,
-    remoteMediaStatus,
-    requestAutoPlay,
-    sequencePaused,
-    stepKind,
-    videoIsLoaded,
-    videoIsPlaying,
-  ]);
 
   const audioUri = playbackRecord.media.audio?.uri ?? null;
   const videoAspect = useMemo(() => {
@@ -379,6 +392,60 @@ function SkywriteImmersiveMomentViewComponent({
     haltMediaForNavigation();
     onExit();
   };
+
+  const narrationFault =
+    narration.playbackError != null || (mediaError && remoteMediaStatus === 'error');
+
+  const handlePublishedNarrationCenterTap = useCallback(() => {
+    const uri = playbackMedia.audio?.uri;
+    if (!uri || !narrationActive) return;
+    if (narration.isPreparing) return;
+    const onFinish = () => onNarrationFinished?.();
+    if (narrationFault) {
+      narration.clearError();
+      if (mediaError) retryRemoteMedia();
+      void narration.replay(uri, playbackMedia, onFinish).then((ok) => {
+        if (ok) {
+          setNarrationNeedsUserStart(false);
+          flashNarrationHint('Playing');
+        }
+      });
+      return;
+    }
+    if (narration.hasEnded) {
+      void narration.replay(uri, playbackMedia, onFinish).then((ok) => {
+        if (ok) flashNarrationHint('Replay');
+      });
+      return;
+    }
+    if (narration.isPlaying) {
+      void narration.pausePlayback().then(() => flashNarrationHint('Paused'));
+      return;
+    }
+    void narration.playUri(uri, playbackMedia, onFinish).then((ok) => {
+      if (ok) {
+        setNarrationNeedsUserStart(false);
+        flashNarrationHint('Playing');
+        onMediaPlaybackStarted?.();
+      } else {
+        setNarrationNeedsUserStart(true);
+      }
+    });
+  }, [
+    flashNarrationHint,
+    mediaError,
+    narration,
+    narrationActive,
+    narrationFault,
+    narration.hasEnded,
+    narration.isPlaying,
+    narration.isPreparing,
+    onMediaPlaybackStarted,
+    onNarrationFinished,
+    playbackMedia,
+    remoteMediaStatus,
+    retryRemoteMedia,
+  ]);
 
   const renderStandardLayout = () => (
     <View style={styles.root}>
@@ -447,7 +514,18 @@ function SkywriteImmersiveMomentViewComponent({
     playbackRecord.media.audio?.durationMs ||
     0;
   const narrationPosition = narrationActive ? narration.positionMs : 0;
-  const showNarrationToolbar = narrationActive && Boolean(playbackMedia.audio?.uri);
+  const publishedImmersiveNarration =
+    !enablePreviewPlaybackChrome && narrationActive && Boolean(playbackMedia.audio?.uri);
+  const showNarrationToolbar =
+    enablePreviewPlaybackChrome && narrationActive && Boolean(playbackMedia.audio?.uri);
+  const showNarrationTapStart =
+    publishedImmersiveNarration &&
+    !tapToPlayPrompt &&
+    narrationNeedsUserStart &&
+    !narrationFault &&
+    !narration.isPlaying &&
+    !narration.isPreparing;
+  const centerNarrationBottomInset = Math.max(insets.bottom, 10) + (bottomSlot ? 200 : 150);
   const skyReelRemainingMs =
     skyReelActiveUntilMs != null ? skyReelActiveUntilMs - Date.now() : null;
   void expiryTick;
@@ -512,6 +590,15 @@ function SkywriteImmersiveMomentViewComponent({
               <View style={styles.photoNarrationWave}>
                 <SkywriteAudioWaveform
                   active={narration.isPlaying}
+                  seed={record.id.length + 7}
+                  barCount={16}
+                />
+              </View>
+            ) : null}
+            {publishedImmersiveNarration && narration.isPlaying ? (
+              <View style={styles.photoNarrationWave} pointerEvents="none">
+                <SkywriteAudioWaveform
+                  active
                   seed={record.id.length + 7}
                   barCount={16}
                 />
@@ -672,8 +759,6 @@ function SkywriteImmersiveMomentViewComponent({
           <>
             <View style={styles.videoToolbar}>
               {(() => {
-                const narrationFault =
-                  narration.playbackError || (mediaError && remoteMediaStatus === 'error');
                 const showPause =
                   narration.isPlaying && !narrationFault && !narration.isPreparing;
                 const chipLabel = narration.isPreparing
@@ -782,6 +867,54 @@ function SkywriteImmersiveMomentViewComponent({
           onChange={onMediaMixChange}
           onClose={() => setMixOpen(false)}
         />
+      ) : null}
+
+      {publishedImmersiveNarration &&
+      !tapToPlayPrompt &&
+      !framingAdjustActive &&
+      navigationMode === 'edgeTap' ? (
+        <Pressable
+          style={[
+            styles.publishedNarrationCenterTap,
+            {
+              marginTop: insets.top + 52,
+              marginBottom: centerNarrationBottomInset,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={
+            narrationFault
+              ? 'Retry narration'
+              : narration.isPlaying
+                ? 'Pause narration'
+                : narration.hasEnded
+                  ? 'Replay narration'
+                  : 'Play narration'
+          }
+          onPress={handlePublishedNarrationCenterTap}
+        />
+      ) : null}
+
+      {showNarrationTapStart ? (
+        <View style={styles.narrationTapStartBanner} pointerEvents="none">
+          <Text style={styles.tapBannerText}>Tap center to play voiceover</Text>
+        </View>
+      ) : null}
+
+      {narrationCenterHint ? (
+        <View style={styles.narrationCenterHint} pointerEvents="none">
+          <Text style={styles.narrationCenterHintText}>{narrationCenterHint}</Text>
+        </View>
+      ) : null}
+
+      {publishedImmersiveNarration && narrationFault ? (
+        <Pressable
+          style={[styles.narrationRetryFab, { bottom: Math.max(insets.bottom, 12) + 72 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Retry narration"
+          onPress={handlePublishedNarrationCenterTap}>
+          <Text style={styles.narrationRetryFabText}>Retry</Text>
+        </Pressable>
       ) : null}
 
       {tapToPlayPrompt && onTapToPlayContinue ? (
@@ -907,8 +1040,59 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 5,
   },
+  publishedNarrationCenterTap: {
+    position: 'absolute',
+    left: '28%',
+    right: '28%',
+    top: 0,
+    bottom: 0,
+    zIndex: 3,
+  },
+  narrationTapStartBanner: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: '38%',
+    zIndex: 4,
+    alignItems: 'center',
+    pointerEvents: 'none',
+  },
+  narrationCenterHint: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '46%',
+    zIndex: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
+    pointerEvents: 'none',
+  },
+  narrationCenterHintText: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFF8F0',
+  },
+  narrationRetryFab: {
+    position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(20, 16, 28, 0.92)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.45)',
+  },
+  narrationRetryFabText: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#E8C872',
+  },
   tapStartOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 45,
     justifyContent: 'center',
     alignItems: 'center',
