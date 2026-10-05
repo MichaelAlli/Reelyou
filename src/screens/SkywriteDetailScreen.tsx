@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
+import { useTransientToast } from '@/components/ui/TransientToast';
 import { ModerationReportSheet } from '@/components/safety/ModerationReportSheet';
 import { SkyInvitationOverflowMenu } from '@/components/skywrite/SkyInvitationOverflowMenu';
 import { SkyInvitationSafetySheet } from '@/components/skywrite/SkyInvitationSafetySheet';
@@ -405,6 +406,8 @@ export function SkywriteDetailScreen() {
   const { getLifecycle, resolveAuthorBeacon, reactivateAuthorBeacon } = useSkywriteBeacon();
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
   const { repostToSkyreel } = usePlaySkySequenceRegistry();
+  const { show: showRepostToast, Toast: repostToast } = useTransientToast();
+  const [repostPending, setRepostPending] = useState(false);
 
   const [remoteRecord, setRemoteRecord] = useState<import('@/skywrite/types').SkywriteRecord | null>(
     null,
@@ -429,6 +432,20 @@ export function SkywriteDetailScreen() {
   const record =
     resolveSkywriteById(skywrites, typeof id === 'string' ? id : undefined, contentLifecycle) ??
     (remoteRecord?.id === id ? remoteRecord : null);
+
+  const handleRepostToSkyreel = useCallback(() => {
+    if (!record || repostPending) return;
+    setRepostPending(true);
+    showRepostToast(MySkywritesCopy.repostSkyreelPending);
+    void repostToSkyreel(record.id, record).then((result) => {
+      setRepostPending(false);
+      if (result.ok) {
+        showRepostToast(MySkywritesCopy.repostSkyreelSuccess);
+      } else {
+        showRepostToast(MySkywritesCopy.repostSkyreelFailed);
+      }
+    });
+  }, [record, repostPending, repostToSkyreel, showRepostToast]);
 
   const viewerCanViewEarly = useMemo(() => {
     if (!record) return false;
@@ -726,13 +743,8 @@ export function SkywriteDetailScreen() {
                   {isAuthor && record ? (
                     <Pressable
                       style={styles.saveBtn}
-                      onPress={() => {
-                        void repostToSkyreel(record.id, record).then((result) => {
-                          if (result.ok) {
-                            Alert.alert('SkyReel', MySkywritesCopy.repostSkyreelSuccess);
-                          }
-                        });
-                      }}
+                      onPress={handleRepostToSkyreel}
+                      disabled={repostPending}
                       accessibilityLabel={MySkywritesCopy.repostPlaySky}>
                       <Text style={styles.saveBtnText}>{MySkywritesCopy.repostPlaySky}</Text>
                     </Pressable>
@@ -1039,6 +1051,7 @@ export function SkywriteDetailScreen() {
         onClose={() => setSafetyInfoOpen(false)}
         onUnderstand={() => setSafetyInfoOpen(false)}
       />
+      {repostToast}
     </View>
   );
 }

@@ -10,18 +10,23 @@ import type { SkywriteMedia } from '@/skywrite/types';
 
 type Engine = Awaited<ReturnType<typeof createSkywriteAudioPlayback>>;
 
-export function useSkywriteNarrationPlayback(active: boolean) {
+export function useSkywriteNarrationPlayback(active: boolean, playbackSessionId = 0) {
   const engineRef = useRef<Engine>(null);
   const loadedUriRef = useRef<string | null>(null);
   const finishHandlerRef = useRef<(() => void) | null>(null);
   const scrubbingRef = useRef(false);
   const wasPlayingBeforeScrubRef = useRef(false);
+  const sessionRef = useRef(playbackSessionId);
+  const playOpRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasEnded, setHasEnded] = useState(false);
+  const [isPreparing, setIsPreparing] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [playbackError, setPlaybackError] = useState<SkywriteAudioPlaybackError | null>(null);
   const lastUiTickRef = useRef(0);
+
+  sessionRef.current = playbackSessionId;
 
   const unload = useCallback(async () => {
     const engine = engineRef.current;
@@ -36,13 +41,19 @@ export function useSkywriteNarrationPlayback(active: boolean) {
   }, []);
 
   const stopImmediate = useCallback(() => {
+    playOpRef.current += 1;
     finishHandlerRef.current = null;
     scrubbingRef.current = false;
     setIsPlaying(false);
     setHasEnded(false);
+    setIsPreparing(false);
     setPositionMs(0);
     void unload();
   }, [unload]);
+
+  useEffect(() => {
+    stopImmediate();
+  }, [playbackSessionId, stopImmediate]);
 
   const stop = useCallback(async () => {
     stopImmediate();
@@ -63,13 +74,22 @@ export function useSkywriteNarrationPlayback(active: boolean) {
 
   const playUri = useCallback(
     async (uri: string, media: SkywriteMedia, onFinish?: () => void) => {
+      const opId = ++playOpRef.current;
+      const sessionAtStart = sessionRef.current;
       finishHandlerRef.current = onFinish ?? null;
       setPlaybackError(null);
       setHasEnded(false);
+      setIsPreparing(true);
+      setIsPlaying(false);
       await unload();
+      if (opId !== playOpRef.current || sessionAtStart !== sessionRef.current) {
+        setIsPreparing(false);
+        return false;
+      }
       const volume = resolveVoiceoverVolume(media);
       const engine = await createSkywriteAudioPlayback(uri, volume, {
         onPosition: (pos, dur, playing) => {
+          if (sessionAtStart !== sessionRef.current || opId !== playOpRef.current) return;
           if (scrubbingRef.current) {
             setPositionMs(pos);
             return;
@@ -85,19 +105,29 @@ export function useSkywriteNarrationPlayback(active: boolean) {
           }
         },
         onFinish: () => {
+          if (sessionAtStart !== sessionRef.current || opId !== playOpRef.current) return;
           setIsPlaying(false);
           setHasEnded(true);
-          finishHandlerRef.current?.();
+          setIsPreparing(false);
+          const finish = finishHandlerRef.current;
           finishHandlerRef.current = null;
+          finish?.();
           void unload();
         },
         onError: (err) => {
+          if (sessionAtStart !== sessionRef.current || opId !== playOpRef.current) return;
           setPlaybackError(err);
           setIsPlaying(false);
+          setIsPreparing(false);
         },
       });
+      if (opId !== playOpRef.current || sessionAtStart !== sessionRef.current) {
+        setIsPreparing(false);
+        return false;
+      }
       if (!engine) {
         setPlaybackError('load_failed');
+        setIsPreparing(false);
         return false;
       }
       engineRef.current = engine;
@@ -107,11 +137,18 @@ export function useSkywriteNarrationPlayback(active: boolean) {
       }
       try {
         await engine.play();
+        if (opId !== playOpRef.current || sessionAtStart !== sessionRef.current) {
+          await engine.stop().catch(() => undefined);
+          setIsPreparing(false);
+          return false;
+        }
         setIsPlaying(true);
+        setIsPreparing(false);
         return true;
       } catch {
         setPlaybackError('play_failed');
         setIsPlaying(false);
+        setIsPreparing(false);
         return false;
       }
     },
@@ -225,6 +262,7 @@ export function useSkywriteNarrationPlayback(active: boolean) {
     () => ({
       isPlaying,
       hasEnded,
+      isPreparing,
       positionMs,
       durationMs,
       playbackError,
@@ -248,6 +286,7 @@ export function useSkywriteNarrationPlayback(active: boolean) {
       endScrub,
       hasEnded,
       isPlaying,
+      isPreparing,
       pausePlayback,
       playbackError,
       playUri,

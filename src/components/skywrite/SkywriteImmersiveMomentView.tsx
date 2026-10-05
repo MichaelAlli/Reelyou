@@ -90,6 +90,8 @@ interface SkywriteImmersiveMomentViewProps {
   /** Bumped when SkyReel navigation changes — cancels stale narration completion. */
   playSessionId?: number;
   skyReelActiveUntilMs?: number | null;
+  /** When false, hide SkyReel window countdown (e.g. single-post saved playback). */
+  showSkyReelExpiry?: boolean;
   onMediaPlaybackStarted?: () => void;
   /** Compose preview: stop video + narration when Back to editing bypasses handleExit. */
   onRegisterMediaStop?: (stop: () => void) => void;
@@ -147,6 +149,7 @@ function SkywriteImmersiveMomentViewComponent({
   mediaStartNonce = 0,
   playSessionId = 0,
   skyReelActiveUntilMs = null,
+  showSkyReelExpiry = true,
   onMediaPlaybackStarted,
   onRegisterMediaStop,
   enablePreviewPlaybackChrome = false,
@@ -162,7 +165,7 @@ function SkywriteImmersiveMomentViewComponent({
   const attachedVoiceover = stepUsesAttachedVoiceover(playbackRecord, stepKind);
   const narrationActive =
     attachedVoiceover && (stepKind === 'text' || stepKind === 'photo') && Boolean(playbackMedia.audio?.uri);
-  const narration = useSkywriteNarrationPlayback(narrationActive);
+  const narration = useSkywriteNarrationPlayback(narrationActive, playSessionId);
   const narrationStartedRef = useRef(false);
   const narrationSessionRef = useRef(0);
   const playSessionIdRef = useRef(playSessionId);
@@ -223,8 +226,8 @@ function SkywriteImmersiveMomentViewComponent({
   useEffect(() => {
     autoPlayIssuedRef.current = false;
     narrationStartedRef.current = false;
-    narration.stopImmediate();
-  }, [record.id, stepKind, mediaStartNonce, playSessionId, narration]);
+    stopVideoAndNarration();
+  }, [record.id, stepKind, mediaStartNonce, playSessionId, stopVideoAndNarration]);
 
   useEffect(() => {
     const prev = prevRemoteMediaStatusRef.current;
@@ -284,7 +287,7 @@ function SkywriteImmersiveMomentViewComponent({
   useEffect(() => {
     if (mediaStartNonce <= 0 || stepKind !== 'video') return;
     if (remoteMediaStatus === 'loading') return;
-    void seekTo(0, false);
+    void seekTo(0);
   }, [mediaStartNonce, remoteMediaStatus, seekTo, stepKind]);
 
   useEffect(() => {
@@ -554,7 +557,7 @@ function SkywriteImmersiveMomentViewComponent({
             <Text style={styles.closeIcon}>✕</Text>
           </Pressable>
           <ProgressSegments index={stepIndex} count={stepCount} />
-          {skyReelRemainingMs != null ? (
+          {showSkyReelExpiry && skyReelRemainingMs != null ? (
             <Text
               style={styles.skyReelExpiry}
               accessibilityLabel={`SkyReel visibility ${formatSkyReelRemainingLabel(skyReelRemainingMs)}`}
@@ -668,35 +671,46 @@ function SkywriteImmersiveMomentViewComponent({
         {showNarrationToolbar ? (
           <>
             <View style={styles.videoToolbar}>
+              {(() => {
+                const narrationFault =
+                  narration.playbackError || (mediaError && remoteMediaStatus === 'error');
+                const showPause =
+                  narration.isPlaying && !narrationFault && !narration.isPreparing;
+                const chipLabel = narration.isPreparing
+                  ? 'Loading narration'
+                  : narrationFault
+                    ? 'Retry narration'
+                    : showPause
+                      ? 'Pause narration'
+                      : narration.hasEnded
+                        ? 'Replay narration'
+                        : 'Play narration';
+                return (
               <Pressable
                 style={styles.playChip}
+                disabled={narration.isPreparing}
                 onPress={() => {
                   const uri = playbackMedia.audio?.uri;
                   if (!uri) return;
+                  if (narrationFault || narration.hasEnded) {
+                    narration.clearError();
+                    if (mediaError) retryRemoteMedia();
+                    void narration.replay(uri, playbackMedia, () => onNarrationFinished?.());
+                    return;
+                  }
                   void narration.toggleOrPlay(uri, playbackMedia, () => onNarrationFinished?.());
                 }}
-                accessibilityLabel={narration.isPlaying ? 'Pause narration' : 'Play narration'}>
-                <Text style={styles.playIcon}>{narration.isPlaying ? '❚❚' : '▶'}</Text>
+                accessibilityLabel={chipLabel}>
+                <Text style={styles.playIcon}>
+                  {narration.isPreparing ? '…' : showPause ? '❚❚' : '▶'}
+                </Text>
               </Pressable>
+                );
+              })()}
               <Text style={styles.timeLabel}>
                 {formatSkywriteAudioDuration(narrationPosition)} /{' '}
                 {formatSkywriteAudioDuration(narrationDuration)}
               </Text>
-              {narration.playbackError || (mediaError && remoteMediaStatus === 'error') ? (
-                <Pressable
-                  style={styles.toolbarChip}
-                  onPress={() => {
-                    narration.clearError();
-                    if (mediaError) retryRemoteMedia();
-                    const uri = playbackMedia.audio?.uri;
-                    if (uri) {
-                      void narration.toggleOrPlay(uri, playbackMedia, () => onNarrationFinished?.());
-                    }
-                  }}
-                  accessibilityLabel="Retry narration playback">
-                  <Text style={styles.toolbarChipText}>Retry audio</Text>
-                </Pressable>
-              ) : null}
               {showAudioMixControls && onMediaMixChange ? (
                 <Pressable
                   style={styles.toolbarChip}

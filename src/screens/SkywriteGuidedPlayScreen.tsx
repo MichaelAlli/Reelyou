@@ -81,6 +81,7 @@ export function SkywriteGuidedPlayScreen() {
   const [mediaStartNonce, setMediaStartNonce] = useState(0);
   const [playSessionId, setPlaySessionId] = useState(0);
   const playSessionRef = useRef(0);
+  const stopPlaybackRef = useRef<() => void>(() => undefined);
   const [userStartedPlayback, setUserStartedPlayback] = useState(false);
   const startedRef = useRef(false);
   const skippedStepIdsRef = useRef<Set<string>>(new Set());
@@ -256,17 +257,22 @@ export function SkywriteGuidedPlayScreen() {
     autoAdvancePulseRef.current = Date.now();
   }, []);
 
-  const handleExit = useCallback(() => {
-    bumpPlaySession();
+  const haltOutgoingPlayback = useCallback(() => {
+    stopPlaybackRef.current();
     void audioPreview.stopAll();
+  }, [audioPreview]);
+
+  const handleExit = useCallback(() => {
+    haltOutgoingPlayback();
+    bumpPlaySession();
     setPaused(true);
     setNeedsTapToPlay(false);
     exitSkyreel(router, returnTo);
-  }, [audioPreview, bumpPlaySession, returnTo, router]);
+  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback, returnTo, router]);
 
   const advance = useCallback(() => {
+    haltOutgoingPlayback();
     bumpPlaySession();
-    void audioPreview.stopAll();
     setMediaStartNonce((n) => n + 1);
     setIndex((value) => {
       if (value >= steps.length - 1) {
@@ -275,18 +281,18 @@ export function SkywriteGuidedPlayScreen() {
       }
       return value + 1;
     });
-  }, [audioPreview, bumpPlaySession, steps.length]);
+  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback, steps.length]);
 
   const restartCurrentStep = useCallback(() => {
+    haltOutgoingPlayback();
     bumpPlaySession();
-    void audioPreview.stopAll();
     setMediaStartNonce((n) => n + 1);
-  }, [audioPreview, bumpPlaySession]);
+  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback]);
 
   const goNext = useCallback(() => {
     firstPostLeftRef.current = resetFirstPostLeftTapState();
+    haltOutgoingPlayback();
     bumpPlaySession();
-    void audioPreview.stopAll();
     setNeedsTapToPlay(false);
     setMediaStartNonce((n) => n + 1);
     setIndex((value) => {
@@ -296,16 +302,16 @@ export function SkywriteGuidedPlayScreen() {
       }
       return next;
     });
-  }, [audioPreview, bumpPlaySession, steps.length]);
+  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback, steps.length]);
 
   const goPrevious = useCallback(() => {
     firstPostLeftRef.current = resetFirstPostLeftTapState();
+    haltOutgoingPlayback();
     bumpPlaySession();
-    void audioPreview.stopAll();
     setNeedsTapToPlay(false);
     setMediaStartNonce((n) => n + 1);
     setIndex((value) => Math.max(value - 1, 0));
-  }, [audioPreview, bumpPlaySession]);
+  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback]);
 
   const handleEdgePrevious = useCallback(() => {
     if (index === 0) {
@@ -530,9 +536,13 @@ export function SkywriteGuidedPlayScreen() {
           onNext={handleEdgeNext}
           canPrevious
           canNext={index < steps.length - 1}
-          skyReelActiveUntilMs={skyReelActiveUntilMs}
+          skyReelActiveUntilMs={playScope === 'single' ? null : skyReelActiveUntilMs}
+          showSkyReelExpiry={playScope !== 'single'}
           onMediaPlaybackStarted={dismissTapToPlay}
-          onBeforeStepChange={() => void audioPreview.stopAll()}
+          onRegisterMediaStop={(stop) => {
+            stopPlaybackRef.current = stop;
+          }}
+          onBeforeStepChange={haltOutgoingPlayback}
           autoPlayVideo={shouldAutoplayVideo}
           sequencePaused={paused}
           layoutMode="viewport"

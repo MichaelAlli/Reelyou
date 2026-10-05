@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { CalmOverlaySheet } from '@/components/focused-sky/CalmOverlaySheet';
+import { useTransientToast } from '@/components/ui/TransientToast';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { ProfileSkywritingsCopy } from '@/constants/profileSkywritingsCopy';
 import { MySkywritesCopy } from '@/constants/mySkywritesCopy';
@@ -68,6 +69,25 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const audioPreview = useOverlayAudioPreviewScope(visible);
   const applyDeletion = useApplySkywriteContentDeletion();
   const { repostToSkyreel } = usePlaySkySequenceRegistry();
+  const { show: showToast, Toast: repostToast } = useTransientToast();
+  const [repostPendingId, setRepostPendingId] = useState<string | null>(null);
+
+  const handleRepostToSkyreel = useCallback(
+    (skywriteId: string, skywrite: MySkywriteLibraryRow['skywrite']) => {
+      if (repostPendingId === skywriteId) return;
+      setRepostPendingId(skywriteId);
+      showToast(MySkywritesCopy.repostSkyreelPending);
+      void repostToSkyreel(skywriteId, skywrite).then((result) => {
+        setRepostPendingId((current) => (current === skywriteId ? null : current));
+        if (result.ok) {
+          showToast(MySkywritesCopy.repostSkyreelSuccess);
+        } else {
+          showToast(MySkywritesCopy.repostSkyreelFailed);
+        }
+      });
+    },
+    [repostPendingId, repostToSkyreel, showToast],
+  );
 
   const rows = useMemo(() => {
     if (tab === 'contributed') {
@@ -228,13 +248,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                   menuActions.push({
                     id: 'repost-play-sky',
                     label: MySkywritesCopy.repostPlaySky,
-                    onPress: () => {
-                      void repostToSkyreel(row.skywriteId, row.skywrite).then((result) => {
-                        if (result.ok) {
-                          Alert.alert('SkyReel', MySkywritesCopy.repostSkyreelSuccess);
-                        }
-                      });
-                    },
+                    onPress: () => handleRepostToSkyreel(row.skywriteId, row.skywrite),
                   });
                 }
                 if (tab === 'recent' && !row.inYourJourney) {
@@ -312,6 +326,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
         <Pressable onPress={handleClose} style={styles.closeBtn} accessibilityLabel={MySkywritesCopy.close}>
           <Text style={styles.closeText}>{MySkywritesCopy.close}</Text>
         </Pressable>
+        {repostToast}
       </View>
     </CalmOverlaySheet>
   );
@@ -321,6 +336,7 @@ export const MySkywritesSheet = memo(MySkywritesSheetComponent);
 
 const styles = StyleSheet.create({
   panel: {
+    position: 'relative',
     borderRadius: 18,
     backgroundColor: 'rgba(8, 10, 28, 0.96)',
     borderWidth: 1,

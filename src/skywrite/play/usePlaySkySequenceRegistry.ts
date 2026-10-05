@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { mergeExploreDemoPlaySkyRegistry } from '@/explore/exploreDemoSkies';
 import { repostSkyreelOnServer } from '@/social/sharedSkywriteApi';
@@ -18,6 +18,7 @@ import {
 export function usePlaySkySequenceRegistry() {
   const [registry, setRegistry] = useState<PlaySkySequenceRegistry>({});
   const [ready, setReady] = useState(false);
+  const repostInFlightRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let mounted = true;
@@ -50,23 +51,31 @@ export function usePlaySkySequenceRegistry() {
       skywriteId: string,
       record?: Pick<SkywriteRecord, 'id' | 'authorId' | 'createdAt'>,
     ): Promise<{ ok: boolean }> => {
+      if (repostInFlightRef.current.has(skywriteId)) {
+        return { ok: false };
+      }
+      repostInFlightRef.current.add(skywriteId);
       let next = registry;
       if (record && !next[skywriteId]) {
         next = registerPlaySkyPublication(next, record);
       }
 
       let serverRow: Awaited<ReturnType<typeof repostSkyreelOnServer>> = null;
-      if (isSharedSocialPersistenceEnabled()) {
-        serverRow = await repostSkyreelOnServer(skywriteId);
-        if (!serverRow) return { ok: false };
-        next = mergeServerSkyreelIntoRegistry(next, [serverRow]);
-      } else {
-        const nowMs = Date.now();
-        next = repostIntoPlaySkySequence(next, skywriteId, nowMs);
-      }
+      try {
+        if (isSharedSocialPersistenceEnabled()) {
+          serverRow = await repostSkyreelOnServer(skywriteId);
+          if (!serverRow) return { ok: false };
+          next = mergeServerSkyreelIntoRegistry(next, [serverRow]);
+        } else {
+          const nowMs = Date.now();
+          next = repostIntoPlaySkySequence(next, skywriteId, nowMs);
+        }
 
-      await persist(next);
-      return { ok: true };
+        await persist(next);
+        return { ok: true };
+      } finally {
+        repostInFlightRef.current.delete(skywriteId);
+      }
     },
     [persist, registry],
   );
