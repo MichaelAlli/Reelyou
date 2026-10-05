@@ -89,7 +89,8 @@ async function createWebHtmlEngine(
     callbacks.onPosition?.(posMs, durationMs, !el.paused && !el.ended);
   };
 
-  const interval = setInterval(tick, 200);
+  tick();
+  const interval = setInterval(tick, 150);
   el.onended = () => {
     clearInterval(interval);
     callbacks.onPosition?.(el.duration * 1000, el.duration * 1000, false);

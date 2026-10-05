@@ -85,6 +85,11 @@ export function useSkywriteNarrationPlayback(active: boolean, playbackSessionId 
     }
   }, [active, stop]);
 
+  const seedDurationMs = useCallback((media: SkywriteMedia) => {
+    const fromMeta = sanitizeDurationMs(media.audio?.durationMs);
+    if (fromMeta > 0) setDurationMs((prev) => (prev > 0 ? prev : fromMeta));
+  }, []);
+
   useEffect(
     () => () => {
       void unload();
@@ -101,6 +106,7 @@ export function useSkywriteNarrationPlayback(active: boolean, playbackSessionId 
       setHasEnded(false);
       setIsPreparing(true);
       setIsPlaying(false);
+      seedDurationMs(media);
       await unload();
       if (opId !== playOpRef.current || sessionAtStart !== sessionRef.current) {
         setIsPreparing(false);
@@ -114,13 +120,13 @@ export function useSkywriteNarrationPlayback(active: boolean, playbackSessionId 
             setPositionMs(pos);
             return;
           }
-          const now = Date.now();
           const safePos = finiteMs(pos) ?? 0;
-          if (now - lastUiTickRef.current >= 200) {
+          setPositionMs(safePos);
+          const safeDur = sanitizeDurationMs(dur, media.audio?.durationMs);
+          if (safeDur > 0) setDurationMs(safeDur);
+          const now = Date.now();
+          if (now - lastUiTickRef.current >= 150) {
             lastUiTickRef.current = now;
-            setPositionMs(safePos);
-            const safeDur = sanitizeDurationMs(dur, media.audio?.durationMs);
-            if (safeDur > 0) setDurationMs(safeDur);
             if (!playbackErrorRef.current) {
               setIsPlaying(playing);
             }
@@ -178,7 +184,7 @@ export function useSkywriteNarrationPlayback(active: boolean, playbackSessionId 
         return false;
       }
     },
-    [unload],
+    [seedDurationMs, unload],
   );
 
   const toggleOrPlay = useCallback(

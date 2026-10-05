@@ -20,7 +20,7 @@ import {
   skywritePreviewExcerpt,
 } from '@/skywrite/media/skywriteMediaPreviewUtils';
 import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
-import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
+import { useResolvedSkywriteLibraryPreview } from '@/social/useResolvedSkywriteLibraryPreview';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 export interface SkywriteLibraryMenuAction {
@@ -50,7 +50,7 @@ function SkywriteLibraryMediaCardComponent({
   isAudioPlaying,
   style,
 }: SkywriteLibraryMediaCardProps) {
-  const { record: resolvedSkywrite, status, mediaError, retry } = useResolvedSkywriteRecord(
+  const { record: resolvedSkywrite, status, previewError, retry } = useResolvedSkywriteLibraryPreview(
     skywrite as SkywriteRecord,
   );
   const viewRecord = resolvedSkywrite ?? (skywrite as SkywriteRecord);
@@ -131,7 +131,7 @@ function SkywriteLibraryMediaCardComponent({
               transition={120}
               onError={() => {
             setImageFailed(true);
-            if (mediaError || status === 'error') retry();
+            if (previewError || status === 'error') retry();
           }}
               accessibilityIgnoresInvertColors
             />
@@ -146,9 +146,27 @@ function SkywriteLibraryMediaCardComponent({
               </View>
             ) : null}
           </>
+        ) : media.kind === 'photo_audio' || media.kind === 'photo' ? (
+          <LinearGradient
+            colors={['rgba(88, 56, 168, 0.55)', 'rgba(12, 10, 32, 0.92)']}
+            style={styles.mediaFill}>
+            <Text style={styles.textBody} numberOfLines={6}>
+              {captionText || 'Photo Skywrite'}
+            </Text>
+            {media.kind === 'photo_audio' ? (
+              <View style={styles.voiceBadgeInline}>
+                <Text style={styles.voiceBadgeText}>♪ Voiceover</Text>
+              </View>
+            ) : null}
+          </LinearGradient>
         ) : (
           <View style={[styles.mediaFill, styles.fallback]}>
             <Text style={styles.playIconLarge}>{media.kind.includes('video') ? '▶' : '◻'}</Text>
+            {captionText ? (
+              <Text style={styles.fallbackCaption} numberOfLines={3}>
+                {captionText}
+              </Text>
+            ) : null}
           </View>
         )}
       </Pressable>
@@ -261,7 +279,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#F5F0FF',
   },
-  fallback: { alignItems: 'center', justifyContent: 'center' },
+  fallback: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  fallbackCaption: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(235,228,248,0.72)',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  voiceBadgeInline: {
+    marginTop: 10,
+    alignSelf: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+    backgroundColor: 'rgba(8, 10, 24, 0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(232, 200, 114, 0.35)',
+  },
   metaRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   metaText: { flex: 1, gap: 2 },
   caption: {

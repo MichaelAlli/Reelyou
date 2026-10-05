@@ -256,7 +256,10 @@ function SkywriteImmersiveMomentViewComponent({
         requestAutoPlay();
       }
     }
-  }, [autoPlayVideo, remoteMediaStatus, requestAutoPlay, sequencePaused, stepKind]);
+    if (prev === 'loading' && remoteMediaStatus === 'ready' && narrationActive) {
+      narrationStartedRef.current = false;
+    }
+  }, [autoPlayVideo, narrationActive, remoteMediaStatus, requestAutoPlay, sequencePaused, stepKind]);
 
   useEffect(() => {
     if (!narrationActive || !narrationAutoplay || narrationPaused || narrationStartedRef.current) return;
@@ -555,7 +558,30 @@ function SkywriteImmersiveMomentViewComponent({
     remoteMediaStatus !== 'loading' &&
     (videoPlayback.isLoaded || publishedVideoDurationMs > 0);
 
+  const storyProgressPaused =
+    sequencePaused ||
+    tapToPlayPrompt ||
+    narrationPaused ||
+    (stepKind === 'video' &&
+      (playbackPhase === 'paused' || playbackPhase === 'loading' || remoteMediaStatus === 'loading')) ||
+    (narrationActive &&
+      (narration.playbackPhase === 'paused' ||
+        narration.playbackPhase === 'loading' ||
+        remoteMediaStatus === 'loading'));
+
   const currentStorySegmentFill = useMemo(() => {
+    if (storyProgressPaused && narrationActive && narration.playbackPhase === 'paused') {
+      return safeStoryFillRatio(narration.positionMs, narration.durationMs || playbackMedia.audio?.durationMs);
+    }
+    if (storyProgressPaused && stepKind === 'video' && playbackPhase === 'paused') {
+      const dur = resolveCombinedTimelineMs(
+        combinedDurationMs,
+        videoPlayback.durationMs,
+        displayVideo?.durationMs,
+        playbackRecord.media.audio?.durationMs,
+      );
+      return safeStoryFillRatio(videoPlayback.positionMs, dur);
+    }
     if (stepKind === 'video') {
       if (remoteMediaStatus === 'loading' || playbackPhase === 'loading') return 0;
       if (playbackPhase === 'ended') return 1;
@@ -600,6 +626,7 @@ function SkywriteImmersiveMomentViewComponent({
     remoteMediaStatus,
     stepKind,
     stillDwellElapsedMs,
+    storyProgressPaused,
     videoPlayback.durationMs,
     videoPlayback.positionMs,
   ]);
@@ -737,13 +764,6 @@ function SkywriteImmersiveMomentViewComponent({
             style={styles.closeBtn}>
             <Text style={styles.closeIcon}>✕</Text>
           </Pressable>
-          {showStoryProgress ? (
-            <SkywriteStoryProgressBar
-              stepIndex={stepIndex}
-              stepCount={stepCount}
-              currentSegmentFill={currentStorySegmentFill}
-            />
-          ) : null}
           {showSkyReelExpiry &&
           skyReelRemainingMs != null &&
           skyReelRemainingMs > 0 ? (
@@ -758,6 +778,14 @@ function SkywriteImmersiveMomentViewComponent({
             {SkywritePlayCopy.progress(stepIndex + 1, stepCount)}
           </Text>
         </View>
+        {showStoryProgress ? (
+          <SkywriteStoryProgressBar
+            stepIndex={stepIndex}
+            stepCount={stepCount}
+            currentSegmentFill={currentStorySegmentFill}
+            style={styles.storyProgressRow}
+          />
+        ) : null}
       </LinearGradient>
 
       <LinearGradient
@@ -1140,6 +1168,11 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 44,
     zIndex: 4,
+  },
+  storyProgressRow: {
+    marginTop: 8,
+    marginHorizontal: 4,
+    height: 4,
   },
   closeBtn: {
     width: 44,

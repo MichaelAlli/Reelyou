@@ -89,6 +89,7 @@ export function SkywriteGuidedPlayScreen() {
   const firstPostLeftRef = useRef<FirstPostLeftTapState>(resetFirstPostLeftTapState());
   const [expiryClockTick, setExpiryClockTick] = useState(0);
   const [sequenceComplete, setSequenceComplete] = useState(false);
+  const prevPlayIndexRef = useRef(0);
 
   useEffect(() => {
     persistSkyreelReturnFromParam(returnTo);
@@ -404,7 +405,10 @@ export function SkywriteGuidedPlayScreen() {
   void expiryClockTick;
 
   useEffect(() => {
+    const wentBack = index < prevPlayIndexRef.current;
+    prevPlayIndexRef.current = index;
     if (playScope === 'single') return;
+    if (wentBack) return;
     if (!record || skyReelActiveUntilMs == null) return;
     if (!isSkyReelAppearanceActive(skyReelActiveUntilMs)) {
       if (index < steps.length - 1) {

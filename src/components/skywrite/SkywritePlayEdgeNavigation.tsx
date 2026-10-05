@@ -19,7 +19,7 @@ function SkywritePlayEdgeNavigationComponent({
   onPrevious,
   onNext,
   disabled = false,
-  autoAdvanceCooldownMs = 500,
+  autoAdvanceCooldownMs = 120,
   topInset = 72,
   bottomInset = 160,
 }: SkywritePlayEdgeNavigationProps) {
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
-    zIndex: 1,
+    zIndex: 12,
   },
   edge: {
     width: '28%',

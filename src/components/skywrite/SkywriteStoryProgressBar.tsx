@@ -1,4 +1,3 @@
-import { memo } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { safeStoryFillRatio } from '@/skywrite/play/skywriteStoryProgress';
@@ -20,7 +19,10 @@ function SkywriteStoryProgressBarComponent({
   accessibilityLabel = 'Story progress',
 }: SkywriteStoryProgressBarProps) {
   if (stepCount < 1) return null;
-  const currentFill = safeStoryFillRatio(currentSegmentFill * 1000, 1000);
+  const currentFill = safeStoryFillRatio(
+    Number.isFinite(currentSegmentFill) ? currentSegmentFill * 1000 : 0,
+    1000,
+  );
 
   return (
     <View
@@ -38,7 +40,8 @@ function SkywriteStoryProgressBarComponent({
         else if (i === stepIndex) fill = currentFill;
         return (
           <View key={`story-seg-${i}`} style={styles.track}>
-            <View style={[styles.fill, { width: `${fill * 100}%` }]} />
+            <View style={[styles.fill, { flex: fill }]} />
+            <View style={{ flex: Math.max(0, 1 - fill) }} />
           </View>
         );
       })}
@@ -46,7 +49,7 @@ function SkywriteStoryProgressBarComponent({
   );
 }
 
-export const SkywriteStoryProgressBar = memo(SkywriteStoryProgressBarComponent);
+export const SkywriteStoryProgressBar = SkywriteStoryProgressBarComponent;
 
 const styles = StyleSheet.create({
   row: {

@@ -70,6 +70,56 @@ export async function resolveSkywriteMedia(
   }
 }
 
+/** Photo + video poster/thumbnail only — for library cards (no audio fetch). */
+export async function resolveSkywriteVisualPreviewMedia(
+  media: SkywriteMedia,
+  options?: { forceRefresh?: boolean },
+): Promise<{ media: SkywriteMedia; previewOk: boolean }> {
+  try {
+    let previewOk = true;
+
+    const photoTask = media.photo
+      ? resolvePartUri(media.photo.uri, media.photo.remoteAssetId, options).then((result) => {
+          if (!result.ok) previewOk = false;
+          return { ...media.photo!, uri: result.uri ?? media.photo!.uri };
+        })
+      : Promise.resolve(null);
+
+    const videoTask = (async () => {
+      const video = media.video;
+      if (!video) return null;
+      let thumbnailUri = video.thumbnailUri;
+      if (video.thumbnailUri) {
+        const thumbAsset = parseRemoteAssetIdFromUri(video.thumbnailUri);
+        const thumb = await resolvePartUri(video.thumbnailUri, thumbAsset ?? undefined, options);
+        if (!thumb.ok) previewOk = false;
+        thumbnailUri = thumb.uri ?? video.thumbnailUri;
+      } else if (parseRemoteAssetIdFromUri(video.uri)) {
+        const main = await resolvePartUri(video.uri, video.remoteAssetId, options);
+        if (!main.ok) previewOk = false;
+        thumbnailUri = main.uri ?? video.uri;
+      }
+      return { ...video, uri: video.uri, thumbnailUri };
+    })();
+
+    const [photoResolved, video] = await Promise.all([photoTask, videoTask]);
+    return {
+      media: { ...media, photo: photoResolved, video, audio: media.audio ?? null },
+      previewOk,
+    };
+  } catch {
+    return { media, previewOk: false };
+  }
+}
+
+export async function resolveSkywriteLibraryPreviewRecord(
+  record: SkywriteRecord,
+  options?: { forceRefresh?: boolean },
+): Promise<{ record: SkywriteRecord; previewOk: boolean }> {
+  const { media, previewOk } = await resolveSkywriteVisualPreviewMedia(record.media, options);
+  return { record: { ...record, media }, previewOk };
+}
+
 export async function resolveSkywriteRecord(
   record: SkywriteRecord,
   options?: { forceRefresh?: boolean },
@@ -80,6 +130,12 @@ export async function resolveSkywriteRecord(
   } catch {
     return { record, allOk: false };
   }
+}
+
+export function recordNeedsLibraryPreviewResolve(record: SkywriteRecord | null | undefined): boolean {
+  if (!record) return false;
+  const uris = [record.media.photo?.uri, record.media.video?.thumbnailUri, record.media.video?.uri];
+  return uris.some((uri) => Boolean(parseRemoteAssetIdFromUri(uri)));
 }
 
 export function collectRemoteAssetIds(record: SkywriteRecord): string[] {
