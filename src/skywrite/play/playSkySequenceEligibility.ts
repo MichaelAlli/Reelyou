@@ -9,6 +9,8 @@ export interface PlaySkySequenceEntry {
   ownerId: string;
   /** Original post creation — never changes on repost. */
   publishedAt: string;
+  /** Start of the current SkyReel appearance window (UTC ms). */
+  appearancePublishedAtMs: number;
   /** When sequence eligibility ends (UTC ms). */
   activeUntilMs: number;
   /** Last explicit repost into Play Sky. */
@@ -34,6 +36,7 @@ export function registerPlaySkyPublication(
       skywriteId: record.id,
       ownerId,
       publishedAt: record.createdAt,
+      appearancePublishedAtMs: startMs,
       activeUntilMs: playSkyActiveUntilFromTimestamp(startMs),
     },
   };
@@ -50,6 +53,7 @@ export function repostIntoPlaySkySequence(
     ...registry,
     [skywriteId]: {
       ...existing,
+      appearancePublishedAtMs: nowMs,
       activeUntilMs: playSkyActiveUntilFromTimestamp(nowMs),
       repostedAtMs: nowMs,
     },

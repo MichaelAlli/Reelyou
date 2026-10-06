@@ -20,13 +20,18 @@ export function mergeServerSkyreelIntoRegistry(
   const next: PlaySkySequenceRegistry = { ...registry };
   for (const row of rows) {
     const publishedAt = new Date(row.createdAt).toISOString();
+    const existing = next[row.id];
     const activeUntilMs =
       row.skyreelActiveUntilMs ?? playSkyActiveUntilFromTimestamp(row.createdAt);
-    const existing = next[row.id];
+    const appearancePublishedAtMs =
+      row.skyreelRepostedAtMs ??
+      existing?.appearancePublishedAtMs ??
+      activeUntilMs - 24 * 60 * 60 * 1000;
     next[row.id] = {
       skywriteId: row.id,
       ownerId: row.authorUserId,
       publishedAt: existing?.publishedAt ?? publishedAt,
+      appearancePublishedAtMs,
       activeUntilMs,
       repostedAtMs: row.skyreelRepostedAtMs ?? existing?.repostedAtMs,
     };

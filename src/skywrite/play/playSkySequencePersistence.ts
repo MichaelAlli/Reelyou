@@ -10,10 +10,15 @@ function parseEntry(raw: unknown): PlaySkySequenceRegistry[string] | null {
   if (typeof entry.ownerId !== 'string') return null;
   if (typeof entry.publishedAt !== 'string') return null;
   if (typeof entry.activeUntilMs !== 'number') return null;
+  const appearancePublishedAtMs =
+    typeof entry.appearancePublishedAtMs === 'number'
+      ? entry.appearancePublishedAtMs
+      : entry.activeUntilMs - 24 * 60 * 60 * 1000;
   return {
     skywriteId: entry.skywriteId,
     ownerId: entry.ownerId,
     publishedAt: entry.publishedAt,
+    appearancePublishedAtMs,
     activeUntilMs: entry.activeUntilMs,
     repostedAtMs: typeof entry.repostedAtMs === 'number' ? entry.repostedAtMs : undefined,
   };

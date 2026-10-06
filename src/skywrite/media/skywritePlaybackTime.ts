@@ -36,5 +36,7 @@ export function clampSeekTargetMs(requestedMs: unknown, maxDurationMs: number): 
 export function msToMediaElementSeconds(positionMs: number): number | null {
   const ms = finiteMs(positionMs);
   if (ms == null) return null;
-  return Math.max(0, ms / 1000);
+  const seconds = ms / 1000;
+  if (!Number.isFinite(seconds) || seconds < 0) return null;
+  return seconds;
 }

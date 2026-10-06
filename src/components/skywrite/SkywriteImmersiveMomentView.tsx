@@ -49,7 +49,7 @@ import { useSkywriteNarrationPlayback } from '@/skywrite/media/useSkywriteNarrat
 import type { SkywritePlayStepKind } from '@/skywrite/play/skywritePlayTypes';
 import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
-import { formatSkyReelRemainingLabel } from '@/skywrite/play/skyReelExpiry';
+import { formatSkyReelHourLabel } from '@/skywrite/play/skyReelExpiry';
 import { stepUsesAttachedVoiceover } from '@/skywrite/voiceoverStepUtils';
 
 interface SkywriteImmersiveMomentViewProps {
@@ -98,6 +98,8 @@ interface SkywriteImmersiveMomentViewProps {
   /** Bumped when SkyReel navigation changes — cancels stale narration completion. */
   playSessionId?: number;
   skyReelActiveUntilMs?: number | null;
+  /** Count-up hour label for the active post’s SkyReel appearance (e.g. "Hour 2 of 24."). */
+  skyReelHourLabel?: string | null;
   /** When false, hide SkyReel window countdown (e.g. single-post saved playback). */
   showSkyReelExpiry?: boolean;
   onMediaPlaybackStarted?: () => void;
@@ -151,6 +153,7 @@ function SkywriteImmersiveMomentViewComponent({
   mediaStartNonce = 0,
   playSessionId = 0,
   skyReelActiveUntilMs = null,
+  skyReelHourLabel = null,
   showSkyReelExpiry = true,
   onMediaPlaybackStarted,
   onRegisterMediaStop,
@@ -557,9 +560,8 @@ function SkywriteImmersiveMomentViewComponent({
     !narration.isPlaying &&
     !narration.isPreparing;
   const centerNarrationBottomInset = Math.max(insets.bottom, 10) + (bottomSlot ? 200 : 150);
-  const skyReelRemainingMs =
-    skyReelActiveUntilMs != null ? skyReelActiveUntilMs - Date.now() : null;
   void expiryTick;
+  void skyReelActiveUntilMs;
   const publishedVideoDurationMs = resolveCombinedTimelineMs(
     videoPlayback.durationMs,
     displayVideo?.durationMs,
@@ -793,14 +795,12 @@ function SkywriteImmersiveMomentViewComponent({
             style={styles.closeBtn}>
             <Text style={styles.closeIcon}>✕</Text>
           </Pressable>
-          {showSkyReelExpiry &&
-          skyReelRemainingMs != null &&
-          skyReelRemainingMs > 0 ? (
+          {showSkyReelExpiry && skyReelHourLabel ? (
             <Text
               style={styles.skyReelExpiry}
-              accessibilityLabel={`SkyReel visibility ${formatSkyReelRemainingLabel(skyReelRemainingMs)}`}
+              accessibilityLabel={`SkyReel ${skyReelHourLabel}`}
               pointerEvents="none">
-              {formatSkyReelRemainingLabel(skyReelRemainingMs)}
+              {skyReelHourLabel}
             </Text>
           ) : null}
           <Text style={styles.progressCompact}>

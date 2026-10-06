@@ -74,8 +74,7 @@ export function pickSkywriteMediaSource(record: Pick<SkywriteRecord, 'media' | '
     kind,
     photoUri: record.media.photo?.uri ?? null,
     videoUri: record.media.video?.uri ?? null,
-    videoThumbnailUri:
-      record.media.video?.thumbnailUri ?? record.media.video?.uri ?? null,
+    videoThumbnailUri: record.media.video?.thumbnailUri ?? null,
     audioUri: record.media.audio?.uri ?? null,
     audioDurationMs: record.media.audio?.durationMs,
     textExcerpt: skywritePreviewExcerpt(record.text, 140),

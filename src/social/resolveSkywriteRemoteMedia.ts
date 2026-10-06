@@ -1,5 +1,6 @@
 import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
 import { invalidateMediaAccessCache, resolveMediaAccessUrl } from '@/social/sharedMediaApi';
+import { ensureSkywriteVideoThumbnail } from '@/skywrite/publish/ensureSkywriteVideoThumbnail';
 import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
 
 async function resolvePartUri(
@@ -88,18 +89,25 @@ export async function resolveSkywriteVisualPreviewMedia(
     const videoTask = (async () => {
       const video = media.video;
       if (!video) return null;
+      let resolvedUri = video.uri;
+      if (parseRemoteAssetIdFromUri(video.uri) || video.remoteAssetId) {
+        const main = await resolvePartUri(video.uri, video.remoteAssetId, options);
+        if (!main.ok) previewOk = false;
+        if (main.uri) resolvedUri = main.uri;
+      }
       let thumbnailUri = video.thumbnailUri;
       if (video.thumbnailUri) {
         const thumbAsset = parseRemoteAssetIdFromUri(video.thumbnailUri);
         const thumb = await resolvePartUri(video.thumbnailUri, thumbAsset ?? undefined, options);
         if (!thumb.ok) previewOk = false;
         thumbnailUri = thumb.uri ?? video.thumbnailUri;
-      } else if (parseRemoteAssetIdFromUri(video.uri)) {
-        const main = await resolvePartUri(video.uri, video.remoteAssetId, options);
-        if (!main.ok) previewOk = false;
-        thumbnailUri = main.uri ?? video.uri;
+      } else if (resolvedUri) {
+        const withThumb = await ensureSkywriteVideoThumbnail({ ...video, uri: resolvedUri });
+        if (withThumb?.thumbnailUri) {
+          thumbnailUri = withThumb.thumbnailUri;
+        }
       }
-      return { ...video, uri: video.uri, thumbnailUri };
+      return { ...video, uri: resolvedUri, thumbnailUri };
     })();
 
     const [photoResolved, video] = await Promise.all([photoTask, videoTask]);

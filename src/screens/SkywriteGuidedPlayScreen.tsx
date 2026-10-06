@@ -44,8 +44,11 @@ import {
 } from '@/skywrite/play/skyreelFirstPostEdgeNavigation';
 import { exitSkyreel, persistSkyreelReturnFromParam } from '@/skywrite/play/skyreelNavigation';
 import {
+  formatSkyReelHourLabel,
   isSkyReelAppearanceActive,
   resolveSkyReelActiveUntilMs,
+  resolveSkyReelAppearancePublishedAtMs,
+  resolveSkyReelDisplayHour,
 } from '@/skywrite/play/skyReelExpiry';
 import {
   resolveStorySegmentCount,
@@ -96,6 +99,7 @@ export function SkywriteGuidedPlayScreen() {
   const [sequenceComplete, setSequenceComplete] = useState(false);
   const [recordHydration, setRecordHydration] = useState<'idle' | 'loading' | 'failed'>('idle');
   const [recordFetchNonce, setRecordFetchNonce] = useState(0);
+  const expiryHandledForRef = useRef<string | null>(null);
 
   useEffect(() => {
     persistSkyreelReturnFromParam(returnTo);
@@ -430,10 +434,73 @@ export function SkywriteGuidedPlayScreen() {
 
   void expiryClockTick;
 
+  const skyReelAppearancePublishedAtMs = useMemo(() => {
+    if (!record) return null;
+    return resolveSkyReelAppearancePublishedAtMs(record.id, registry, {
+      createdAt: record.createdAt,
+    });
+  }, [record, registry]);
+
+  const skyReelHourLabel = useMemo(() => {
+    if (playScope === 'single') return null;
+    const hour = resolveSkyReelDisplayHour(
+      skyReelAppearancePublishedAtMs,
+      skyReelActiveUntilMs,
+      Date.now(),
+    );
+    return formatSkyReelHourLabel(hour);
+  }, [playScope, skyReelActiveUntilMs, skyReelAppearancePublishedAtMs, expiryClockTick]);
+
   const skyReelAppearanceActive =
     playScope === 'single' ||
     skyReelActiveUntilMs == null ||
     isSkyReelAppearanceActive(skyReelActiveUntilMs);
+
+  useEffect(() => {
+    if (playScope === 'single') return;
+    const now = Date.now();
+    setSteps((prev) => {
+      const next = prev.filter((step) => {
+        const until = resolveSkyReelActiveUntilMs(step.skywriteId, registry);
+        return until == null || isSkyReelAppearanceActive(until, now);
+      });
+      if (next.length !== prev.length) {
+        setIndex((value) => Math.min(value, Math.max(0, next.length - 1)));
+      }
+      return next.length === prev.length ? prev : next;
+    });
+  }, [expiryClockTick, playScope, registry]);
+
+  useEffect(() => {
+    if (playScope === 'single' || !current?.skywriteId) return;
+    const until = resolveSkyReelActiveUntilMs(current.skywriteId, registry);
+    if (until == null || isSkyReelAppearanceActive(until, Date.now())) {
+      return;
+    }
+    if (expiryHandledForRef.current === current.skywriteId) return;
+    expiryHandledForRef.current = current.skywriteId;
+    manualNavUntilRef.current = Date.now() + MANUAL_NAV_AUTO_ADVANCE_BLOCK_MS;
+    autoAdvancePulseRef.current = Date.now();
+    haltOutgoingPlayback();
+    bumpPlaySession();
+    setMediaStartNonce((n) => n + 1);
+    if (index < steps.length - 1) {
+      goNext();
+    } else {
+      handleExit();
+    }
+  }, [
+    bumpPlaySession,
+    current?.skywriteId,
+    goNext,
+    handleExit,
+    haltOutgoingPlayback,
+    index,
+    playScope,
+    registry,
+    steps.length,
+    expiryClockTick,
+  ]);
 
   const storySegmentIndex = resolveStorySegmentIndex(steps, index);
   const storySegmentCount = resolveStorySegmentCount(steps);
@@ -608,6 +675,7 @@ export function SkywriteGuidedPlayScreen() {
           canNext={index < steps.length - 1}
           skyReelActiveUntilMs={playScope === 'single' ? null : skyReelActiveUntilMs}
           showSkyReelExpiry={playScope !== 'single'}
+          skyReelHourLabel={skyReelHourLabel}
           skyReelAppearanceExpired={playScope !== 'single' && !skyReelAppearanceActive}
           onSkipExpiredAppearance={goNext}
           onMediaPlaybackStarted={dismissTapToPlay}
