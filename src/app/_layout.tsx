@@ -6,6 +6,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ReelyouAuthProvider } from '@/auth/ReelyouAuthProvider';
 import { ReelyouMotion } from '@/constants/animation';
 import { MaxContentWidth } from '@/constants/theme';
 import { LOCKED_CINEMATIC_BACKGROUND } from '@/theme/types';
@@ -17,6 +18,7 @@ import { LOCKED_CINEMATIC_BACKGROUND } from '@/theme/types';
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
+      <ReelyouAuthProvider>
       <SafeAreaProvider>
         <View style={[styles.appFrame, { backgroundColor: LOCKED_CINEMATIC_BACKGROUND }]}>
           <View style={styles.appContent}>
@@ -41,6 +43,7 @@ export default function RootLayout() {
           </View>
         </View>
       </SafeAreaProvider>
+      </ReelyouAuthProvider>
     </GestureHandlerRootView>
   );
 }

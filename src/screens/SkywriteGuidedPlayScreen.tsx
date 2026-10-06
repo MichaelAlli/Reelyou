@@ -62,6 +62,7 @@ import {
   resolveStorySegmentIndex,
 } from '@/skywrite/play/skywriteStorySegments';
 import { stepUsesAttachedVoiceover } from '@/skywrite/voiceoverStepUtils';
+import { subscribeProtectedPlaybackStop } from '@/media/protectedPlaybackStop';
 
 const STILL_DWELL_MS = 8500;
 const MANUAL_NAV_AUTO_ADVANCE_BLOCK_MS = 900;
@@ -300,6 +301,13 @@ export function SkywriteGuidedPlayScreen() {
     stopPlaybackRef.current();
     void audioPreview.stopAll();
   }, [audioPreview]);
+
+  useEffect(() => {
+    return subscribeProtectedPlaybackStop(() => {
+      haltOutgoingPlayback();
+      setPaused(true);
+    });
+  }, [haltOutgoingPlayback]);
 
   const handleExit = useCallback(() => {
     haltOutgoingPlayback();

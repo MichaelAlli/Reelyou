@@ -95,6 +95,7 @@ import {
 } from '../media/mediaRepository.js';
 import { canViewerAccessSkywrite } from './contentVisibility.js';
 import { SKYWRITE_RECOVERY_WINDOW_MS } from './skywriteDeletionConstants.js';
+import { normalizeStoredSkyreelFields } from './skyreelNormalization.js';
 import { SKYREEL_WINDOW_MS, SKYWRITE_RECENT_RETENTION_MS } from './skyreelConstants.js';
 
 export interface StoredComment {
@@ -167,6 +168,7 @@ export function listSkywritesForAuthor(
   authorUserId: string,
   viewerId: string,
 ): StoredSkywrite[] {
+  const now = Date.now();
   return db()
     .skywrites!.filter(
       (s) =>
@@ -178,6 +180,7 @@ export function listSkywritesForAuthor(
           visibility: s.visibility,
         }),
     )
+    .map((row) => normalizeStoredSkyreelFields(row, now))
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 

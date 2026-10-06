@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 
-import { ReelyouAuthProvider } from '@/auth/ReelyouAuthProvider';
 import { ReelyouConnectProvider } from '@/connect/ReelyouConnectProvider';
 import { FriendDiscoveryProvider } from '@/friendDiscovery/FriendDiscoveryProvider';
 import { UserAvatarProvider } from '@/identity/UserAvatarProvider';
@@ -28,7 +27,6 @@ import { ThemeProvider } from '@/theme';
 export function PostWelcomeProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
-      <ReelyouAuthProvider>
       <OnboardingProvider>
         <UserAvatarProvider>
         <SkyAreaPreferencesProvider>
@@ -56,7 +54,6 @@ export function PostWelcomeProviders({ children }: { children: ReactNode }) {
         </SkyAreaPreferencesProvider>
         </UserAvatarProvider>
       </OnboardingProvider>
-      </ReelyouAuthProvider>
     </ThemeProvider>
   );
 }

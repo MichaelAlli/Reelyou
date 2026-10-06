@@ -9,7 +9,10 @@
  */
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View, ViewStyle, type ImageStyle } from 'react-native';
+
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 
 import { BrandLogo } from '@/components/branding/BrandLogo';
 import { PrimaryButton } from '@/components/buttons/PrimaryButton';
@@ -48,7 +51,15 @@ function resolveWelcomeBackgroundImageStyle(): ImageStyle {
 
 export function WelcomeScreen() {
   const router = useRouter();
+  const auth = useReelyouAuth();
   const { width, height } = useWindowDimensions();
+
+  useEffect(() => {
+    if (!auth.configured || !auth.ready) return;
+    if (auth.isAuthenticated) {
+      router.replace('/(tabs)/home' as never);
+    }
+  }, [auth.configured, auth.isAuthenticated, auth.ready, router]);
   const isCompact = height < 900;
   const contentMaxWidth = Math.min(width - spacing.Spacing40, spacing.Spacing64 * 6);
   const logoWidth = Math.min(width * WELCOME_LOGO_WIDTH_RATIO, WELCOME_LOGO_MAX_WIDTH);

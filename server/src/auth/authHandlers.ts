@@ -5,6 +5,13 @@ import {
   getAccountDeletionStatus,
   requestAccountDeletion,
 } from './accountDeletion.js';
+import {
+  emailDeliveryConfigured,
+  requestPasswordReset,
+  requestUsernameReminder,
+  resetPasswordWithToken,
+} from './passwordRecovery.js';
+import { consumeRefreshToken, issueRefreshToken } from './refreshTokens.js';
 import { signAccessToken } from './jwt.js';
 
 export function handleRegister(body: {
@@ -17,7 +24,12 @@ export function handleRegister(body: {
   privacyVersion?: string;
   consentAcceptedAt?: number;
 }):
-  | { ok: true; accessToken: string; user: { id: string; fullName: string; email: string } }
+  | {
+      ok: true;
+      accessToken: string;
+      refreshToken: string;
+      user: { id: string; fullName: string; email: string };
+    }
   | { ok: false; error: string } {
   const email = body.email?.trim() ?? '';
   const password = body.password ?? '';
@@ -42,7 +54,8 @@ export function handleRegister(body: {
       },
     });
     const accessToken = signAccessToken(user.id);
-    return { ok: true, accessToken, user };
+    const refreshToken = issueRefreshToken(user.id);
+    return { ok: true, accessToken, refreshToken, user };
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNIQUE')) {
       return { ok: false, error: 'email_in_use' };
@@ -51,8 +64,13 @@ export function handleRegister(body: {
   }
 }
 
-export function handleLogin(body: { email?: string; password?: string }):
-  | { ok: true; accessToken: string; user: { id: string; fullName: string; email: string } }
+export function handleLogin(body: { email?: string; password?: string; rememberMe?: boolean }):
+  | {
+      ok: true;
+      accessToken: string;
+      refreshToken: string;
+      user: { id: string; fullName: string; email: string };
+    }
   | { ok: false; error: string } {
   const email = body.email?.trim() ?? '';
   const password = body.password ?? '';
@@ -64,7 +82,59 @@ export function handleLogin(body: { email?: string; password?: string }):
     return { ok: false, error: 'account_locked' };
   }
   const accessToken = signAccessToken(user.id);
-  return { ok: true, accessToken, user };
+  const refreshToken = issueRefreshToken(user.id);
+  return { ok: true, accessToken, refreshToken, user };
+}
+
+export function handleRefresh(body: { refreshToken?: string }):
+  | {
+      ok: true;
+      accessToken: string;
+      refreshToken: string;
+      user: { id: string; fullName: string; email: string };
+    }
+  | { ok: false; error: string } {
+  const raw = body.refreshToken?.trim();
+  if (!raw) return { ok: false, error: 'invalid_request' };
+  const userId = consumeRefreshToken(raw);
+  if (!userId) return { ok: false, error: 'invalid_credentials' };
+  const row = getUserRecord(userId);
+  if (!row || !assertUserMayAuthenticate(userId)) {
+    return { ok: false, error: 'invalid_credentials' };
+  }
+  const user = { id: row.id, fullName: row.fullName, email: row.emailNormalized };
+  const accessToken = signAccessToken(user.id);
+  const refreshToken = issueRefreshToken(user.id);
+  return { ok: true, accessToken, refreshToken, user };
+}
+
+export async function handleForgotPassword(body: { email?: string }) {
+  const email = body.email?.trim() ?? '';
+  if (!email) return { ok: false as const, error: 'invalid_request' };
+  const result = await requestPasswordReset(email);
+  return {
+    ok: true as const,
+    emailSent: result.emailSent,
+    emailConfigured: emailDeliveryConfigured(),
+  };
+}
+
+export async function handleForgotUsername(body: { email?: string }) {
+  const email = body.email?.trim() ?? '';
+  if (!email) return { ok: false as const, error: 'invalid_request' };
+  const result = await requestUsernameReminder(email);
+  return {
+    ok: true as const,
+    emailSent: result.emailSent,
+    emailConfigured: emailDeliveryConfigured(),
+  };
+}
+
+export function handleResetPassword(body: { token?: string; password?: string }) {
+  const token = body.token?.trim() ?? '';
+  const password = body.password ?? '';
+  if (!token || !password) return { ok: false as const, error: 'invalid_request' };
+  return resetPasswordWithToken(token, password);
 }
 
 export function handleSession(

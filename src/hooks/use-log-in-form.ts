@@ -47,16 +47,12 @@ export function useLogInForm() {
 
   const handleSubmit = useCallback(() => {
     setTouched({ email: true, password: true });
-
-    if (!isLogInFormValid(values)) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-    }, 1200);
+    return isLogInFormValid(values);
   }, [values]);
+
+  const setSubmitting = useCallback((next: boolean) => {
+    setIsSubmitting(next);
+  }, []);
 
   return {
     values,
@@ -67,6 +63,7 @@ export function useLogInForm() {
     updateField,
     markTouched,
     handleSubmit,
+    setSubmitting,
     setShowPassword,
   };
 }

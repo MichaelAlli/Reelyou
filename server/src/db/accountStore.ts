@@ -51,6 +51,16 @@ export interface AccountDatabase {
     createdAt: number;
   }[];
   moderationReports?: import('../moderation/moderationReportStore.js').StoredModerationReport[];
+  refreshTokens?: import('../auth/refreshTokens.js').StoredRefreshToken[];
+  recoveryTokens?: {
+    id: string;
+    userId: string;
+    purpose: 'password_reset' | 'username_reminder';
+    tokenHash: string;
+    expiresAt: number;
+    usedAt: number | null;
+    createdAt: number;
+  }[];
 }
 
 const EMPTY_DB: AccountDatabase = {
@@ -74,6 +84,8 @@ function normalizeLoaded(parsed: AccountDatabase): AccountDatabase {
     comments: parsed.comments ?? [],
     mediaAssets: parsed.mediaAssets ?? [],
     moderationReports: parsed.moderationReports ?? [],
+    refreshTokens: parsed.refreshTokens ?? [],
+    recoveryTokens: parsed.recoveryTokens ?? [],
   };
 }
 

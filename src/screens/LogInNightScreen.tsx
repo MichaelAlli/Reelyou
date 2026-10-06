@@ -43,7 +43,7 @@ import {
 } from '@/constants/logInNightLayout';
 import { Fonts } from '@/constants/theme';
 import { AuthAppearanceProvider } from '@/hooks/use-auth-appearance';
-import { useLogInForm } from '@/hooks/use-log-in-form';
+import { useReelyouSignIn } from '@/auth/useReelyouSignIn';
 import { useThemedStyles } from '@/theme';
 
 export function LogInNightScreen() {
@@ -66,9 +66,12 @@ export function LogInNightScreen() {
     isSubmitting,
     updateField,
     markTouched,
-    handleSubmit,
     setShowPassword,
-  } = useLogInForm();
+    authError,
+    signIn,
+    goToForgotPassword,
+    restoringSession,
+  } = useReelyouSignIn();
 
   useEffect(() => {
     let mounted = true;
@@ -102,12 +105,6 @@ export function LogInNightScreen() {
   const goToSignUp = useCallback(() => {
     router.replace('/signup' as never);
   }, [router]);
-
-  const handleForgotPassword = useCallback(() => {
-    if (__DEV__) {
-      console.info('[REELYOU] Forgot Password — reset flow not yet implemented.');
-    }
-  }, []);
 
   const topPadding = resolveLogInNightTopInset(viewportHeight, insets.top);
 
@@ -157,6 +154,7 @@ export function LogInNightScreen() {
             onToggleSecure={() => setShowPassword((visible) => !visible)}
             error={errors.password}
           />
+          {authError ? <Text style={styles.authError}>{authError}</Text> : null}
         </View>
 
         <View style={styles.rememberBlock}>
@@ -170,7 +168,7 @@ export function LogInNightScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Forgot password"
-          onPress={handleForgotPassword}
+          onPress={goToForgotPassword}
           style={styles.forgotPassword}>
           <Text style={styles.forgotPasswordText}>{AuthCopy.forgotPassword}</Text>
         </Pressable>
@@ -178,9 +176,9 @@ export function LogInNightScreen() {
         <View style={styles.ctaBlock}>
           <AuthPrimaryButton
             label={AuthCopy.logInButton}
-            onPress={handleSubmit}
-            disabled={!canSubmit}
-            loading={isSubmitting}
+            onPress={() => void signIn()}
+            disabled={!canSubmit || restoringSession}
+            loading={isSubmitting || restoringSession}
           />
         </View>
 
@@ -278,6 +276,13 @@ function useScreenStyles() {
       },
       form: { gap: 0 },
       fieldsBlock: { gap: night.fieldGap },
+      authError: {
+        fontFamily: Fonts.sans,
+        fontSize: 13,
+        lineHeight: 18,
+        color: '#ffb4b4',
+        marginTop: 4,
+      },
       rememberBlock: { marginTop: night.rememberMeTopGap },
       forgotPassword: {
         alignSelf: 'flex-end',

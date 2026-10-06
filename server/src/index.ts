@@ -5,9 +5,13 @@ import { processScheduledAccountDeletions } from './auth/accountDeletion.js';
 import { submitModerationReport } from './moderation/moderationReportStore.js';
 import {
   handleCancelAccountDeletion,
+  handleForgotPassword,
+  handleForgotUsername,
   handleLogin,
+  handleRefresh,
   handleRegister,
   handleRequestAccountDeletion,
+  handleResetPassword,
   handleSession,
 } from './auth/authHandlers.js';
 import {
@@ -193,6 +197,72 @@ const server = createServer(async (req, res) => {
     if (!session) return;
     const result = handleSession(session.userId);
     sendJson(res, result.ok ? 200 : 404, result, origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/auth/refresh') {
+    if (!authConfigured()) {
+      sendJson(res, 503, { error: 'auth_not_configured' }, origin);
+      return;
+    }
+    try {
+      const body = await readJson<{ refreshToken?: string }>(req);
+      const result = handleRefresh(body ?? {});
+      sendJson(res, result.ok ? 200 : 401, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/auth/password/forgot') {
+    if (!authConfigured()) {
+      sendJson(res, 503, { error: 'auth_not_configured' }, origin);
+      return;
+    }
+    if (!checkRateLimit(`password-forgot:${req.socket.remoteAddress ?? 'unknown'}`, 8, 15 * 60_000)) {
+      sendJson(res, 429, { ok: false, error: 'rate_limited' }, origin);
+      return;
+    }
+    try {
+      const body = await readJson<{ email?: string }>(req);
+      sendJson(res, 200, await handleForgotPassword(body ?? {}), origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/auth/password/reset') {
+    if (!authConfigured()) {
+      sendJson(res, 503, { error: 'auth_not_configured' }, origin);
+      return;
+    }
+    try {
+      const body = await readJson<{ token?: string; password?: string }>(req);
+      const result = handleResetPassword(body ?? {});
+      sendJson(res, result.ok ? 200 : 400, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/v1/auth/username/forgot') {
+    if (!authConfigured()) {
+      sendJson(res, 503, { error: 'auth_not_configured' }, origin);
+      return;
+    }
+    if (!checkRateLimit(`username-forgot:${req.socket.remoteAddress ?? 'unknown'}`, 8, 15 * 60_000)) {
+      sendJson(res, 429, { ok: false, error: 'rate_limited' }, origin);
+      return;
+    }
+    try {
+      const body = await readJson<{ email?: string }>(req);
+      sendJson(res, 200, await handleForgotUsername(body ?? {}), origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
     return;
   }
 

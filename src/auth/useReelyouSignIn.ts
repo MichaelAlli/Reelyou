@@ -1,0 +1,76 @@
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+
+import { mapAuthErrorToMessage } from '@/auth/authErrorMessages';
+import { resolvePostLoginRoute } from '@/auth/resolvePostLoginRoute';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { loadRememberMePreference } from '@/auth/reellyouAuthPersistence';
+import { useLogInForm } from '@/hooks/use-log-in-form';
+import { useOnboarding } from '@/onboarding';
+import { isLogInFormValid } from '@/utils/logInValidation';
+
+export function useReelyouSignIn() {
+  const router = useRouter();
+  const auth = useReelyouAuth();
+  const { state: onboardingState } = useOnboarding();
+  const form = useLogInForm();
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [restoringSession, setRestoringSession] = useState(auth.configured && !auth.ready);
+
+  useEffect(() => {
+    if (!auth.configured) {
+      setRestoringSession(false);
+      return;
+    }
+    if (auth.ready) {
+      setRestoringSession(false);
+      if (auth.isAuthenticated) {
+        router.replace(resolvePostLoginRoute(onboardingState) as never);
+      }
+      return;
+    }
+    setRestoringSession(true);
+  }, [auth.configured, auth.isAuthenticated, auth.ready, onboardingState, router]);
+
+  useEffect(() => {
+    void loadRememberMePreference().then((remember) => {
+      if (remember) form.updateField('rememberMe', true);
+    });
+  }, [form.updateField]);
+
+  const signIn = useCallback(async () => {
+    form.markTouched('email');
+    form.markTouched('password');
+    if (!isLogInFormValid(form.values)) return;
+
+    if (!auth.configured) {
+      return;
+    }
+    setAuthError(null);
+    form.setSubmitting(true);
+    const result = await auth.login({
+      email: form.values.email.trim(),
+      password: form.values.password,
+      rememberMe: form.values.rememberMe,
+    });
+    form.setSubmitting(false);
+    if (!result.ok) {
+      setAuthError(mapAuthErrorToMessage(result.error));
+      return;
+    }
+    router.replace(resolvePostLoginRoute(onboardingState) as never);
+  }, [auth, form, onboardingState, router]);
+
+  const goToForgotPassword = useCallback(() => {
+    router.push('/forgot-password' as never);
+  }, [router]);
+
+  return {
+    ...form,
+    authError,
+    signIn,
+    goToForgotPassword,
+    restoringSession,
+    authConfigured: auth.configured,
+  };
+}

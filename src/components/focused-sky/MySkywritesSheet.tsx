@@ -224,7 +224,12 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
           style={styles.search}
         />
 
-        <ScrollView style={styles.listScroll} contentContainerStyle={styles.listContent}>
+        <ScrollView
+          style={styles.listScroll}
+          contentContainerStyle={[
+            styles.listContent,
+            (tab === 'recent' || tab === 'journey') && styles.gridListContent,
+          ]}>
           {rows.length === 0 ? (
             <Text style={styles.empty}>{emptyCopy}</Text>
           ) : (
@@ -316,7 +321,11 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                   onPressMedia={() => openMedia(row)}
                   onToggleAudio={(previewId, uri) => void audioPreview.togglePreview(previewId, uri)}
                   isAudioPlaying={(previewId) => audioPreview.isPreviewPlaying(previewId)}
-                  style={styles.mediaCard}
+                  compactGrid={tab === 'recent' || tab === 'journey'}
+                  style={[
+                    styles.mediaCard,
+                    (tab === 'recent' || tab === 'journey') && styles.gridMediaCard,
+                  ]}
                 />
               );
             })
@@ -406,12 +415,24 @@ const styles = StyleSheet.create({
   },
   listScroll: { maxHeight: 420 },
   listContent: { gap: 16, paddingBottom: 8 },
+  gridListContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    justifyContent: 'flex-start',
+  },
   mediaCard: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(167, 139, 250, 0.22)',
     padding: 10,
     backgroundColor: 'rgba(6, 8, 22, 0.35)',
+  },
+  gridMediaCard: {
+    width: '31%',
+    minWidth: 108,
+    flexGrow: 1,
+    padding: 6,
   },
   empty: {
     fontFamily: Fonts.sans,

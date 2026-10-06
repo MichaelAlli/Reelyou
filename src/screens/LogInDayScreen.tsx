@@ -44,8 +44,7 @@ import {
   resolveLogInDayTopInset,
 } from '@/constants/logInDayLayout';
 import { Fonts } from '@/constants/theme';
-import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
-import { useLogInForm } from '@/hooks/use-log-in-form';
+import { useReelyouSignIn } from '@/auth/useReelyouSignIn';
 import { AuthAppearanceProvider } from '@/hooks/use-auth-appearance';
 import { useThemedStyles } from '@/theme';
 
@@ -61,8 +60,6 @@ export function LogInDayScreen() {
   const foregroundTranslateY = useSharedValue(12);
   const [reduceMotion, setReduceMotion] = useState(false);
 
-  const auth = useReelyouAuth();
-  const [authError, setAuthError] = useState<string | null>(null);
   const {
     values,
     errors,
@@ -71,26 +68,12 @@ export function LogInDayScreen() {
     isSubmitting,
     updateField,
     markTouched,
-    handleSubmit,
     setShowPassword,
-  } = useLogInForm();
-
-  const onLogInPress = useCallback(async () => {
-    if (!auth.configured) {
-      handleSubmit();
-      return;
-    }
-    markTouched('email');
-    markTouched('password');
-    if (!canSubmit) return;
-    setAuthError(null);
-    const result = await auth.login({ email: values.email.trim(), password: values.password });
-    if (!result.ok) {
-      setAuthError('Could not sign in. Check your email and password.');
-      return;
-    }
-    router.replace('/onboarding/profile' as never);
-  }, [auth, canSubmit, handleSubmit, markTouched, router, values.email, values.password]);
+    authError,
+    signIn,
+    goToForgotPassword,
+    restoringSession,
+  } = useReelyouSignIn();
 
   useEffect(() => {
     let mounted = true;
@@ -125,11 +108,6 @@ export function LogInDayScreen() {
     router.replace('/signup' as never);
   }, [router]);
 
-  const handleForgotPassword = useCallback(() => {
-    if (__DEV__) {
-      console.info('[REELYOU] Forgot Password — reset flow not yet implemented.');
-    }
-  }, []);
 
   const topPadding = resolveLogInDayTopInset(viewportHeight, insets.top);
 
@@ -193,7 +171,7 @@ export function LogInDayScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Forgot password"
-          onPress={handleForgotPassword}
+          onPress={goToForgotPassword}
           style={styles.forgotPassword}>
           <Text style={styles.forgotPasswordText}>{AuthCopy.forgotPassword}</Text>
         </Pressable>
@@ -201,9 +179,9 @@ export function LogInDayScreen() {
         <View style={styles.ctaBlock}>
           <AuthPrimaryButton
             label={AuthCopy.logInButton}
-            onPress={() => void onLogInPress()}
-            disabled={!canSubmit}
-            loading={isSubmitting}
+            onPress={() => void signIn()}
+            disabled={!canSubmit || restoringSession}
+            loading={isSubmitting || restoringSession}
           />
         </View>
 

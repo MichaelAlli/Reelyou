@@ -64,6 +64,12 @@ export const config = {
       secretAccessKey: process.env.MEDIA_S3_SECRET_ACCESS_KEY?.trim() ?? '',
     },
   },
+  appOrigin: process.env.APP_ORIGIN?.trim() || 'http://localhost:8081',
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY?.trim() ?? '',
+    smtpHost: process.env.SMTP_HOST?.trim() ?? '',
+    fromAddress: process.env.EMAIL_FROM?.trim() || 'REELYOU <noreply@reellyou.app>',
+  },
   resources: {
     rssUrls: (process.env.RESOURCE_RSS_URLS ?? '')
       .split(',')

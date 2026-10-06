@@ -8,15 +8,23 @@ import {
   type ReactNode,
 } from 'react';
 
-import { loginAccount, registerAccount, fetchSession } from '@/auth/reellyouAuthApi';
+import {
+  loginAccount,
+  registerAccount,
+  fetchSession,
+  refreshAuthSession,
+} from '@/auth/reellyouAuthApi';
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import {
   clearAuthSession,
   loadAccessToken,
+  loadRefreshToken,
+  loadRememberMePreference,
   loadStoredAuthUser,
   saveAuthSession,
   type StoredAuthUser,
 } from '@/auth/reellyouAuthPersistence';
+import { stopAllProtectedPlayback } from '@/media/protectedPlaybackStop';
 
 interface ReelyouAuthContextValue {
   ready: boolean;
@@ -33,12 +41,45 @@ interface ReelyouAuthContextValue {
     termsVersion: string;
     privacyVersion: string;
     consentAcceptedAt: number;
+    rememberMe?: boolean;
   }) => Promise<{ ok: boolean; error?: string }>;
-  login: (input: { email: string; password: string }) => Promise<{ ok: boolean; error?: string }>;
+  login: (input: {
+    email: string;
+    password: string;
+    rememberMe?: boolean;
+  }) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
+  refreshAccessToken: () => Promise<string | null>;
 }
 
 const ReelyouAuthContext = createContext<ReelyouAuthContextValue | null>(null);
+
+async function restoreSession(): Promise<{
+  accessToken: string | null;
+  user: StoredAuthUser | null;
+}> {
+  const token = await loadAccessToken();
+  const storedUser = await loadStoredAuthUser();
+  if (!token || !storedUser) return { accessToken: null, user: null };
+
+  const live = await fetchSession(token);
+  if (live) return { accessToken: token, user: live };
+
+  const refreshToken = await loadRefreshToken();
+  if (!refreshToken) return { accessToken: null, user: null };
+
+  const refreshed = await refreshAuthSession(refreshToken);
+  if (!refreshed.ok) return { accessToken: null, user: null };
+
+  const rememberMe = await loadRememberMePreference();
+  await saveAuthSession({
+    accessToken: refreshed.accessToken,
+    refreshToken: refreshed.refreshToken ?? refreshToken,
+    user: refreshed.user,
+    rememberMe,
+  });
+  return { accessToken: refreshed.accessToken, user: refreshed.user };
+}
 
 export function ReelyouAuthProvider({ children }: { children: ReactNode }) {
   const configured = isReelyouAuthConfigured();
@@ -52,21 +93,16 @@ export function ReelyouAuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     let mounted = true;
-    void (async () => {
-      const token = await loadAccessToken();
-      const storedUser = await loadStoredAuthUser();
+    void restoreSession().then(async (session) => {
       if (!mounted) return;
-      if (token && storedUser) {
-        const live = await fetchSession(token);
-        if (live) {
-          setAccessToken(token);
-          setUser(live);
-        } else {
-          await clearAuthSession();
-        }
+      if (session.accessToken && session.user) {
+        setAccessToken(session.accessToken);
+        setUser(session.user);
+      } else {
+        await clearAuthSession();
       }
       setReady(true);
-    })();
+    });
     return () => {
       mounted = false;
     };
@@ -82,11 +118,17 @@ export function ReelyouAuthProvider({ children }: { children: ReactNode }) {
       termsVersion: string;
       privacyVersion: string;
       consentAcceptedAt: number;
+      rememberMe?: boolean;
     }) => {
       if (!configured) return { ok: false, error: 'auth_not_configured' };
       const result = await registerAccount(input);
       if (!result.ok) return { ok: false, error: result.error };
-      await saveAuthSession({ accessToken: result.accessToken, user: result.user });
+      await saveAuthSession({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: result.user,
+        rememberMe: input.rememberMe !== false,
+      });
       setAccessToken(result.accessToken);
       setUser(result.user);
       return { ok: true };
@@ -95,11 +137,20 @@ export function ReelyouAuthProvider({ children }: { children: ReactNode }) {
   );
 
   const login = useCallback(
-    async (input: { email: string; password: string }) => {
+    async (input: { email: string; password: string; rememberMe?: boolean }) => {
       if (!configured) return { ok: false, error: 'auth_not_configured' };
       const result = await loginAccount(input);
       if (!result.ok) return { ok: false, error: result.error };
-      await saveAuthSession({ accessToken: result.accessToken, user: result.user });
+      const rememberMe = input.rememberMe === true;
+      if (!rememberMe) {
+        await clearAuthSession();
+      }
+      await saveAuthSession({
+        accessToken: result.accessToken,
+        refreshToken: rememberMe ? result.refreshToken : null,
+        user: result.user,
+        rememberMe,
+      });
       setAccessToken(result.accessToken);
       setUser(result.user);
       return { ok: true };
@@ -108,9 +159,27 @@ export function ReelyouAuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    stopAllProtectedPlayback();
     await clearAuthSession();
     setAccessToken(null);
     setUser(null);
+  }, []);
+
+  const refreshAccessToken = useCallback(async () => {
+    const refreshToken = await loadRefreshToken();
+    if (!refreshToken) return null;
+    const refreshed = await refreshAuthSession(refreshToken);
+    if (!refreshed.ok) return null;
+    const rememberMe = await loadRememberMePreference();
+    await saveAuthSession({
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken ?? refreshToken,
+      user: refreshed.user,
+      rememberMe,
+    });
+    setAccessToken(refreshed.accessToken);
+    setUser(refreshed.user);
+    return refreshed.accessToken;
   }, []);
 
   const value = useMemo(
@@ -123,8 +192,9 @@ export function ReelyouAuthProvider({ children }: { children: ReactNode }) {
       register,
       login,
       logout,
+      refreshAccessToken,
     }),
-    [accessToken, configured, login, logout, ready, register, user],
+    [accessToken, configured, login, logout, ready, refreshAccessToken, register, user],
   );
 
   return <ReelyouAuthContext.Provider value={value}>{children}</ReelyouAuthContext.Provider>;

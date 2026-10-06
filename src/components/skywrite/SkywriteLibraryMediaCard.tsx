@@ -38,6 +38,7 @@ interface SkywriteLibraryMediaCardProps {
   onToggleAudio?: (previewId: string, uri: string) => void;
   isAudioPlaying?: (previewId: string) => boolean;
   style?: StyleProp<ViewStyle>;
+  compactGrid?: boolean;
 }
 
 function SkywriteLibraryMediaCardComponent({
@@ -49,6 +50,7 @@ function SkywriteLibraryMediaCardComponent({
   onToggleAudio,
   isAudioPlaying,
   style,
+  compactGrid = false,
 }: SkywriteLibraryMediaCardProps) {
   const { record: resolvedSkywrite, status, previewError, retry } = useResolvedSkywriteLibraryPreview(
     skywrite as SkywriteRecord,
@@ -92,7 +94,11 @@ function SkywriteLibraryMediaCardComponent({
         accessibilityRole="button"
         accessibilityLabel="Open Skywrite media"
         onPress={onPressMedia}
-        style={({ pressed }) => [styles.mediaBox, pressed && styles.pressed]}>
+        style={({ pressed }) => [
+          styles.mediaBox,
+          compactGrid && styles.mediaBoxGrid,
+          pressed && styles.pressed,
+        ]}>
         {media.kind === 'text' ? (
           <LinearGradient
             colors={['rgba(88, 56, 168, 0.65)', 'rgba(12, 10, 32, 0.94)']}
@@ -226,6 +232,10 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(232, 200, 114, 0.28)',
     backgroundColor: 'rgba(8, 10, 24, 0.55)',
+  },
+  mediaBoxGrid: {
+    aspectRatio: 3 / 4,
+    maxHeight: 200,
   },
   mediaFill: { flex: 1, width: '100%', height: '100%' },
   mediaImage: { width: '100%', height: '100%' },

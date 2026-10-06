@@ -1,4 +1,5 @@
 import { loadAccessToken } from '@/auth/reellyouAuthPersistence';
+import { tryRefreshAccessToken } from '@/auth/reellyouAuthRefresh';
 import { isReellyouBackendConfigured, resolveReellyouApiBaseUrl } from '@/backend/reellyouApiConfig';
 import { FetchTimeoutError, fetchWithTimeout } from '@/backend/fetchWithTimeout';
 
@@ -28,20 +29,41 @@ export async function authenticatedReellyouFetch(
     lastAuthenticatedFetchFailure = 'not_configured';
     return null;
   }
-  const token = await loadAccessToken();
+  let token = await loadAccessToken();
   if (!token) {
     lastAuthenticatedFetchFailure = 'not_signed_in';
     return null;
   }
-  const headers = new Headers(init.headers);
-  headers.set('Authorization', `Bearer ${token}`);
-  if (init.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
   const { timeoutMs = 120_000, ...rest } = init;
+
+  const buildHeaders = (accessToken: string) => {
+    const headers = new Headers(init.headers);
+    headers.set('Authorization', `Bearer ${accessToken}`);
+    if (init.body && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+    return headers;
+  };
+
   try {
     clearLastAuthenticatedFetchFailure();
-    return await fetchWithTimeout(`${base}${path}`, { ...rest, headers, timeoutMs });
+    let res = await fetchWithTimeout(`${base}${path}`, {
+      ...rest,
+      headers: buildHeaders(token),
+      timeoutMs,
+    });
+    if (res.status === 401) {
+      const refreshed = await tryRefreshAccessToken();
+      if (refreshed) {
+        token = refreshed;
+        res = await fetchWithTimeout(`${base}${path}`, {
+          ...rest,
+          headers: buildHeaders(token),
+          timeoutMs,
+        });
+      }
+    }
+    return res;
   } catch (err) {
     lastAuthenticatedFetchFailure =
       err instanceof FetchTimeoutError ? 'timeout' : 'network';
