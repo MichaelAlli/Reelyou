@@ -51,6 +51,11 @@ import {
   resolveSkyReelDisplayHour,
 } from '@/skywrite/play/skyReelExpiry';
 import {
+  findFirstEligibleStepIndex,
+  findNextEligibleStepIndexAfter,
+  resolveMidPlaybackExpiryTransition,
+} from '@/skywrite/play/skywriteGuidedPlayExpiry';
+import {
   resolveStorySegmentCount,
   resolveStorySegmentIndex,
 } from '@/skywrite/play/skywriteStorySegments';
@@ -95,11 +100,14 @@ export function SkywriteGuidedPlayScreen() {
   const autoAdvancePulseRef = useRef(0);
   const manualNavUntilRef = useRef(0);
   const firstPostLeftRef = useRef<FirstPostLeftTapState>(resetFirstPostLeftTapState());
-  const [expiryClockTick, setExpiryClockTick] = useState(0);
+  const [hourLabelTick, setHourLabelTick] = useState(0);
   const [sequenceComplete, setSequenceComplete] = useState(false);
   const [recordHydration, setRecordHydration] = useState<'idle' | 'loading' | 'failed'>('idle');
   const [recordFetchNonce, setRecordFetchNonce] = useState(0);
-  const expiryHandledForRef = useRef<string | null>(null);
+  const initialPlayIndexResolvedRef = useRef(false);
+  const appearanceActivePrevRef = useRef<boolean | null>(null);
+  const exitPlaybackOnceRef = useRef(false);
+  const transitionGenerationRef = useRef(0);
 
   useEffect(() => {
     persistSkyreelReturnFromParam(returnTo);
@@ -344,26 +352,6 @@ export function SkywriteGuidedPlayScreen() {
     setIndex((value) => Math.max(value - 1, 0));
   }, [audioPreview, bumpPlaySession, haltOutgoingPlayback]);
 
-  const handleEdgePrevious = useCallback(() => {
-    if (index === 0) {
-      const action = nextFirstPostLeftTapState(firstPostLeftRef.current);
-      if (action === 'exit') {
-        firstPostLeftRef.current = resetFirstPostLeftTapState();
-        handleExit();
-        return;
-      }
-      firstPostLeftRef.current = afterFirstPostLeftRestart();
-      restartCurrentStep();
-      return;
-    }
-    goPrevious();
-  }, [goPrevious, handleExit, index, restartCurrentStep]);
-
-  const handleEdgeNext = useCallback(() => {
-    firstPostLeftRef.current = resetFirstPostLeftTapState();
-    goNext();
-  }, [goNext]);
-
   const dismissTapToPlay = useCallback(() => {
     setNeedsTapToPlay(false);
   }, []);
@@ -398,17 +386,6 @@ export function SkywriteGuidedPlayScreen() {
   ]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') handleExit();
-      if (event.key === 'ArrowLeft') handleEdgePrevious();
-      if (event.key === 'ArrowRight') handleEdgeNext();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleEdgeNext, handleEdgePrevious, handleExit]);
-
-  useEffect(() => {
     if (index !== 0) {
       firstPostLeftRef.current = resetFirstPostLeftTapState();
     }
@@ -417,22 +394,32 @@ export function SkywriteGuidedPlayScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') setPaused(true);
-      if (state === 'active') setExpiryClockTick((t) => t + 1);
+      if (state === 'active') setHourLabelTick((t) => t + 1);
     });
     return () => sub.remove();
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => setExpiryClockTick((t) => t + 1), 30_000);
+    const timer = setInterval(() => setHourLabelTick((t) => t + 1), 30_000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!stepsLoaded || !registryReady || playScope === 'single') return;
+    if (initialPlayIndexResolvedRef.current) return;
+    initialPlayIndexResolvedRef.current = true;
+    const startIndex = Number(start);
+    if (Number.isFinite(startIndex) && startIndex >= 0) return;
+    const firstEligible = findFirstEligibleStepIndex(steps, registry, Date.now());
+    if (firstEligible != null) {
+      setIndex(firstEligible);
+    }
+  }, [playScope, registry, registryReady, start, steps, stepsLoaded]);
 
   const skyReelActiveUntilMs = useMemo(() => {
     if (!record) return null;
     return resolveSkyReelActiveUntilMs(record.id, registry, record.createdAt);
   }, [record, registry]);
-
-  void expiryClockTick;
 
   const skyReelAppearancePublishedAtMs = useMemo(() => {
     if (!record) return null;
@@ -449,58 +436,112 @@ export function SkywriteGuidedPlayScreen() {
       Date.now(),
     );
     return formatSkyReelHourLabel(hour);
-  }, [playScope, skyReelActiveUntilMs, skyReelAppearancePublishedAtMs, expiryClockTick]);
+  }, [playScope, skyReelActiveUntilMs, skyReelAppearancePublishedAtMs, hourLabelTick]);
 
   const skyReelAppearanceActive =
     playScope === 'single' ||
     skyReelActiveUntilMs == null ||
     isSkyReelAppearanceActive(skyReelActiveUntilMs);
 
+  const hasNextEligibleSkyReel = useMemo(() => {
+    if (playScope === 'single') return index < steps.length - 1;
+    return findNextEligibleStepIndexAfter(steps, index, registry, Date.now()) != null;
+  }, [index, playScope, registry, steps]);
+
   useEffect(() => {
-    if (playScope === 'single') return;
-    const now = Date.now();
-    setSteps((prev) => {
-      const next = prev.filter((step) => {
-        const until = resolveSkyReelActiveUntilMs(step.skywriteId, registry);
-        return until == null || isSkyReelAppearanceActive(until, now);
-      });
-      if (next.length !== prev.length) {
-        setIndex((value) => Math.min(value, Math.max(0, next.length - 1)));
+    appearanceActivePrevRef.current = null;
+  }, [current?.skywriteId, index]);
+
+  const applyExpiryTransition = useCallback(
+    (toIndex: number | 'exit') => {
+      const generation = transitionGenerationRef.current + 1;
+      transitionGenerationRef.current = generation;
+      manualNavUntilRef.current = Date.now() + MANUAL_NAV_AUTO_ADVANCE_BLOCK_MS;
+      autoAdvancePulseRef.current = Date.now();
+      haltOutgoingPlayback();
+      bumpPlaySession();
+      setMediaStartNonce((n) => n + 1);
+      if (toIndex === 'exit') {
+        if (exitPlaybackOnceRef.current) return;
+        exitPlaybackOnceRef.current = true;
+        handleExit();
+        return;
       }
-      return next.length === prev.length ? prev : next;
-    });
-  }, [expiryClockTick, playScope, registry]);
+      setIndex(toIndex);
+    },
+    [bumpPlaySession, handleExit, haltOutgoingPlayback],
+  );
+
+  const skipExpiredAppearance = useCallback(() => {
+    const nextEligible = findNextEligibleStepIndexAfter(steps, index, registry, Date.now());
+    applyExpiryTransition(nextEligible ?? 'exit');
+  }, [applyExpiryTransition, index, registry, steps]);
 
   useEffect(() => {
     if (playScope === 'single' || !current?.skywriteId) return;
     const until = resolveSkyReelActiveUntilMs(current.skywriteId, registry);
-    if (until == null || isSkyReelAppearanceActive(until, Date.now())) {
-      return;
-    }
-    if (expiryHandledForRef.current === current.skywriteId) return;
-    expiryHandledForRef.current = current.skywriteId;
-    manualNavUntilRef.current = Date.now() + MANUAL_NAV_AUTO_ADVANCE_BLOCK_MS;
-    autoAdvancePulseRef.current = Date.now();
-    haltOutgoingPlayback();
-    bumpPlaySession();
-    setMediaStartNonce((n) => n + 1);
-    if (index < steps.length - 1) {
-      goNext();
-    } else {
-      handleExit();
+    const nowActive = until == null || isSkyReelAppearanceActive(until, Date.now());
+    const transition = resolveMidPlaybackExpiryTransition(
+      steps,
+      index,
+      registry,
+      appearanceActivePrevRef.current,
+      nowActive,
+      Date.now(),
+    );
+    appearanceActivePrevRef.current = nowActive;
+    if (transition.kind === 'jump') {
+      applyExpiryTransition(transition.toIndex);
+    } else if (transition.kind === 'exit') {
+      applyExpiryTransition('exit');
     }
   }, [
-    bumpPlaySession,
+    applyExpiryTransition,
     current?.skywriteId,
-    goNext,
-    handleExit,
-    haltOutgoingPlayback,
+    hourLabelTick,
     index,
     playScope,
     registry,
-    steps.length,
-    expiryClockTick,
+    steps,
   ]);
+
+  const handleEdgePrevious = useCallback(() => {
+    if (index === 0) {
+      const action = nextFirstPostLeftTapState(firstPostLeftRef.current);
+      if (action === 'exit') {
+        firstPostLeftRef.current = resetFirstPostLeftTapState();
+        handleExit();
+        return;
+      }
+      firstPostLeftRef.current = afterFirstPostLeftRestart();
+      restartCurrentStep();
+      return;
+    }
+    goPrevious();
+  }, [goPrevious, handleExit, index, restartCurrentStep]);
+
+  const handleEdgeNext = useCallback(() => {
+    firstPostLeftRef.current = resetFirstPostLeftTapState();
+    if (playScope !== 'single' && current?.skywriteId) {
+      const until = resolveSkyReelActiveUntilMs(current.skywriteId, registry);
+      if (until != null && !isSkyReelAppearanceActive(until)) {
+        skipExpiredAppearance();
+        return;
+      }
+    }
+    goNext();
+  }, [current?.skywriteId, goNext, playScope, registry, skipExpiredAppearance]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') handleExit();
+      if (event.key === 'ArrowLeft') handleEdgePrevious();
+      if (event.key === 'ArrowRight') handleEdgeNext();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleEdgeNext, handleEdgePrevious, handleExit]);
 
   const storySegmentIndex = resolveStorySegmentIndex(steps, index);
   const storySegmentCount = resolveStorySegmentCount(steps);
@@ -672,12 +713,12 @@ export function SkywriteGuidedPlayScreen() {
           onPrevious={handleEdgePrevious}
           onNext={handleEdgeNext}
           canPrevious
-          canNext={index < steps.length - 1}
+          canNext={hasNextEligibleSkyReel}
           skyReelActiveUntilMs={playScope === 'single' ? null : skyReelActiveUntilMs}
           showSkyReelExpiry={playScope !== 'single'}
           skyReelHourLabel={skyReelHourLabel}
           skyReelAppearanceExpired={playScope !== 'single' && !skyReelAppearanceActive}
-          onSkipExpiredAppearance={goNext}
+          onSkipExpiredAppearance={skipExpiredAppearance}
           onMediaPlaybackStarted={dismissTapToPlay}
           onRegisterMediaStop={(stop) => {
             stopPlaybackRef.current = stop;

@@ -41,6 +41,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "legal:sync": "node scripts/syncLegalDraftContent.mjs",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
@@ -68,6 +69,7 @@
     "test:skywrite-lifecycle": "npx tsx src/skywrite/lifecycle/skywriteContentLifecycle.test.ts",
     "test:legacy-moments": "npx tsx src/legacy/buildLegacyMoments.test.ts",
     "test:reel-playback": "npx tsx src/legacy/reelYouPlayback.test.ts",
+    "test:skyreel-guided-expiry": "npx tsx src/skywrite/play/skywriteGuidedPlayExpiry.test.ts",
     "test:starpath-ranking": "npx tsx src/starpath/starpathRankingFeedback.test.ts",
     "server:install": "npm install --prefix server",
     "server:start": "npm run start --prefix server",

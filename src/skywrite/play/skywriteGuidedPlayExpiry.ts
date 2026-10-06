@@ -1,0 +1,84 @@
+import type { PlaySkySequenceRegistry } from '@/skywrite/play/playSkySequenceEligibility';
+import {
+  isSkyReelAppearanceActive,
+  resolveSkyReelActiveUntilMs,
+} from '@/skywrite/play/skyReelExpiry';
+import type { SkywritePlayStep } from '@/skywrite/play/skywritePlayTypes';
+
+export function isStepSkyReelAppearanceActive(
+  step: SkywritePlayStep,
+  registry: PlaySkySequenceRegistry,
+  nowMs = Date.now(),
+): boolean {
+  const until = resolveSkyReelActiveUntilMs(step.skywriteId, registry);
+  if (until == null) return true;
+  return isSkyReelAppearanceActive(until, nowMs);
+}
+
+/** First step index whose post still has an active SkyReel appearance. */
+export function findFirstEligibleStepIndex(
+  steps: readonly SkywritePlayStep[],
+  registry: PlaySkySequenceRegistry,
+  nowMs = Date.now(),
+): number | null {
+  for (let i = 0; i < steps.length; i += 1) {
+    if (isStepSkyReelAppearanceActive(steps[i]!, registry, nowMs)) return i;
+  }
+  return null;
+}
+
+/** Distinct skywrite ids in steps that still have an active appearance. */
+export function countEligibleSkywritePostsInSteps(
+  steps: readonly SkywritePlayStep[],
+  registry: PlaySkySequenceRegistry,
+  nowMs = Date.now(),
+): number {
+  const seen = new Set<string>();
+  let count = 0;
+  for (const step of steps) {
+    if (seen.has(step.skywriteId)) continue;
+    seen.add(step.skywriteId);
+    if (isStepSkyReelAppearanceActive(step, registry, nowMs)) count += 1;
+  }
+  return count;
+}
+
+/**
+ * After skipping an expired appearance, land on the first step of the next eligible post.
+ * Returns null when there is no eligible post left (caller should exit playback once).
+ */
+export function findNextEligibleStepIndexAfter(
+  steps: readonly SkywritePlayStep[],
+  fromIndex: number,
+  registry: PlaySkySequenceRegistry,
+  nowMs = Date.now(),
+): number | null {
+  for (let i = fromIndex + 1; i < steps.length; i += 1) {
+    if (isStepSkyReelAppearanceActive(steps[i]!, registry, nowMs)) return i;
+  }
+  return null;
+}
+
+export type GuidedPlayExpiryTransition =
+  | { kind: 'none' }
+  | { kind: 'jump'; toIndex: number }
+  | { kind: 'exit' };
+
+/**
+ * When the current step was active and becomes expired during playback, advance once.
+ * Does not auto-skip posts that were already expired when the session started.
+ */
+export function resolveMidPlaybackExpiryTransition(
+  steps: readonly SkywritePlayStep[],
+  currentIndex: number,
+  registry: PlaySkySequenceRegistry,
+  previousWasActive: boolean | null,
+  nowActive: boolean,
+  nowMs = Date.now(),
+): GuidedPlayExpiryTransition {
+  if (previousWasActive == null) return { kind: 'none' };
+  if (!previousWasActive || nowActive) return { kind: 'none' };
+  const next = findNextEligibleStepIndexAfter(steps, currentIndex, registry, nowMs);
+  if (next == null) return { kind: 'exit' };
+  return { kind: 'jump', toIndex: next };
+}
