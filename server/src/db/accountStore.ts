@@ -25,6 +25,12 @@ export interface StoredUser {
     privacyVersion: string;
     acceptedAt: number;
   } | null;
+  username?: string | null;
+  bio?: string | null;
+  avatarMediaKey?: string | null;
+  onboardingComplete?: boolean;
+  onboardingSnapshot?: Record<string, unknown> | null;
+  profileUpdatedAt?: number;
 }
 
 export interface StoredDiscoveryPreferences {
@@ -61,6 +67,7 @@ export interface AccountDatabase {
     usedAt: number | null;
     createdAt: number;
   }[];
+  skyreelViews?: import('../social/skyreelViews.js').StoredSkyreelView[];
 }
 
 const EMPTY_DB: AccountDatabase = {

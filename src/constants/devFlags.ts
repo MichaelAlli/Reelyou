@@ -17,12 +17,13 @@ export const DEV_SCREEN_PREVIEW_STARTUP = false;
  * When true in __DEV__, seeds 12 canonical contribution beacons for the demo user
  * (Focused Skywrite indicator + Signal Center). Never active in production builds.
  */
+/** Requires EXPO_PUBLIC_ENABLE_DEMO_MODE=1 — default off. */
 export const CONTRIBUTION_BEACON_DEMO_ENABLED = true;
 
-/** When true in __DEV__, seeds canonical Legacy + human-potential demo history for Michael. */
+/** Requires EXPO_PUBLIC_ENABLE_DEMO_MODE=1 — default off. */
 export const LEGACY_DEMO_ENABLED = true;
 
-/** Dev-only Emerging Constellation suggestion + community infrastructure QA. */
+/** Requires EXPO_PUBLIC_ENABLE_DEMO_MODE=1 — default off. */
 export const EMERGING_CONSTELLATION_DEMO_ENABLED = true;
 
 /** Dev-only StarPath door glow + growth world-signal QA on `/starpath`. */
@@ -35,16 +36,18 @@ export function isDevRuntime(): boolean {
 }
 
 /** True when contribution beacon demo fixtures are active. */
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
+
 export function isContributionBeaconDemoEnabled(): boolean {
-  return isDevRuntime() && CONTRIBUTION_BEACON_DEMO_ENABLED;
+  return isExplicitDevDemoModeEnabled() && CONTRIBUTION_BEACON_DEMO_ENABLED;
 }
 
 export function isLegacyDemoEnabled(): boolean {
-  return isDevRuntime() && LEGACY_DEMO_ENABLED;
+  return isExplicitDevDemoModeEnabled() && LEGACY_DEMO_ENABLED;
 }
 
 export function isEmergingConstellationDemoEnabled(): boolean {
-  return isDevRuntime() && EMERGING_CONSTELLATION_DEMO_ENABLED;
+  return isExplicitDevDemoModeEnabled() && EMERGING_CONSTELLATION_DEMO_ENABLED;
 }
 
 export function isStarpathWorldSignalDemoEnabled(): boolean {

@@ -5,19 +5,25 @@ import type { PlaySkySequenceRegistry } from '@/skywrite/play/playSkySequenceEli
 import { resolveFocusedSkyPlaySteps } from '@/skywrite/play/skywritePlayLogic';
 import { EMPTY_SKYWRITE_PLAY_SEQUENCE } from '@/skywrite/play/skywritePlayTypes';
 import type { SkywriteRecord } from '@/skywrite/types';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import { currentUser } from '@/data/mockData';
 import { mergeExploreDemoPlaySkyRegistry } from '@/explore/exploreDemoSkies';
 
 export function resolveOwnerPlaySkySteps(input: {
   ownerId: string;
+  /** Signed-in viewer; when it matches ownerId, use real ownerSkywrites instead of orbit fixtures. */
+  sessionOwnerId?: string | null;
   connectionStatus: SkyConnectionStatus;
   ownerSkywrites?: readonly SkywriteRecord[];
   registry?: PlaySkySequenceRegistry;
   nowMs?: number;
   retainExpiredInSequence?: boolean;
 }) {
+  const selfId =
+    input.sessionOwnerId?.trim() ||
+    (isExplicitDevDemoModeEnabled() ? currentUser.id : null);
   const posts =
-    input.ownerId === currentUser.id
+    selfId && input.ownerId === selfId
       ? input.ownerSkywrites ?? []
       : input.ownerSkywrites ?? resolveOrbitOwnerSkywrites(input.ownerId);
   const skyView = buildPublicSkyView(
@@ -40,6 +46,7 @@ export function resolveOwnerPlaySkySteps(input: {
       playSkyRegistry: registry,
       nowMs: input.nowMs,
       retainExpiredInSequence: input.retainExpiredInSequence,
+      sessionOwnerId: selfId,
     },
   );
 }

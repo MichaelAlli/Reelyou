@@ -1,6 +1,7 @@
 import type { MySkyStarDisplay } from '@/mySky/types';
 import type { SkywriteRecord } from '@/skywrite/types';
 import type { PlaySkySequenceRegistry } from '@/skywrite/play/playSkySequenceEligibility';
+import { resolveLibraryOwnerUserId } from '@/auth/resolveLibraryOwnerUserId';
 import { filterSkywriteIdsForPlaySkySequence } from '@/skywrite/play/playSkySequenceEligibility';
 import type {
   FocusedSkyPlaySequenceConfig,
@@ -8,6 +9,8 @@ import type {
   SkywritePlayStep,
   SkywritePlayStepKind,
 } from '@/skywrite/play/skywritePlayTypes';
+import { filterPlayStepsToActiveSkyReel } from '@/skywrite/play/skywriteGuidedPlayExpiry';
+import { standaloneAudioSkywritesEnabled } from '@/skywrite/standaloneAudioSkywrite';
 import { isStandaloneAudioRecord } from '@/skywrite/voiceoverStepUtils';
 
 const STEP_KIND_ORDER: SkywritePlayStepKind[] = ['text', 'photo', 'video', 'audio'];
@@ -53,7 +56,11 @@ export function defaultStepsForSkywrite(skywrite: SkywriteRecord): SkywritePlayS
       kind: 'video',
     });
   }
-  if (skywrite.media.audio?.uri && isStandaloneAudioRecord(skywrite)) {
+  if (
+    standaloneAudioSkywritesEnabled() &&
+    skywrite.media.audio?.uri &&
+    isStandaloneAudioRecord(skywrite)
+  ) {
     steps.push({
       stepId: stepIdFor('audio'),
       skywriteId: skywrite.id,
@@ -119,6 +126,7 @@ export function resolveFocusedSkyPlaySteps(
     nowMs?: number;
     /** Playback: keep expired posts in order (show expired state). Listing: omit expired. */
     retainExpiredInSequence?: boolean;
+    sessionOwnerId?: string | null;
   },
 ): SkywritePlayStep[] {
   const defaultOrder = defaultFocusedSkywriteIds(stars, skywrites);
@@ -135,19 +143,33 @@ export function resolveFocusedSkyPlaySteps(
 
   const byId = new Map(skywrites.map((post) => [post.id, post]));
   if (options?.playSkyRegistry && !options.retainExpiredInSequence) {
-    order = filterSkywriteIdsForPlaySkySequence(
-      order,
-      options.playSkyRegistry,
-      byId,
-      undefined,
-      options.nowMs,
-    );
+    const sessionOwnerId =
+      options.sessionOwnerId?.trim() ??
+      skywrites.find((post) => post.authorId?.trim())?.authorId?.trim() ??
+      resolveLibraryOwnerUserId(null);
+    if (sessionOwnerId) {
+      order = filterSkywriteIdsForPlaySkySequence(
+        order,
+        options.playSkyRegistry,
+        byId,
+        sessionOwnerId,
+        options.nowMs,
+      );
+    }
   }
   const out: SkywritePlayStep[] = [];
   for (const skywriteId of order) {
     const record = byId.get(skywriteId);
     if (!record) continue;
     out.push(...resolveStepsForSkywrite(record, singleConfigs[skywriteId]));
+  }
+  if (options?.playSkyRegistry && !options.retainExpiredInSequence) {
+    return filterPlayStepsToActiveSkyReel(
+      out,
+      options.playSkyRegistry,
+      byId,
+      options.nowMs,
+    );
   }
   return out;
 }

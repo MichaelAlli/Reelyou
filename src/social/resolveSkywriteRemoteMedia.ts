@@ -1,5 +1,6 @@
 import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
 import { invalidateMediaAccessCache, resolveMediaAccessUrl } from '@/social/sharedMediaApi';
+import { recordNeedsLibraryThumbnailPipeline } from '@/skywrite/media/getSkywriteThumbnail';
 import { ensureSkywriteVideoThumbnail } from '@/skywrite/publish/ensureSkywriteVideoThumbnail';
 import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
 
@@ -110,8 +111,24 @@ export async function resolveSkywriteVisualPreviewMedia(
       return { ...video, uri: resolvedUri, thumbnailUri };
     })();
 
-    const [photoResolved, video] = await Promise.all([photoTask, videoTask]);
-    const previewMedia = { ...media, photo: photoResolved, video, audio: media.audio ?? null };
+    const audioTask = media.audio
+      ? resolvePartUri(media.audio.uri, media.audio.remoteAssetId, options).then((result) => {
+          if (!result.ok) previewOk = false;
+          return { ...media.audio!, uri: result.uri ?? media.audio!.uri };
+        })
+      : Promise.resolve(null);
+
+    const [photoResolved, video, audioResolved] = await Promise.all([
+      photoTask,
+      videoTask,
+      audioTask,
+    ]);
+    const previewMedia = {
+      ...media,
+      photo: photoResolved,
+      video,
+      audio: audioResolved,
+    };
     return {
       media: previewMedia,
       previewOk,
@@ -142,18 +159,7 @@ export async function resolveSkywriteRecord(
 }
 
 export function recordNeedsLibraryPreviewResolve(record: SkywriteRecord | null | undefined): boolean {
-  if (!record) return false;
-  const uris = [record.media.photo?.uri, record.media.video?.thumbnailUri, record.media.video?.uri];
-  if (uris.some((uri) => Boolean(parseRemoteAssetIdFromUri(uri)))) return true;
-  if (record.media.video?.remoteAssetId && !record.media.video.thumbnailUri) return true;
-  if (
-    record.media.video?.remoteAssetId &&
-    record.media.video.thumbnailUri &&
-    !parseRemoteAssetIdFromUri(record.media.video.thumbnailUri)
-  ) {
-    return true;
-  }
-  return false;
+  return recordNeedsLibraryThumbnailPipeline(record);
 }
 
 export function collectRemoteAssetIds(record: SkywriteRecord): string[] {

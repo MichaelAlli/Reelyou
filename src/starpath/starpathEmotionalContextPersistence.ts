@@ -1,5 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { readStarpathScopedJson, writeStarpathScopedJson } from '@/starpath/starpathScopedStorage';
 import {
   DEFAULT_EMOTIONAL_CONTEXT,
   type StarPathEmotionalContext,
@@ -10,7 +9,7 @@ const STORAGE_KEY = '@reellyou/starpath-emotional-context';
 
 export async function loadEmotionalContext(): Promise<StarPathEmotionalContext> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await readStarpathScopedJson(STORAGE_KEY, (value) => value);
     if (!raw) return { ...DEFAULT_EMOTIONAL_CONTEXT };
     return { ...DEFAULT_EMOTIONAL_CONTEXT, ...(JSON.parse(raw) as StarPathEmotionalContext) };
   } catch {
@@ -19,7 +18,7 @@ export async function loadEmotionalContext(): Promise<StarPathEmotionalContext> 
 }
 
 export async function saveEmotionalContext(ctx: StarPathEmotionalContext): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(ctx));
+  await writeStarpathScopedJson(STORAGE_KEY, ctx);
 }
 
 export function parseUserReportedSupport(label: string | null | undefined): UserSupportState {

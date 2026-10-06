@@ -9,7 +9,8 @@ import {
 } from 'react';
 
 import type { ContributionRecord } from '@/contributions/contributionTypes';
-import { currentUser } from '@/data/mockData';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import {
   addSkywriteResponse,
   authorSaveResponse,
@@ -48,6 +49,8 @@ interface SkywriteThreadContextValue {
 const SkywriteThreadContext = createContext<SkywriteThreadContextValue | null>(null);
 
 function SkywriteThreadProviderInner({ children }: { children: ReactNode }) {
+  const { user: authUser } = useReelyouAuth();
+  const responderId = resolveActiveUserId(authUser);
   const { ignoreBeaconForViewer, respondBeaconForViewer } = useSkywriteBeacon();
   const [threadState, setThreadState] = useState<SkywriteThreadState>(EMPTY_SKYWRITE_THREAD_STATE);
   const [contributions, setContributions] = useState<ContributionRecord[]>([]);
@@ -86,17 +89,17 @@ function SkywriteThreadProviderInner({ children }: { children: ReactNode }) {
   const addResponse = useCallback(
     (skywriteId: string, body: string) => {
       const trimmed = body.trim();
-      if (!trimmed) return null;
+      if (!trimmed || !responderId) return null;
       const result = addSkywriteResponse(threadState, {
         skywriteId,
-        responderId: currentUser.id,
+        responderId,
         body: trimmed,
       });
       persistThreads(result.state);
       respondBeaconForViewer(skywriteId);
       return result.response;
     },
-    [persistThreads, respondBeaconForViewer, threadState],
+    [persistThreads, responderId, respondBeaconForViewer, threadState],
   );
 
   const ignoreBeacon = useCallback(

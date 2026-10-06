@@ -1,4 +1,5 @@
-import { currentUser, orbitUsers } from '@/data/mockData';
+import { resolveLibraryOwnerUserId } from '@/auth/resolveLibraryOwnerUserId';
+import { orbitUsers } from '@/data/mockData';
 import type { ContributionRecord } from '@/contributions/contributionTypes';
 import { resolveSkywriteViewerAccess } from '@/skywrite/access/resolveSkywriteViewerAccess';
 import type { SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
@@ -89,7 +90,8 @@ export function buildAuthoredLibraryRows(input: {
   query?: string;
   ownerUserId?: string;
 }): MySkywriteLibraryRow[] {
-  const ownerUserId = input.ownerUserId ?? currentUser.id;
+  const ownerUserId = resolveLibraryOwnerUserId(input.ownerUserId);
+  if (!ownerUserId) return [];
   const q = input.query?.trim().toLowerCase() ?? '';
   const rows: MySkywriteLibraryRow[] = [];
   const lifecycle = buildSkywriteLifecycleView(input.library);
@@ -134,7 +136,8 @@ export function buildYourJourneyLibraryRows(input: {
   query?: string;
   ownerUserId?: string;
 }): MySkywriteLibraryRow[] {
-  const ownerUserId = input.ownerUserId ?? currentUser.id;
+  const ownerUserId = resolveLibraryOwnerUserId(input.ownerUserId);
+  if (!ownerUserId) return [];
   const q = input.query?.trim().toLowerCase() ?? '';
   const rows: MySkywriteLibraryRow[] = [];
 
@@ -176,6 +179,7 @@ function buildSavedThreadRows(input: {
   saved: SavedThreadsState;
   contributions: readonly ContributionRecord[];
   blockedUserIds: readonly string[];
+  ownerUserId: string;
   status: 'active' | 'archived';
   query?: string;
 }): MySkywriteLibraryRow[] {
@@ -184,7 +188,7 @@ function buildSavedThreadRows(input: {
   const lifecycle = buildSkywriteLifecycleView(input.library);
 
   for (const saved of input.saved.savedThreads) {
-    if (saved.ownerUserId !== currentUser.id) continue;
+    if (saved.ownerUserId !== input.ownerUserId) continue;
     if (saved.status !== input.status) continue;
     const sourceDeleted = isSkywriteDeleted(
       saved.skywriteId,
@@ -194,7 +198,7 @@ function buildSavedThreadRows(input: {
     const access = resolveSavedThreadSourceAccess({
       skywrite: skywrite ? { ...skywrite, authorId: skywrite.authorId ?? saved.originalAuthorId } : null,
       blockedUserIds: input.blockedUserIds,
-      viewerId: currentUser.id,
+      viewerId: input.ownerUserId,
     });
     const authorLabel = authorName(saved.originalAuthorId);
     const areaLabel = areaLabelFor(saved.skyAreaId ?? skywrite?.skyAreaId);
@@ -268,9 +272,12 @@ export function buildSavedThreadLibraryRows(input: {
   saved: SavedThreadsState;
   contributions: readonly ContributionRecord[];
   blockedUserIds: readonly string[];
+  ownerUserId?: string;
   query?: string;
 }): MySkywriteLibraryRow[] {
-  return buildSavedThreadRows({ ...input, status: 'active' });
+  const ownerUserId = resolveLibraryOwnerUserId(input.ownerUserId);
+  if (!ownerUserId) return [];
+  return buildSavedThreadRows({ ...input, ownerUserId, status: 'active' });
 }
 
 export function buildArchivedSavedThreadLibraryRows(input: {
@@ -279,9 +286,12 @@ export function buildArchivedSavedThreadLibraryRows(input: {
   saved: SavedThreadsState;
   contributions: readonly ContributionRecord[];
   blockedUserIds: readonly string[];
+  ownerUserId?: string;
   query?: string;
 }): MySkywriteLibraryRow[] {
-  return buildSavedThreadRows({ ...input, status: 'archived' });
+  const ownerUserId = resolveLibraryOwnerUserId(input.ownerUserId);
+  if (!ownerUserId) return [];
+  return buildSavedThreadRows({ ...input, ownerUserId, status: 'archived' });
 }
 
 export function buildContributedLibraryRows(input: {
@@ -291,13 +301,16 @@ export function buildContributedLibraryRows(input: {
   contributions: readonly ContributionRecord[];
   blockedUserIds: readonly string[];
   followGraph: SkyFollowGraph;
+  ownerUserId?: string;
   query?: string;
 }): MySkywriteLibraryRow[] {
+  const ownerUserId = resolveLibraryOwnerUserId(input.ownerUserId);
+  if (!ownerUserId) return [];
   const q = input.query?.trim().toLowerCase() ?? '';
   const lifecycle = buildSkywriteLifecycleView(input.library);
   const byResponse = new Map<string, SkywriteResponseRecord>();
   for (const response of input.responses) {
-    if (response.responderId !== currentUser.id) continue;
+    if (response.responderId !== ownerUserId) continue;
     byResponse.set(response.responseId, response);
   }
 
@@ -312,10 +325,10 @@ export function buildContributedLibraryRows(input: {
       continue;
     }
     const skywrite = resolveSkywriteById(input.localPosts, response.skywriteId, lifecycle);
-    if (!skywrite || skywrite.authorId === currentUser.id) continue;
+    if (!skywrite || skywrite.authorId === ownerUserId) continue;
     if (
       !contributorMayViewSkywrite(skywrite, {
-        viewerId: currentUser.id,
+        viewerId: ownerUserId,
         followGraph: input.followGraph,
         blockedUserIds: input.blockedUserIds,
       })
@@ -334,7 +347,7 @@ export function buildContributedLibraryRows(input: {
     const savedContribution = input.contributions.find(
       (entry) =>
         entry.sourceResponseId === response.responseId &&
-        entry.responderId === currentUser.id &&
+        entry.responderId === ownerUserId &&
         entry.state === 'active',
     );
 

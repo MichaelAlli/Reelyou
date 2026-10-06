@@ -1,6 +1,11 @@
-import type { SkywriteVideoMedia } from '@/skywrite/types';
+import type { SkywritePhotoMedia, SkywriteVideoMedia } from '@/skywrite/types';
 
 export type SkywriteVideoStageFit = 'fit' | 'fill';
+
+export type SkywriteStageFramingMedia = Pick<
+  SkywriteVideoMedia | SkywritePhotoMedia,
+  'stageFit' | 'framingOffsetX' | 'framingOffsetY'
+>;
 
 export interface SkywriteVideoFraming {
   offsetX: number;
@@ -23,14 +28,18 @@ export function clampFramingOffset(value: number): number {
   return Math.max(-1, Math.min(1, value));
 }
 
-export function resolveVideoStageFit(video?: SkywriteVideoMedia | null): SkywriteVideoStageFit {
-  return video?.stageFit === 'fill' ? 'fill' : 'fit';
+export function resolveVideoStageFit(
+  media?: SkywriteStageFramingMedia | null,
+): SkywriteVideoStageFit {
+  return media?.stageFit === 'fill' ? 'fill' : 'fit';
 }
 
-export function resolveVideoFraming(video?: SkywriteVideoMedia | null): SkywriteVideoFraming {
+export function resolveVideoFraming(
+  media?: SkywriteStageFramingMedia | null,
+): SkywriteVideoFraming {
   return {
-    offsetX: clampFramingOffset(video?.framingOffsetX ?? 0),
-    offsetY: clampFramingOffset(video?.framingOffsetY ?? 0),
+    offsetX: clampFramingOffset(media?.framingOffsetX ?? 0),
+    offsetY: clampFramingOffset(media?.framingOffsetY ?? 0),
   };
 }
 

@@ -16,7 +16,6 @@ import { StarPathSpacing } from '@/components/starpath/starpathGlass';
 import { StarPathTopChrome } from '@/components/starpath/StarPathTopChrome';
 import { StarPathWorldLayer } from '@/components/starpath/StarPathWorldLayer';
 import { TabBarHeight } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
 import { StarPathDynamicGrowthLayer } from '@/components/starpath/StarPathDynamicGrowthLayer';
 import { StarPathOffscreenGrowthIndicator } from '@/components/starpath/StarPathOffscreenGrowthIndicator';
 import { StarPathOffscreenSignalIndicator } from '@/components/starpath/StarPathOffscreenSignalIndicator';

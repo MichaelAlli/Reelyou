@@ -1,5 +1,6 @@
 import { SkywriteCopy } from '@/constants/skywriteCopy';
 import { inferSkywriteIntentFromShowingUp } from '@/skywrite/skywriteIntent';
+import { standaloneAudioSkywritesEnabled } from '@/skywrite/standaloneAudioSkywrite';
 import { inferMediaModeFromParts } from '@/skywrite/voiceoverStepUtils';
 import type { SkywriteDraft, SkywriteMedia, SkywriteMediaMode, SkywriteRecord } from '@/skywrite/types';
 import { EMPTY_SKYWRITE_MEDIA } from '@/skywrite/types';
@@ -92,12 +93,13 @@ export function getSkywriteMediaActionLabels(
 }
 
 export function hasSkywriteContent(draft: Pick<SkywriteDraft, 'text' | 'media'>): boolean {
-  return (
+  const hasAnchor =
     draft.text.trim().length > 0 ||
     Boolean(draft.media.photo?.uri) ||
-    Boolean(draft.media.video?.uri) ||
-    Boolean(draft.media.audio?.uri)
-  );
+    Boolean(draft.media.video?.uri);
+  if (hasAnchor) return true;
+  if (Boolean(draft.media.audio?.uri) && standaloneAudioSkywritesEnabled()) return true;
+  return false;
 }
 
 export function skywriteRecordToDraft(record: SkywriteRecord): SkywriteDraft {

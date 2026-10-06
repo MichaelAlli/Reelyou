@@ -1,4 +1,3 @@
-import { currentUser } from '@/data/mockData';
 import { resolveSkyAreaLabel } from '@/skyAreas/skyAreaDefinition';
 import { getSkyAreaCategory, isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import type { SkyAreaPreferencesRecord } from '@/skyAreas/skyAreaPreferencesTypes';
@@ -190,13 +189,9 @@ function deliverRematchWave(
             m.rematchCycle === cycle,
         ),
     )
-    .filter((recipientId) => {
-      const prefsForBeta =
-        recipientId === currentUser.id
-          ? prefs
-          : prefs; /* Beta: shared prefs shape for simulated recipients in tests */
-      return isRecipientEligibleForSkywriteBeacon(skywrite, recipientId, prefsForBeta, blockedUserIds);
-    })
+    .filter((recipientId) =>
+      isRecipientEligibleForSkywriteBeacon(skywrite, recipientId, prefs, blockedUserIds),
+    )
     .sort(
       (a, b) =>
         countActiveMatchesForRecipient(matches, a) - countActiveMatchesForRecipient(matches, b),
@@ -233,7 +228,7 @@ export function syncBeaconSystem(input: {
   recipientPool?: readonly string[];
 }): BeaconSystemState {
   const pool = input.recipientPool ?? BETA_BEACON_RECIPIENT_POOL;
-  const catalog = collectPublicSkywritesForBeacon(input.localPosts);
+  const catalog = collectPublicSkywritesForBeacon(input.localPosts, '');
   let lifecycles = { ...input.state.lifecycles };
   let matches = [...input.state.matches];
 

@@ -7,8 +7,9 @@ import {
   type ReactNode,
 } from 'react';
 
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
-import { currentUser } from '@/data/mockData';
 import { isEmergingConstellationDemoEnabled } from '@/constants/devFlags';
 import {
   fixtureEncouragementsForCommunity,
@@ -54,22 +55,24 @@ const DISMISS_COOLDOWN_MS = 7 * 86400_000;
 function notifyFixtureRepliesForOwner(
   state: EmergingConstellationsPersistedState,
   communityId: string,
+  sessionUserId: string,
 ) {
+  if (!sessionUserId) return;
   const membership = state.memberships.find(
     (entry) =>
       entry.communityId === communityId &&
-      entry.userId === currentUser.id &&
+      entry.userId === sessionUserId &&
       entry.status === 'joined',
   );
   if (membership?.notificationsMuted) return;
   const posts = state.postsByCommunity[communityId] ?? [];
   for (const post of posts) {
-    if (post.authorUserId !== currentUser.id) continue;
+    if (post.authorUserId !== sessionUserId) continue;
     for (const reply of state.repliesByPost[post.id] ?? []) {
-      if (reply.authorUserId === currentUser.id) continue;
+      if (reply.authorUserId === sessionUserId) continue;
       pushCommunityMeaningfulSignal({
         signalId: `sig-community-reply-${reply.id}`,
-        userId: currentUser.id,
+        userId: sessionUserId,
         type: 'community_reply',
         title: 'Someone responded to your reflection',
         description: reply.content.slice(0, 120),
@@ -108,6 +111,8 @@ function seedFixtureContent(
 }
 
 export function EmergingConstellationsProvider({ children }: { children: ReactNode }) {
+  const { user: authUser } = useReelyouAuth();
+  const sessionUserId = resolveActiveUserId(authUser) ?? '';
   const { preferences } = useReelyouConnect();
   const [ready, setReady] = useState(false);
   const [state, setState] = useState<EmergingConstellationsPersistedState>(
@@ -123,7 +128,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
       if (!mounted) return;
       setState((previous) => {
         const merged = mergeEmergingConstellationsPersistedState(loaded, previous);
-        syncCommunityMuteRegistry(merged.memberships, currentUser.id);
+        syncCommunityMuteRegistry(merged.memberships, sessionUserId);
         return merged;
       });
       setReady(true);
@@ -134,7 +139,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
   }, []);
 
   useEffect(() => {
-    syncCommunityMuteRegistry(state.memberships, currentUser.id);
+    syncCommunityMuteRegistry(state.memberships, sessionUserId);
   }, [state.memberships]);
 
   const persist = useCallback((next: EmergingConstellationsPersistedState) => {
@@ -179,14 +184,14 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
     emergingSignalEmitted.current = true;
     emitEmergingConstellationCandidate(
       canonicalStore.current,
-      currentUser.id,
+      sessionUserId,
       activeSuggestion.id,
       [...activeSuggestion.relatedSkyAreaIds],
       [...activeSuggestion.emergenceEvidenceIds],
     );
     pushCommunityMeaningfulSignal({
       signalId: `sig-emerging-${activeSuggestion.id}`,
-      userId: currentUser.id,
+      userId: sessionUserId,
       type: 'emerging_constellation_available',
       title: 'A constellation may be forming',
       description: activeSuggestion.sharedTheme,
@@ -216,12 +221,12 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
   const joinConstellation = useCallback(
     (constellationId: string) => {
       const existing = state.memberships.find(
-        (entry) => entry.communityId === constellationId && entry.userId === currentUser.id,
+        (entry) => entry.communityId === constellationId && entry.userId === sessionUserId,
       );
       if (existing?.status === 'joined') return;
       let next = seedFixtureContent(state, constellationId);
       const filtered = next.memberships.filter(
-        (entry) => !(entry.communityId === constellationId && entry.userId === currentUser.id),
+        (entry) => !(entry.communityId === constellationId && entry.userId === sessionUserId),
       );
       next = {
         ...next,
@@ -229,7 +234,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
           ...filtered,
           {
             communityId: constellationId,
-            userId: currentUser.id,
+            userId: sessionUserId,
             status: 'joined',
             role: 'member',
             joinedAt: Date.now(),
@@ -238,11 +243,11 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
         ],
       };
       persist(next);
-      notifyFixtureRepliesForOwner(next, constellationId);
-      emitCommunityBelongingSignal(canonicalStore.current, currentUser.id, constellationId);
+      notifyFixtureRepliesForOwner(next, constellationId, sessionUserId);
+      emitCommunityBelongingSignal(canonicalStore.current, sessionUserId, constellationId);
       pushCommunityMeaningfulSignal({
         signalId: `sig-community-joined-${constellationId}`,
-        userId: currentUser.id,
+        userId: sessionUserId,
         type: 'community_belonging',
         title: 'You joined a community',
         description: 'You can share perspective and find support when it feels right.',
@@ -260,7 +265,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
       persist({
         ...state,
         memberships: state.memberships.map((entry) =>
-          entry.communityId === constellationId && entry.userId === currentUser.id
+          entry.communityId === constellationId && entry.userId === sessionUserId
             ? { ...entry, status: 'left', joinedAt: null, leftAt: Date.now() }
             : entry,
         ),
@@ -274,7 +279,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
       persist({
         ...state,
         memberships: state.memberships.map((entry) =>
-          entry.communityId === constellationId && entry.userId === currentUser.id
+          entry.communityId === constellationId && entry.userId === sessionUserId
             ? { ...entry, notificationsMuted: muted }
             : entry,
         ),
@@ -290,7 +295,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
       const membership = state.memberships.find(
         (entry) =>
           entry.communityId === communityId &&
-          entry.userId === currentUser.id &&
+          entry.userId === sessionUserId &&
           entry.status === 'joined',
       );
       if (!membership) return null;
@@ -298,7 +303,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
       const post: CommunityPost = {
         id,
         communityId,
-        authorUserId: currentUser.id,
+        authorUserId: sessionUserId,
         kind,
         content: trimmed,
         moderationStatus: 'visible',
@@ -323,7 +328,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
       const membership = state.memberships.find(
         (entry) =>
           entry.communityId === communityId &&
-          entry.userId === currentUser.id &&
+          entry.userId === sessionUserId &&
           entry.status === 'joined',
       );
       if (!membership) return null;
@@ -334,7 +339,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
         id,
         communityId,
         postId,
-        authorUserId: currentUser.id,
+        authorUserId: sessionUserId,
         content: trimmed,
         moderationStatus: 'visible',
         createdAt: Date.now(),
@@ -347,18 +352,18 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
         },
       });
       if (
-        post.authorUserId === currentUser.id &&
-        reply.authorUserId === currentUser.id
+        post.authorUserId === sessionUserId &&
+        reply.authorUserId === sessionUserId
       ) {
         return id;
       }
       if (
-        post.authorUserId === currentUser.id &&
+        post.authorUserId === sessionUserId &&
         !membership.notificationsMuted
       ) {
         emitCommunityReplySignal(
           canonicalStore.current,
-          currentUser.id,
+          sessionUserId,
           communityId,
           postId,
           id,
@@ -366,7 +371,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
         );
         pushCommunityMeaningfulSignal({
           signalId: `sig-community-reply-${id}`,
-          userId: currentUser.id,
+          userId: sessionUserId,
           type: 'community_reply',
           title: 'Someone responded to your reflection',
           description: trimmed.slice(0, 120),
@@ -385,23 +390,23 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
   const encourageTarget = useCallback(
     (communityId: string, targetType: 'post' | 'reply', targetId: string) => {
       if (
-        hasEncouraged(state.encouragements, targetType, targetId, currentUser.id)
+        hasEncouraged(state.encouragements, targetType, targetId, sessionUserId)
       ) {
         return false;
       }
       const membership = state.memberships.find(
         (entry) =>
           entry.communityId === communityId &&
-          entry.userId === currentUser.id &&
+          entry.userId === sessionUserId &&
           entry.status === 'joined',
       );
       if (!membership) return false;
       const encouragement: CommunityEncouragement = {
-        id: `ce-${targetType}-${targetId}-${currentUser.id}`,
+        id: `ce-${targetType}-${targetId}-${sessionUserId}`,
         communityId,
         targetType,
         targetId,
-        fromUserId: currentUser.id,
+        fromUserId: sessionUserId,
         createdAt: Date.now(),
       };
       persist({
@@ -423,7 +428,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
   const membershipFor = useCallback(
     (communityId: string) =>
       state.memberships.find(
-        (entry) => entry.communityId === communityId && entry.userId === currentUser.id,
+        (entry) => entry.communityId === communityId && entry.userId === sessionUserId,
       ),
     [state.memberships],
   );
@@ -431,7 +436,7 @@ export function EmergingConstellationsProvider({ children }: { children: ReactNo
   const joinedMemberships = useMemo(
     () =>
       state.memberships.filter(
-        (entry) => entry.userId === currentUser.id && entry.status === 'joined',
+        (entry) => entry.userId === sessionUserId && entry.status === 'joined',
       ),
     [state.memberships],
   );

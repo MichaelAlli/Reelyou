@@ -12,6 +12,7 @@ interface MySkyIdentityStarProps {
   worldHeight: number;
   active?: boolean;
   prominence?: number;
+  identityIntroPulse?: boolean;
   onPress: () => void;
 }
 
@@ -22,10 +23,13 @@ function MySkyIdentityStarComponent({
   worldHeight,
   active = false,
   prominence = 1,
+  identityIntroPulse = false,
   onPress,
 }: MySkyIdentityStarProps) {
   const baseSize = (star.visualSize ?? CelestialStarGeometry.defaultUserStarSize + 1.4) * prominence;
-  const intensity = (star.visualBrightness ?? 1.05) * (active ? 1.1 : prominence > 1.05 ? 1.04 : 1);
+  const intensity =
+    (star.visualBrightness ?? 1.05) *
+    (active ? 1.1 : identityIntroPulse ? 1.12 : prominence > 1.05 ? 1.04 : 1);
   const svgSize = baseSize * 5.2;
 
   return (
@@ -39,6 +43,7 @@ function MySkyIdentityStarComponent({
         active && styles.hitActive,
       ]}>
       <View pointerEvents="none" style={styles.starWrap}>
+        {identityIntroPulse ? <View style={styles.introHalo} /> : null}
         <Svg width={svgSize} height={svgSize}>
           <ApprovedReelyouStar
             id={`identity-${star.id}`}
@@ -74,5 +79,14 @@ const styles = StyleSheet.create({
   starWrap: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  introHalo: {
+    position: 'absolute',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(232, 200, 114, 0.12)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.35)',
   },
 });

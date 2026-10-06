@@ -17,6 +17,7 @@ import { reportUserSafety } from '@/safety/safetyActions';
 export function createLocalMessageService(
   getState: () => MessagesState,
   setState: (next: MessagesState) => void,
+  getSelfUserId: () => string | null,
 ): MessageService {
   return {
     async fetchThreads() {
@@ -26,7 +27,15 @@ export function createLocalMessageService(
       return getState();
     },
     async sendMessage(threadId, payload) {
-      const next = sendMessageLocal(getState(), threadId, payload, BETA_CONNECTED_USER_IDS);
+      const selfUserId = getSelfUserId();
+      if (!selfUserId) return getState();
+      const next = sendMessageLocal(
+        getState(),
+        selfUserId,
+        threadId,
+        payload,
+        BETA_CONNECTED_USER_IDS,
+      );
       setState(next);
       return next;
     },
@@ -36,7 +45,9 @@ export function createLocalMessageService(
       return next;
     },
     async openOrCreateThread(userId) {
-      const next = openOrCreateThread(getState(), userId, BETA_CONNECTED_USER_IDS);
+      const selfUserId = getSelfUserId();
+      if (!selfUserId) return getState();
+      const next = openOrCreateThread(getState(), selfUserId, userId, BETA_CONNECTED_USER_IDS);
       setState(next);
       return next;
     },
@@ -56,12 +67,16 @@ export function createLocalMessageService(
       return next;
     },
     async blockUser(userId) {
-      const next = blockUserLocal(getState(), userId);
+      const selfUserId = getSelfUserId();
+      if (!selfUserId) return getState();
+      const next = blockUserLocal(getState(), selfUserId, userId);
       setState(next);
       return next;
     },
     async reportUser(params) {
-      const result = await reportUserSafety(params);
+      const selfUserId = getSelfUserId();
+      if (!selfUserId) return { ok: false, localOnly: true, reportId: '' };
+      const result = await reportUserSafety({ ...params, reporterUserId: selfUserId });
       return { ok: result.ok, localOnly: result.localOnly, reportId: result.reportId };
     },
   };

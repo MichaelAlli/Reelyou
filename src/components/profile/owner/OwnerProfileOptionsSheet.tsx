@@ -43,11 +43,13 @@ function OwnerProfileOptionsSheetComponent({
             onPress={() => run(onCustomizeSkyHeader)}
           />
         ) : null}
-        <MenuRow
-          label="Preview profile"
-          hint="Public visitor"
-          onPress={() => run(onPreviewProfile)}
-        />
+        {isDevRuntime() ? (
+          <MenuRow
+            label="Preview profile"
+            hint="Public visitor"
+            onPress={() => run(onPreviewProfile)}
+          />
+        ) : null}
         {isDevRuntime() && onPreviewProfileConnectedSky ? (
           <MenuRow
             label="Preview as Connected Sky"

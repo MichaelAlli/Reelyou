@@ -2,14 +2,26 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { SkyFriendsCopy } from '@/constants/skyFriendsCopy';
 import { Fonts } from '@/constants/theme';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import { currentUser, orbitUsers } from '@/data/mockData';
 
-function nameFor(userId: string): string {
-  if (userId === currentUser.id) return currentUser.name;
-  return orbitUsers.find((u) => u.id === userId)?.name ?? userId;
+function nameFor(
+  userId: string,
+  sessionOwnerId: string | null,
+  sessionDisplayName: string,
+  searchableName?: string,
+): string {
+  if (searchableName) return searchableName;
+  if (sessionOwnerId && userId === sessionOwnerId) return sessionDisplayName;
+  if (isExplicitDevDemoModeEnabled()) {
+    if (userId === currentUser.id) return currentUser.name;
+    return orbitUsers.find((u) => u.id === userId)?.name ?? userId;
+  }
+  return userId;
 }
 
 interface SettingsSafetyListsScreenProps {
@@ -18,7 +30,8 @@ interface SettingsSafetyListsScreenProps {
 
 export function SettingsSafetyListsScreen({ mode }: SettingsSafetyListsScreenProps) {
   const router = useRouter();
-  const { messages, unblockUser, removeLimitUser } = useReelyouConnect();
+  const { userId: sessionOwnerId, displayName: sessionDisplayName } = useSessionUserId();
+  const { messages, unblockUser, removeLimitUser, searchableUsers } = useReelyouConnect();
   const ids = mode === 'blocked' ? messages.blockedUserIds : messages.limitedUserIds;
   const title = mode === 'blocked' ? SkyFriendsCopy.blockedTitle : SkyFriendsCopy.limitedTitle;
 
@@ -37,7 +50,14 @@ export function SettingsSafetyListsScreen({ mode }: SettingsSafetyListsScreenPro
         ) : (
           ids.map((userId) => (
             <View key={userId} style={styles.row}>
-              <Text style={styles.name}>{nameFor(userId)}</Text>
+              <Text style={styles.name}>
+                {nameFor(
+                  userId,
+                  sessionOwnerId,
+                  sessionDisplayName,
+                  searchableUsers.find((u) => u.id === userId)?.name,
+                )}
+              </Text>
               <Pressable
                 onPress={() =>
                   mode === 'blocked' ? unblockUser(userId) : removeLimitUser(userId)

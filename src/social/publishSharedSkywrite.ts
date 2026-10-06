@@ -4,6 +4,8 @@ import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
 import { publishSkywriteToServer } from '@/social/sharedSkywriteApi';
 import { cacheRemoteSkywrite } from '@/social/sharedSkywriteCache';
 import { uploadSkywriteMediaForPublish } from '@/social/uploadSkywriteMedia';
+import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
+import { ensureSkywriteVideoThumbnail } from '@/skywrite/publish/ensureSkywriteVideoThumbnail';
 import type {
   PublishSkywriteProgress,
   PublishStageTimingMs,
@@ -42,11 +44,27 @@ export async function syncPublishedSkywriteToServer(
     Boolean(record.media.audio?.uri);
 
   let media = record.media;
+  if (record.media.video?.uri) {
+    const withPoster = await ensureSkywriteVideoThumbnail(record.media.video);
+    if (withPoster?.thumbnailUri) {
+      media = { ...record.media, video: withPoster };
+    }
+  }
+
   let serverMediaRefs: import('@/social/sharedSkywriteApi').ServerSkywriteMediaRefs = {
-    photoAssetId: record.media.photo?.remoteAssetId ?? null,
-    videoAssetId: record.media.video?.remoteAssetId ?? null,
-    audioAssetId: record.media.audio?.remoteAssetId ?? null,
-    thumbnailAssetId: null,
+    photoAssetId: media.photo?.remoteAssetId ?? null,
+    videoAssetId: media.video?.remoteAssetId ?? null,
+    audioAssetId: media.audio?.remoteAssetId ?? null,
+    thumbnailAssetId: parseRemoteAssetIdFromUri(media.video?.thumbnailUri) ?? null,
+    photoMeta: record.media.photo
+      ? {
+          width: record.media.photo.width,
+          height: record.media.photo.height,
+          stageFit: record.media.photo.stageFit,
+          framingOffsetX: record.media.photo.framingOffsetX,
+          framingOffsetY: record.media.photo.framingOffsetY,
+        }
+      : null,
     videoMeta: record.media.video
       ? {
           width: record.media.video.width,
@@ -60,13 +78,16 @@ export async function syncPublishedSkywriteToServer(
     originalVideoAudio: record.media.originalVideoAudio,
     originalVideoVolume: record.media.originalVideoVolume,
     voiceoverVolume: record.media.voiceoverVolume,
+    audioMeta: record.media.audio?.durationMs
+      ? { durationMs: record.media.audio.durationMs }
+      : null,
   };
 
   let uploadMs = 0;
   if (hasLocalMedia) {
     tick('uploading_media');
     const uploadStarted = Date.now();
-    const uploaded = await uploadSkywriteMediaForPublish(record.media, {
+    const uploaded = await uploadSkywriteMediaForPublish(media, {
       onStage: (stage, ms) => {
         if (stage === 'sessions') stages.uploadSessionMs = (stages.uploadSessionMs ?? 0) + ms;
         if (stage === 'transfer') stages.uploadTransferMs = (stages.uploadTransferMs ?? 0) + ms;

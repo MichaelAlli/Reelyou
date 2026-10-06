@@ -61,7 +61,10 @@ const voiceOnly: SkywriteRecord = {
   },
   mediaMode: 'voice',
 };
-assert(defaultStepsForSkywrite(voiceOnly).some((step) => step.kind === 'audio'), 'standalone audio step');
+assert(
+  !defaultStepsForSkywrite(voiceOnly).some((step) => step.kind === 'audio'),
+  'standalone audio step disabled for beta',
+);
 assert(reorderIds(['a', 'b', 'c'], 'b', 'up').join('') === 'bac', 'reorder up');
 
 const videoVoiceover: SkywriteRecord = {

@@ -9,12 +9,18 @@ export interface StoredSkywriteVideoMeta {
   framingOffsetY?: number;
 }
 
+export interface StoredSkywriteAudioMeta {
+  durationMs?: number;
+}
+
 export interface StoredSkywriteMediaRefs {
   photoAssetId?: string | null;
   videoAssetId?: string | null;
   audioAssetId?: string | null;
   thumbnailAssetId?: string | null;
+  photoMeta?: StoredSkywriteVideoMeta | null;
   videoMeta?: StoredSkywriteVideoMeta | null;
+  audioMeta?: StoredSkywriteAudioMeta | null;
   originalVideoAudio?: 'on' | 'lower' | 'off';
   originalVideoVolume?: number;
   voiceoverVolume?: number;

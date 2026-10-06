@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 
-import { currentUser } from '@/data/mockData';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import type { SkywriteRecord } from '@/skywrite/types';
 import {
   addThreadReflection,
@@ -64,6 +65,8 @@ interface SavedThreadsContextValue {
 const SavedThreadsContext = createContext<SavedThreadsContextValue | null>(null);
 
 export function SavedThreadsProvider({ children }: { children: ReactNode }) {
+  const { user: authUser } = useReelyouAuth();
+  const ownerUserId = resolveActiveUserId(authUser);
   const [state, setState] = useState<SavedThreadsState>(EMPTY_SAVED_THREADS_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -85,13 +88,13 @@ export function SavedThreadsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getSavedForSkywrite = useCallback(
-    (skywriteId: string) => findSavedThread(state, currentUser.id, skywriteId),
+    (skywriteId: string) => findSavedThread(state, ownerUserId ?? '', skywriteId),
     [state],
   );
 
   const isThreadSaved = useCallback(
     (skywriteId: string) => {
-      const entry = findSavedThread(state, currentUser.id, skywriteId);
+      const entry = findSavedThread(state, ownerUserId ?? '', skywriteId);
       return Boolean(entry && entry.status === 'active');
     },
     [state],
@@ -101,7 +104,7 @@ export function SavedThreadsProvider({ children }: { children: ReactNode }) {
     (skywrite: SkywriteRecord & { authorId: string }) => {
       const result = saveSkywriteThread({
         state,
-        ownerUserId: currentUser.id,
+        ownerUserId: ownerUserId ?? '',
         skywrite,
       });
       persist(result.state);
@@ -155,7 +158,7 @@ export function SavedThreadsProvider({ children }: { children: ReactNode }) {
       const result = addThreadReflection({
         state,
         savedThreadId: params.savedThreadId,
-        authorUserId: currentUser.id,
+        authorUserId: ownerUserId ?? '',
         body: trimmed || SavedThreadsCopy.voiceMomentLabel,
         momentKind: params.momentKind,
         microChoice: params.microChoice,

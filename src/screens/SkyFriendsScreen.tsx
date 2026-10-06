@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -15,7 +15,9 @@ import { BottomNav } from '@/components/BottomNav';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { SkyFriendsCopy } from '@/constants/skyFriendsCopy';
 import { Fonts, TabBarHeight } from '@/constants/theme';
-import { currentUser, orbitUsers } from '@/data/mockData';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
+import { useSessionUserId } from '@/auth/useSessionUserId';
+import { orbitUsers } from '@/data/mockData';
 import { EXPLORE_DEMO_PROFILES, isExploreDemoOwnerId } from '@/explore/exploreDemoSkies';
 import { buildVisitorProfileHref } from '@/profile/visitorProfileRoute';
 import {
@@ -31,8 +33,8 @@ import { isMutualSkyFriends, listFollowers, listFollowing } from '@/social/skyFo
 
 type TabId = 'friends' | 'following' | 'followers' | 'shared';
 
-function displayName(userId: string): string {
-  if (userId === currentUser.id) return currentUser.name;
+function displayName(userId: string, selfId: string, selfName: string): string {
+  if (selfId && userId === selfId) return selfName;
   if (isExploreDemoOwnerId(userId)) return EXPLORE_DEMO_PROFILES[userId].name;
   if (isDemoVisitorMutualProfileOwner(userId)) return 'Sam Ortiz';
   const demoMutualName = resolveDemoMutualConnectionDisplayName(userId);
@@ -42,6 +44,7 @@ function displayName(userId: string): string {
 
 export function SkyFriendsScreen() {
   const router = useRouter();
+  const { userId: sessionOwnerId, displayName: sessionDisplayName } = useSessionUserId();
   const { tab: tabParam, profileOwner } = useLocalSearchParams<{
     tab?: string;
     profileOwner?: string;
@@ -86,11 +89,12 @@ export function SkyFriendsScreen() {
         sharedContextOwnerId,
         messages.blockedUserIds,
       );
-      if (demoShared.length > 0) return demoShared;
+      if (isExplicitDevDemoModeEnabled() && demoShared.length > 0) return demoShared;
+      if (!sessionOwnerId) return [];
       return listSharedConnectionUserIds(
         skyFollowGraph,
         sharedContextOwnerId,
-        currentUser.id,
+        sessionOwnerId,
       );
     }
     if (tab === 'friends') {
@@ -104,14 +108,14 @@ export function SkyFriendsScreen() {
     if (tab === 'following') {
       if (sharedContextOwnerId) {
         const demoFollowing = resolveDemoProfileOwnerFollowingIds(sharedContextOwnerId);
-        if (demoFollowing) return demoFollowing;
+        if (isExplicitDevDemoModeEnabled() && demoFollowing) return demoFollowing;
         return listFollowing(skyFollowGraph, sharedContextOwnerId);
       }
       return listFollowingUserIds();
     }
     if (sharedContextOwnerId) {
       const demoFollowers = resolveDemoProfileOwnerFollowerIds(sharedContextOwnerId);
-      if (demoFollowers) return demoFollowers;
+      if (isExplicitDevDemoModeEnabled() && demoFollowers) return demoFollowers;
       return listFollowers(skyFollowGraph, sharedContextOwnerId);
     }
     return listFollowerUserIds();
@@ -122,17 +126,24 @@ export function SkyFriendsScreen() {
     sharedContextOwnerId,
     skyFollowGraph,
     skyFriendUserIds,
+    sessionOwnerId,
     tab,
   ]);
+
+  const labelForUser = useCallback(
+    (userId: string) =>
+      displayName(userId, sessionOwnerId ?? '', sessionDisplayName),
+    [sessionDisplayName, sessionOwnerId],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return userIds;
-    return userIds.filter((id) => displayName(id).toLowerCase().includes(q));
-  }, [query, userIds]);
+    return userIds.filter((id) => labelForUser(id).toLowerCase().includes(q));
+  }, [labelForUser, query, userIds]);
 
   const confirmBlock = (userId: string) => {
-    const name = displayName(userId);
+    const name = labelForUser(userId);
     Alert.alert(SkyFriendsCopy.blockConfirmTitle(name), SkyFriendsCopy.blockConfirmBody, [
       { text: SkyFriendsCopy.cancel, style: 'cancel' },
       { text: SkyFriendsCopy.block, style: 'destructive', onPress: () => blockUser(userId) },
@@ -206,13 +217,17 @@ export function SkyFriendsScreen() {
             </View>
           ) : (
             filtered.map((userId) => {
-              const rel = resolveSkyRelationship(skyFollowGraph, currentUser.id, userId);
+              const rel = resolveSkyRelationship(
+                skyFollowGraph,
+                sessionOwnerId ?? '',
+                userId,
+              );
               const limited = messages.limitedUserIds.includes(userId);
               return (
                 <View key={userId} style={styles.row}>
                   <View style={styles.rowMain}>
                     <Text style={styles.name} numberOfLines={1}>
-                      {displayName(userId)}
+                      {labelForUser(userId)}
                     </Text>
                     <Text style={styles.detail} numberOfLines={2}>
                       {rel.detail ?? rel.label}

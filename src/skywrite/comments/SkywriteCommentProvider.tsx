@@ -8,14 +8,22 @@ import {
   type ReactNode,
 } from 'react';
 
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
-import { currentUser } from '@/data/mockData';
+import {
+  fetchSkywriteCommentsFromServer,
+  isSharedSocialPersistenceEnabled,
+  deleteSkywriteCommentFromServer,
+  postSkywriteCommentToServer,
+} from '@/social/sharedSocialApi';
 import { canCommentOnSkywrite } from '@/skywrite/comments/canCommentOnSkywrite';
 import {
   addSkywriteComment,
   commentCountForSkywrite,
   commentsForSkywrite,
   deleteSkywriteComment,
+  mergeServerCommentsForSkywrite,
 } from '@/skywrite/comments/skywriteCommentLogic';
 import {
   loadSkywriteCommentState,
@@ -55,12 +63,15 @@ interface SkywriteCommentContextValue {
     starterKind?: SkywriteCommentStarterKind;
     clientRequestId?: string;
   }) => Promise<AddCommentResult | AddCommentFailure>;
-  deleteOwnComment: (commentId: string) => Promise<boolean>;
+  syncCommentsForSkywrite: (skywriteId: string) => Promise<void>;
+  deleteComment: (skywrite: SkywriteRecord, commentId: string) => Promise<boolean>;
 }
 
 const SkywriteCommentContext = createContext<SkywriteCommentContextValue | null>(null);
 
 export function SkywriteCommentProvider({ children }: { children: ReactNode }) {
+  const { user: authUser } = useReelyouAuth();
+  const activeUserId = resolveActiveUserId(authUser);
   const { messages, skyFollowGraph } = useReelyouConnect();
   const [state, setState] = useState<SkywriteCommentState>(EMPTY_SKYWRITE_COMMENT_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -86,18 +97,18 @@ export function SkywriteCommentProvider({ children }: { children: ReactNode }) {
 
   const canViewerComment = useCallback(
     (skywrite: SkywriteRecord) => {
-      const authorId = skywrite.authorId ?? currentUser.id;
+      const authorId = skywrite.authorId ?? activeUserId;
       return canCommentOnSkywrite({
-        viewerId: currentUser.id,
+        viewerId: activeUserId,
         authorId,
         visibility: skywrite.visibility,
-        viewerFollowsAuthor: isFollowingSkyUser(skyFollowGraph, currentUser.id, authorId),
-        authorFollowsViewer: isFollowingSkyUser(skyFollowGraph, authorId, currentUser.id),
+        viewerFollowsAuthor: isFollowingSkyUser(skyFollowGraph, activeUserId, authorId),
+        authorFollowsViewer: isFollowingSkyUser(skyFollowGraph, authorId, activeUserId),
         viewerBlockedAuthor: messages.blockedUserIds.includes(authorId),
-        authorBlockedViewer: messages.blockedUserIds.includes(currentUser.id),
+        authorBlockedViewer: messages.blockedUserIds.includes(activeUserId),
       });
     },
-    [messages.blockedUserIds, skyFollowGraph],
+    [activeUserId, messages.blockedUserIds, skyFollowGraph],
   );
 
   const getComments = useCallback(
@@ -120,15 +131,32 @@ export function SkywriteCommentProvider({ children }: { children: ReactNode }) {
       if (!canViewerComment(params.skywrite)) {
         return { ok: false, reason: 'forbidden' };
       }
+      const trimmed = params.body.trim();
+      if (!trimmed) return { ok: false, reason: 'empty' };
+
+      if (params.clientRequestId) {
+        const existing = state.comments.find(
+          (entry) => entry.clientRequestId === params.clientRequestId,
+        );
+        if (existing) return { ok: true, comment: existing };
+      }
+
+      let serverCommentId: string | undefined;
+      if (isSharedSocialPersistenceEnabled()) {
+        const server = await postSkywriteCommentToServer(params.skywrite.id, trimmed);
+        if (!server.ok) return { ok: false, reason: 'storage' };
+        serverCommentId = server.comment.id;
+      }
+
       const result = addSkywriteComment(state, {
         skywriteId: params.skywrite.id,
-        authorId: currentUser.id,
-        body: params.body,
+        authorId: activeUserId,
+        body: trimmed,
         starterKind: params.starterKind,
         clientRequestId: params.clientRequestId,
+        commentId: serverCommentId,
       });
       if ('duplicate' in result) {
-        if (!params.body.trim()) return { ok: false, reason: 'empty' };
         return { ok: false, reason: 'duplicate' };
       }
       try {
@@ -139,18 +167,35 @@ export function SkywriteCommentProvider({ children }: { children: ReactNode }) {
       scheduleCommentBackgroundEffects(result.comment, params.skywrite);
       return { ok: true, comment: result.comment };
     },
-    [canViewerComment, persist, state],
+    [activeUserId, canViewerComment, persist, state],
   );
 
-  const deleteOwnComment = useCallback(
-    async (commentId: string) => {
-      const result = deleteSkywriteComment(state, commentId, currentUser.id);
+  const syncCommentsForSkywrite = useCallback(async (skywriteId: string) => {
+    if (!isSharedSocialPersistenceEnabled()) return;
+    const remote = await fetchSkywriteCommentsFromServer(skywriteId);
+    if (!remote) return;
+    setState((current) => {
+      const merged = mergeServerCommentsForSkywrite(current, skywriteId, remote);
+      if (merged === current) return current;
+      void saveSkywriteCommentState(merged);
+      return merged;
+    });
+  }, []);
+
+  const deleteComment = useCallback(
+    async (skywrite: SkywriteRecord, commentId: string) => {
+      const postOwnerId = skywrite.authorId ?? activeUserId;
+      const result = deleteSkywriteComment(state, commentId, activeUserId, postOwnerId);
       if (!result.removed) return false;
+      if (isSharedSocialPersistenceEnabled()) {
+        const deleted = await deleteSkywriteCommentFromServer(skywrite.id, commentId);
+        if (!deleted) return false;
+      }
       persist(result.state);
       scheduleCommentRemovalBackgroundEffects(commentId);
       return true;
     },
-    [persist, state],
+    [activeUserId, persist, state],
   );
 
   const value = useMemo<SkywriteCommentContextValue>(
@@ -160,9 +205,18 @@ export function SkywriteCommentProvider({ children }: { children: ReactNode }) {
       getCommentCount,
       canViewerComment,
       addComment,
-      deleteOwnComment,
+      syncCommentsForSkywrite,
+      deleteComment,
     }),
-    [addComment, canViewerComment, deleteOwnComment, getCommentCount, getComments, isLoaded],
+    [
+      addComment,
+      canViewerComment,
+      deleteComment,
+      getCommentCount,
+      getComments,
+      isLoaded,
+      syncCommentsForSkywrite,
+    ],
   );
 
   return (

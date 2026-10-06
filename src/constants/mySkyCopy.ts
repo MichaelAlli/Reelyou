@@ -119,4 +119,13 @@ export const MySkyCopy = {
   privacyOverrideCommunities: 'Communities',
   privacyOverrideConnections: 'Connections',
   privacyOverrideImpact: 'Contributions',
+  starIntroSkywriteTitle: 'Every Skywrite becomes a star in your Sky.',
+  starIntroSkywriteBody: 'Gold is Motion. Blue is Memory. Purple is Reflection.',
+  starIntroSkywriteSupport: 'Video · Photo · Text',
+  starIntroMySkyTitle: 'Your Sky grows with you.',
+  starIntroMySkyBody: 'Each Skywrite becomes a star. Tap a star to revisit that moment.',
+  starIntroMySkyIdentity: 'Your star stays at the heart of your Sky.',
+  starIntroHelpReplay: 'Understanding your stars',
+  starIntroHelpReplayHint: 'Show the star color guide again on Skywrite and My Sky.',
+  starIntroHelpReplayAck: 'The guide will appear the next time you open Skywrite and My Sky.',
 } as const;

@@ -24,6 +24,9 @@ async function captureWebVideoPoster(uri: string, seekMs: number): Promise<strin
     video.muted = true;
     video.playsInline = true;
     video.preload = 'auto';
+    if (/^https?:\/\//i.test(uri)) {
+      video.crossOrigin = 'anonymous';
+    }
     const timeout = setTimeout(() => {
       video.src = '';
       resolve(null);
@@ -82,29 +85,33 @@ async function captureWebVideoPoster(uri: string, seekMs: number): Promise<strin
   });
 }
 
+/** Capture a single frame at `seekMs` for custom cover selection. */
+export async function captureSkywriteVideoPosterAtMs(
+  videoUri: string,
+  seekMs: number,
+): Promise<string | null> {
+  if (!videoUri) return null;
+  if (Platform.OS === 'web') {
+    return captureWebVideoPoster(videoUri, seekMs);
+  }
+  try {
+    const VideoThumbnails = await import('expo-video-thumbnails');
+    const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
+      time: Math.max(0, seekMs),
+      quality: 0.72,
+    });
+    return uri ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Representative still frame for library cards — avoids black opening frames when possible. */
 export async function captureSkywriteVideoPosterUri(videoUri: string): Promise<string | null> {
   if (!videoUri) return null;
-
-  if (Platform.OS === 'web') {
-    for (const seekMs of POSTER_SEEK_MS) {
-      const uri = await captureWebVideoPoster(videoUri, seekMs);
-      if (uri) return uri;
-    }
-    return null;
-  }
-
-  try {
-    const VideoThumbnails = await import('expo-video-thumbnails');
-    for (const seekMs of POSTER_SEEK_MS) {
-      const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
-        time: seekMs,
-        quality: 0.72,
-      });
-      if (uri) return uri;
-    }
-  } catch {
-    return null;
+  for (const seekMs of POSTER_SEEK_MS) {
+    const uri = await captureSkywriteVideoPosterAtMs(videoUri, seekMs);
+    if (uri) return uri;
   }
   return null;
 }

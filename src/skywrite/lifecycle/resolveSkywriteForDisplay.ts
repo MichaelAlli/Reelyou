@@ -19,6 +19,6 @@ export function resolveSkywriteForDisplay(
   if (isModerationContentSuppressedSync('skywrite', skywriteId)) {
     return null;
   }
-  const catalog = collectPublicSkywritesForBeacon(localPosts);
+  const catalog = collectPublicSkywritesForBeacon(localPosts, '');
   return catalog.find((entry) => entry.id === skywriteId) ?? null;
 }

@@ -1,5 +1,6 @@
 import type { OpportunityCandidate, FreshnessStatus } from '@/starpath/starpathOpportunityTypes';
 import type { ResourceDiscoveryContext, ResourceProviderAdapter } from '@/starpath/starpathResourceProviderTypes';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import { FIXTURE_ANCHOR_MS, FIXTURE_OPPORTUNITY_CATALOG } from '@/starpath/starpathResourceFixtures';
 import { RESOURCE_PROVIDER_ADAPTERS } from '@/starpath/starpathResourceProviderTypes';
 import { OPPORTUNITY_ESCALATION } from '@/starpath/starpathResourceConfig';
@@ -93,7 +94,8 @@ export async function discoverResourceCandidates(
   ctx: ResourceDiscoveryContext,
   peopleCtx?: ResourceDiscoveryPeopleContext,
 ): Promise<ResourceDiscoveryResult> {
-  const fixture = FIXTURE_OPPORTUNITY_CATALOG.map((c) => {
+  const fixtureSource = isExplicitDevDemoModeEnabled() ? FIXTURE_OPPORTUNITY_CATALOG : [];
+  const fixture = fixtureSource.map((c) => {
     const shifted = shiftFixtureCandidate(c, ctx.now);
     return {
       ...shifted,
@@ -119,9 +121,10 @@ export async function discoverResourceCandidates(
 
   const merged = dedupeCandidates([...fixture, ...liveFromBackend, ...peopleCandidates]);
 
-  let providerStatus: ResourceProviderStatus = 'fixture_only';
+  let providerStatus: ResourceProviderStatus =
+    fixture.length > 0 ? 'fixture_only' : liveFromBackend.length > 0 ? 'live' : 'local';
   if (liveFromBackend.length > 0) providerStatus = 'live';
-  else if (adapterResults.length > 0) providerStatus = 'live_future';
+  else if (adapterResults.length > 0 && providerStatus !== 'live') providerStatus = 'live_future';
 
   return {
     candidates: merged,

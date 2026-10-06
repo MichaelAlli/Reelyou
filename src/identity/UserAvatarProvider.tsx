@@ -12,6 +12,13 @@ import {
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
+import { isSharedSocialPersistenceEnabled } from '@/social/sharedSocialApi';
+import {
+  clearProfilePhotoOnServer,
+  resolveServerProfilePhotoDisplayUri,
+  uploadProfilePhotoToServer,
+} from '@/profile/profilePhotoServerSync';
+import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
 import { syncCanonicalProfilePhotoFromIdentity } from '@/identity/canonicalUserProfilePhoto';
 import { setActiveStorageUserId } from '@/storage/scopedAsyncStorage';
 import {
@@ -76,7 +83,7 @@ export function UserAvatarProvider({ children }: { children: ReactNode }) {
     setActiveStorageUserId(storageUserId);
     let live = true;
     setReady(false);
-    void loadUserAvatarIdentity().then((loadedRaw) => {
+    void loadUserAvatarIdentity().then(async (loadedRaw) => {
       if (!live) return;
       const uri = loadedRaw.profilePhotoUri;
       const isUnpersistableUri =
@@ -89,20 +96,32 @@ export function UserAvatarProvider({ children }: { children: ReactNode }) {
             avatarSourceType: 'defaultSilhouette' as const,
           }
         : loadedRaw;
-      const revision = loaded.profilePhotoUri ? Date.now() : 0;
-      setIdentity(loaded);
+      let resolved = loaded;
+      const serverAvatarKey = authUser?.avatarMediaKey?.trim();
+      if (isSharedSocialPersistenceEnabled() && serverAvatarKey) {
+        const displayUri = await resolveServerProfilePhotoDisplayUri(serverAvatarKey);
+        if (displayUri) {
+          resolved = {
+            ...loaded,
+            avatarSourceType: 'profilePhoto',
+            profilePhotoUri: displayUri,
+          };
+        }
+      }
+      const revision = resolved.profilePhotoUri ? Date.now() : 0;
+      setIdentity(resolved);
       if (isUnpersistableUri) {
-        void saveUserAvatarIdentity(loaded);
+        void saveUserAvatarIdentity(resolved);
       }
       setProfilePhotoRevision(revision);
-      publishSnapshot(loaded, revision);
+      publishSnapshot(resolved, revision);
       setReady(true);
     });
     return () => {
       live = false;
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [storageUserId]);
+  }, [authUser?.avatarMediaKey, storageUserId]);
 
   const applyIdentity = useCallback(
     (next: UserAvatarIdentity, bumpPhotoRevision: boolean) => {
@@ -118,12 +137,27 @@ export function UserAvatarProvider({ children }: { children: ReactNode }) {
 
   const setProfilePhotoUri = useCallback(
     (uri: string | null) => {
+      const previous = identityRef.current;
       const next: UserAvatarIdentity = {
-        ...identityRef.current,
+        ...previous,
         avatarSourceType: uri ? 'profilePhoto' : 'defaultSilhouette',
         profilePhotoUri: uri,
       };
       applyIdentity(next, true);
+      if (!isSharedSocialPersistenceEnabled() || !uri) return;
+      if (parseRemoteAssetIdFromUri(uri)) return;
+      void uploadProfilePhotoToServer(uri).then((result) => {
+        if (!result.ok) {
+          applyIdentity(previous, true);
+          return;
+        }
+        const synced: UserAvatarIdentity = {
+          ...identityRef.current,
+          avatarSourceType: 'profilePhoto',
+          profilePhotoUri: result.displayUri,
+        };
+        applyIdentity(synced, true);
+      });
     },
     [applyIdentity],
   );
@@ -162,8 +196,13 @@ export function UserAvatarProvider({ children }: { children: ReactNode }) {
   }, [applyIdentity]);
 
   const removeProfilePhoto = useCallback(() => {
+    const previous = identityRef.current;
     useDefaultSilhouette();
-  }, [useDefaultSilhouette]);
+    if (!isSharedSocialPersistenceEnabled()) return;
+    void clearProfilePhotoOnServer().then((result) => {
+      if (!result.ok) applyIdentity(previous, true);
+    });
+  }, [applyIdentity, useDefaultSilhouette]);
 
   const pickFromLibrary = useCallback(() => pickProfilePhotoFromLibrary(), []);
   const takePhoto = useCallback(() => takeProfilePhoto(), []);

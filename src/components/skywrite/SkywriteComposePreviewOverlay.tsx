@@ -43,7 +43,7 @@ export function SkywriteComposePreviewOverlay({
   onDraftMediaChange,
 }: SkywriteComposePreviewOverlayProps) {
   const { user: authUser } = useReelyouAuth();
-  const authorId = resolveActiveUserId(authUser);
+  const authorId = resolveActiveUserId(authUser) ?? 'preview-author';
   const audioPreview = useOverlayAudioPreviewScope(visible);
   const stopImmersiveMediaRef = useRef<() => void>(() => undefined);
   const [stepIndex, setStepIndex] = useState(0);

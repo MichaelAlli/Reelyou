@@ -110,6 +110,18 @@ function isVisibility(v: unknown): v is SkywriteVisibility {
   return v === 'private' || v === 'orbit' || v === 'sky_friends' || v === 'public';
 }
 
+/** Beta: audio-only primary posts (no photo/video/caption). */
+function isStandaloneAudioOnlyStored(row: StoredSkywrite): boolean {
+  const media = row.media ?? {};
+  const hasAudio = Boolean(media.audioAssetId);
+  const hasPhoto = Boolean(media.photoAssetId);
+  const hasVideo = Boolean(media.videoAssetId);
+  const hasText = Boolean(row.text?.trim());
+  if (!hasAudio || hasPhoto || hasVideo) return false;
+  if (hasText) return false;
+  return row.mediaMode === 'voice' || !hasText;
+}
+
 export function createSkywrite(
   authorUserId: string,
   input: CreateSkywriteInput | string,
@@ -124,6 +136,13 @@ export function createSkywrite(
     Boolean(media.videoAssetId) ||
     Boolean(media.audioAssetId);
   if (!trimmed && !hasMedia) return null;
+
+  const hasPhoto = Boolean(media.photoAssetId);
+  const hasVideo = Boolean(media.videoAssetId);
+  const hasAudio = Boolean(media.audioAssetId);
+  if (hasAudio && !hasPhoto && !hasVideo && !trimmed) {
+    return null;
+  }
 
   const assetCheck = assertAssetsReadyForPublish(authorUserId, media);
   if (!assetCheck.ok) return null;
@@ -178,7 +197,8 @@ export function listSkywritesForAuthor(
           viewerId,
           authorId: s.authorUserId,
           visibility: s.visibility,
-        }),
+        }) &&
+        !isStandaloneAudioOnlyStored(s),
     )
     .map((row) => normalizeStoredSkyreelFields(row, now))
     .sort((a, b) => b.createdAt - a.createdAt);
@@ -196,7 +216,7 @@ export function isSkywriteInRecovery(row: StoredSkywrite, now = Date.now()): boo
 
 export function getSkywrite(id: string): StoredSkywrite | undefined {
   const row = findSkywriteRow(id);
-  if (!row || row.deletedAt) return undefined;
+  if (!row || row.deletedAt || isStandaloneAudioOnlyStored(row)) return undefined;
   return row;
 }
 
@@ -349,4 +369,13 @@ export function listComments(skywriteId: string): StoredComment[] {
   return db()
     .comments!.filter((c) => c.skywriteId === skywriteId)
     .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export function deleteComment(commentId: string, viewerUserId: string): boolean {
+  const store = db();
+  const row = store.comments!.find((c) => c.id === commentId);
+  if (!row || row.authorUserId !== viewerUserId) return false;
+  store.comments = store.comments!.filter((c) => c.id !== commentId);
+  persistAccountDatabase();
+  return true;
 }

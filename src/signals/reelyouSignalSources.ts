@@ -1,6 +1,5 @@
 import { listCommunityMeaningfulSignalsForUser } from '@/emergingConstellations/communityMeaningfulSignalOutbox';
 import { stableOpportunityNodeId } from '@/starpath/starpathOpportunityOrganizer';
-import { currentUser } from '@/data/mockData';
 import type { StarPathResourceState } from '@/starpath/starpathOpportunityTypes';
 import type { AroundYourSkyHomeFeed } from '@/social/aroundYourSky/types';
 
@@ -16,6 +15,7 @@ export interface ReelyouSignalSources {
   starpathResourceState: StarPathResourceState | null;
   homeFeed: AroundYourSkyHomeFeed | null;
   contributionBeacons?: ContributionBeaconSignalSource[];
+  viewerUserId?: string | null;
 }
 
 export function starpathOpportunitySignalsFromState(
@@ -62,9 +62,7 @@ export function starpathOpportunitySignalsFromState(
   return out;
 }
 
-export function communityMeaningfulSignalsFromOutbox(
-  viewerUserId: string = currentUser.id,
-): Array<{
+export function communityMeaningfulSignalsFromOutbox(viewerUserId: string): Array<{
   signalId: string;
   communityId: string;
   title: string;

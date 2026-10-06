@@ -26,7 +26,7 @@ async function blobFromUri(uri: string): Promise<{ blob: Blob; contentType: stri
 
 type UploadStage = 'sessions' | 'transfer' | 'finalize_asset';
 
-async function uploadLocalUri(
+export async function uploadLocalUri(
   uri: string,
   kind: MediaAssetKind,
   onStage?: (stage: UploadStage, ms: number) => void,
@@ -93,6 +93,15 @@ export async function uploadSkywriteMediaForPublish(
   };
 
   const serverRefs: ServerSkywriteMediaRefs = {
+    photoMeta: next.photo
+      ? {
+          width: next.photo.width,
+          height: next.photo.height,
+          stageFit: next.photo.stageFit,
+          framingOffsetX: next.photo.framingOffsetX,
+          framingOffsetY: next.photo.framingOffsetY,
+        }
+      : null,
     videoMeta: next.video
       ? {
           width: next.video.width,
@@ -102,6 +111,9 @@ export async function uploadSkywriteMediaForPublish(
           framingOffsetX: next.video.framingOffsetX,
           framingOffsetY: next.video.framingOffsetY,
         }
+      : null,
+    audioMeta: next.audio?.durationMs
+      ? { durationMs: next.audio.durationMs }
       : null,
     originalVideoAudio: next.originalVideoAudio,
     originalVideoVolume: next.originalVideoVolume,

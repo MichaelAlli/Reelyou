@@ -6,7 +6,7 @@ import type { PeopleYouMayKnowSuggestion } from '@/friendDiscovery/friendDiscove
 import { resolvePublicSkyOwnerProfile } from '@/mySky/skyIdentity';
 import { buildVisitorProfileHref } from '@/profile/visitorProfileRoute';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
-import { currentUser } from '@/data/mockData';
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { isFollowingSkyUser } from '@/social/skyFollow/skyFollowLogic';
 
 interface PeopleYouMayKnowRowProps {
@@ -17,10 +17,13 @@ interface PeopleYouMayKnowRowProps {
 export function PeopleYouMayKnowRow({ suggestion, onDismiss }: PeopleYouMayKnowRowProps) {
   const router = useRouter();
   const { skyFollowGraph, followSky } = useReelyouConnect();
+  const { userId: sessionOwnerId } = useSessionUserId();
   const profile = resolvePublicSkyOwnerProfile(suggestion.userId, 'none');
   if (!profile) return null;
 
-  const following = isFollowingSkyUser(skyFollowGraph, currentUser.id, suggestion.userId);
+  const following =
+    sessionOwnerId != null &&
+    isFollowingSkyUser(skyFollowGraph, sessionOwnerId, suggestion.userId);
 
   return (
     <View style={styles.row}>

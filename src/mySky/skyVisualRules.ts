@@ -12,7 +12,7 @@ const BASE_SIZE: Record<SkyNodeType, number> = {
   growth: 5.2,
   impact: 5.6,
   guidance: 5,
-  identity: 7.2,
+  identity: 8.1,
 };
 
 /** Compute visual properties from node metadata + sky vitality — single source for renderer. */

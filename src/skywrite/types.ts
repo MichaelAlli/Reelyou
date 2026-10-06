@@ -21,6 +21,11 @@ export interface SkywritePhotoMedia {
   remoteAssetId?: string;
   width?: number;
   height?: number;
+  /** fit = full image visible; fill = cover story stage with pannable overflow. */
+  stageFit?: 'fit' | 'fill';
+  /** Normalized pan from center (-1..1) when stageFit is fill. */
+  framingOffsetX?: number;
+  framingOffsetY?: number;
 }
 
 export interface SkywriteVideoMedia {
@@ -90,6 +95,10 @@ export interface SkywriteRecord {
   inYourJourney?: boolean;
   /** UTC ms — when added to Your Journey (publish or later). */
   journeyAddedAtMs?: number | null;
+  /** UTC ms — end of current SkyReel appearance window (from server). */
+  skyreelActiveUntilMs?: number | null;
+  /** UTC ms — last repost into SkyReel (from server). */
+  skyreelRepostedAtMs?: number | null;
 }
 
 export interface SkywriteDraft {

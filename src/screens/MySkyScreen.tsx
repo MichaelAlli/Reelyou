@@ -21,6 +21,7 @@ import { buildMySkyConstellationFormations } from '@/emergingConstellations/buil
 import { MySkySearchSheet } from '@/components/my-sky/MySkySearchSheet';
 import { MySkyExploreScrollFeed } from '@/components/my-sky/MySkyExploreScrollFeed';
 import { MySkyStarCanvas } from '@/components/my-sky/MySkyStarCanvas';
+import { SkyStarMeaningIntroCard } from '@/components/my-sky/SkyStarMeaningIntroCard';
 import { MY_SKY_SECOND_ROW_LAYER_ORDER } from '@/constants/mySkyLayers';
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import { HomePalette } from '@/constants/homeLayout';
@@ -67,6 +68,7 @@ import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { NavigationTipCallout } from '@/navigationTips/NavigationTipCallout';
 import { navigationTipMessage } from '@/navigationTips/navigationTipsCopy';
 import { useNavigationTip } from '@/navigationTips/useNavigationTip';
+import { useMySkyStarIntro } from '@/mySky/useMySkyStarIntro';
 import { useOnboarding } from '@/onboarding';
 
 export function MySkyScreen() {
@@ -92,6 +94,8 @@ export function MySkyScreen() {
     skywrites,
     guidingLightView,
   } = useOnboarding();
+
+  const { showMySkyIntro, identityStarIntroPulse, dismissMySkyIntro } = useMySkyStarIntro();
 
   const [cleanSkyActive, setCleanSkyActive] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
@@ -568,6 +572,7 @@ export function MySkyScreen() {
       if (target.kind === 'none') return;
       pushStarNavigationTarget(router, target, {
         skyOwnerId: displayMySkyView.skyOwner.id,
+        skywrites,
       });
     },
     [displayMySkyView.skyOwner.id, displayMySkyView.stars, guidanceActive, joinedCommunityIds, router, skywrites],
@@ -713,8 +718,26 @@ export function MySkyScreen() {
               constellationDetailVisible ||
               constellationRevealActive
             }
+            identityStarIntroPulse={identityStarIntroPulse}
           />
           )}
+          {showMySkyIntro &&
+          !cleanSkyActive &&
+          !exploreScrollActive &&
+          !searchVisible &&
+          !joinedGroupsSheetVisible &&
+          !constellationDetailVisible ? (
+            <View style={styles.starIntroDock} pointerEvents="box-none">
+              <SkyStarMeaningIntroCard
+                title={MySkyCopy.starIntroMySkyTitle}
+                body={MySkyCopy.starIntroMySkyBody}
+                identityHint={MySkyCopy.starIntroMySkyIdentity}
+                onDismiss={() => {
+                  void dismissMySkyIntro();
+                }}
+              />
+            </View>
+          ) : null}
           {!cleanSkyActive && !exploreScrollActive ? (
             <MySkyInsightOverlay
               view={displayMySkyView}
@@ -854,5 +877,12 @@ const styles = StyleSheet.create({
   },
   skyAreaClean: {
     marginTop: 0,
+  },
+  starIntroDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: TabBarHeight + 8,
+    zIndex: 24,
   },
 });

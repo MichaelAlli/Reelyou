@@ -46,6 +46,12 @@ export function createUser(input: {
     createdAt: now,
     deletedAt: null,
     legalConsent: input.legalConsent ?? null,
+    onboardingComplete: false,
+    username: null,
+    bio: null,
+    avatarMediaKey: null,
+    onboardingSnapshot: null,
+    profileUpdatedAt: now,
   };
   const db = loadAccountDatabase();
   db.users.push(user);

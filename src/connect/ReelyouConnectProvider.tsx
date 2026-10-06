@@ -10,8 +10,11 @@ import {
 } from 'react';
 
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
+import { directMessagesEnabled } from '@/constants/betaFeatures';
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
-import { currentUser, orbitUsers } from '@/data/mockData';
+import { resolveSessionUserIdOrDemo } from '@/auth/resolveSessionUserId';
+import { orbitUsers } from '@/data/mockData';
 import {
   fetchSocialStateFromServer,
   isSharedSocialPersistenceEnabled,
@@ -151,6 +154,8 @@ const ReelyouConnectContext = createContext<ReelyouConnectContextValue | null>(n
 export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   const auth = useReelyouAuth();
   const activeUserId = resolveActiveUserId(auth.user);
+  const graphUserId = activeUserId ?? undefined;
+  const sessionUserId = resolveSessionUserIdOrDemo(auth.user);
   const { aroundYourSkyFeed, skywrites } = useOnboarding();
   const { buildQueueForViewer } = useSkywriteBeacon();
   const { ignoreBeacon } = useSkywriteThreads();
@@ -175,7 +180,7 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   const msgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const connectedUserIds = BETA_CONNECTED_USER_IDS;
+  const connectedUserIds = isExplicitDevDemoModeEnabled() ? BETA_CONNECTED_USER_IDS : [];
 
   useEffect(() => {
     let mounted = true;
@@ -202,7 +207,9 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!ready || !isSharedSocialPersistenceEnabled() || !auth.isAuthenticated) return;
+    if (!ready || !isSharedSocialPersistenceEnabled() || !auth.isAuthenticated || !activeUserId) {
+      return;
+    }
     let mounted = true;
     void (async () => {
       const remote = await fetchSocialStateFromServer();
@@ -256,54 +263,57 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const followedSkyUserIds = useMemo(
-    () => listFollowing(skyFollowGraph, activeUserId),
-    [activeUserId, skyFollowGraph],
+    () => (graphUserId ? listFollowing(skyFollowGraph, graphUserId) : []),
+    [graphUserId, skyFollowGraph],
   );
 
   const skyFriendsCount = useMemo(
-    () => countSkyFriends(skyFollowGraph, activeUserId),
-    [activeUserId, skyFollowGraph],
+    () => (graphUserId ? countSkyFriends(skyFollowGraph, graphUserId) : 0),
+    [graphUserId, skyFollowGraph],
   );
 
   const skyFriendUserIds = useMemo(
-    () => listSkyFriendUserIds(skyFollowGraph, activeUserId),
-    [activeUserId, skyFollowGraph],
+    () => (graphUserId ? listSkyFriendUserIds(skyFollowGraph, graphUserId) : []),
+    [graphUserId, skyFollowGraph],
   );
 
   const followSky = useCallback(
     (userId: string) => {
+      if (!graphUserId) return;
       if (messages.blockedUserIds.includes(userId)) return;
       setSkyFollowGraph((prev) => {
-        const next = addSkyFollowEdge(prev, activeUserId, userId);
+        const next = addSkyFollowEdge(prev, graphUserId, userId);
         if (!isSharedSocialPersistenceEnabled()) scheduleFollowGraphSave(next);
         return next;
       });
       if (isSharedSocialPersistenceEnabled()) void postFollow(userId);
     },
-    [activeUserId, messages.blockedUserIds, scheduleFollowGraphSave],
+    [graphUserId, messages.blockedUserIds, scheduleFollowGraphSave],
   );
 
   const unfollowSky = useCallback(
     (userId: string) => {
+      if (!graphUserId) return;
       setSkyFollowGraph((prev) => {
-        const next = removeSkyFollowEdge(prev, activeUserId, userId);
+        const next = removeSkyFollowEdge(prev, graphUserId, userId);
         if (!isSharedSocialPersistenceEnabled()) scheduleFollowGraphSave(next);
         return next;
       });
       if (isSharedSocialPersistenceEnabled()) void deleteFollow(userId);
     },
-    [activeUserId, scheduleFollowGraphSave],
+    [graphUserId, scheduleFollowGraphSave],
   );
 
   const toggleFollowSky = useCallback(
     (userId: string) => {
-      if (isFollowingSkyUser(skyFollowGraph, activeUserId, userId)) {
+      if (!graphUserId) return;
+      if (isFollowingSkyUser(skyFollowGraph, graphUserId, userId)) {
         unfollowSky(userId);
       } else {
         followSky(userId);
       }
     },
-    [activeUserId, followSky, skyFollowGraph, unfollowSky],
+    [graphUserId, followSky, skyFollowGraph, unfollowSky],
   );
 
   const isFollowingSkyUserCb = useCallback(
@@ -312,18 +322,19 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   );
 
   const isMutualSkyFriend = useCallback(
-    (userId: string) => isMutualSkyFriends(skyFollowGraph, activeUserId, userId),
-    [activeUserId, skyFollowGraph],
+    (userId: string) =>
+      graphUserId ? isMutualSkyFriends(skyFollowGraph, graphUserId, userId) : false,
+    [graphUserId, skyFollowGraph],
   );
 
   const listFollowingUserIds = useCallback(
-    () => listFollowing(skyFollowGraph, activeUserId),
-    [activeUserId, skyFollowGraph],
+    () => (graphUserId ? listFollowing(skyFollowGraph, graphUserId) : []),
+    [graphUserId, skyFollowGraph],
   );
 
   const listFollowerUserIds = useCallback(
-    () => listFollowers(skyFollowGraph, activeUserId),
-    [activeUserId, skyFollowGraph],
+    () => (graphUserId ? listFollowers(skyFollowGraph, graphUserId) : []),
+    [graphUserId, skyFollowGraph],
   );
 
   const updatePreferences = useCallback(
@@ -369,21 +380,23 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   }, [aroundYourSkyFeed, messages.blockedUserIds, messages.limitedUserIds, preferences]);
 
   const contributionBeacons = useMemo(() => {
+    if (!sessionUserId) return [];
     const queue = buildQueueForViewer(
-      currentUser.id,
+      sessionUserId,
       messages.blockedUserIds,
       beaconNow(),
     );
     return contributionBeaconSignalsFromQueue(queue);
-  }, [buildQueueForViewer, messages.blockedUserIds]);
+  }, [buildQueueForViewer, messages.blockedUserIds, sessionUserId]);
 
   const signalSources: ReelyouSignalSources = useMemo(
     () => ({
       starpathResourceState: starpathResources,
       homeFeed: personalizedHomeFeed,
       contributionBeacons,
+      viewerUserId: graphUserId ?? null,
     }),
-    [contributionBeacons, personalizedHomeFeed, starpathResources],
+    [contributionBeacons, graphUserId, personalizedHomeFeed, starpathResources],
   );
 
   const signals = useMemo(
@@ -519,14 +532,16 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   );
 
   const canMessageUser = useCallback(
-    (userId: string) =>
-      canInitiateMessage(
+    (userId: string) => {
+      if (!directMessagesEnabled()) return false;
+      return canInitiateMessage(
         userId,
         preferences.messagingPreferences,
         connectedUserIds,
         messages.blockedUserIds,
         messages.limitedUserIds,
-      ),
+      );
+    },
     [
       connectedUserIds,
       messages.blockedUserIds,
@@ -537,27 +552,28 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
 
   const openOrCreateThreadWith = useCallback(
     (userId: string) => {
-      if (!canMessageUser(userId)) return null;
-      const threadId = canonicalThreadId(currentUser.id, userId);
+      if (!activeUserId || !canMessageUser(userId)) return null;
+      const threadId = canonicalThreadId(activeUserId, userId);
       setMessages((prev) => {
-        const next = openOrCreateThread(prev, userId, connectedUserIds);
+        const next = openOrCreateThread(prev, activeUserId, userId, connectedUserIds);
         scheduleMsgSave(next);
         return next;
       });
       return threadId;
     },
-    [canMessageUser, connectedUserIds, scheduleMsgSave],
+    [activeUserId, canMessageUser, connectedUserIds, scheduleMsgSave],
   );
 
   const sendMessage = useCallback(
     (threadId: string, text: string) => {
+      if (!activeUserId) return;
       setMessages((prev) => {
-        const next = sendMessageLocal(prev, threadId, { text }, connectedUserIds);
+        const next = sendMessageLocal(prev, activeUserId, threadId, { text }, connectedUserIds);
         scheduleMsgSave(next);
         return next;
       });
     },
-    [connectedUserIds, scheduleMsgSave],
+    [activeUserId, connectedUserIds, scheduleMsgSave],
   );
 
   const markThreadRead = useCallback(
@@ -618,8 +634,9 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
 
   const blockUser = useCallback(
     (userId: string) => {
+      if (!activeUserId) return;
       setMessages((prev) => {
-        const next = blockUserLocal(prev, userId);
+        const next = blockUserLocal(prev, activeUserId, userId);
         scheduleMsgSave(next);
         return next;
       });
@@ -668,12 +685,18 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
   );
 
   const submitModerationReportCb = useCallback(
-    async (input: Omit<SubmitModerationReportInput, 'reporterUserId'>) =>
-      submitModerationReport({
+    async (
+      input: Omit<SubmitModerationReportInput, 'reporterUserId'>,
+    ): Promise<SubmitModerationReportResult> => {
+      if (!activeUserId) {
+        return { ok: false as const, localOnly: true, error: 'target_missing' as const };
+      }
+      return submitModerationReport({
         ...input,
-        reporterUserId: currentUser.id,
-      }),
-    [],
+        reporterUserId: activeUserId,
+      }) as Promise<SubmitModerationReportResult>;
+    },
+    [activeUserId],
   );
 
   const reportUser = useCallback(
@@ -757,7 +780,7 @@ export function ReelyouConnectProvider({ children }: { children: ReactNode }) {
       listFollowingUserIds,
       listFollowerUserIds,
       isMutualSkyFriend,
-      searchableUsers: orbitUsers,
+      searchableUsers: isExplicitDevDemoModeEnabled() ? orbitUsers : [],
     }),
     [
       ready,

@@ -1,6 +1,7 @@
 import { getCommunityById } from '@/constants/communitiesData';
 import type { SkyNode } from '@/mySky/skyNodeTypes';
 import type { MySkyStarDisplay } from '@/mySky/types';
+import { openSkywritePostView } from '@/skywrite/openSkywritePostView';
 import { pushSkyreelPlay } from '@/skywrite/play/skyreelNavigation';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import type { SkywriteRecord } from '@/skywrite/types';
@@ -60,7 +61,7 @@ export function resolveStarNavigation(
 
   const skywriteId = resolveCanonicalSkywriteIdForStar(star, nodes);
   if (skywriteId && isSkywriteAvailableForPlay(skywrites, skywriteId)) {
-    return { kind: 'skywrite-play', skywriteId };
+    return { kind: 'skywrite-detail', skywriteId };
   }
   if (skywriteId) {
     return { kind: 'none', reason: 'missing-skywrite' };
@@ -136,9 +137,10 @@ export function pushStarNavigationTarget(
     visitorMode?: boolean;
     publicSkyOwnerId?: string;
     skyOwnerId: string;
+    skywrites?: readonly SkywriteRecord[];
   },
 ): void {
-  const { visitorMode = false, publicSkyOwnerId, skyOwnerId } = options;
+  const { visitorMode = false, publicSkyOwnerId, skyOwnerId, skywrites = [] } = options;
   switch (target.kind) {
     case 'skywrite-play':
       pushSkyreelPlay(
@@ -146,9 +148,17 @@ export function pushStarNavigationTarget(
         `/skywrite/play?scope=single&id=${target.skywriteId}&autoplay=1`,
       );
       return;
-    case 'skywrite-detail':
-      router.push(`/skywrite/${target.skywriteId}` as never);
+    case 'skywrite-detail': {
+      const post = findSkywriteById([...skywrites], target.skywriteId);
+      if (post) {
+        openSkywritePostView(router, post);
+      } else {
+        router.push(
+          `/skywrite/moment?skywriteId=${encodeURIComponent(target.skywriteId)}&step=0` as never,
+        );
+      }
       return;
+    }
     case 'skywrite-compose':
       router.push('/skywrite/compose' as never);
       return;

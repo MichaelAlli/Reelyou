@@ -74,6 +74,8 @@ export function mergeServerRetentionOntoRecord(
     recentVisibleUntilMs?: number | null;
     inYourJourney?: boolean | null;
     journeyAddedAtMs?: number | null;
+    skyreelActiveUntilMs?: number | null;
+    skyreelRepostedAtMs?: number | null;
   },
 ): SkywriteRecord {
   return {
@@ -92,5 +94,13 @@ export function mergeServerRetentionOntoRecord(
       typeof server.journeyAddedAtMs === 'number' && Number.isFinite(server.journeyAddedAtMs)
         ? server.journeyAddedAtMs
         : record.journeyAddedAtMs,
+    skyreelActiveUntilMs:
+      typeof server.skyreelActiveUntilMs === 'number' && Number.isFinite(server.skyreelActiveUntilMs)
+        ? server.skyreelActiveUntilMs
+        : record.skyreelActiveUntilMs,
+    skyreelRepostedAtMs:
+      typeof server.skyreelRepostedAtMs === 'number' && Number.isFinite(server.skyreelRepostedAtMs)
+        ? server.skyreelRepostedAtMs
+        : record.skyreelRepostedAtMs,
   };
 }

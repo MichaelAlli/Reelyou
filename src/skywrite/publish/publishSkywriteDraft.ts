@@ -1,4 +1,5 @@
 import { buildSkywriteRecord } from '@/skywrite/draft';
+import { validateSkywriteDraftForBeta } from '@/skywrite/standaloneAudioSkywrite';
 import type { SkywriteDraft, SkywriteRecord } from '@/skywrite/types';
 
 export type PublishSkywritePhase =
@@ -51,6 +52,10 @@ export async function publishSkywriteDraft(
 
   try {
     tick('preparing_media');
+    const betaError = validateSkywriteDraftForBeta(draft);
+    if (betaError) {
+      return { ok: false, errorMessage: betaError, saveMs: Date.now() - started };
+    }
     const record = buildSkywriteRecord(
       draft,
       options?.existingId ?? `skywrite-${Date.now()}`,

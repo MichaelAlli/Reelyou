@@ -1,4 +1,4 @@
-import { currentUser } from '@/data/mockData';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 
 import type { SkyFollowEdge, SkyFollowGraph } from '@/social/skyFollow/skyFollowTypes';
 
@@ -121,9 +121,12 @@ export const BETA_FOLLOWERS_OF_OWNER: readonly string[] = [
   'orbit-3',
 ] as const;
 
-export function seedBetaInboundFollowers(graph: SkyFollowGraph): SkyFollowGraph {
+export function seedBetaInboundFollowers(
+  graph: SkyFollowGraph,
+  ownerId: string,
+): SkyFollowGraph {
+  if (!isExplicitDevDemoModeEnabled() || !ownerId) return graph;
   let next = graph;
-  const ownerId = currentUser.id;
   for (const followerId of BETA_FOLLOWERS_OF_OWNER) {
     next = addSkyFollowEdge(next, followerId, ownerId, Date.now());
   }
@@ -132,10 +135,11 @@ export function seedBetaInboundFollowers(graph: SkyFollowGraph): SkyFollowGraph 
 
 export function migrateLegacyFollowedIds(
   graph: SkyFollowGraph,
+  ownerId: string,
   followedIds: string[],
 ): SkyFollowGraph {
+  if (!ownerId) return graph;
   let next = graph;
-  const ownerId = currentUser.id;
   for (const followedUserId of followedIds) {
     next = addSkyFollowEdge(next, ownerId, followedUserId, Date.now());
   }

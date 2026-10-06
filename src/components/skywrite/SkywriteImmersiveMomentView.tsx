@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { SkywriteFramedPhotoLayer } from '@/components/skywrite/SkywriteFramedPhotoLayer';
 import type { SkywriteFramedVideoLayerRef } from '@/components/skywrite/SkywriteFramedVideoLayer';
 import {
   SkywriteFramedVideoLayer,
@@ -49,7 +50,15 @@ import { useSkywriteNarrationPlayback } from '@/skywrite/media/useSkywriteNarrat
 import type { SkywritePlayStepKind } from '@/skywrite/play/skywritePlayTypes';
 import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import type { SkywriteMedia, SkywriteRecord } from '@/skywrite/types';
-import { formatSkyReelHourLabel } from '@/skywrite/play/skyReelExpiry';
+import { SkyReelStoryHeader } from '@/components/skywrite/SkyReelStoryHeader';
+import { SkyReelAudioStoryStage } from '@/components/skywrite/SkyReelAudioStoryStage';
+import {
+  getSkywriteAudioSource,
+  getSkywritePlayableAudioUri,
+  logSkyReelAudioInDev,
+  skywriteAudioNeedsRemoteResolve,
+} from '@/skywrite/media/getSkywriteAudioSource';
+import { resolveSkyReelStoryStillDwellMs } from '@/skywrite/play/skyReelStoryTiming';
 import { stepUsesAttachedVoiceover } from '@/skywrite/voiceoverStepUtils';
 
 interface SkywriteImmersiveMomentViewProps {
@@ -60,9 +69,14 @@ interface SkywriteImmersiveMomentViewProps {
   /** One progress segment per Skywrite post (defaults to step index/count). */
   storySegmentIndex?: number;
   storySegmentCount?: number;
-  /** SkyReel 24h appearance ended for this post — block autoplay; explicit skip only. */
-  skyReelAppearanceExpired?: boolean;
-  onSkipExpiredAppearance?: () => void;
+  storyAuthorName?: string;
+  storyAuthorAvatarUri?: string | null;
+  storyAgeLabel?: string | null;
+  onStoryProfilePress?: () => void;
+  onStoryMenuPress?: () => void;
+  skyReelViewerCount?: number;
+  onOpenSkyReelViewers?: () => void;
+  showSkyReelViewerAffordance?: boolean;
   previewId: string;
   audioPlaying: boolean;
   onToggleAudio: (previewId: string, uri: string) => void;
@@ -98,10 +112,9 @@ interface SkywriteImmersiveMomentViewProps {
   /** Bumped when SkyReel navigation changes — cancels stale narration completion. */
   playSessionId?: number;
   skyReelActiveUntilMs?: number | null;
-  /** Count-up hour label for the active post’s SkyReel appearance (e.g. "Hour 2 of 24."). */
-  skyReelHourLabel?: string | null;
-  /** When false, hide SkyReel window countdown (e.g. single-post saved playback). */
   showSkyReelExpiry?: boolean;
+  onStoryHoldPauseStart?: () => void;
+  onStoryHoldPauseEnd?: () => void;
   onMediaPlaybackStarted?: () => void;
   /** Compose preview: stop video + narration when Back to editing bypasses handleExit. */
   onRegisterMediaStop?: (stop: () => void) => void;
@@ -109,9 +122,9 @@ interface SkywriteImmersiveMomentViewProps {
   enablePreviewPlaybackChrome?: boolean;
   /** Standalone audio step progress (overlay preview engine). */
   overlayAudioProgress?: { positionMs: number; durationMs: number; isPlaying: boolean };
+  /** Persistent post viewer vs SkyReel story playback. */
+  viewerMode?: 'post' | 'skyreel';
 }
-
-const STORY_STILL_DWELL_MS = 8500;
 
 function SkywriteImmersiveMomentViewComponent({
   record,
@@ -120,8 +133,6 @@ function SkywriteImmersiveMomentViewComponent({
   stepCount,
   storySegmentIndex,
   storySegmentCount,
-  skyReelAppearanceExpired = false,
-  onSkipExpiredAppearance,
   previewId,
   audioPlaying,
   onToggleAudio,
@@ -153,12 +164,22 @@ function SkywriteImmersiveMomentViewComponent({
   mediaStartNonce = 0,
   playSessionId = 0,
   skyReelActiveUntilMs = null,
-  skyReelHourLabel = null,
   showSkyReelExpiry = true,
+  storyAuthorName,
+  storyAuthorAvatarUri,
+  storyAgeLabel,
+  onStoryProfilePress,
+  onStoryMenuPress,
+  skyReelViewerCount,
+  onOpenSkyReelViewers,
+  showSkyReelViewerAffordance = false,
+  onStoryHoldPauseStart,
+  onStoryHoldPauseEnd,
   onMediaPlaybackStarted,
   onRegisterMediaStop,
   enablePreviewPlaybackChrome = false,
   overlayAudioProgress,
+  viewerMode = 'skyreel',
 }: SkywriteImmersiveMomentViewProps) {
   const insets = useSafeAreaInsets();
   const segmentIndex = storySegmentIndex ?? stepIndex;
@@ -174,8 +195,9 @@ function SkywriteImmersiveMomentViewComponent({
   const narrationActive =
     attachedVoiceover && (stepKind === 'text' || stepKind === 'photo') && Boolean(playbackMedia.audio?.uri);
   const isPublishedPlayerLayout = layoutMode === 'viewport' && !enablePreviewPlaybackChrome;
+  const playableAudioUri = getSkywritePlayableAudioUri(playbackRecord);
   const standalonePublishedAudio =
-    isPublishedPlayerLayout && stepKind === 'audio' && Boolean(playbackMedia.audio?.uri);
+    isPublishedPlayerLayout && stepKind === 'audio' && Boolean(playableAudioUri);
   const narrationPlaybackActive = narrationActive || standalonePublishedAudio;
   const narration = useSkywriteNarrationPlayback(narrationPlaybackActive, playSessionId);
   const narrationStartedRef = useRef(false);
@@ -275,16 +297,53 @@ function SkywriteImmersiveMomentViewComponent({
         requestAutoPlay();
       }
     }
-    if (prev === 'loading' && remoteMediaStatus === 'ready' && narrationActive) {
+    if (prev === 'loading' && remoteMediaStatus === 'ready' && narrationPlaybackActive) {
       narrationStartedRef.current = false;
     }
-  }, [autoPlayVideo, narrationActive, remoteMediaStatus, requestAutoPlay, sequencePaused, stepKind]);
+  }, [
+    autoPlayVideo,
+    narrationPlaybackActive,
+    remoteMediaStatus,
+    requestAutoPlay,
+    sequencePaused,
+    stepKind,
+  ]);
 
   useEffect(() => {
-    if (!narrationPlaybackActive || !narrationAutoplay || narrationPaused || narrationStartedRef.current) return;
-    if (remoteMediaStatus === 'loading') return;
-    const uri = playbackMedia.audio?.uri;
-    if (!uri) return;
+    if (!standalonePublishedAudio || !__DEV__) return;
+    logSkyReelAudioInDev(playbackRecord, 'skyreel-audio-step', {
+      remoteMediaStatus,
+      playbackPhase: narration.playbackPhase,
+      durationMs: narration.durationMs,
+      positionMs: narration.positionMs,
+      playbackError: narration.playbackError,
+      isPlaying: narration.isPlaying,
+    });
+  }, [
+    narration.durationMs,
+    narration.isPlaying,
+    narration.playbackError,
+    narration.playbackPhase,
+    narration.positionMs,
+    playbackRecord,
+    remoteMediaStatus,
+    standalonePublishedAudio,
+  ]);
+
+  useEffect(() => {
+    if (!narrationPlaybackActive || !narrationAutoplay || narrationPaused || narrationStartedRef.current) {
+      return;
+    }
+    if (skywriteAudioNeedsRemoteResolve(playbackRecord) && remoteMediaStatus === 'loading') {
+      return;
+    }
+    const uri = getSkywritePlayableAudioUri(playbackRecord);
+    if (!uri) {
+      if (standalonePublishedAudio && __DEV__) {
+        logSkyReelAudioInDev(playbackRecord, 'skyreel-audio-missing-playable-uri');
+      }
+      return;
+    }
     narrationStartedRef.current = true;
     narrationSessionRef.current = playSessionIdRef.current;
     void narration
@@ -293,10 +352,16 @@ function SkywriteImmersiveMomentViewComponent({
         onNarrationFinished?.();
       })
       .then((result) => {
+        if (result !== 'ok') {
+          narrationStartedRef.current = false;
+        }
         if (result === 'ok') {
           setNarrationNeedsUserStart(false);
           onMediaPlaybackStarted?.();
         } else if (result === 'play_failed') {
+          setNarrationNeedsUserStart(true);
+          onVideoAutoplayBlocked?.();
+        } else if (result === 'load_failed') {
           setNarrationNeedsUserStart(true);
         } else {
           setNarrationNeedsUserStart(false);
@@ -310,20 +375,44 @@ function SkywriteImmersiveMomentViewComponent({
     mediaStartNonce,
     onMediaPlaybackStarted,
     onNarrationFinished,
+    onVideoAutoplayBlocked,
     playSessionId,
     playbackMedia,
+    playbackRecord,
     remoteMediaStatus,
+    standalonePublishedAudio,
   ]);
 
   useEffect(() => {
-    if (!narrationActive) return;
-    if (narrationPaused && narration.isPlaying) void narration.pausePlayback();
-  }, [narration, narrationActive, narrationPaused, narration.isPlaying]);
+    if (!narrationPlaybackActive) return;
+    if (narrationPaused) {
+      if (narration.isPlaying) void narration.pausePlayback();
+      return;
+    }
+    if (
+      narrationStartedRef.current &&
+      !narrationNeedsUserStart &&
+      !narration.hasEnded &&
+      narration.playbackPhase === 'paused' &&
+      narration.positionMs > 0
+    ) {
+      void narration.resumePlayback();
+    }
+  }, [
+    narration,
+    narrationNeedsUserStart,
+    narrationPaused,
+    narrationPlaybackActive,
+    narration.hasEnded,
+    narration.isPlaying,
+    narration.playbackPhase,
+    narration.positionMs,
+  ]);
 
   useEffect(() => {
-    if (!narrationActive) return;
+    if (!narrationPlaybackActive) return;
     void narration.setVolumeFromMedia(playbackMedia);
-  }, [narration, narrationActive, playbackMedia, playbackMedia.voiceoverVolume]);
+  }, [narration, narrationPlaybackActive, playbackMedia, playbackMedia.voiceoverVolume]);
 
   useEffect(() => {
     return () => {
@@ -359,7 +448,7 @@ function SkywriteImmersiveMomentViewComponent({
     void togglePlayPause();
   }, [sequencePaused, stepKind, togglePlayPause, videoIsPlaying]);
 
-  const audioUri = playbackRecord.media.audio?.uri ?? null;
+  const audioUri = playableAudioUri ?? getSkywriteAudioSource(playbackRecord).uri;
   const videoAspect = useMemo(() => {
     if (naturalSize?.width && naturalSize.height) {
       return naturalSize.width / naturalSize.height;
@@ -411,11 +500,40 @@ function SkywriteImmersiveMomentViewComponent({
   };
 
   const isPublishedPlayer = layoutMode === 'viewport' && !enablePreviewPlaybackChrome;
-  const showStoryProgress = layoutMode === 'viewport' && navigationMode === 'edgeTap';
+  const isPostViewer = viewerMode === 'post';
+  const showStoryProgress =
+    !isPostViewer && layoutMode === 'viewport' && navigationMode === 'edgeTap';
+  const postMediaReady = remoteMediaStatus !== 'loading';
+  const [postLoadBarVisible, setPostLoadBarVisible] = useState(true);
+
+  useEffect(() => {
+    if (!isPostViewer) return;
+    if (!postMediaReady) {
+      setPostLoadBarVisible(true);
+      return;
+    }
+    const hideTimer = setTimeout(() => setPostLoadBarVisible(false), 420);
+    return () => clearTimeout(hideTimer);
+  }, [isPostViewer, postMediaReady, record.id, stepIndex]);
+
+  const postLoadFill = useMemo(() => {
+    if (!isPostViewer) return 0;
+    if (!postMediaReady) return 0;
+    return 1;
+  }, [isPostViewer, postMediaReady]);
+  const stillDwellTotalMs = useMemo(() => {
+    if (stepKind === 'text') {
+      return resolveSkyReelStoryStillDwellMs('text', record.text);
+    }
+    if (stepKind === 'photo') {
+      return resolveSkyReelStoryStillDwellMs('photo');
+    }
+    return resolveSkyReelStoryStillDwellMs('photo');
+  }, [record.text, stepKind]);
   const [stillDwellElapsedMs, setStillDwellElapsedMs] = useState(0);
 
   useEffect(() => {
-    if (!isPublishedPlayer) return;
+    if (!isPublishedPlayer || isPostViewer) return;
     if (narrationActive || stepKind === 'video' || stepKind === 'audio') return;
     if (stepKind !== 'text' && stepKind !== 'photo') return;
     if (sequencePaused || tapToPlayPrompt || narrationPaused) {
@@ -426,6 +544,7 @@ function SkywriteImmersiveMomentViewComponent({
     const timer = setInterval(() => setStillDwellElapsedMs(Date.now() - started), 200);
     return () => clearInterval(timer);
   }, [
+    isPostViewer,
     isPublishedPlayer,
     mediaStartNonce,
     narrationActive,
@@ -441,7 +560,7 @@ function SkywriteImmersiveMomentViewComponent({
     narration.playbackPhase === 'error' || (mediaError && remoteMediaStatus === 'error');
 
   const handlePublishedNarrationCenterTap = useCallback(() => {
-    const uri = playbackMedia.audio?.uri;
+    const uri = getSkywritePlayableAudioUri(playbackRecord);
     if (!uri || !narrationPlaybackActive) return;
     if (narration.isPreparing) return;
     const onFinish = () => onNarrationFinished?.();
@@ -487,6 +606,7 @@ function SkywriteImmersiveMomentViewComponent({
     onMediaPlaybackStarted,
     onNarrationFinished,
     playbackMedia,
+    playbackRecord,
     remoteMediaStatus,
     retryRemoteMedia,
   ]);
@@ -555,14 +675,16 @@ function SkywriteImmersiveMomentViewComponent({
     0;
   const narrationPosition = narrationActive ? narration.positionMs : 0;
   const publishedImmersiveNarration =
-    !enablePreviewPlaybackChrome && narrationPlaybackActive && Boolean(playbackMedia.audio?.uri);
+    !enablePreviewPlaybackChrome &&
+    narrationPlaybackActive &&
+    Boolean(getSkywritePlayableAudioUri(playbackRecord));
   const showNarrationToolbar =
     enablePreviewPlaybackChrome && narrationActive && Boolean(playbackMedia.audio?.uri);
   const showNarrationTapStart =
+    standalonePublishedAudio &&
     publishedImmersiveNarration &&
     !tapToPlayPrompt &&
-    narrationNeedsUserStart &&
-    narration.playbackError === 'play_failed' &&
+    (narrationNeedsUserStart || narration.playbackError === 'play_failed') &&
     !narrationFault &&
     !narration.isPlaying &&
     !narration.isPreparing;
@@ -623,7 +745,7 @@ function SkywriteImmersiveMomentViewComponent({
       return safeStoryFillRatio(narration.positionMs, dur);
     }
     if (stepKind === 'text' || stepKind === 'photo') {
-      return safeStoryFillRatio(stillDwellElapsedMs, STORY_STILL_DWELL_MS);
+      return safeStoryFillRatio(stillDwellElapsedMs, stillDwellTotalMs);
     }
     return 0;
   }, [
@@ -642,6 +764,7 @@ function SkywriteImmersiveMomentViewComponent({
     remoteMediaStatus,
     stepKind,
     stillDwellElapsedMs,
+    stillDwellTotalMs,
     storyProgressPaused,
     videoPlayback.durationMs,
     videoPlayback.positionMs,
@@ -657,7 +780,7 @@ function SkywriteImmersiveMomentViewComponent({
       })();
       return;
     }
-    if (stepKind === 'audio' && audioUri && standalonePublishedAudio) {
+    if (stepKind === 'audio' && standalonePublishedAudio) {
       handlePublishedNarrationCenterTap();
       return;
     }
@@ -701,24 +824,9 @@ function SkywriteImmersiveMomentViewComponent({
           disabled={tapToPlayPrompt}
           topInset={insets.top + 52}
           bottomInset={Math.max(insets.bottom, 10) + (bottomSlot ? 200 : 150)}
+          onHoldStart={onStoryHoldPauseStart}
+          onHoldEnd={onStoryHoldPauseEnd}
         />
-      ) : null}
-      {skyReelAppearanceExpired && isPublishedPlayer ? (
-        <View style={styles.expiredOverlay} pointerEvents="box-none">
-          <View style={styles.expiredCard}>
-            <Text style={styles.expiredTitle}>{SkywritePlayCopy.skyReelAppearanceExpiredTitle}</Text>
-            <Text style={styles.expiredHint}>{SkywritePlayCopy.skyReelAppearanceExpiredHint}</Text>
-            {canNext && onSkipExpiredAppearance ? (
-              <Pressable
-                style={styles.expiredSkipBtn}
-                onPress={onSkipExpiredAppearance}
-                accessibilityRole="button"
-                accessibilityLabel={SkywritePlayCopy.skipToNextSkywrite}>
-                <Text style={styles.expiredSkipText}>{SkywritePlayCopy.skipToNextSkywrite}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
       ) : null}
       <View style={styles.immersiveStage} onLayout={onStageLayout}>
         {stepKind === 'video' && displayVideo?.uri ? (
@@ -747,12 +855,9 @@ function SkywriteImmersiveMomentViewComponent({
 
         {stepKind === 'photo' && playbackRecord.media.photo?.uri ? (
           <>
-            <Image
-              source={{ uri: playbackRecord.media.photo.uri }}
-              onError={() => retryRemoteMedia()}
-              style={StyleSheet.absoluteFill}
-              contentFit="contain"
-              accessibilityIgnoresInvertColors
+            <SkywriteFramedPhotoLayer
+              photo={playbackRecord.media.photo}
+              showFitBackdrop={isPublishedPlayer}
             />
             {showNarrationToolbar ? (
               <View style={styles.photoNarrationWave}>
@@ -767,7 +872,26 @@ function SkywriteImmersiveMomentViewComponent({
         ) : null}
 
         {stepKind === 'text' ? (
-          <View style={styles.textStage}>
+          <>
+            {isPublishedPlayer ? (
+              <>
+                <LinearGradient
+                  colors={['#050814', '#0A1228', '#121A38', '#0E1630']}
+                  locations={[0, 0.4, 0.75, 1]}
+                  style={StyleSheet.absoluteFill}
+                />
+                {[18, 42, 67, 83].map((left) => (
+                  <View
+                    key={`text-star-${left}`}
+                    style={[
+                      styles.textStoryStar,
+                      { left: `${left}%`, top: `${(left * 5) % 70 + 8}%` },
+                    ]}
+                  />
+                ))}
+              </>
+            ) : null}
+            <View style={[styles.textStage, isPublishedPlayer && styles.textStagePublished]}>
             <Text style={[styles.bodyTextImmersive, getSkywriteWriteInputStyle(record.textStyle)]}>
               {record.text.trim() || '…'}
             </Text>
@@ -780,7 +904,29 @@ function SkywriteImmersiveMomentViewComponent({
                 />
               </View>
             ) : null}
-          </View>
+            </View>
+          </>
+        ) : null}
+
+        {stepKind === 'audio' && isPublishedPlayer ? (
+          <SkyReelAudioStoryStage
+            skywriteId={record.id}
+            playSessionId={playSessionId}
+            captionText={record.text}
+            isPlaying={narration.isPlaying}
+            isLoading={
+              remoteMediaStatus === 'loading' ||
+              narration.isPreparing ||
+              (narration.durationMs <= 0 && !narrationFault)
+            }
+            hasError={narrationFault || (!playableAudioUri && remoteMediaStatus === 'ready')}
+            positionMs={narration.positionMs}
+            durationMs={
+              narration.durationMs ||
+              playbackRecord.media.audio?.durationMs ||
+              0
+            }
+          />
         ) : null}
 
         {stepKind === 'audio' && audioUri && !isPublishedPlayer ? (
@@ -792,28 +938,8 @@ function SkywriteImmersiveMomentViewComponent({
 
       <LinearGradient
         colors={['rgba(5, 5, 8, 0.82)', 'rgba(5, 5, 8, 0.35)', 'transparent']}
-        style={[styles.topGradient, { paddingTop: insets.top + 6 }]}
+        style={[styles.topGradient, { paddingTop: insets.top + 4 }]}
         pointerEvents="box-none">
-        <View style={styles.topRow}>
-          <Pressable
-            onPress={handleExit}
-            hitSlop={12}
-            accessibilityLabel={SkywritePlayCopy.exitPlay}
-            style={styles.closeBtn}>
-            <Text style={styles.closeIcon}>✕</Text>
-          </Pressable>
-          {showSkyReelExpiry && skyReelHourLabel ? (
-            <Text
-              style={styles.skyReelExpiry}
-              accessibilityLabel={`SkyReel ${skyReelHourLabel}`}
-              pointerEvents="none">
-              {skyReelHourLabel}
-            </Text>
-          ) : null}
-          <Text style={styles.progressCompact}>
-            {SkywritePlayCopy.progress(segmentIndex + 1, segmentCount)}
-          </Text>
-        </View>
         {showStoryProgress ? (
           <SkywriteStoryProgressBar
             stepIndex={segmentIndex}
@@ -822,13 +948,58 @@ function SkywriteImmersiveMomentViewComponent({
             style={styles.storyProgressRow}
           />
         ) : null}
+        {isPostViewer && postLoadBarVisible ? (
+          <SkywriteStoryProgressBar
+            stepIndex={0}
+            stepCount={1}
+            currentSegmentFill={postLoadFill}
+            style={styles.storyProgressRow}
+            accessibilityLabel="Loading post"
+          />
+        ) : null}
+        {isPublishedPlayer && storyAuthorName ? (
+          <SkyReelStoryHeader
+            displayName={storyAuthorName}
+            avatarUri={storyAuthorAvatarUri}
+            ageLabel={storyAgeLabel ?? null}
+            onProfilePress={onStoryProfilePress}
+            onMenuPress={onStoryMenuPress}
+            onClose={handleExit}
+          />
+        ) : (
+          <View style={styles.topRow}>
+            <Pressable
+              onPress={handleExit}
+              hitSlop={12}
+              accessibilityLabel={SkywritePlayCopy.exitPlay}
+              style={styles.closeBtn}>
+              <Text style={styles.closeIcon}>✕</Text>
+            </Pressable>
+            {!isPostViewer ? (
+              <Text style={styles.progressCompact}>
+                {SkywritePlayCopy.progress(segmentIndex + 1, segmentCount)}
+              </Text>
+            ) : null}
+          </View>
+        )}
       </LinearGradient>
 
       <LinearGradient
         colors={['transparent', 'rgba(5, 5, 8, 0.55)', 'rgba(5, 5, 8, 0.92)']}
         style={[styles.bottomGradient, { paddingBottom: Math.max(insets.bottom, 10) }]}
         pointerEvents="box-none">
-        {record.text.trim() && stepKind !== 'text' ? (
+        {showSkyReelViewerAffordance && onOpenSkyReelViewers ? (
+          <Pressable
+            style={styles.viewerChip}
+            onPress={onOpenSkyReelViewers}
+            accessibilityRole="button"
+            accessibilityLabel="SkyReel viewers">
+            <Text style={styles.viewerChipText}>
+              👁 {typeof skyReelViewerCount === 'number' ? skyReelViewerCount : 0} viewers
+            </Text>
+          </Pressable>
+        ) : null}
+        {record.text.trim() && stepKind !== 'text' && stepKind !== 'audio' ? (
           <Text style={styles.captionOverlay} numberOfLines={3}>
             {record.text.trim()}
           </Text>
@@ -1174,11 +1345,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  photoBackdrop: {
+    transform: [{ scale: 1.08 }],
+    opacity: 0.92,
+  },
+  photoBackdropDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5, 8, 20, 0.35)',
+  },
   textStage: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
     width: '100%',
+  },
+  textStagePublished: {
+    maxWidth: 420,
+    alignSelf: 'center',
+    paddingHorizontal: 28,
+  },
+  textStoryStar: {
+    position: 'absolute',
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'rgba(232, 200, 114, 0.45)',
   },
   bodyTextImmersive: {
     fontFamily: Fonts.serif,
@@ -1307,13 +1498,21 @@ const styles = StyleSheet.create({
     minWidth: 36,
     textAlign: 'right',
   },
-  skyReelExpiry: {
+  viewerChip: {
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(8, 10, 24, 0.55)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  viewerChipText: {
     fontFamily: Fonts.sans,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(232, 200, 114, 0.88)',
-    marginLeft: 4,
-    maxWidth: 88,
+    color: '#FFF8F0',
   },
   tapBanner: {
     marginTop: 8,

@@ -68,7 +68,11 @@ export const config = {
   email: {
     resendApiKey: process.env.RESEND_API_KEY?.trim() ?? '',
     smtpHost: process.env.SMTP_HOST?.trim() ?? '',
-    fromAddress: process.env.EMAIL_FROM?.trim() || 'REELYOU <noreply@reellyou.app>',
+    smtpPort: Math.max(Number(process.env.SMTP_PORT ?? 587), 1),
+    smtpUser: process.env.SMTP_USER?.trim() ?? '',
+    smtpPass: process.env.SMTP_PASS?.trim() ?? '',
+    smtpSecure: process.env.SMTP_SECURE === 'true',
+    fromAddress: process.env.EMAIL_FROM?.trim() || 'REELYOU <onboarding@resend.dev>',
   },
   resources: {
     rssUrls: (process.env.RESOURCE_RSS_URLS ?? '')
@@ -106,10 +110,24 @@ export function mediaStorageConfigured(): boolean {
   );
 }
 
+export function emailDeliveryConfigured(): boolean {
+  if (config.email.resendApiKey.length > 0) return true;
+  return (
+    config.email.smtpHost.length > 0 &&
+    config.email.smtpUser.length > 0 &&
+    config.email.smtpPass.length > 0
+  );
+}
+
 export function assertProductionSecrets(): void {
   if (!config.isProduction) return;
   if (!authConfigured()) {
     throw new Error('[reellyou-server] AUTH_JWT_SECRET (>=32 chars) is required in production.');
+  }
+  if (!emailDeliveryConfigured()) {
+    throw new Error(
+      '[reellyou-server] RESEND_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS is required in production for password reset email.',
+    );
   }
   if (!friendMatchConfigured()) {
     throw new Error('[reellyou-server] FRIEND_MATCH_PEPPER (>=32 chars) is required in production.');

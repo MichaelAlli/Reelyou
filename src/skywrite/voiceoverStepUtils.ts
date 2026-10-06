@@ -1,3 +1,4 @@
+import { BetaFeatures } from '@/constants/betaFeatures';
 import type { SkywritePlayStepKind } from '@/skywrite/play/skywritePlayTypes';
 import type { SkywriteMediaMode, SkywriteRecord } from '@/skywrite/types';
 
@@ -48,7 +49,7 @@ export function inferMediaModeFromParts(input: {
   if (hasPhoto && hasAudio) return 'photo_voiceover';
   if (hasPhoto) return 'photo';
   if (hasAudio && text.trim().length > 0) return 'text_voiceover';
-  if (hasAudio) return 'voice';
+  if (hasAudio && BetaFeatures.standaloneAudioSkywrites) return 'voice';
   if (text.trim().length > 0) return 'text';
   return 'text';
 }

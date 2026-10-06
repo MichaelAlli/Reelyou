@@ -1,19 +1,38 @@
 import type { PlaySkySequenceRegistry } from '@/skywrite/play/playSkySequenceEligibility';
-import {
-  isSkyReelAppearanceActive,
-  resolveSkyReelActiveUntilMs,
-} from '@/skywrite/play/skyReelExpiry';
+import { isSkyReelActive } from '@/skywrite/play/skyReelActive';
 import type { SkywritePlayStep } from '@/skywrite/play/skywritePlayTypes';
+import type { SkywriteRecord } from '@/skywrite/types';
 import { uniqueSkywriteIdsInPlayOrder } from '@/skywrite/play/skywriteStorySegments';
 
 export function isStepSkyReelAppearanceActive(
   step: SkywritePlayStep,
   registry: PlaySkySequenceRegistry,
   nowMs = Date.now(),
+  postsById?: ReadonlyMap<string, SkywriteRecord>,
 ): boolean {
-  const until = resolveSkyReelActiveUntilMs(step.skywriteId, registry);
-  if (until == null) return true;
-  return isSkyReelAppearanceActive(until, nowMs);
+  const post = postsById?.get(step.skywriteId);
+  if (post) return isSkyReelActive(post, registry, nowMs);
+  const entry = registry[step.skywriteId];
+  if (!entry) return false;
+  return isSkyReelActive(
+    { id: step.skywriteId, createdAt: entry.publishedAt },
+    registry,
+    nowMs,
+  );
+}
+
+/** Remove steps belonging to expired SkyReel appearances before playback. */
+export function filterPlayStepsToActiveSkyReel(
+  steps: readonly SkywritePlayStep[],
+  registry: PlaySkySequenceRegistry,
+  postsById: ReadonlyMap<string, SkywriteRecord>,
+  nowMs = Date.now(),
+): SkywritePlayStep[] {
+  return steps.filter((step) => {
+    const post = postsById.get(step.skywriteId);
+    if (!post) return false;
+    return isSkyReelActive(post, registry, nowMs);
+  });
 }
 
 /** First step index whose post still has an active SkyReel appearance. */
@@ -21,9 +40,10 @@ export function findFirstEligibleStepIndex(
   steps: readonly SkywritePlayStep[],
   registry: PlaySkySequenceRegistry,
   nowMs = Date.now(),
+  postsById?: ReadonlyMap<string, SkywriteRecord>,
 ): number | null {
   for (let i = 0; i < steps.length; i += 1) {
-    if (isStepSkyReelAppearanceActive(steps[i]!, registry, nowMs)) return i;
+    if (isStepSkyReelAppearanceActive(steps[i]!, registry, nowMs, postsById)) return i;
   }
   return null;
 }
@@ -33,13 +53,14 @@ export function countEligibleSkywritePostsInSteps(
   steps: readonly SkywritePlayStep[],
   registry: PlaySkySequenceRegistry,
   nowMs = Date.now(),
+  postsById?: ReadonlyMap<string, SkywriteRecord>,
 ): number {
   const seen = new Set<string>();
   let count = 0;
   for (const step of steps) {
     if (seen.has(step.skywriteId)) continue;
     seen.add(step.skywriteId);
-    if (isStepSkyReelAppearanceActive(step, registry, nowMs)) count += 1;
+    if (isStepSkyReelAppearanceActive(step, registry, nowMs, postsById)) count += 1;
   }
   return count;
 }
@@ -53,6 +74,7 @@ export function findNextEligibleStepIndexAfter(
   fromIndex: number,
   registry: PlaySkySequenceRegistry,
   nowMs = Date.now(),
+  postsById?: ReadonlyMap<string, SkywriteRecord>,
 ): number | null {
   if (steps.length === 0 || fromIndex < 0 || fromIndex >= steps.length) return null;
   const order = uniqueSkywriteIdsInPlayOrder(steps);
@@ -62,7 +84,14 @@ export function findNextEligibleStepIndexAfter(
   if (segIdx < 0) return null;
   for (let s = segIdx + 1; s < order.length; s += 1) {
     const nextId = order[s]!;
-    if (!isStepSkyReelAppearanceActive({ stepId: '', skywriteId: nextId, kind: 'text' }, registry, nowMs)) {
+    if (
+      !isStepSkyReelAppearanceActive(
+        { stepId: '', skywriteId: nextId, kind: 'text' },
+        registry,
+        nowMs,
+        postsById,
+      )
+    ) {
       continue;
     }
     const nextStepIndex = steps.findIndex((step) => step.skywriteId === nextId);

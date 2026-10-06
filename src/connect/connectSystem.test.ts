@@ -33,14 +33,18 @@ function testCanonicalThread() {
   const b = canonicalThreadId('orbit-jordan', currentUser.id);
   assert(a === b, 'canonical thread stable');
   let state = EMPTY_MESSAGES_STATE;
-  state = openOrCreateThread(state, 'orbit-jordan', BETA_CONNECTED_USER_IDS);
-  state = openOrCreateThread(state, 'orbit-jordan', BETA_CONNECTED_USER_IDS);
+  state = openOrCreateThread(state, currentUser.id, 'orbit-jordan', BETA_CONNECTED_USER_IDS);
+  state = openOrCreateThread(state, currentUser.id, 'orbit-jordan', BETA_CONNECTED_USER_IDS);
   assert(Object.keys(state.threadsById).length === 1, 'no duplicate threads');
 }
 
 function testSignalPreviewPref() {
   const fixture = buildFixtureMessagesState();
-  const sources = { starpathResourceState: EMPTY_RESOURCE_STATE, homeFeed: null };
+  const sources = {
+    starpathResourceState: EMPTY_RESOURCE_STATE,
+    homeFeed: null,
+    viewerUserId: currentUser.id,
+  };
   const withPreview = buildReelyouSignals(
     fixture,
     { ...DEFAULT_USER_PREFERENCES.signalPreferences, showMessagePreview: true },
@@ -66,6 +70,7 @@ function testSignalPreviewPref() {
 function testMessageRequestFlow() {
   let state = receiveIncomingRequestLocal(
     EMPTY_MESSAGES_STATE,
+    currentUser.id,
     'orbit-3',
     'Hello from Maya',
   );
@@ -75,7 +80,12 @@ function testMessageRequestFlow() {
   assert(state.messageRequests.length === 0, 'request cleared');
   assert(state.threadsById[Object.keys(state.threadsById)[0]].status === 'active', 'promoted active');
 
-  state = receiveIncomingRequestLocal(EMPTY_MESSAGES_STATE, 'orbit-3', 'Again');
+  state = receiveIncomingRequestLocal(
+    EMPTY_MESSAGES_STATE,
+    currentUser.id,
+    'orbit-3',
+    'Again',
+  );
   const tid = state.messageRequests[0].threadId;
   state = declineMessageRequestLocal(state, tid);
   assert(!state.threadsById[tid], 'decline removes thread');

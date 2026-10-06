@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { SkywriteCommentsPanel } from '@/components/skywrite/SkywriteCommentsPanel';
 import { SkywriteImmersiveMomentView } from '@/components/skywrite/SkywriteImmersiveMomentView';
-import { currentUser } from '@/data/mockData';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { resolveSkywriteViewerAccess } from '@/skywrite/access/resolveSkywriteViewerAccess';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
@@ -24,8 +24,19 @@ import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
 
 export function SkywriteImmersiveMomentScreen() {
   const router = useRouter();
-  const { skywriteId, step } = useLocalSearchParams<{ skywriteId?: string; step?: string }>();
+  const { skywriteId: skywriteIdParam, step } = useLocalSearchParams<{
+    skywriteId?: string | string[];
+    step?: string;
+  }>();
+  const skywriteId = useMemo(() => {
+    if (typeof skywriteIdParam === 'string') return skywriteIdParam;
+    if (Array.isArray(skywriteIdParam) && typeof skywriteIdParam[0] === 'string') {
+      return skywriteIdParam[0];
+    }
+    return undefined;
+  }, [skywriteIdParam]);
   const { skywrites } = useOnboarding();
+  const viewerId = useEffectiveViewerId();
   const { messages, skyFollowGraph } = useReelyouConnect();
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
   const audioPreview = useOverlayAudioPreviewScope(true);
@@ -110,14 +121,15 @@ export function SkywriteImmersiveMomentScreen() {
 
   const viewerCanView = useMemo(() => {
     if (!record) return false;
+    if (!viewerId) return false;
     return resolveSkywriteViewerAccess({
-      viewerId: currentUser.id,
-      authorId: record.authorId ?? currentUser.id,
+      viewerId,
+      authorId: record.authorId ?? viewerId,
       visibility: record.visibility,
       followGraph: skyFollowGraph,
       blockedUserIds: messages.blockedUserIds,
     });
-  }, [messages.blockedUserIds, record, skyFollowGraph]);
+  }, [messages.blockedUserIds, record, skyFollowGraph, viewerId]);
 
   const handleExit = useCallback(() => {
     haltOutgoingPlayback();
@@ -210,6 +222,7 @@ export function SkywriteImmersiveMomentScreen() {
             stopPlaybackRef.current = stop;
           }}
           layoutMode="viewport"
+          viewerMode="post"
           showSkyReelExpiry={false}
           skyReelActiveUntilMs={null}
           mediaStartNonce={mediaStartNonce}

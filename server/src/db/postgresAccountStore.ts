@@ -78,3 +78,19 @@ export async function closePostgresPool(): Promise<void> {
     pool = null;
   }
 }
+
+export async function pingPostgres(databaseUrl: string): Promise<boolean> {
+  if (!postgresPersistenceEnabled(databaseUrl)) return false;
+  try {
+    const client = await getPostgresPool(databaseUrl).connect();
+    try {
+      await client.query('SELECT 1');
+      return true;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[reellyou-server] Postgres ping failed:', err);
+    return false;
+  }
+}

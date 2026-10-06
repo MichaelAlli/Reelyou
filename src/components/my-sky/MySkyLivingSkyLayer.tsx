@@ -52,10 +52,13 @@ function MySkyLivingSkyLayerComponent({
 }: MySkyLivingSkyLayerProps) {
   const trailOpacity = useSharedValue(0);
   const linksOpacity = useSharedValue(0);
-  const starBreath = useSharedValue(0);
+  const starBreath = useSharedValue(1);
   const lastRevealCount = useRef(0);
 
+  /** Restart breath when canvas has real dimensions (tab return / layout remeasure). */
   useEffect(() => {
+    if (width <= 0 || height <= 0) return;
+    starBreath.value = 1;
     starBreath.value = withRepeat(
       withSequence(
         withTiming(1, { duration: CelestialStarBreathMotion.durationMs }),
@@ -64,7 +67,7 @@ function MySkyLivingSkyLayerComponent({
       -1,
       false,
     );
-  }, [starBreath]);
+  }, [height, starBreath, width]);
 
   useEffect(() => {
     if (constellationRevealCount <= lastRevealCount.current) return;

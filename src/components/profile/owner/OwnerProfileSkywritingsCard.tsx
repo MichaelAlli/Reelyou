@@ -11,7 +11,7 @@ import {
 } from '@/components/profile/owner/ownerProfileLayout';
 import { Fonts } from '@/constants/theme';
 import { ProfileSkywritingsCopy } from '@/constants/profileSkywritingsCopy';
-import { currentUser } from '@/data/mockData';
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useOnboarding } from '@/onboarding';
 import type { ProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
 import { ProfileSkyAreaShortcutsSheet } from '@/components/profile/owner/ProfileSkyAreaShortcutsSheet';
@@ -42,6 +42,7 @@ function OwnerProfileSkywritingsCardComponent({
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const router = useRouter();
   const { skywrites, setProfileSkyAreaShortcutIds } = useOnboarding();
+  const { userId: sessionOwnerId } = useSessionUserId();
   const applyDeletion = useApplySkywriteContentDeletion();
   const skywriteById = useMemo(
     () => new Map(skywrites.map((entry) => [entry.id, entry])),
@@ -126,7 +127,9 @@ function OwnerProfileSkywritingsCardComponent({
                 </Text>
               );
             }
-            const isOwner = record.authorId === currentUser.id || !record.authorId;
+            const isOwner =
+              Boolean(sessionOwnerId) &&
+              (record.authorId === sessionOwnerId || !record.authorId);
             const menuActions =
               !isVisitor && isOwner
                 ? [
@@ -151,7 +154,7 @@ function OwnerProfileSkywritingsCardComponent({
                               onPress: () =>
                                 applyDeletion({
                                   ...record,
-                                  authorId: record.authorId ?? currentUser.id,
+                                  authorId: record.authorId ?? sessionOwnerId ?? '',
                                 }),
                             },
                           ],

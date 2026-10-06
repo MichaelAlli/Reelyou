@@ -7,7 +7,7 @@ import { HomeProfilePortrait } from '@/components/home/HomeProfilePortrait';
 import { HomeLayout, HomePalette, measureHomeAvatarSize } from '@/constants/homeLayout';
 import { getFirstName, getTimeGreeting } from '@/constants/homeCopy';
 import { Fonts } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { useUserAvatar } from '@/identity/UserAvatarProvider';
 
 interface HomeArrivalHeaderProps {
@@ -26,11 +26,12 @@ function HomeArrivalHeaderComponent({
   onAvatarPress,
 }: HomeArrivalHeaderProps) {
   const { width } = useWindowDimensions();
+  const { user: authUser } = useReelyouAuth();
   const { profilePhotoDisplayUri, profilePhotoRevision } = useUserAvatar();
   const avatarSize = measureHomeAvatarSize(width);
   const portraitSource = profilePhotoDisplayUri ? { uri: profilePhotoDisplayUri } : undefined;
   const ringOuter = avatarSize + HomeLayout.avatarGlowPad * 2;
-  const firstName = getFirstName(currentUser.name);
+  const firstName = getFirstName(authUser?.fullName?.trim() || 'You');
 
   return (
     <View style={styles.row}>

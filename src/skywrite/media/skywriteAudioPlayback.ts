@@ -1,6 +1,7 @@
 import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 
+import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
 import { isLikelyLocalEphemeralAudioUri } from '@/skywrite/media/skywriteAudioUriUtils';
 import {
   clampSeekTargetMs,
@@ -211,6 +212,13 @@ export async function createSkywriteAudioPlayback(
   volume: number,
   callbacks: SkywriteAudioPlaybackCallbacks,
 ): Promise<SkywriteAudioPlaybackEngine | null> {
+  if (!uri || parseRemoteAssetIdFromUri(uri)) {
+    if (__DEV__) {
+      console.warn('[skywrite-audio] playback blocked: unresolved asset placeholder URI');
+    }
+    callbacks.onError?.('load_failed');
+    return null;
+  }
   if (preferWebHtmlAudioEngine(uri)) {
     const web = await createWebHtmlEngine(uri, volume, callbacks);
     if (web) return web;

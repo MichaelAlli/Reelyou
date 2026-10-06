@@ -1,5 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+
+import { resetMySkyStarIntroForHelpReplay } from '@/mySky/mySkyStarIntroPersistence';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,6 +23,7 @@ export function SettingsSectionScreen() {
   const onboarding = useOnboarding();
   const friendDiscovery = useFriendDiscovery();
   const [tipsResetAck, setTipsResetAck] = useState(false);
+  const [starIntroReplayAck, setStarIntroReplayAck] = useState(false);
 
   const title =
     section === 'messaging'
@@ -260,6 +263,22 @@ export function SettingsSectionScreen() {
               settings={onboarding.mySkyVisibilitySettings}
               onChange={onboarding.setMySkyVisibilitySettings}
             />
+            <Pressable
+              style={styles.row}
+              onPress={() => {
+                void resetMySkyStarIntroForHelpReplay().then(() => {
+                  setStarIntroReplayAck(true);
+                  setTimeout(() => setStarIntroReplayAck(false), 3200);
+                });
+              }}>
+              <View style={styles.rowTextBlock}>
+                <Text style={styles.rowTextPlain}>{MySkyCopy.starIntroHelpReplay}</Text>
+                <Text style={styles.rowHint}>{MySkyCopy.starIntroHelpReplayHint}</Text>
+              </View>
+            </Pressable>
+            {starIntroReplayAck ? (
+              <Text style={styles.ackText}>{MySkyCopy.starIntroHelpReplayAck}</Text>
+            ) : null}
           </>
         ) : null}
 

@@ -2,11 +2,20 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { GlassCard } from '@/components/GlassCard';
 import { Fonts } from '@/constants/theme';
-import { currentUser, legacyConstellationNodes } from '@/data/mockData';
+import { legacyConstellationNodes } from '@/data/mockData';
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useTheme, useThemedStyles } from '@/theme/useTheme';
 
 export function ConstellationMap() {
   const { tokens } = useTheme();
+  const { displayName } = useSessionUserId();
+  const centerInitials =
+    displayName
+      .split(/\s+/)
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'You';
   const styles = useThemedStyles((themeTokens) =>
     StyleSheet.create({
       container: {
@@ -100,7 +109,7 @@ export function ConstellationMap() {
                 !node.isCenter && { backgroundColor: tokens.purple },
               ]}>
               {node.isCenter && (
-                <Text style={styles.centerInitials}>{currentUser.avatarInitials}</Text>
+                <Text style={styles.centerInitials}>{centerInitials}</Text>
               )}
             </View>
             {!node.isCenter && (

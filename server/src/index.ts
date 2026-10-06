@@ -15,6 +15,11 @@ import {
   handleSession,
 } from './auth/authHandlers.js';
 import {
+  handleGetProfile,
+  handlePatchProfile,
+  handlePutOnboarding,
+} from './profile/profileHandlers.js';
+import {
   assertProductionSecrets,
   authConfigured,
   config,
@@ -23,8 +28,10 @@ import {
   mediaStorageConfigured,
   resolveCorsAllowOrigin,
 } from './config.js';
+import { emailProviderConfigured } from './email/transactionalEmail.js';
 import { markImportedDiscoveryData } from './db/accountRepository.js';
 import { initAccountDatabase } from './db/accountStore.js';
+import { pingPostgres } from './db/postgresAccountStore.js';
 import { discoverLiveResources } from './discoverResources.js';
 import {
   handleDeleteImportedDiscoveryData,
@@ -52,6 +59,7 @@ import {
 import { readLocalObject, writeLocalObject } from './media/mediaStorage.js';
 import {
   handleAddComment,
+  handleDeleteComment,
   handleBlock,
   handleCreateSkywrite,
   handleDeleteSkywrite,
@@ -65,6 +73,8 @@ import {
   handleAddToYourJourney,
   handlePatchSkywriteThumbnail,
   handleRepostSkyreel,
+  handleRecordSkyreelView,
+  handleListSkyreelViewers,
   handleUnblock,
   handleUnfollow,
 } from './social/socialHandlers.js';
@@ -135,15 +145,30 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
 
   if (req.method === 'GET' && url.pathname === '/health') {
+    const databaseMode = config.databaseUrl ? 'postgres' : 'file';
+    const databaseReady =
+      databaseMode === 'file'
+        ? true
+        : await pingPostgres(config.databaseUrl);
+    const ready =
+      authConfigured() &&
+      friendMatchConfigured() &&
+      mediaStorageConfigured() &&
+      databaseReady;
     sendJson(
       res,
-      200,
+      ready ? 200 : 503,
       {
-        ok: true,
+        ok: ready,
+        ready,
+        databaseMode,
+        databaseReady,
         openAiConfigured: openAiConfigured(),
         authConfigured: authConfigured(),
         friendMatchConfigured: friendMatchConfigured(),
         mediaStorageConfigured: mediaStorageConfigured(),
+        emailConfigured: emailProviderConfigured(),
+        deploymentRevision: process.env.RENDER_GIT_COMMIT?.trim() || process.env.GIT_COMMIT?.trim() || null,
         grantsGov: config.resources.grantsGovEnabled,
         arxiv: config.resources.arxivEnabled,
         rssFeeds: config.resources.rssUrls.length,
@@ -156,6 +181,10 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/v1/auth/register') {
     if (!authConfigured()) {
       sendJson(res, 503, { error: 'auth_not_configured' }, origin);
+      return;
+    }
+    if (!checkRateLimit(`auth-register:${ip}`, 12, 60 * 60_000)) {
+      sendJson(res, 429, { ok: false, error: 'rate_limited' }, origin);
       return;
     }
     try {
@@ -182,6 +211,10 @@ const server = createServer(async (req, res) => {
       sendJson(res, 503, { error: 'auth_not_configured' }, origin);
       return;
     }
+    if (!checkRateLimit(`auth-login:${ip}`, 40, 15 * 60_000)) {
+      sendJson(res, 429, { ok: false, error: 'rate_limited' }, origin);
+      return;
+    }
     try {
       const body = await readJson<{ email?: string; password?: string }>(req);
       const result = handleLogin(body);
@@ -197,6 +230,47 @@ const server = createServer(async (req, res) => {
     if (!session) return;
     const result = handleSession(session.userId);
     sendJson(res, result.ok ? 200 : 404, result, origin);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/profile/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const result = handleGetProfile(session.userId);
+    sendJson(res, result.ok ? 200 : 404, result, origin);
+    return;
+  }
+
+  if (req.method === 'PATCH' && url.pathname === '/v1/profile/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{
+        fullName?: string;
+        username?: string | null;
+        bio?: string | null;
+        avatarMediaKey?: string | null;
+      }>(req);
+      const result = handlePatchProfile(session.userId, body ?? {});
+      sendJson(res, result.ok ? 200 : 404, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/v1/onboarding/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{ complete?: boolean; snapshot?: Record<string, unknown> | null }>(
+        req,
+      );
+      const result = handlePutOnboarding(session.userId, body ?? {});
+      sendJson(res, result.ok ? 200 : 404, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
     return;
   }
 
@@ -226,7 +300,15 @@ const server = createServer(async (req, res) => {
     }
     try {
       const body = await readJson<{ email?: string }>(req);
-      sendJson(res, 200, await handleForgotPassword(body ?? {}), origin);
+      const result = await handleForgotPassword(body ?? {});
+      const status = result.ok
+        ? 200
+        : result.error === 'email_delivery_failed'
+          ? 503
+          : result.error === 'invalid_email'
+            ? 400
+            : 400;
+      sendJson(res, status, result, origin);
     } catch {
       sendJson(res, 400, { error: 'bad_request' }, origin);
     }
@@ -259,7 +341,15 @@ const server = createServer(async (req, res) => {
     }
     try {
       const body = await readJson<{ email?: string }>(req);
-      sendJson(res, 200, await handleForgotUsername(body ?? {}), origin);
+      const result = await handleForgotUsername(body ?? {});
+      const status = result.ok
+        ? 200
+        : result.error === 'email_delivery_failed'
+          ? 503
+          : result.error === 'invalid_email'
+            ? 400
+            : 400;
+      sendJson(res, status, result, origin);
     } catch {
       sendJson(res, 400, { error: 'bad_request' }, origin);
     }
@@ -554,6 +644,22 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'POST' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/skyreel\/view$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const skywriteId = url.pathname.split('/')[4] ?? '';
+    sendJson(res, 200, handleRecordSkyreelView(session.userId, skywriteId), origin);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/skyreel\/viewers$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const skywriteId = url.pathname.split('/')[4] ?? '';
+    sendJson(res, 200, handleListSkyreelViewers(session.userId, skywriteId), origin);
+    return;
+  }
+
   if (req.method === 'POST' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/skyreel\/repost$/)) {
     const session = requireAuth(req, res, origin);
     if (!session) return;
@@ -640,6 +746,17 @@ const server = createServer(async (req, res) => {
     } catch {
       sendJson(res, 400, { error: 'bad_request' }, origin);
     }
+    return;
+  }
+
+  if (req.method === 'DELETE' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/comments\/[^/]+$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const parts = url.pathname.split('/');
+    const skywriteId = parts[4] ?? '';
+    const commentId = parts[6] ?? '';
+    const result = handleDeleteComment(session.userId, skywriteId, commentId);
+    sendJson(res, result.ok ? 200 : result.error === 'forbidden' ? 403 : 404, result, origin);
     return;
   }
 

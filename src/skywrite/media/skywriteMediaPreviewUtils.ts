@@ -1,4 +1,12 @@
+import { getSkywriteAudioSource } from '@/skywrite/media/getSkywriteAudioSource';
 import type { SkywriteMedia, SkywriteMediaMode, SkywriteRecord } from '@/skywrite/types';
+
+function mediaPartPresent(
+  part: { uri?: string; remoteAssetId?: string } | null | undefined,
+): boolean {
+  if (!part) return false;
+  return Boolean(part.uri?.trim() || part.remoteAssetId?.trim());
+}
 
 export type SkywriteMediaPreviewKind =
   | 'text'
@@ -36,20 +44,21 @@ export function resolveSkywriteMediaPreviewKind(
   media: SkywriteMedia,
   mediaMode?: SkywriteMediaMode,
 ): SkywriteMediaPreviewKind {
-  const hasPhoto = Boolean(media.photo?.uri);
-  const hasVideo = Boolean(media.video?.uri);
-  const hasAudio = Boolean(media.audio?.uri);
+  const hasPhoto = mediaPartPresent(media.photo);
+  const hasVideo = mediaPartPresent(media.video);
+  const hasAudio = mediaPartPresent(media.audio);
   if (hasVideo && hasAudio) return 'video_audio';
   if (hasVideo) return 'video';
   if (hasPhoto && hasAudio) return 'photo_audio';
   if (hasPhoto) return 'photo';
   if (hasAudio) return 'audio';
-  if (mediaMode === 'video' || mediaMode === 'video_voiceover') return hasVideo ? 'video' : 'text';
-  if (mediaMode === 'photo' || mediaMode === 'photo_voiceover' || mediaMode === 'voice') {
-    if (mediaMode === 'photo_voiceover' && hasPhoto) return 'photo_audio';
-    if (mediaMode === 'voice') return hasAudio ? 'audio' : 'text';
-    if (mediaMode === 'photo') return hasPhoto ? 'photo' : 'text';
+  if (mediaMode === 'video' || mediaMode === 'video_voiceover') {
+    return hasVideo || mediaMode === 'video_voiceover' ? 'video' : 'text';
   }
+  if (mediaMode === 'photo' || mediaMode === 'photo_voiceover') {
+    return hasPhoto || mediaMode === 'photo_voiceover' ? (hasAudio ? 'photo_audio' : 'photo') : 'text';
+  }
+  if (mediaMode === 'voice') return hasAudio ? 'audio' : 'text';
   return 'text';
 }
 
@@ -70,13 +79,14 @@ export function pickSkywriteMediaSource(record: Pick<SkywriteRecord, 'media' | '
   textExcerpt: string;
 } {
   const kind = resolveSkywriteMediaPreviewKind(record.media, record.mediaMode);
+  const audioSource = getSkywriteAudioSource(record);
   return {
     kind,
     photoUri: record.media.photo?.uri ?? null,
     videoUri: record.media.video?.uri ?? null,
     videoThumbnailUri: record.media.video?.thumbnailUri ?? null,
-    audioUri: record.media.audio?.uri ?? null,
-    audioDurationMs: record.media.audio?.durationMs,
+    audioUri: audioSource.uri,
+    audioDurationMs: audioSource.durationMs,
     textExcerpt: skywritePreviewExcerpt(record.text, 140),
   };
 }

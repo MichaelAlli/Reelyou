@@ -18,7 +18,10 @@ export function LegacyRippleMapScreen() {
   const mapWidth = Math.min(width - Spacing.lg * 2, 361);
   const mapHeight = Math.min(Math.max(420, height * 0.52), 520);
   const { model, ownerUserId, metrics, userDirectory } = useLegacyRippleViewModel();
-  const centerLabel = useMemo(() => resolveRippleCenterOriginLabel(), []);
+  const centerLabel = useMemo(() => {
+    const name = userDirectory[ownerUserId] ?? 'You';
+    return resolveRippleCenterOriginLabel({ name });
+  }, [ownerUserId, userDirectory]);
   const popup = useRippleNodePopup({ ownerUserId, metrics, userDirectory });
 
   const handleBack = useCallback(() => {

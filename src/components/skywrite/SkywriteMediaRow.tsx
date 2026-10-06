@@ -19,6 +19,7 @@ interface SkywriteMediaRowProps {
   onVideoPress?: () => void;
   showPhoto?: boolean;
   showVideo?: boolean;
+  showVoice?: boolean;
 }
 
 function SkywriteMediaRowComponent({
@@ -36,6 +37,7 @@ function SkywriteMediaRowComponent({
   videoA11y = 'Add video',
   showPhoto = true,
   showVideo = true,
+  showVoice = true,
 }: SkywriteMediaRowProps) {
   return (
     <View style={styles.row}>
@@ -61,15 +63,17 @@ function SkywriteMediaRowComponent({
           <Text style={[styles.actionText, photoActive && styles.actionTextActive]}>{photoLabel}</Text>
         </Pressable>
       ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={voiceA11y}
-        accessibilityState={{ selected: voiceActive }}
-        onPress={onVoicePress}
-        style={[styles.action, voiceActive && styles.actionActive]}>
-        <Text style={styles.actionIcon}>🎙</Text>
-        <Text style={[styles.actionText, voiceActive && styles.actionTextActive]}>{voiceLabel}</Text>
-      </Pressable>
+      {showVoice ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={voiceA11y}
+          accessibilityState={{ selected: voiceActive }}
+          onPress={onVoicePress}
+          style={[styles.action, voiceActive && styles.actionActive]}>
+          <Text style={styles.actionIcon}>🎙</Text>
+          <Text style={[styles.actionText, voiceActive && styles.actionTextActive]}>{voiceLabel}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

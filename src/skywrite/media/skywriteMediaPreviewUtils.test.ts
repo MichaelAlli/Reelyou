@@ -26,6 +26,17 @@ assert(
   'photo kind',
 );
 assert(
+  resolveSkywriteMediaPreviewKind(
+    {
+      photo: { remoteAssetId: 'asset-photo-1' },
+      video: null,
+      audio: null,
+    },
+    'photo',
+  ) === 'photo',
+  'photo kind from remoteAssetId only',
+);
+assert(
   pickSkywriteMediaSource({
     text: 'caption',
     media: {

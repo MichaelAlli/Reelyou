@@ -1,5 +1,3 @@
-import { currentUser } from '@/data/mockData';
-
 const APP_SCHEME = 'reellyou';
 
 /** Beta QA — Jordan (not the logged-in owner `user-michael`). */
@@ -25,7 +23,7 @@ export function buildVisitorProfileHref(
 
 /** Logged-in owner viewing their own profile as another user would (visitor-safe). */
 export function buildVisitorSelfPreviewHref(
-  ownerUserId: string = currentUser.id,
+  ownerUserId: string,
   options?: { previewAs?: 'public' | 'connected' },
 ): string {
   return buildVisitorProfileHref(ownerUserId, {
@@ -47,9 +45,7 @@ export function resolveVisitorPreviewAsFromParams(
  * Absolute URL for sharing — visitor-safe `/visitor-profile` route (no owner preview params).
  * Uses current web origin, optional EXPO_PUBLIC_APP_ORIGIN, or app scheme via expo-linking.
  */
-export function buildShareableVisitorProfileUrl(
-  ownerId: string = currentUser.id,
-): string {
+export function buildShareableVisitorProfileUrl(ownerId: string): string {
   const path = buildVisitorProfileHref(ownerId);
   const configuredOrigin = process.env.EXPO_PUBLIC_APP_ORIGIN?.replace(/\/$/, '');
   if (configuredOrigin) {

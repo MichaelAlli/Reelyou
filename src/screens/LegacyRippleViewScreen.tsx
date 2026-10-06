@@ -33,7 +33,10 @@ export function LegacyRippleViewScreen() {
     useLegacyRippleViewModel();
   const [metricKind, setMetricKind] = useState<RippleMetricDetailKind | null>(null);
   const [recentExpanded, setRecentExpanded] = useState(getRecentImpactExpanded);
-  const centerLabel = useMemo(() => resolveRippleCenterOriginLabel(), []);
+  const centerLabel = useMemo(() => {
+    const name = userDirectory[ownerUserId] ?? 'You';
+    return resolveRippleCenterOriginLabel({ name });
+  }, [ownerUserId, userDirectory]);
   const popup = useRippleNodePopup({ ownerUserId, metrics, userDirectory });
 
   const metricDetailView = useMemo(() => {

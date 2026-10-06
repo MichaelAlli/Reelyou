@@ -1,3 +1,4 @@
+import { directMessagesEnabled } from '@/constants/betaFeatures';
 import { orbitUsers } from '@/data/mockData';
 import { otherParticipantId } from '@/messages/messagesCanonical';
 import type { MessagesState } from '@/messages/messagesTypes';
@@ -35,13 +36,15 @@ export function buildReelyouSignals(
   const out: ReelyouSignal[] = [];
   const quiet = prefs.quietMode;
 
-  if (prefs.messages && !messagingPrefs.muteMessageSignals) {
+  if (directMessagesEnabled() && prefs.messages && !messagingPrefs.muteMessageSignals) {
     for (const threadId of messages.unreadThreadIds) {
       if (messages.mutedThreadIds.includes(threadId)) continue;
       const thread = messages.threadsById[threadId];
       if (!thread || thread.unreadCount === 0) continue;
       if (thread.status === 'request') continue;
-      const otherId = otherParticipantId(thread.participantIds);
+      const viewerId = sources.viewerUserId;
+      if (!viewerId) continue;
+      const otherId = otherParticipantId(thread.participantIds, viewerId);
       if (!otherId || messages.blockedUserIds.includes(otherId)) continue;
       const latest = thread.latestMessageId ? messages.messagesById[thread.latestMessageId] : undefined;
       const signalId = `sig-msg-${threadId}`;
@@ -167,10 +170,10 @@ export function buildReelyouSignals(
     }
   }
 
-  if (prefs.communities && !quiet) {
+  if (prefs.communities && !quiet && sources.viewerUserId) {
     const communitySeen = new Set<string>();
     for (const item of [
-      ...communityMeaningfulSignalsFromOutbox(),
+      ...communityMeaningfulSignalsFromOutbox(sources.viewerUserId),
       ...communitySignalsFromFeed(sources.homeFeed, now),
     ]) {
       if (communitySeen.has(item.signalId)) continue;

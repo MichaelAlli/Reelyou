@@ -9,7 +9,10 @@ import {
   type ReactNode,
 } from 'react';
 
-import { currentUser } from '@/data/mockData';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
+import { registerSignOutCleanup } from '@/auth/sessionLifecycle';
 import { useUserAvatar } from '@/identity/UserAvatarProvider';
 import { resolveProfilePhotoUri } from '@/identity/resolveProfilePhotoUri';
 import {
@@ -73,6 +76,7 @@ import type { StarPathUiChromeSnapshot, StarPathViewportSnapshot } from '@/starp
 import { saveStarPathUiChrome } from '@/starpath/starpathUiChromePersistence';
 import type { StarPathNextStepType } from '@/starpath/starpathGuidanceTypes';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
+import { registerStarpathActivityListener } from '@/journeyThreads/journeyThreadFutureHooks';
 import { buildJourneyPersonalizationBundle } from '@/journey/buildJourneyPersonalizationBundle';
 import { useOnboarding } from '@/onboarding';
 import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
@@ -149,6 +153,8 @@ export function StarPathExperienceProvider({
   children: ReactNode;
   todayFocusText?: string | null;
 }) {
+  const auth = useReelyouAuth();
+  const viewerId = resolveActiveUserId(auth.user);
   const { preferences: userPreferences, messages, skyFollowGraph } = useReelyouConnect();
   const { personalizationProfile } = useOnboarding();
   const { selectedIds: skyContextAreaIds } = useSkyAreaPreferences();
@@ -208,10 +214,47 @@ export function StarPathExperienceProvider({
   const [rankingFeedback, setRankingFeedback] = useState<RankingFeedbackState>({ entries: [] });
   const rankingFeedbackRef = useRef(rankingFeedback);
   rankingFeedbackRef.current = rankingFeedback;
+  const [journeyActivityPulse, setJourneyActivityPulse] = useState(0);
 
   useEffect(() => {
+    return registerStarpathActivityListener(() => {
+      setJourneyActivityPulse((value) => value + 1);
+    });
+  }, []);
+
+  const resetStarpathSessionMemory = useCallback(() => {
+    setInteractions({
+      version: 1,
+      signals: [],
+      softHighlightNodeIds: [],
+      activeBranchIds: [],
+    });
+    setDynamicWorld(EMPTY_DYNAMIC_WORLD);
+    setGuidanceMeta(EMPTY_GUIDANCE_STATE);
+    guidancePersistRef.current = EMPTY_GUIDANCE_STATE;
+    setResourceState(EMPTY_RESOURCE_STATE);
+    setSignalState(EMPTY_SIGNAL_STATE);
+    setSupportState('unknown');
+    setUiChromeState(null);
+    setSavedViewport(null);
+    setRankingFeedback({ entries: [] });
+    setWorldGrowthCue(null);
+  }, []);
+
+  useEffect(() => {
+    return registerSignOutCleanup(resetStarpathSessionMemory);
+  }, [resetStarpathSessionMemory]);
+
+  useEffect(() => {
+    if (isReelyouAuthConfigured() && !viewerId) {
+      resetStarpathSessionMemory();
+      setReady(false);
+      return;
+    }
+
     let mounted = true;
-    (async () => {
+    setReady(false);
+    void (async () => {
       const { bundle } = await hydrateStarPathAuthoritativeState();
       const feedback = await loadRankingFeedback();
       if (!mounted) return;
@@ -230,7 +273,7 @@ export function StarPathExperienceProvider({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [resetStarpathSessionMemory, viewerId]);
 
   const manifestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleManifestTouch = useCallback(() => {
@@ -245,14 +288,16 @@ export function StarPathExperienceProvider({
     [todayFocusText, userPreferences.personalizationPreferences],
   );
 
+  const activeViewerId = viewerId;
+
   const worldSignalBridge = useMemo(
     () => ({
       canonicalStore: canonicalSignalStore,
-      userId: currentUser.id,
+      userId: activeViewerId,
       signalPrefs: { quietMode: userPreferences.signalPreferences.quietMode },
       privacy: {
-        viewerUserId: currentUser.id,
-        ownerUserId: currentUser.id,
+        viewerUserId: activeViewerId,
+        ownerUserId: activeViewerId,
         blockedUserIds: messages.blockedUserIds,
         isMutualSkyFriend: false,
       },
@@ -260,6 +305,7 @@ export function StarPathExperienceProvider({
       reduceMotion: userPreferences.accessibilityPreferences.preferReducedMotion,
     }),
     [
+      activeViewerId,
       userPreferences.signalPreferences.quietMode,
       userPreferences.discoveryPreferences.showOpportunityDiscovery,
       userPreferences.accessibilityPreferences.preferReducedMotion,
@@ -327,7 +373,7 @@ export function StarPathExperienceProvider({
   }, [scheduleManifestTouch]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || !activeViewerId) return;
     const gen = ++orchestratorGen.current;
     const baseInputs = buildGuidanceSafeInputs(
       interactions.signals,
@@ -353,7 +399,7 @@ export function StarPathExperienceProvider({
         viewport: viewportRef.current,
         worldBridge: worldSignalBridge,
         peopleDiscovery: {
-          viewerId: currentUser.id,
+          viewerId: activeViewerId!,
           followGraph: skyFollowGraph,
           blockedUserIds: messages.blockedUserIds,
         },
@@ -392,6 +438,7 @@ export function StarPathExperienceProvider({
     dynamicRecentlyEmergedIds,
     focusForGuidance,
     journeyPersonalization,
+    journeyActivityPulse,
     userPreferences.discoveryPreferences.showOpportunityDiscovery,
     resourceState.dismissedResourceIds,
     resourceState.savedResourceIds,
@@ -742,7 +789,7 @@ export function StarPathExperienceProvider({
       const match = opportunityByNodeId(resourceStateRef.current, nodeId);
       const canonical = findCanonicalEventForOpportunityNode(
         canonicalSignalStore,
-        currentUser.id,
+        activeViewerId ?? '',
         nodeId,
         match?.candidate.id,
       );
@@ -756,7 +803,7 @@ export function StarPathExperienceProvider({
       });
       if (match) feedbackOpportunitySignal(match.candidate.id, 'viewed');
     },
-    [acknowledgeSignal, feedbackOpportunitySignal, scheduleResourceSave],
+    [acknowledgeSignal, activeViewerId, feedbackOpportunitySignal, scheduleResourceSave],
   );
 
   const navigateToOpportunityNode = useCallback((nodeId: string) => {
@@ -787,7 +834,7 @@ export function StarPathExperienceProvider({
       if (node) {
         const canonical = findCanonicalEventForOpportunityNode(
           canonicalSignalStore,
-          currentUser.id,
+          activeViewerId ?? '',
           node,
           candidateId,
         );
@@ -804,7 +851,7 @@ export function StarPathExperienceProvider({
       }
       setGuidancePulse((n) => n + 1);
     },
-    [feedbackOpportunitySignal, scheduleResourceSave],
+    [activeViewerId, feedbackOpportunitySignal, scheduleResourceSave],
   );
 
   const snoozeOpportunity = useCallback(
@@ -957,4 +1004,4 @@ export function getDefaultProfilePhotoCandidate(): string | null {
   return null;
 }
 
-export { DEFAULT_CUSTOM_AVATAR, currentUser };
+export { DEFAULT_CUSTOM_AVATAR };

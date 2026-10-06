@@ -16,7 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BottomNav } from '@/components/BottomNav';
 import { ConstellationPeoplePreview } from '@/components/emergingConstellations/ConstellationPeoplePreview';
 import { ModerationReportSheet } from '@/components/safety/ModerationReportSheet';
-import { currentUser } from '@/data/mockData';
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import {
   CommunityExperienceCopy,
@@ -46,6 +46,7 @@ export function EmergingConstellationScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const insets = useSafeAreaInsets();
   const tabInset = TabBarHeight + Math.max(insets.bottom, 8);
+  const { userId: sessionUserId } = useSessionUserId();
   const { messages, submitModerationReport } = useReelyouConnect();
   const blockedUserIds = messages.blockedUserIds;
   const {
@@ -237,7 +238,7 @@ export function EmergingConstellationScreen() {
               ) : (
                 activity.items.map((post) => {
                   const authorName =
-                    post.authorUserId === currentUser.id
+                    post.authorUserId === sessionUserId
                       ? 'You'
                       : memberDisplayName(post.authorUserId);
                   const perspectives = perspectiveCountForPost(post.id);

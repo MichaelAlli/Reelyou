@@ -9,6 +9,7 @@ import {
   requestAccountDeletion,
   type AccountDeletionStatus,
 } from '@/auth/accountDeletionApi';
+import { performSignOut } from '@/auth/performSignOut';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { isReellyouBackendConfigured } from '@/backend/reellyouApiConfig';
 import { Fonts, Spacing } from '@/constants/theme';
@@ -49,8 +50,7 @@ export function AccountDeletionScreen() {
                 return;
               }
               setStatus(result.status);
-              await auth.logout();
-              router.replace('/login' as never);
+              await performSignOut({ logout: auth.logout, router });
             })();
           },
         },

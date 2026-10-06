@@ -1,6 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { boundInteractionSignals } from '@/starpath/starpathInteractionBounds';
+import { readStarpathScopedJson, writeStarpathScopedJson } from '@/starpath/starpathScopedStorage';
 import { migrateInteractionSnapshot } from '@/starpath/starpathPersistenceMigrations';
 import {
   EMPTY_STARPATH_INTERACTIONS,
@@ -12,7 +11,8 @@ const STORAGE_KEY = '@reellyou/starpath-interactions';
 
 export async function loadStarPathInteractions(): Promise<StarPathInteractionSnapshot> {
   try {
-    const { value, ok } = safeJsonParse<StarPathInteractionSnapshot>(await AsyncStorage.getItem(STORAGE_KEY));
+    const raw = await readStarpathScopedJson(STORAGE_KEY, (value) => value);
+    const { value, ok } = safeJsonParse<StarPathInteractionSnapshot>(raw);
     if (!ok || !value) return { ...EMPTY_STARPATH_INTERACTIONS };
     const migrated = migrateInteractionSnapshot(value);
     return {
@@ -29,5 +29,5 @@ export async function saveStarPathInteractions(snapshot: StarPathInteractionSnap
     ...snapshot,
     signals: boundInteractionSignals(snapshot.signals),
   };
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(bounded));
+  await writeStarpathScopedJson(STORAGE_KEY, bounded);
 }

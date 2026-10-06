@@ -29,7 +29,8 @@ import {
   getSkywriteWriteInputStyle,
 } from '@/constants/skywriteTextStyles';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { isRealAuthBetaPath } from '@/auth/demoMode';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
 import { getSkyAreaCategory, isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
 import { useOnboarding } from '@/onboarding';
 import { resolveSkywriteViewerAccess } from '@/skywrite/access/resolveSkywriteViewerAccess';
@@ -49,6 +50,8 @@ import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
 import { MySkywritesCopy } from '@/constants/mySkywritesCopy';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
+import { SkywriteVideoCoverSheet } from '@/components/skywrite/SkywriteVideoCoverSheet';
+import { skywriteHasVideoMedia } from '@/skywrite/media/getSkywriteThumbnail';
 import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
 import { resolveSkywriteById } from '@/skywrite/resolveSkywriteById';
 import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
@@ -380,13 +383,18 @@ function createSkywriteDetailStyles(tokens: ThemeTokens, skyInvitationReply: boo
 export function SkywriteDetailScreen() {
   const router = useRouter();
   const { id, source, returnTo, visitor } = useLocalSearchParams<{
-    id?: string;
+    id?: string | string[];
     source?: string;
     returnTo?: string;
     visitor?: string;
   }>();
+  const paramSkywriteId = useMemo(() => {
+    if (typeof id === 'string') return id;
+    if (Array.isArray(id) && typeof id[0] === 'string') return id[0];
+    return undefined;
+  }, [id]);
   const visitorPlaybackOnly = visitor === '1';
-  const { skywrites, updateSkywrite } = useOnboarding();
+  const { skywrites, updateSkywrite, applySkywriteVideoCoverAt } = useOnboarding();
   const {
     dismissSignal,
     messages,
@@ -408,18 +416,23 @@ export function SkywriteDetailScreen() {
   const { repostToSkyreel } = usePlaySkySequenceRegistry();
   const { show: showRepostToast, Toast: repostToast } = useTransientToast();
   const [repostPending, setRepostPending] = useState(false);
+  const [coverSheetOpen, setCoverSheetOpen] = useState(false);
+  const viewerId = useEffectiveViewerId();
+  if (isRealAuthBetaPath() && !viewerId) {
+    return null;
+  }
+  const sessionViewerId = viewerId ?? '';
 
   const [remoteRecord, setRemoteRecord] = useState<import('@/skywrite/types').SkywriteRecord | null>(
     null,
   );
 
   useEffect(() => {
-    const skywriteIdParam = typeof id === 'string' ? id : undefined;
-    if (!skywriteIdParam || !isSharedSocialPersistenceEnabled()) return;
-    const local = resolveSkywriteById(skywrites, skywriteIdParam, contentLifecycle);
+    if (!paramSkywriteId || !isSharedSocialPersistenceEnabled()) return;
+    const local = resolveSkywriteById(skywrites, paramSkywriteId, contentLifecycle);
     if (local) return;
     let mounted = true;
-    void fetchSkywriteFromServer(skywriteIdParam).then((fetched) => {
+    void fetchSkywriteFromServer(paramSkywriteId).then((fetched) => {
       if (!mounted || !fetched) return;
       cacheRemoteSkywrite(fetched);
       setRemoteRecord(fetched);
@@ -427,11 +440,14 @@ export function SkywriteDetailScreen() {
     return () => {
       mounted = false;
     };
-  }, [contentLifecycle, id, skywrites]);
+  }, [contentLifecycle, paramSkywriteId, skywrites]);
 
-  const record =
-    resolveSkywriteById(skywrites, typeof id === 'string' ? id : undefined, contentLifecycle) ??
-    (remoteRecord?.id === id ? remoteRecord : null);
+  const record = useMemo(
+    () =>
+      resolveSkywriteById(skywrites, paramSkywriteId, contentLifecycle) ??
+      (remoteRecord?.id === paramSkywriteId ? remoteRecord : null),
+    [contentLifecycle, paramSkywriteId, remoteRecord, skywrites],
+  );
 
   const handleRepostToSkyreel = useCallback(() => {
     if (!record || repostPending) return;
@@ -450,8 +466,8 @@ export function SkywriteDetailScreen() {
   const viewerCanViewEarly = useMemo(() => {
     if (!record) return false;
     return resolveSkywriteViewerAccess({
-      viewerId: currentUser.id,
-      authorId: record.authorId ?? currentUser.id,
+      viewerId: sessionViewerId,
+      authorId: record.authorId ?? sessionViewerId,
       visibility: record.visibility,
       followGraph: skyFollowGraph,
       blockedUserIds: messages.blockedUserIds,
@@ -471,14 +487,14 @@ export function SkywriteDetailScreen() {
     [getResponses, skywriteId],
   );
 
-  const isAuthor = record?.authorId === currentUser.id;
+  const isAuthor = record?.authorId === sessionViewerId;
   const canSaveThread = useMemo(() => {
     if (!record) return false;
     return (
       resolveSavedThreadSourceAccess({
-        skywrite: { ...record, authorId: record.authorId ?? currentUser.id },
+        skywrite: { ...record, authorId: record.authorId ?? sessionViewerId },
         blockedUserIds: messages.blockedUserIds,
-        viewerId: currentUser.id,
+        viewerId: sessionViewerId,
       }) === 'available'
     );
   }, [messages.blockedUserIds, record]);
@@ -553,7 +569,7 @@ export function SkywriteDetailScreen() {
   }, [dismissSignal, ignoreBeacon, router, skywriteId]);
 
   const handleRespondTap = useCallback(() => {
-    void needsSkyInvitationSafetyAck(currentUser.id).then((needs) => {
+    void needsSkyInvitationSafetyAck(sessionViewerId).then((needs) => {
       if (needs) {
         setSafetyGateOpen(true);
         return;
@@ -563,7 +579,7 @@ export function SkywriteDetailScreen() {
   }, []);
 
   const handleSafetyUnderstand = useCallback(() => {
-    void persistSkyInvitationSafetyAck(currentUser.id).then(() => {
+    void persistSkyInvitationSafetyAck(sessionViewerId).then(() => {
       setSafetyGateOpen(false);
       setSafetyLearnMore(false);
       setRespondMode(true);
@@ -572,7 +588,7 @@ export function SkywriteDetailScreen() {
 
   const handleSaveThread = useCallback(() => {
     if (!record) return;
-    const saved = saveThread({ ...record, authorId: record.authorId ?? currentUser.id });
+    const saved = saveThread({ ...record, authorId: record.authorId ?? sessionViewerId });
     router.push(`/skywrite/saved/${saved.savedThreadId}` as never);
   }, [record, router, saveThread]);
 
@@ -750,6 +766,15 @@ export function SkywriteDetailScreen() {
                     </Pressable>
                   ) : null}
 
+                  {isAuthor && record && skywriteHasVideoMedia(record) ? (
+                    <Pressable
+                      style={styles.saveBtn}
+                      onPress={() => setCoverSheetOpen(true)}
+                      accessibilityLabel={MySkywritesCopy.editCover}>
+                      <Text style={styles.saveBtnText}>{MySkywritesCopy.editCover}</Text>
+                    </Pressable>
+                  ) : null}
+
                   {isAuthor ? (
                     <Pressable
                       style={styles.saveBtn}
@@ -922,7 +947,7 @@ export function SkywriteDetailScreen() {
                   <Text style={styles.label}>{SkywriteCopy.threadResponsesTitle}</Text>
                   {responses.map((response) => (
                     <View key={response.responseId} style={styles.responseCard}>
-                      {isAuthor && response.responderId !== currentUser.id ? (
+                      {isAuthor && response.responderId !== sessionViewerId ? (
                         <SkywritePerspectiveResponseMenu
                           onReport={() =>
                             setReportInput({
@@ -937,7 +962,7 @@ export function SkywriteDetailScreen() {
                         />
                       ) : null}
                       <Text style={styles.responseBody}>{response.body}</Text>
-                      {isAuthor && response.responderId !== currentUser.id ? (
+                      {isAuthor && response.responderId !== sessionViewerId ? (
                         <>
                         <Pressable
                           style={styles.saveBtn}
@@ -1050,6 +1075,21 @@ export function SkywriteDetailScreen() {
         learnMoreOpen
         onClose={() => setSafetyInfoOpen(false)}
         onUnderstand={() => setSafetyInfoOpen(false)}
+      />
+      <SkywriteVideoCoverSheet
+        visible={coverSheetOpen && Boolean(record)}
+        record={record}
+        onClose={() => setCoverSheetOpen(false)}
+        onSave={async (seekMs) => {
+          if (!record) return false;
+          const result = await applySkywriteVideoCoverAt(record.id, seekMs);
+          if (result.ok) {
+            showRepostToast(MySkywritesCopy.editCoverSaved);
+            return true;
+          }
+          showRepostToast(MySkywritesCopy.editCoverFailed);
+          return false;
+        }}
       />
       {repostToast}
     </View>

@@ -82,13 +82,19 @@ export async function fetchSession(accessToken: string): Promise<StoredAuthUser 
     });
     if (!res.ok) return null;
     const body = (await res.json()) as { ok?: boolean; user?: StoredAuthUser };
-    return body.user ?? null;
+    if (!body.user) return null;
+    return body.user;
   } catch {
     return null;
   }
 }
 
-export async function requestPasswordReset(email: string): Promise<{ ok: boolean; error?: string; emailSent?: boolean }> {
+export type PasswordForgotApiResult =
+  | { ok: true; accountFound: false }
+  | { ok: true; accountFound: true; maskedEmail: string }
+  | { ok: false; error?: string };
+
+export async function requestPasswordReset(email: string): Promise<PasswordForgotApiResult> {
   const base = resolveAuthApiBaseUrl();
   if (!base) return { ok: false, error: 'auth_not_configured' };
   try {
@@ -97,9 +103,29 @@ export async function requestPasswordReset(email: string): Promise<{ ok: boolean
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     });
-    const body = (await res.json()) as { ok?: boolean; error?: string; emailSent?: boolean };
-    if (!res.ok) return { ok: false, error: body.error ?? 'server_error' };
-    return { ok: body.ok === true, emailSent: body.emailSent, error: body.error };
+    const body = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      accountFound?: boolean;
+      maskedEmail?: string;
+      emailSent?: boolean;
+      emailConfigured?: boolean;
+    };
+    if (!res.ok) {
+      if (body.error === 'email_delivery_failed') {
+        return { ok: false, error: 'email_delivery_failed' };
+      }
+      return { ok: false, error: body.error ?? 'server_error' };
+    }
+    if (body.ok !== true) return { ok: false, error: body.error ?? 'server_error' };
+    if (body.accountFound === false) return { ok: true, accountFound: false };
+    if (body.emailConfigured === false || body.emailSent === false) {
+      return { ok: false, error: 'email_delivery_failed' };
+    }
+    if (body.accountFound === true && typeof body.maskedEmail === 'string') {
+      return { ok: true, accountFound: true, maskedEmail: body.maskedEmail };
+    }
+    return { ok: false, error: 'server_error' };
   } catch {
     return { ok: false, error: 'network_error' };
   }
@@ -124,7 +150,7 @@ export async function resetPasswordWithToken(input: {
   }
 }
 
-export async function requestUsernameRecovery(email: string): Promise<{ ok: boolean; error?: string; emailSent?: boolean }> {
+export async function requestUsernameRecovery(email: string): Promise<PasswordForgotApiResult> {
   const base = resolveAuthApiBaseUrl();
   if (!base) return { ok: false, error: 'auth_not_configured' };
   try {
@@ -133,9 +159,19 @@ export async function requestUsernameRecovery(email: string): Promise<{ ok: bool
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     });
-    const body = (await res.json()) as { ok?: boolean; error?: string; emailSent?: boolean };
+    const body = (await res.json()) as {
+      ok?: boolean;
+      error?: string;
+      accountFound?: boolean;
+      maskedEmail?: string;
+    };
     if (!res.ok) return { ok: false, error: body.error ?? 'server_error' };
-    return { ok: body.ok === true, emailSent: body.emailSent, error: body.error };
+    if (body.ok !== true) return { ok: false, error: body.error ?? 'server_error' };
+    if (body.accountFound === false) return { ok: true, accountFound: false };
+    if (body.accountFound === true && typeof body.maskedEmail === 'string') {
+      return { ok: true, accountFound: true, maskedEmail: body.maskedEmail };
+    }
+    return { ok: false, error: 'server_error' };
   } catch {
     return { ok: false, error: 'network_error' };
   }

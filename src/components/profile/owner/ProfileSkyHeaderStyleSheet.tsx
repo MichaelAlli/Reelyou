@@ -3,7 +3,8 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import {
   loadSkyHeaderStyleId,
   saveSkyHeaderStyleId,
@@ -27,20 +28,23 @@ function ProfileSkyHeaderStyleSheetComponent({
   onClose,
   onSaved,
 }: ProfileSkyHeaderStyleSheetProps) {
+  const { user: authUser } = useReelyouAuth();
+  const ownerId = resolveActiveUserId(authUser);
   const [selected, setSelected] = useState<SkyHeaderStyleId>('starlight');
 
   useEffect(() => {
-    if (!visible) return;
-    void loadSkyHeaderStyleId(currentUser.id).then(setSelected);
-  }, [visible]);
+    if (!visible || !ownerId) return;
+    void loadSkyHeaderStyleId(ownerId).then(setSelected);
+  }, [ownerId, visible]);
 
   const save = useCallback(
     (styleId: SkyHeaderStyleId) => {
+      if (!ownerId) return;
       setSelected(styleId);
-      void saveSkyHeaderStyleId(currentUser.id, styleId);
+      void saveSkyHeaderStyleId(ownerId, styleId);
       onSaved?.(styleId);
     },
-    [onSaved],
+    [onSaved, ownerId],
   );
 
   return (

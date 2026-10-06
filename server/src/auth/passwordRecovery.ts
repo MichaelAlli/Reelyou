@@ -4,7 +4,12 @@ import { normalizeEmail } from '../friendMatch/identifierNormalize.js';
 import { loadAccountDatabase, persistAccountDatabase } from '../db/accountStore.js';
 import { hashPassword } from './password.js';
 import { revokeRefreshTokensForUser } from './refreshTokens.js';
-import { sendTransactionalEmail, emailProviderConfigured } from '../email/transactionalEmail.js';
+import {
+  buildPasswordResetEmail,
+  sendTransactionalEmail,
+  emailProviderConfigured,
+} from '../email/transactionalEmail.js';
+import { maskEmail } from './maskEmail.js';
 import { config } from '../config.js';
 
 interface RecoveryTokenRow {
@@ -53,43 +58,106 @@ function createRecoveryToken(userId: string, purpose: RecoveryTokenRow['purpose'
   return raw;
 }
 
-export function emailDeliveryConfigured(): boolean {
-  return emailProviderConfigured();
+function buildResetLink(rawToken: string): string {
+  const appOrigin = config.appOrigin.replace(/\/$/, '');
+  return `${appOrigin}/reset-password?token=${encodeURIComponent(rawToken)}`;
 }
 
-export async function requestPasswordReset(email: string): Promise<{ ok: true; emailSent: boolean }> {
+export { emailProviderConfigured as emailDeliveryConfigured };
+
+export type PasswordResetRequestResult =
+  | { ok: true; accountFound: false }
+  | { ok: true; accountFound: true; emailSent: true; maskedEmail: string }
+  | { ok: false; error: 'invalid_email' | 'email_delivery_failed' };
+
+export async function requestPasswordReset(email: string): Promise<PasswordResetRequestResult> {
+  const normalized = normalizeEmail(email);
+  if (!normalized) {
+    return { ok: false, error: 'invalid_email' };
+  }
+
   const user = findUserByEmail(email);
   if (!user) {
-    return { ok: true, emailSent: false };
+    return { ok: true, accountFound: false };
   }
-  if (!emailProviderConfigured()) {
-    return { ok: true, emailSent: false };
-  }
+
   const token = createRecoveryToken(user.id, 'password_reset');
-  const appOrigin = config.appOrigin.replace(/\/$/, '');
-  const link = `${appOrigin}/reset-password?token=${encodeURIComponent(token)}`;
+  const link = buildResetLink(token);
+  const { text, html } = buildPasswordResetEmail(link);
+
+  if (!emailProviderConfigured()) {
+    if (!config.isProduction) {
+      console.warn(
+        `[reellyou-auth] Email not configured — password reset link for ${user.emailNormalized}:\n${link}`,
+      );
+    } else {
+      console.error('[reellyou-auth] Email provider not configured; password reset blocked.');
+    }
+    return { ok: false, error: 'email_delivery_failed' };
+  }
+
   const sent = await sendTransactionalEmail({
     to: user.emailNormalized,
     subject: 'Reset your REELYOU password',
-    text: `Use this link within one hour to reset your password:\n\n${link}\n\nIf you did not request this, you can ignore this email.`,
+    text,
+    html,
   });
-  return { ok: true, emailSent: sent === 'sent' };
+
+  if (sent !== 'sent') {
+    return { ok: false, error: 'email_delivery_failed' };
+  }
+
+  return {
+    ok: true,
+    accountFound: true,
+    emailSent: true,
+    maskedEmail: maskEmail(user.emailNormalized),
+  };
 }
 
-export async function requestUsernameReminder(email: string): Promise<{ ok: true; emailSent: boolean }> {
+export type UsernameReminderRequestResult =
+  | { ok: true; accountFound: false }
+  | { ok: true; accountFound: true; emailSent: true; maskedEmail: string }
+  | { ok: false; error: 'invalid_email' | 'email_delivery_failed' };
+
+export async function requestUsernameReminder(
+  email: string,
+): Promise<UsernameReminderRequestResult> {
+  const normalized = normalizeEmail(email);
+  if (!normalized) {
+    return { ok: false, error: 'invalid_email' };
+  }
+
   const user = findUserByEmail(email);
   if (!user) {
-    return { ok: true, emailSent: false };
+    return { ok: true, accountFound: false };
   }
+
   if (!emailProviderConfigured()) {
-    return { ok: true, emailSent: false };
+    if (!config.isProduction) {
+      console.warn(
+        `[reellyou-auth] Email not configured — sign-in email reminder for ${user.emailNormalized}: ${user.emailNormalized}`,
+      );
+    }
+    return { ok: false, error: 'email_delivery_failed' };
   }
+
   const sent = await sendTransactionalEmail({
     to: user.emailNormalized,
     subject: 'Your REELYOU sign-in email',
     text: `You asked for a reminder of the email address on your REELYOU account:\n\n${user.emailNormalized}\n\nSign in with this email and your password.`,
   });
-  return { ok: true, emailSent: sent === 'sent' };
+
+  if (sent !== 'sent') {
+    return { ok: false, error: 'email_delivery_failed' };
+  }
+
+  return {
+    ok: true,
+    accountFound: true,
+    emailSent: true,
+    maskedEmail: maskEmail(user.emailNormalized),
+  };
 }
 
 export function resetPasswordWithToken(

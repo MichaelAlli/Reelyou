@@ -5,7 +5,10 @@ import {
   invalidateSkywriteRemoteMediaCache,
   resolveSkywriteLibraryPreviewRecord,
 } from '@/social/resolveSkywriteRemoteMedia';
-import { recordNeedsLibraryPreviewResolve } from '@/social/resolveSkywriteRemoteMedia';
+import {
+  recordNeedsLibraryPreviewResolve,
+} from '@/social/resolveSkywriteRemoteMedia';
+import { skywriteNeedsPersistedVideoThumbnail } from '@/social/repairSkywriteVideoThumbnail';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 export type LibraryPreviewResolveStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -38,7 +41,11 @@ export function useResolvedSkywriteLibraryPreview(record: SkywriteRecord | null 
       setPreviewError(false);
       return;
     }
-    if (!recordNeedsLibraryPreviewResolve(record)) {
+    const needsPipeline = recordNeedsLibraryPreviewResolve(record);
+    const needsPersist =
+      skywriteNeedsPersistedVideoThumbnail(record) && Boolean(record.media.video?.uri);
+
+    if (!needsPipeline && !needsPersist) {
       setDisplayRecord(record);
       setStatus('ready');
       setPreviewError(false);
@@ -50,11 +57,13 @@ export function useResolvedSkywriteLibraryPreview(record: SkywriteRecord | null 
       .then(({ record: next, previewOk }) => {
         if (generation !== resolveGenerationRef.current) return;
         setDisplayRecord(next);
-        setStatus(previewOk ? 'ready' : 'error');
         setPreviewError(!previewOk);
         void repairSkywriteVideoThumbnailIfNeeded(next).then((repaired) => {
-          if (!repaired || generation !== resolveGenerationRef.current) return;
-          setDisplayRecord(repaired);
+          if (generation !== resolveGenerationRef.current) return;
+          const display = repaired ?? next;
+          setDisplayRecord(display);
+          const hasThumb = Boolean(display.media.video?.thumbnailUri);
+          setStatus(previewOk || hasThumb ? 'ready' : 'error');
         });
       })
       .catch(() => {

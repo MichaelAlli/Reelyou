@@ -106,9 +106,10 @@ export function useMySkyStarInteraction({
         visitorMode,
         publicSkyOwnerId,
         skyOwnerId: skyOwner.id,
+        skywrites,
       });
     },
-    [resolveNavigationTarget, router, visitorMode, publicSkyOwnerId, skyOwner.id],
+    [resolveNavigationTarget, router, skywrites, visitorMode, publicSkyOwnerId, skyOwner.id],
   );
 
   const closeInsightBubble = useCallback(() => {
@@ -162,7 +163,7 @@ export function useMySkyStarInteraction({
       const target = resolveNavigationTarget(star);
       if (
         (focusedSkywriteImmersiveTap || star.type === 'skywrite') &&
-        target.kind === 'skywrite-play'
+        (target.kind === 'skywrite-play' || target.kind === 'skywrite-detail')
       ) {
         setMissingHint(null);
         closeInsightBubble();
@@ -170,6 +171,7 @@ export function useMySkyStarInteraction({
           visitorMode,
           publicSkyOwnerId,
           skyOwnerId: skyOwner.id,
+          skywrites,
         });
         onSkywriteStarOpened?.();
         return;
@@ -185,6 +187,7 @@ export function useMySkyStarInteraction({
       resolveNavigationTarget,
       router,
       skyOwner.id,
+      skywrites,
       tapAllowed,
       visitorMode,
     ],

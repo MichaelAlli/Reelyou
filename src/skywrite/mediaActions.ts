@@ -37,7 +37,7 @@ export async function pickSkywritePhotoFromLibrary(): Promise<PhotoPickResult> {
 
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
-    allowsEditing: true,
+    allowsEditing: false,
     quality: 0.85,
   });
 
@@ -63,7 +63,7 @@ export async function takeSkywritePhoto(): Promise<PhotoPickResult> {
   }
 
   const result = await ImagePicker.launchCameraAsync({
-    allowsEditing: true,
+    allowsEditing: false,
     quality: 0.85,
   });
 

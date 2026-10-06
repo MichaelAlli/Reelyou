@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -10,7 +10,8 @@ import {
 
 import { SkywriteCopy } from '@/constants/skywriteCopy';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
-import { currentUser, orbitUsers } from '@/data/mockData';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
+import { orbitUsers } from '@/data/mockData';
 import { useSkywriteComments } from '@/skywrite/comments/SkywriteCommentProvider';
 import type { SkywriteCommentStarterKind } from '@/skywrite/comments/skywriteCommentTypes';
 import type { SkywriteRecord } from '@/skywrite/types';
@@ -33,8 +34,8 @@ const STARTERS: { id: SkywriteCommentStarterKind; label: string; prompt: string 
   },
 ];
 
-function displayNameForUser(userId: string): string {
-  if (userId === currentUser.id) return currentUser.name.split(' ')[0] ?? 'You';
+function displayNameForUser(userId: string, viewerId: string | null): string {
+  if (userId === viewerId) return 'You';
   const orbit = orbitUsers.find((entry) => entry.id === userId);
   return orbit?.name.split(' ')[0] ?? 'Sky friend';
 }
@@ -58,11 +59,17 @@ interface SkywriteCommentsPanelProps {
 }
 
 export function SkywriteCommentsPanel({ skywrite, compact = false }: SkywriteCommentsPanelProps) {
-  const { getComments, getCommentCount, canViewerComment, addComment, deleteOwnComment } =
+  const activeUserId = useEffectiveViewerId();
+  const postOwnerId = skywrite.authorId ?? activeUserId ?? '';
+  const { getComments, getCommentCount, canViewerComment, addComment, deleteComment, syncCommentsForSkywrite } =
     useSkywriteComments();
   const comments = useMemo(() => getComments(skywrite.id), [getComments, skywrite.id]);
   const count = getCommentCount(skywrite.id);
   const mayComment = canViewerComment(skywrite);
+
+  useEffect(() => {
+    void syncCommentsForSkywrite(skywrite.id);
+  }, [skywrite.id, syncCommentsForSkywrite]);
 
   const [draft, setDraft] = useState('');
   const [activeStarter, setActiveStarter] = useState<SkywriteCommentStarterKind | null>(null);
@@ -117,9 +124,9 @@ export function SkywriteCommentsPanel({ skywrite, compact = false }: SkywriteCom
 
   const handleDelete = useCallback(
     async (commentId: string) => {
-      await deleteOwnComment(commentId);
+      await deleteComment(skywrite, commentId);
     },
-    [deleteOwnComment],
+    [deleteComment, skywrite],
   );
 
   if (!mayComment && comments.length === 0) return null;
@@ -134,11 +141,11 @@ export function SkywriteCommentsPanel({ skywrite, compact = false }: SkywriteCom
       {comments.map((comment) => (
         <View key={comment.commentId} style={styles.commentCard}>
           <View style={styles.commentHeader}>
-            <Text style={styles.author}>{displayNameForUser(comment.authorId)}</Text>
+            <Text style={styles.author}>{displayNameForUser(comment.authorId, activeUserId)}</Text>
             <Text style={styles.time}>{formatCommentTime(comment.createdAt)}</Text>
           </View>
           <Text style={styles.body}>{comment.body}</Text>
-          {comment.authorId === currentUser.id ? (
+          {comment.authorId === activeUserId || postOwnerId === activeUserId ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={SkywriteCopy.deleteOwnComment}

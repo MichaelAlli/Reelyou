@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import { currentUser } from '@/data/mockData';
 import {
   dedupeEdges,
@@ -66,8 +67,9 @@ export async function loadSkyFollowGraph(): Promise<SkyFollowGraph> {
   }
 
   const legacy = await loadLegacyFollowedIds();
-  let graph = migrateLegacyFollowedIds(EMPTY_SKY_FOLLOW_GRAPH, legacy);
-  graph = seedBetaInboundFollowers(graph);
+  const demoOwnerId = isExplicitDevDemoModeEnabled() ? currentUser.id : '';
+  let graph = migrateLegacyFollowedIds(EMPTY_SKY_FOLLOW_GRAPH, demoOwnerId, legacy);
+  graph = seedBetaInboundFollowers(graph, demoOwnerId);
   await saveSkyFollowGraph(graph);
   if (legacy.length > 0) {
     await AsyncStorage.removeItem(LEGACY_KEY);
@@ -79,14 +81,14 @@ export async function saveSkyFollowGraph(graph: SkyFollowGraph): Promise<void> {
   await AsyncStorage.setItem(GRAPH_KEY, JSON.stringify(graph));
 }
 
-export async function loadFollowedSkyUserIds(): Promise<string[]> {
+export async function loadFollowedSkyUserIds(ownerUserId: string): Promise<string[]> {
   const graph = await loadSkyFollowGraph();
-  return listFollowing(graph, currentUser.id);
+  return listFollowing(graph, ownerUserId);
 }
 
-export async function saveFollowedSkyUserIds(ids: string[]): Promise<void> {
+export async function saveFollowedSkyUserIds(ownerUserId: string, ids: string[]): Promise<void> {
   const graph = await loadSkyFollowGraph();
-  const ownerId = currentUser.id;
+  const ownerId = ownerUserId;
   const current = new Set(listFollowing(graph, ownerId));
   const desired = new Set(ids);
   let next = graph;

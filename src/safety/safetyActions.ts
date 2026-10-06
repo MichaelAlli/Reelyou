@@ -7,8 +7,6 @@ import type {
   ModerationReportTargetType,
   SubmitModerationReportResult,
 } from '@/moderation/moderationTypes';
-import { currentUser } from '@/data/mockData';
-
 export type SafetyReportReason = ModerationReportReason;
 export type SafetyReportTargetType = ModerationReportTargetType;
 
@@ -20,6 +18,7 @@ export interface SafetyReportResult {
 }
 
 export async function reportUserSafety(params: {
+  reporterUserId: string;
   reportedUserId: string;
   threadId?: string;
   messageId?: string;
@@ -27,7 +26,7 @@ export async function reportUserSafety(params: {
   optionalNote?: string;
 }): Promise<SafetyReportResult> {
   const result = await submitModerationReport({
-    reporterUserId: currentUser.id,
+    reporterUserId: params.reporterUserId,
     targetType: 'user',
     targetId: params.reportedUserId,
     targetOwnerUserId: params.reportedUserId,
@@ -42,6 +41,7 @@ export async function reportUserSafety(params: {
 }
 
 export async function reportCommunityTargetSafety(params: {
+  reporterUserId: string;
   targetType: Exclude<ModerationReportTargetType, 'user' | 'skywrite' | 'message'>;
   communityId: string;
   postId?: string;
@@ -57,7 +57,7 @@ export async function reportCommunityTargetSafety(params: {
         ? (params.postId ?? params.communityId)
         : (params.replyId ?? params.postId ?? params.communityId);
   const result = await submitModerationReport({
-    reporterUserId: currentUser.id,
+    reporterUserId: params.reporterUserId,
     targetType: params.targetType,
     targetId,
     targetOwnerUserId: params.reportedUserId,

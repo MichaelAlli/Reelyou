@@ -1,3 +1,4 @@
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import type { SkyOwnerProfile } from '@/mySky/skyIdentity';
 import type { SkywriteRecord } from '@/skywrite/types';
 import {
@@ -265,6 +266,7 @@ export function mergeExploreDemoPlaySkyRegistry(
   registry: PlaySkySequenceRegistry,
   _nowMs = Date.now(),
 ): PlaySkySequenceRegistry {
+  if (!isExplicitDevDemoModeEnabled()) return registry;
   let next = { ...registry };
   for (const ownerId of EXPLORE_DEMO_OWNER_IDS) {
     for (const demoPost of EXPLORE_DEMO_SKYWRITES[ownerId]) {

@@ -2,6 +2,8 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { usePerformSignOut } from '@/auth/usePerformSignOut';
+import { isDevRuntime } from '@/constants/devFlags';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { Fonts } from '@/constants/theme';
 import { useThemeContext } from '@/theme/ThemeProvider';
@@ -9,6 +11,7 @@ import type { ThemeMode } from '@/theme/types';
 
 export function SettingsHubScreen() {
   const router = useRouter();
+  const signOut = usePerformSignOut();
   const { preferences, updatePreferences } = useReelyouConnect();
   const { themeMode, setThemeMode } = useThemeContext();
 
@@ -118,6 +121,15 @@ export function SettingsHubScreen() {
           />
         </Section>
 
+        <Section title="Account">
+          <LinkRow label="Edit profile" onPress={() => router.push('/profile' as never)} />
+          <LinkRow
+            label="Account & security"
+            onPress={() => router.push('/settings/account' as never)}
+          />
+          <LinkRow label="Sign out" onPress={() => void signOut()} />
+        </Section>
+
         <Section title="Privacy & Safety">
           <LinkRow label="Privacy" onPress={() => router.push('/settings/privacy' as never)} />
           <LinkRow
@@ -153,6 +165,15 @@ export function SettingsHubScreen() {
         <Section title="Support">
           <LinkRow label="Help & Support" onPress={() => router.push('/settings/help' as never)} />
         </Section>
+
+        {isDevRuntime() ? (
+          <Section title="Developer">
+            <LinkRow
+              label="Auth diagnostic"
+              onPress={() => router.push('/dev-auth-diagnostic' as never)}
+            />
+          </Section>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

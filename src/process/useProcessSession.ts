@@ -73,14 +73,21 @@ export function useProcessSession(): ProcessProgressState & ProcessSessionAction
     if (done.current) return;
     done.current = true;
     setIsComplete(true);
-    completeOnboarding();
-    exitOpacity.value = withTiming(
-      0,
-      { duration: HomeMotion.screenTransitionMs, easing: ReelyouEasing.out },
-      (ok) => {
-        if (ok) runOnJS(onNavigateHome)();
-      },
-    );
+    void completeOnboarding().then((saved) => {
+      if (!saved) {
+        done.current = false;
+        setIsComplete(false);
+        setStatusLabel('We couldn’t save your progress. Please try again.');
+        return;
+      }
+      exitOpacity.value = withTiming(
+        0,
+        { duration: HomeMotion.screenTransitionMs, easing: ReelyouEasing.out },
+        (ok) => {
+          if (ok) runOnJS(onNavigateHome)();
+        },
+      );
+    });
   }, [completeOnboarding, exitOpacity, onNavigateHome]);
 
   const startProcessing = useCallback(() => {

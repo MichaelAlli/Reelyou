@@ -33,10 +33,11 @@ import {
 import { AuthCopy } from '@/constants/auth';
 import { SignUpDayLayout, resolveSignUpDayLogoWidth, resolveSignUpDayTopInset, signUpDayFontRender, signUpDayTextReadabilityShadow, signUpDayWebViewportStyle } from '@/constants/signUpDayLayout';
 import { Fonts } from '@/constants/theme';
+import { mapAuthErrorToMessage } from '@/auth/authErrorMessages';
 import { recordLegalConsent } from '@/auth/legalConsentPersistence';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { LEGAL_DOCUMENT_VERSION } from '@/constants/legalDocuments';
 import { isThirdPartyOAuthSignInEnabled } from '@/config/betaReleaseFlags';
-import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { useSignUpForm } from '@/hooks/use-sign-up-form';
 import { isSignUpFormValid } from '@/utils/signUpValidation';
 import { useThemedStyles } from '@/theme';
@@ -131,7 +132,7 @@ export function SignUpDayScreen() {
       });
       setIsSubmittingAuth(false);
       if (!result.ok) {
-        setAuthError('Could not create your account. Try a different email.');
+        setAuthError(mapAuthErrorToMessage(result.error));
         return;
       }
       if (values.termsAccepted) {

@@ -12,7 +12,7 @@ import { isLogInFormValid } from '@/utils/logInValidation';
 export function useReelyouSignIn() {
   const router = useRouter();
   const auth = useReelyouAuth();
-  const { state: onboardingState } = useOnboarding();
+  const { state: onboardingState, userSessionHydrated } = useOnboarding();
   const form = useLogInForm();
   const [authError, setAuthError] = useState<string | null>(null);
   const [restoringSession, setRestoringSession] = useState(auth.configured && !auth.ready);
@@ -24,13 +24,23 @@ export function useReelyouSignIn() {
     }
     if (auth.ready) {
       setRestoringSession(false);
-      if (auth.isAuthenticated) {
-        router.replace(resolvePostLoginRoute(onboardingState) as never);
+      if (auth.isAuthenticated && userSessionHydrated) {
+        router.replace(
+          resolvePostLoginRoute(onboardingState, auth.user?.onboardingComplete) as never,
+        );
       }
       return;
     }
     setRestoringSession(true);
-  }, [auth.configured, auth.isAuthenticated, auth.ready, onboardingState, router]);
+  }, [
+    auth.configured,
+    auth.isAuthenticated,
+    auth.ready,
+    auth.user?.onboardingComplete,
+    onboardingState,
+    router,
+    userSessionHydrated,
+  ]);
 
   useEffect(() => {
     void loadRememberMePreference().then((remember) => {
@@ -56,10 +66,8 @@ export function useReelyouSignIn() {
     form.setSubmitting(false);
     if (!result.ok) {
       setAuthError(mapAuthErrorToMessage(result.error));
-      return;
     }
-    router.replace(resolvePostLoginRoute(onboardingState) as never);
-  }, [auth, form, onboardingState, router]);
+  }, [auth, form]);
 
   const goToForgotPassword = useCallback(() => {
     router.push('/forgot-password' as never);

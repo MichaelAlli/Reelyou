@@ -147,14 +147,16 @@ function MySkyConstellationLayerComponent({
             (star.visualSize ?? CelestialStarGeometry.defaultUserStarSize + (vitality - 1) * 1.2) *
             (emphasized ? 1.18 : 1);
           const intensity =
-            (star.visualBrightness ?? 0.88 + (vitality - 1) * 0.15) * (emphasized ? 1.22 : 1);
-          return size >= CelestialStarGeometry.userStarPremiumThreshold ? (
+            (star.visualBrightness ?? 0.88 + (vitality - 1) * 0.15) *
+            (star.isNewlyAdded ? 1.28 : emphasized ? 1.22 : 1);
+          const renderSize = size * (star.isNewlyAdded ? 1.06 : 1);
+          return renderSize >= CelestialStarGeometry.userStarPremiumThreshold ? (
             <PremiumStar
               key={star.id}
               id={star.id}
               cx={cx}
               cy={cy}
-              size={size}
+              size={renderSize}
               color={star.color}
               intensity={intensity}
             />
@@ -164,7 +166,7 @@ function MySkyConstellationLayerComponent({
               id={star.id}
               cx={cx}
               cy={cy}
-              size={size}
+              size={renderSize}
               color={star.color}
               opacity={Math.min(1, intensity)}
             />

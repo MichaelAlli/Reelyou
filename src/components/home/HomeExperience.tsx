@@ -21,7 +21,7 @@ import { HomeGlobalMenuSheet } from '@/components/home/HomeGlobalMenuSheet';
 import { HomeProfileAvatarActionSheet } from '@/components/home/HomeProfileAvatarActionSheet';
 import { OwnerProfilePhotoSheet } from '@/components/profile/owner/OwnerProfilePhotoSheet';
 import { useProfilePhotoEditor } from '@/identity/useProfilePhotoEditor';
-import { currentUser } from '@/data/mockData';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { HomeSignalCenterSheet } from '@/components/home/HomeSignalCenterSheet';
 import { HomeTopNav } from '@/components/home/HomeTopNav';
 import { ReelyouEasing } from '@/constants/animation';
@@ -43,6 +43,8 @@ interface HomeExperienceProps {
 
 function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
   const router = useRouter();
+  const { user: authUser } = useReelyouAuth();
+  const homeDisplayName = authUser?.fullName?.trim() || 'You';
   const { presentation, focusPreview, dismissReady, dismissHomeCard } =
     useTodayFocusHomePresentation();
   const showFocusQuickAccess = dismissReady && presentation === 'hidden';
@@ -189,7 +191,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
       />
       <OwnerProfilePhotoSheet
         visible={photoEditor.sheetOpen}
-        displayName={currentUser.name}
+        displayName={homeDisplayName}
         hasPhoto={photoEditor.hasPhoto}
         previewUri={photoEditor.previewUri}
         imageSize={photoEditor.imageSize}

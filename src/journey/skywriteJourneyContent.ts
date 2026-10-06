@@ -4,9 +4,9 @@ import type { SkywriteRecord } from '@/skywrite/types';
 export function hasRenderableSkywriteContent(post: SkywriteRecord): boolean {
   return (
     Boolean(post.text?.trim()) ||
-    Boolean(post.media.photo?.uri) ||
-    Boolean(post.media.video?.uri) ||
-    Boolean(post.media.audio?.uri)
+    Boolean(post.media.photo?.uri || post.media.photo?.remoteAssetId) ||
+    Boolean(post.media.video?.uri || post.media.video?.remoteAssetId) ||
+    Boolean(post.media.audio?.uri || post.media.audio?.remoteAssetId)
   );
 }
 

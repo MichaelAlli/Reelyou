@@ -26,7 +26,8 @@ import {
   EMPTY_HUMAN_POTENTIAL_METRICS_STATE,
   type HumanPotentialMetricsState,
 } from '@/humanPotential/humanPotentialMetricsState';
-import { currentUser } from '@/data/mockData';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import type { ThreadReflectionRecord } from '@/skywrite/savedThreads/savedThreadTypes';
 
 interface ConfirmGrowthInput {
@@ -51,6 +52,8 @@ interface HumanPotentialMetricsContextValue {
 const HumanPotentialMetricsContext = createContext<HumanPotentialMetricsContextValue | null>(null);
 
 export function HumanPotentialMetricsProvider({ children }: { children: ReactNode }) {
+  const { user: authUser } = useReelyouAuth();
+  const sessionUserId = resolveActiveUserId(authUser);
   const [state, setState] = useState<HumanPotentialMetricsState>(EMPTY_HUMAN_POTENTIAL_METRICS_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -73,8 +76,9 @@ export function HumanPotentialMetricsProvider({ children }: { children: ReactNod
 
   const confirmGrowthEvidence = useCallback(
     (input: ConfirmGrowthInput) => {
+      if (!sessionUserId) return;
       const parties = resolveImpactParties({
-        viewerId: currentUser.id,
+        viewerId: sessionUserId,
         originalAuthorId: input.originalAuthorId,
         skywriteId: input.sourceSkywriteId,
         contributions: input.contributions,
@@ -85,7 +89,7 @@ export function HumanPotentialMetricsProvider({ children }: { children: ReactNod
         persist(
           addLearningEvidence({
             state,
-            userId: currentUser.id,
+            userId: sessionUserId,
             reflection: input.reflection,
             savedThreadId: input.savedThreadId,
             sourceSkywriteId: input.sourceSkywriteId,
@@ -100,7 +104,7 @@ export function HumanPotentialMetricsProvider({ children }: { children: ReactNod
         persist(
           addApplicationEvidence({
             state,
-            userId: currentUser.id,
+            userId: sessionUserId,
             reflection: input.reflection,
             savedThreadId: input.savedThreadId,
             sourceSkywriteId: input.sourceSkywriteId,
@@ -129,7 +133,7 @@ export function HumanPotentialMetricsProvider({ children }: { children: ReactNod
         persist(result.state);
       }
     },
-    [persist, state],
+    [persist, sessionUserId, state],
   );
 
   const livesImpactedFor = useCallback(

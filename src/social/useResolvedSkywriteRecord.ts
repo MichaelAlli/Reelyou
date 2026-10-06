@@ -46,8 +46,13 @@ export function useResolvedSkywriteRecord(record: SkywriteRecord | null | undefi
     setRetryNonce((n) => n + 1);
   }, [record]);
 
+  const recordId = record?.id ?? null;
+  const recordResolveKey = record
+    ? `${record.id}:${record.mediaMode}:${record.media.photo?.remoteAssetId ?? record.media.photo?.uri ?? ''}:${record.media.video?.remoteAssetId ?? record.media.video?.uri ?? ''}:${record.media.audio?.remoteAssetId ?? record.media.audio?.uri ?? ''}`
+    : null;
+
   useEffect(() => {
-    if (!record) {
+    if (!record || !recordResolveKey) {
       setDisplayRecord(null);
       setStatus('idle');
       setMediaError(false);
@@ -79,7 +84,7 @@ export function useResolvedSkywriteRecord(record: SkywriteRecord | null | undefi
         resolveGenerationRef.current += 1;
       }
     };
-  }, [record, retryNonce]);
+  }, [record, recordId, recordResolveKey, retryNonce]);
 
   const stableRecord = useMemo(() => displayRecord, [displayRecord]);
 

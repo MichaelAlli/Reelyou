@@ -21,7 +21,7 @@ import { SymbolView } from 'expo-symbols';
 import { ReelYouControlChip, ReelYouIcons } from '@/components/legacy/ReelYouControlChip';
 import { LegacyCopy } from '@/constants/legacyCopy';
 import { Fonts, Spacing } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
 import { useLegacy } from '@/legacy/LegacyProvider';
 import { filterReelMomentIdsForViewer } from '@/legacy/legacyViewerAccess';
 import { leaveReelYouRoute } from '@/legacy/reelYouLeaveNavigation';
@@ -44,6 +44,7 @@ export function ReelYouPlaybackScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const { skyFollowGraph, messages } = useReelyouConnect();
+  const viewerUserId = useEffectiveViewerId() ?? '';
   const {
     reelSequence,
     moments,
@@ -66,7 +67,7 @@ export function ReelYouPlaybackScreen() {
     }
     const ctx = {
       subjectUserId: visitorSubjectId,
-      viewerUserId: currentUser.id,
+      viewerUserId,
       followGraph: skyFollowGraph,
       blockedUserIds: messages.blockedUserIds,
     };
@@ -77,6 +78,7 @@ export function ReelYouPlaybackScreen() {
     moments,
     reelSequence.momentIds,
     skyFollowGraph,
+    viewerUserId,
     visitorSubjectId,
   ]);
 

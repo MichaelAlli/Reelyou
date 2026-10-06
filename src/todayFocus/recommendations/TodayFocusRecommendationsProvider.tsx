@@ -9,8 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
-import { currentUser } from '@/data/mockData';
 import { isEmergingConstellationDemoEnabled } from '@/constants/devFlags';
 import { useHumanPotentialMetrics } from '@/humanPotential/HumanPotentialMetricsProvider';
 import { useOnboarding } from '@/onboarding';
@@ -82,6 +82,7 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
   const { skywrites } = useOnboarding();
   const { contributions } = useSkywriteThreads();
   const { state: metricsState, isLoaded: metricsLoaded } = useHumanPotentialMetrics();
+  const { userId: sessionUserId } = useSessionUserId();
   const { messages, skyFollowGraph, preferences } = useReelyouConnect();
   const { lifecycle, isLoaded: libraryLoaded } = useSkywriteLibrary();
 
@@ -133,7 +134,7 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
       selectedSkyAreaIds,
     );
     return buildTodayFocusSession({
-      userId: currentUser.id,
+      userId: sessionUserId ?? '',
       record: todayFocus,
       relatedSkyAreaIds,
     });
@@ -202,7 +203,7 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
 
     const signalProvenanceIds = canonicalSignalStore
       .getState()
-      .events.filter((event) => event.userId === currentUser.id)
+      .events.filter((event) => event.userId === sessionUserId)
       .slice(-6)
       .map((event) => event.id);
 
@@ -226,7 +227,7 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
         session: focusSession,
         context,
         eligibility: {
-          viewerUserId: currentUser.id,
+          viewerUserId: sessionUserId ?? '',
           blockedUserIds: messages.blockedUserIds,
           followGraph: skyFollowGraph,
           deletedSkywriteIds: deletedIds,
@@ -252,7 +253,7 @@ export function TodayFocusRecommendationsProvider({ children }: { children: Reac
     const session: FocusRecommendationSession = {
       id: `frs-${focusSession.id}-${focusFingerprint.slice(0, 16)}`,
       focusId: focusSession.id,
-      userId: currentUser.id,
+      userId: sessionUserId ?? '',
       generatedAt: Date.now(),
       recommendationIds: recommendations.map((rec) => rec.id),
       contextSnapshotId: context.contextId,

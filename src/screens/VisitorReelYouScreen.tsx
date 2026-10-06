@@ -9,7 +9,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { GlowButton } from '@/components/GlowButton';
 import { LegacyCopy } from '@/constants/legacyCopy';
 import { Fonts, Spacing } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
 import {
   canViewerAccessVisitorLegacyRoutes,
   canViewerSeeLegacyItem,
@@ -28,15 +28,16 @@ export function VisitorReelYouScreen({ ownerId }: VisitorReelYouScreenProps) {
   const { reelSequence, moments } = useSubjectLegacyContent(ownerId ?? '');
   const { skyFollowGraph, messages } = useReelyouConnect();
   const subjectId = ownerId ?? '';
+  const viewerUserId = useEffectiveViewerId() ?? '';
 
   const viewerContext = useMemo(
     () => ({
       subjectUserId: subjectId,
-      viewerUserId: currentUser.id,
+      viewerUserId,
       followGraph: skyFollowGraph,
       blockedUserIds: messages.blockedUserIds,
     }),
-    [messages.blockedUserIds, skyFollowGraph, subjectId],
+    [messages.blockedUserIds, skyFollowGraph, subjectId, viewerUserId],
   );
 
   const accessAllowed = subjectId ? canViewerAccessVisitorLegacyRoutes(viewerContext) : false;

@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { currentUser } from '@/data/mockData';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
 import { isContributionBeaconDemoEnabled } from '@/constants/devFlags';
 import { useOnboarding } from '@/onboarding';
 import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
@@ -52,6 +52,7 @@ interface SkywriteBeaconContextValue {
 const SkywriteBeaconContext = createContext<SkywriteBeaconContextValue | null>(null);
 
 export function SkywriteBeaconProvider({ children }: { children: ReactNode }) {
+  const viewerId = useEffectiveViewerId();
   const { skywrites } = useOnboarding();
   const { record: skyAreaPrefs } = useSkyAreaPreferences();
   const [beaconState, setBeaconState] = useState<BeaconSystemState>(EMPTY_BEACON_SYSTEM_STATE);
@@ -114,20 +115,22 @@ export function SkywriteBeaconProvider({ children }: { children: ReactNode }) {
 
   const ignoreBeaconForViewer = useCallback(
     (skywriteId: string) => {
+      if (!viewerId) return;
       const now = beaconNow();
-      const next = updateMatchStatus(beaconState, skywriteId, currentUser.id, 'ignored', now);
+      const next = updateMatchStatus(beaconState, skywriteId, viewerId, 'ignored', now);
       persist(next);
     },
-    [beaconState, persist],
+    [beaconState, persist, viewerId],
   );
 
   const respondBeaconForViewer = useCallback(
     (skywriteId: string) => {
+      if (!viewerId) return;
       const now = beaconNow();
-      const next = updateMatchStatus(beaconState, skywriteId, currentUser.id, 'responded', now);
+      const next = updateMatchStatus(beaconState, skywriteId, viewerId, 'responded', now);
       persist(next);
     },
-    [beaconState, persist],
+    [beaconState, persist, viewerId],
   );
 
   const resolveAuthorBeacon = useCallback(

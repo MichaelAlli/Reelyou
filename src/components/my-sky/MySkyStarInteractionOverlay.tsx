@@ -10,18 +10,22 @@ import {
   type MySkyStarInteractionOptions,
 } from '@/components/my-sky/useMySkyStarInteraction';
 import { useSpatialFocusInteractionClear } from '@/spatialFocus/SpatialFocusContext';
+import { resolveMySkyStarAccessibilityLabel } from '@/mySky/getSkywriteStarColor';
 import type { MySkyStarDisplay } from '@/mySky/types';
 
 interface MySkyStarInteractionOverlayProps extends MySkyStarInteractionOptions {
   layoutWidth: number;
   layoutHeight: number;
   showIdentityStar?: boolean;
+  identityStarIntroPulse?: boolean;
   /** Focused Skywrite sky — never show the insight preview card. */
   suppressInsightPreview?: boolean;
   onSpatialFocusBlockingChange?: (blocking: boolean) => void;
 }
 
 function starAccessibilityLabel(star: MySkyStarDisplay): string {
+  const semantic = resolveMySkyStarAccessibilityLabel(star);
+  if (semantic) return semantic;
   if (star.type === 'skywrite' && star.sourceId) {
     return `Open skywrite: ${star.title ?? 'moment'}`;
   }
@@ -45,6 +49,7 @@ function MySkyStarInteractionOverlayComponent({
   layoutWidth,
   layoutHeight,
   showIdentityStar = true,
+  identityStarIntroPulse = false,
   suppressInsightPreview = false,
   onSpatialFocusBlockingChange,
   ...interactionOptions
@@ -84,7 +89,8 @@ function MySkyStarInteractionOverlayComponent({
           worldWidth={layoutWidth}
           worldHeight={layoutHeight}
           active={ownBubbleActive}
-          prominence={1.06}
+          prominence={1.14}
+          identityIntroPulse={identityStarIntroPulse}
           onPress={() => {
             clearSpatialFocus?.();
             handleOwnIdentityPress();

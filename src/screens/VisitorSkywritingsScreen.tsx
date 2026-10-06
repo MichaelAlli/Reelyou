@@ -19,7 +19,7 @@ import {
   OWNER_PROFILE_PANEL_BORDER,
 } from '@/components/profile/owner/ownerProfileLayout';
 import { Fonts, TabBarHeight, Spacing } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import {
   buildProfileSkywritingsSection,
@@ -50,6 +50,7 @@ export function VisitorSkywritingsScreen({ ownerId }: VisitorSkywritingsScreenPr
   const navInset = TabBarHeight + Math.max(insets.bottom, Spacing.sm);
   const { skyFollowGraph, messages } = useReelyouConnect();
   const subjectId = ownerId ?? '';
+  const viewerId = useEffectiveViewerId() ?? '';
   const [tabId, setTabId] = useState<SkyAreaTabId>(SKY_AREA_TAB_ALL);
   const [remoteFetchTick, setRemoteFetchTick] = useState(0);
 
@@ -85,13 +86,13 @@ export function VisitorSkywritingsScreen({ ownerId }: VisitorSkywritingsScreenPr
       skywrites,
       viewerMode: 'visitor',
       visitorAccess: {
-        viewerId: currentUser.id,
+        viewerId,
         authorId: subjectId,
         followGraph: skyFollowGraph,
         blockedUserIds: messages.blockedUserIds,
       },
     });
-  }, [blocked, messages.blockedUserIds, remoteFetchTick, skyFollowGraph, subjectId]);
+  }, [blocked, messages.blockedUserIds, remoteFetchTick, skyFollowGraph, subjectId, viewerId]);
 
   const visibleItems = useMemo(() => {
     if (!section) return [];
@@ -182,7 +183,7 @@ export function VisitorSkywritingsScreen({ ownerId }: VisitorSkywritingsScreenPr
             const canOpen =
               record &&
               resolveSkywriteViewerAccess({
-                viewerId: currentUser.id,
+                viewerId,
                 authorId: subjectId,
                 visibility: record.visibility,
                 followGraph: skyFollowGraph,

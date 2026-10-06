@@ -1,3 +1,4 @@
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import type { ContributionRecord } from '@/contributions/contributionTypes';
 import { currentUser, orbitUsers } from '@/data/mockData';
 import { getCanonicalProfilePhotoDisplayUri } from '@/identity/canonicalUserProfilePhoto';
@@ -103,19 +104,32 @@ export interface BuildLegacyRippleViewModelInput {
   now?: number;
 }
 
-function resolveAvatar(userId: string): {
+function resolveAvatar(
+  userId: string,
+  ownerUserId: string,
+  userDirectory: Readonly<Record<string, string>>,
+): {
   avatarUri: string | null;
   avatarInitials: string;
   avatarColor: string;
 } {
-  if (userId === currentUser.id) {
+  if (userId === ownerUserId) {
+    const demoOwner =
+      isExplicitDevDemoModeEnabled() && ownerUserId === currentUser.id;
+    const displayName = userDirectory[userId]?.trim() || 'You';
     return {
-      avatarUri: getCanonicalProfilePhotoDisplayUri() ?? currentUser.avatarUri ?? null,
-      avatarInitials: currentUser.avatarInitials,
-      avatarColor: currentUser.avatarColor,
+      avatarUri:
+        getCanonicalProfilePhotoDisplayUri() ??
+        (demoOwner ? currentUser.avatarUri ?? null : null),
+      avatarInitials: demoOwner
+        ? currentUser.avatarInitials
+        : displayName.slice(0, 2).toUpperCase(),
+      avatarColor: demoOwner ? currentUser.avatarColor : '#9B7EDE',
     };
   }
-  const orbit = orbitUsers.find((entry) => entry.id === userId);
+  const orbit = isExplicitDevDemoModeEnabled()
+    ? orbitUsers.find((entry) => entry.id === userId)
+    : undefined;
   if (orbit) {
     return {
       avatarUri: null,
@@ -301,7 +315,7 @@ export function buildLegacyRippleViewModel(
       )
       .sort((a, b) => b.createdAt - a.createdAt)[0];
     if (!latestEvent) return;
-    const avatar = resolveAvatar(rel.impactedUserId);
+    const avatar = resolveAvatar(rel.impactedUserId, ownerUserId, userDirectory);
     const iconKind = iconForImpact(index);
     directNodes.push({
       userId: rel.impactedUserId,
@@ -334,7 +348,7 @@ export function buildLegacyRippleViewModel(
     .map((ripple, index) => {
       const fullName = userDirectory[ripple.downstreamUserId] ?? RippleCopy.privacyHiddenName;
       const firstName = fullName.split(' ')[0] ?? fullName;
-      const avatar = resolveAvatar(ripple.downstreamUserId);
+      const avatar = resolveAvatar(ripple.downstreamUserId, ownerUserId, userDirectory);
       const layout = DOWNSTREAM_LAYOUT[index] ?? DOWNSTREAM_LAYOUT[0];
       return {
         userId: ripple.downstreamUserId,

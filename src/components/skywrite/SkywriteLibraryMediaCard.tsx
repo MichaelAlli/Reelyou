@@ -14,11 +14,22 @@ import {
 
 import { SkywriteAudioWaveform } from '@/components/skywrite/SkywriteAudioWaveform';
 import { Fonts, Radius } from '@/constants/theme';
+import { getSkywritePreview } from '@/skywrite/media/getSkywritePreview';
 import {
   formatSkywriteAudioDuration,
   pickSkywriteMediaSource,
   skywritePreviewExcerpt,
 } from '@/skywrite/media/skywriteMediaPreviewUtils';
+import {
+  getSkywriteAudioSource,
+  getSkywritePlayableAudioUri,
+  logMissingSkywriteAudioInDev,
+  logUnrecoverableSkywriteAudioInDev,
+} from '@/skywrite/media/getSkywriteAudioSource';
+import {
+  getSkywriteThumbnail,
+  skywriteHasVideoMedia,
+} from '@/skywrite/media/getSkywriteThumbnail';
 import { parseRemoteAssetIdFromUri } from '@/social/sharedMediaConstants';
 import { useResolvedSkywriteLibraryPreview } from '@/social/useResolvedSkywriteLibraryPreview';
 import type { SkywriteRecord } from '@/skywrite/types';
@@ -37,6 +48,11 @@ interface SkywriteLibraryMediaCardProps {
   onPressMedia: () => void;
   onToggleAudio?: (previewId: string, uri: string) => void;
   isAudioPlaying?: (previewId: string) => boolean;
+  getAudioPreviewProgress?: (previewId: string) => {
+    positionMs: number;
+    durationMs: number;
+    isPlaying: boolean;
+  };
   style?: StyleProp<ViewStyle>;
   compactGrid?: boolean;
 }
@@ -49,6 +65,7 @@ function SkywriteLibraryMediaCardComponent({
   onPressMedia,
   onToggleAudio,
   isAudioPlaying,
+  getAudioPreviewProgress,
   style,
   compactGrid = false,
 }: SkywriteLibraryMediaCardProps) {
@@ -56,37 +73,54 @@ function SkywriteLibraryMediaCardComponent({
     skywrite as SkywriteRecord,
   );
   const viewRecord = resolvedSkywrite ?? (skywrite as SkywriteRecord);
+  const previewId = `library-card-${skywrite.id}`;
   const media = useMemo(() => pickSkywriteMediaSource(viewRecord), [viewRecord]);
+  const preview = useMemo(() => getSkywritePreview(viewRecord), [viewRecord]);
+  const audioSource = useMemo(() => getSkywriteAudioSource(viewRecord), [viewRecord]);
+  const previewProgress = getAudioPreviewProgress?.(previewId);
+  const audioDurationMs =
+    previewProgress && previewProgress.durationMs > 0
+      ? previewProgress.durationMs
+      : audioSource.durationMs;
+  const audioPlayUri = getSkywritePlayableAudioUri(viewRecord) ?? audioSource.uri;
+
+  useEffect(() => {
+    if (media.kind !== 'audio') return;
+    logMissingSkywriteAudioInDev(viewRecord, 'library-card');
+    logUnrecoverableSkywriteAudioInDev(viewRecord, 'library-card');
+  }, [media.kind, viewRecord]);
+
   const [imageFailed, setImageFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const previewId = `library-card-${skywrite.id}`;
   const playing = isAudioPlaying?.(previewId) ?? false;
   const captionText =
     caption ??
     (skywritePreviewExcerpt(skywrite.text, 100) ||
       (media.kind === 'audio' ? 'Voice Skywrite' : ''));
 
-  const imageUri =
-    media.kind === 'video' || media.kind === 'video_audio'
-      ? media.videoThumbnailUri
-      : media.kind === 'photo' || media.kind === 'photo_audio'
-        ? media.photoUri
-        : null;
+  const imageUri = preview.imageUri ?? getSkywriteThumbnail(viewRecord);
+  const isVideoTile = preview.isVideo;
 
   useEffect(() => {
     setImageFailed(false);
   }, [skywrite.id, imageUri]);
 
-  const thumbnailResolving =
-    Boolean(imageUri && parseRemoteAssetIdFromUri(imageUri) && status === 'loading' && !imageFailed);
+  const remotePhotoPending =
+    preview.isPhoto &&
+    Boolean(
+      parseRemoteAssetIdFromUri(viewRecord.media.photo?.uri) ||
+        viewRecord.media.photo?.remoteAssetId,
+    );
 
-  const showPlayOverlay =
-    media.kind === 'video' ||
-    media.kind === 'video_audio' ||
-    (media.kind === 'audio' && !onToggleAudio);
+  const visualLoading =
+    !imageFailed &&
+    (preview.isPhoto || preview.isVideo) &&
+    (!imageUri ||
+      ((Boolean(parseRemoteAssetIdFromUri(imageUri)) || remotePhotoPending) && status === 'loading'));
 
-  const thumbnailFit =
-    media.kind === 'video' || media.kind === 'video_audio' ? 'contain' : 'cover';
+  const showVideoBadge = isVideoTile && Boolean(imageUri) && !imageFailed;
+
+  const thumbnailFit = 'cover';
 
   return (
     <View style={[styles.card, style]}>
@@ -99,7 +133,7 @@ function SkywriteLibraryMediaCardComponent({
           compactGrid && styles.mediaBoxGrid,
           pressed && styles.pressed,
         ]}>
-        {media.kind === 'text' ? (
+        {preview.isText ? (
           <LinearGradient
             colors={['rgba(88, 56, 168, 0.65)', 'rgba(12, 10, 32, 0.94)']}
             style={styles.mediaFill}>
@@ -107,26 +141,36 @@ function SkywriteLibraryMediaCardComponent({
               {captionText || 'Skywrite'}
             </Text>
           </LinearGradient>
-        ) : media.kind === 'audio' && media.audioUri && onToggleAudio ? (
+        ) : media.kind === 'audio' && onToggleAudio ? (
           <LinearGradient
             colors={['rgba(32, 24, 64, 0.85)', 'rgba(8, 10, 28, 0.95)']}
             style={[styles.mediaFill, styles.audioBox]}>
-            <Pressable
-              onPress={(event) => {
-                event.stopPropagation();
-                onToggleAudio(previewId, media.audioUri!);
-              }}
-              style={styles.audioPlay}>
-              <Text style={styles.playIcon}>{playing ? '❚❚' : '▶'}</Text>
-            </Pressable>
-            <SkywriteAudioWaveform active={playing} seed={skywrite.id.length} barCount={16} />
-            <Text style={styles.audioDuration}>
-              {formatSkywriteAudioDuration(media.audioDurationMs)}
-            </Text>
+            {status === 'loading' && !audioPlayUri ? (
+              <ActivityIndicator color="#E8C872" size="small" />
+            ) : (
+              <>
+                <Pressable
+                  disabled={!audioPlayUri}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    if (!audioPlayUri) return;
+                    onToggleAudio(previewId, audioPlayUri);
+                  }}
+                  style={styles.audioPlay}>
+                  <Text style={styles.playIcon}>{playing ? '❚❚' : '▶'}</Text>
+                </Pressable>
+                <SkywriteAudioWaveform active={playing} seed={skywrite.id.length} barCount={16} />
+                <Text style={styles.audioDuration}>
+                  {status === 'loading' && !audioDurationMs
+                    ? '…'
+                    : formatSkywriteAudioDuration(audioDurationMs)}
+                </Text>
+              </>
+            )}
           </LinearGradient>
-        ) : thumbnailResolving ? (
-          <View style={[styles.mediaFill, styles.fallback]}>
-            <ActivityIndicator color="#E8C872" />
+        ) : visualLoading ? (
+          <View style={[styles.mediaFill, styles.thumbSkeleton]}>
+            <ActivityIndicator color="#E8C872" size="small" />
           </View>
         ) : imageUri && !imageFailed ? (
           <>
@@ -136,14 +180,14 @@ function SkywriteLibraryMediaCardComponent({
               contentFit={thumbnailFit}
               transition={120}
               onError={() => {
-            setImageFailed(true);
-            if (previewError || status === 'error') retry();
-          }}
+                setImageFailed(true);
+                if (previewError || status === 'error') retry();
+              }}
               accessibilityIgnoresInvertColors
             />
-            {showPlayOverlay ? (
-              <View style={styles.playOverlay}>
-                <Text style={styles.playIconLarge}>▶</Text>
+            {showVideoBadge ? (
+              <View style={styles.videoBadge}>
+                <Text style={styles.videoBadgeIcon}>▶</Text>
               </View>
             ) : null}
             {media.kind === 'photo_audio' || media.kind === 'video_audio' ? (
@@ -152,22 +196,13 @@ function SkywriteLibraryMediaCardComponent({
               </View>
             ) : null}
           </>
-        ) : media.kind === 'photo_audio' || media.kind === 'photo' ? (
-          <LinearGradient
-            colors={['rgba(88, 56, 168, 0.55)', 'rgba(12, 10, 32, 0.92)']}
-            style={styles.mediaFill}>
-            <Text style={styles.textBody} numberOfLines={6}>
-              {captionText || 'Photo Skywrite'}
-            </Text>
-            {media.kind === 'photo_audio' ? (
-              <View style={styles.voiceBadgeInline}>
-                <Text style={styles.voiceBadgeText}>♪ Voiceover</Text>
-              </View>
-            ) : null}
-          </LinearGradient>
+        ) : preview.isPhoto || preview.isVideo ? (
+          <View style={[styles.mediaFill, styles.thumbSkeleton]}>
+            <ActivityIndicator color="#E8C872" size="small" />
+          </View>
         ) : (
           <View style={[styles.mediaFill, styles.fallback]}>
-            <Text style={styles.playIconLarge}>{media.kind.includes('video') ? '▶' : '◻'}</Text>
+            <Text style={styles.playIconLarge}>◻</Text>
             {captionText ? (
               <Text style={styles.fallbackCaption} numberOfLines={3}>
                 {captionText}
@@ -266,11 +301,29 @@ const styles = StyleSheet.create({
   },
   playIcon: { fontSize: 18, color: '#E8C872', fontWeight: '700' },
   playIconLarge: { fontSize: 34, color: '#E8C872', fontWeight: '700' },
-  playOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  thumbSkeleton: {
+    backgroundColor: 'rgba(12, 14, 28, 0.88)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(4, 6, 16, 0.22)',
+  },
+  videoBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  videoBadgeIcon: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    marginLeft: 2,
   },
   voiceBadge: {
     position: 'absolute',

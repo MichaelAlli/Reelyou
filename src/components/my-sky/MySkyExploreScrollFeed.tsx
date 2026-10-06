@@ -15,7 +15,7 @@ import {
 } from '@/components/skywrite/SkywriteOwnerSkySnapshotPanel';
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import { Fonts, Spacing } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import {
   EXPLORE_DEMO_OWNER_IDS,
   EXPLORE_DEMO_PROFILES,
@@ -36,8 +36,12 @@ interface MySkyExploreScrollFeedProps {
   onScrollOffsetChange?: (offsetY: number) => void;
 }
 
-function displayName(userId: string): string {
-  if (userId === currentUser.id) return currentUser.name;
+function displayName(
+  userId: string,
+  sessionOwnerId: string | null,
+  sessionDisplayName: string,
+): string {
+  if (sessionOwnerId && userId === sessionOwnerId) return sessionDisplayName;
   if (isExploreDemoOwnerId(userId)) return EXPLORE_DEMO_PROFILES[userId].name;
   return 'Sky friend';
 }
@@ -50,6 +54,7 @@ function MySkyExploreScrollFeedComponent({
 }: MySkyExploreScrollFeedProps) {
   const scrollRef = useRef<ScrollView>(null);
   const router = useRouter();
+  const { userId: sessionOwnerId, displayName: sessionDisplayName } = useSessionUserId();
   const { listFollowingUserIds } = useReelyouConnect();
   const { aroundYourSkyFeed, skywrites, communities, guidingLightView } = useOnboarding();
 
@@ -69,7 +74,9 @@ function MySkyExploreScrollFeedComponent({
   const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
 
   const sections = useMemo(() => {
-    const followingIds = listFollowingUserIds().filter((id) => id !== currentUser.id);
+    const followingIds = sessionOwnerId
+      ? listFollowingUserIds().filter((id) => id !== sessionOwnerId)
+      : listFollowingUserIds();
     const connected = followingIds.map((id) => ({
       ownerId: id,
       kind: 'connected' as const,
@@ -94,7 +101,7 @@ function MySkyExploreScrollFeedComponent({
         kind: 'suggested' as const,
       }));
     return [...connected, ...demo, ...suggested];
-  }, [listFollowingUserIds, nearbyAnchors]);
+  }, [listFollowingUserIds, nearbyAnchors, sessionOwnerId]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     onScrollOffsetChange?.(event.nativeEvent.contentOffset.y);
@@ -120,13 +127,15 @@ function MySkyExploreScrollFeedComponent({
         <SkywriteOwnerSkySnapshotPanel
           key={section.ownerId}
           ownerId={section.ownerId}
-          displayName={displayName(section.ownerId)}
+          displayName={displayName(section.ownerId, sessionOwnerId, sessionDisplayName)}
           kind={section.kind}
           connectionStatus={connectionStatusForExploreOwner(
             section.ownerId,
             connectedActorIds,
           )}
-          ownerSkywrites={section.ownerId === currentUser.id ? skywrites : undefined}
+          ownerSkywrites={
+            sessionOwnerId && section.ownerId === sessionOwnerId ? skywrites : undefined
+          }
           joinedCommunityIds={joinedCommunityIds}
           guidanceActive={guidanceActive}
         />

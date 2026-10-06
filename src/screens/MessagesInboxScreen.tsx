@@ -2,12 +2,14 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { otherParticipantId } from '@/messages/messagesCanonical';
 import { Fonts } from '@/constants/theme';
 
 export function MessagesInboxScreen() {
   const router = useRouter();
+  const { userId: sessionOwnerId } = useSessionUserId();
   const {
     messages,
     searchableUsers,
@@ -46,7 +48,9 @@ export function MessagesInboxScreen() {
           inboxThreadIds.map((threadId) => {
             const thread = messages.threadsById[threadId];
             if (!thread) return null;
-            const otherId = otherParticipantId(thread.participantIds);
+            const otherId = sessionOwnerId
+              ? otherParticipantId(thread.participantIds, sessionOwnerId)
+              : null;
             const user = searchableUsers.find((u) => u.id === otherId);
             const preview = thread.latestMessageId
               ? messages.messagesById[thread.latestMessageId]?.text

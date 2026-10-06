@@ -1,33 +1,45 @@
-import { currentUser, impactMetrics, profileStats } from '@/data/mockData';
 import { getCanonicalProfilePhotoDisplayUri } from '@/identity/canonicalUserProfilePhoto';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 import { buildProfileSkywritingsSection } from '@/profile/buildProfileSkywritingsSection';
-import type { OwnerProfileView } from '@/profile/ownerProfileTypes';
+import type { OwnerProfileMetrics, OwnerProfileView } from '@/profile/ownerProfileTypes';
 import { filterProfileSkywritingItems } from '@/profile/buildProfileSkywritingsSection';
-import { PROFILE_BETA_PREVIEW_CATEGORY_IDS, SKY_AREA_TAB_ALL, type SkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
+import { SKY_AREA_TAB_ALL, type SkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
+
+function formatOwnerBio(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  return trimmed.startsWith('“') ? trimmed : `“${trimmed.replace(/^"|"$/g, '')}”`;
+}
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 export function buildOwnerProfileView(input: {
+  owner: {
+    id: string;
+    name: string;
+    roleLine?: string;
+    bio?: string;
+    avatarInitials?: string;
+    avatarColor?: string;
+  };
   skywrites: SkywriteRecord[];
   profileSkyAreaShortcutIds?: readonly SkyAreaCategoryId[];
-  roleLineOverride?: string;
-  bioOverride?: string;
   avatarUriOverride?: string | null;
+  metrics?: OwnerProfileMetrics;
 }): OwnerProfileView {
-  const roleLine =
-    input.roleLineOverride?.trim() ||
-    currentUser.subtitle?.replace(/,/g, ' •') ||
-    'Entrepreneur • Creator • Builder';
-
-  const bio =
-    input.bioOverride?.trim() ||
-    currentUser.bio ||
-    'I’m building businesses and communities that help people become their best selves.';
+  const roleLine = input.owner.roleLine?.trim() ?? '';
+  const bio = formatOwnerBio(input.owner.bio ?? '');
 
   const shortcutIds =
     input.profileSkyAreaShortcutIds && input.profileSkyAreaShortcutIds.length > 0
       ? input.profileSkyAreaShortcutIds
-      : PROFILE_BETA_PREVIEW_CATEGORY_IDS;
+      : [];
 
   const skywritings = buildProfileSkywritingsSection({
     skywrites: input.skywrites,
@@ -42,21 +54,20 @@ export function buildOwnerProfileView(input: {
 
   return {
     identity: {
-      id: currentUser.id,
-      name: currentUser.name,
+      id: input.owner.id,
+      name: input.owner.name,
       roleLine,
-      bio: bio.startsWith('“') ? bio : `“${bio.replace(/^"|"$/g, '')}”`,
+      bio,
       avatarUri:
         input.avatarUriOverride ??
         getCanonicalProfilePhotoDisplayUri() ??
-        currentUser.avatarUri ??
         null,
-      avatarInitials: currentUser.avatarInitials,
-      avatarColor: currentUser.avatarColor,
+      avatarInitials: input.owner.avatarInitials ?? initialsFromName(input.owner.name),
+      avatarColor: input.owner.avatarColor ?? '#6B7FD7',
     },
     metrics: {
-      livesImpacted: profileStats.livesEncouraged ?? impactMetrics.livesEncouraged,
-      contributionsMade: profileStats.contributionsMade ?? impactMetrics.contributionsMade,
+      livesImpacted: input.metrics?.livesImpacted ?? 0,
+      contributionsMade: input.metrics?.contributionsMade ?? 0,
     },
     skywritingPreviews,
     skywritings,

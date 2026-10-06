@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { memo } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { usePerformSignOut } from '@/auth/usePerformSignOut';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
@@ -17,12 +18,18 @@ interface HomeGlobalMenuSheetProps {
 
 function HomeGlobalMenuSheetComponent({ visible, onClose }: HomeGlobalMenuSheetProps) {
   const router = useRouter();
+  const signOut = usePerformSignOut();
   const { messages } = useReelyouConnect();
   const unreadMessages = messages.unreadThreadIds.length > 0;
 
   const go = (path: string) => {
     onClose();
     router.push(path as never);
+  };
+
+  const handleSignOut = () => {
+    onClose();
+    void signOut();
   };
 
   return (
@@ -45,7 +52,7 @@ function HomeGlobalMenuSheetComponent({ visible, onClose }: HomeGlobalMenuSheetP
             onPress={() => go(buildVisitorProfileHref(VISITOR_PROFILE_QA_OWNER_ID))}
           />
         ) : null}
-        <MenuRow label="Account / Sign out" onPress={() => go('/login')} muted />
+        <MenuRow label="Sign out" onPress={handleSignOut} muted />
         <Pressable onPress={onClose} accessibilityLabel="Close menu" style={styles.done}>
           <Text style={styles.doneText}>Close</Text>
         </Pressable>

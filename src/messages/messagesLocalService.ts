@@ -1,4 +1,3 @@
-import { currentUser } from '@/data/mockData';
 import { canonicalThreadId } from '@/messages/messagesCanonical';
 import { resolveOutboundDeliveryMode } from '@/messages/messagesEligibility';
 import type { DirectMessage, MessageThread, MessagesState } from '@/messages/messagesTypes';
@@ -14,17 +13,18 @@ function sortThreadIds(state: MessagesState, threadId: string): string[] {
 /** Local Beta message operations — future backend replaces internals. */
 export function openOrCreateThread(
   state: MessagesState,
+  selfUserId: string,
   otherUserId: string,
   connectedIds: string[],
 ): MessagesState {
-  const threadId = canonicalThreadId(currentUser.id, otherUserId);
+  const threadId = canonicalThreadId(selfUserId, otherUserId);
   if (state.threadsById[threadId]) return state;
   const mode = resolveOutboundDeliveryMode(otherUserId, connectedIds, state.blockedUserIds);
   if (mode === 'blocked') return state;
   const now = Date.now();
   const thread: MessageThread = {
     id: threadId,
-    participantIds: [currentUser.id, otherUserId].sort(),
+    participantIds: [selfUserId, otherUserId].sort(),
     createdAt: now,
     updatedAt: now,
     latestMessageId: null,
@@ -40,6 +40,7 @@ export function openOrCreateThread(
 
 export function sendMessageLocal(
   state: MessagesState,
+  selfUserId: string,
   threadId: string,
   payload: SendMessagePayload,
   connectedIds: string[],
@@ -50,7 +51,7 @@ export function sendMessageLocal(
   const thread = state.threadsById[threadId];
   if (!thread) return state;
 
-  const otherId = thread.participantIds.find((id) => id !== currentUser.id);
+  const otherId = thread.participantIds.find((id) => id !== selfUserId);
   if (!otherId) return state;
 
   const mode = resolveOutboundDeliveryMode(otherId, connectedIds, state.blockedUserIds);
@@ -72,7 +73,7 @@ export function sendMessageLocal(
   const message: DirectMessage = {
     id: messageId,
     threadId,
-    senderId: currentUser.id,
+    senderId: selfUserId,
     text,
     createdAt: now,
     status: 'sent',
@@ -96,10 +97,11 @@ export function sendMessageLocal(
 
 export function receiveIncomingRequestLocal(
   state: MessagesState,
+  selfUserId: string,
   fromUserId: string,
   text: string,
 ): MessagesState {
-  const threadId = canonicalThreadId(currentUser.id, fromUserId);
+  const threadId = canonicalThreadId(selfUserId, fromUserId);
   if (state.blockedUserIds.includes(fromUserId)) return state;
   const now = Date.now();
   const messageId = `msg-${threadId}-in-${now}`;
@@ -113,7 +115,7 @@ export function receiveIncomingRequestLocal(
   };
   const thread: MessageThread = {
     id: threadId,
-    participantIds: [currentUser.id, fromUserId].sort(),
+    participantIds: [selfUserId, fromUserId].sort(),
     createdAt: now,
     updatedAt: now,
     latestMessageId: messageId,
@@ -222,9 +224,13 @@ export function unblockUserLocal(state: MessagesState, userId: string): Messages
   };
 }
 
-export function blockUserLocal(state: MessagesState, userId: string): MessagesState {
+export function blockUserLocal(
+  state: MessagesState,
+  selfUserId: string,
+  userId: string,
+): MessagesState {
   if (state.blockedUserIds.includes(userId)) return state;
-  const threadId = canonicalThreadId(currentUser.id, userId);
+  const threadId = canonicalThreadId(selfUserId, userId);
   let next: MessagesState = {
     ...state,
     blockedUserIds: [...state.blockedUserIds, userId],

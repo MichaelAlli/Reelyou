@@ -12,10 +12,18 @@ export function mapAuthErrorToMessage(error: string | undefined): string {
       return 'Could not reach the server. Check your connection and try again.';
     case 'server_error':
       return 'Something went wrong on our side. Try again in a moment.';
+    case 'email_delivery_failed':
+      return 'We couldn’t send the reset email right now. Please try again.';
+    case 'invalid_email':
+      return 'Enter a valid email address.';
+    case 'rate_limited':
+      return 'Too many attempts. Wait a few minutes and try again.';
+    case 'invalid_or_expired_token':
+      return 'This reset link expired or was already used. Request a new one from sign in.';
     case 'weak_password':
       return 'Choose a password at least 8 characters long.';
     case 'email_in_use':
-      return 'An account with this email already exists.';
+      return 'This email is already connected to a Reelyou account. Sign in or use Forgot password.';
     case 'terms_required':
     case 'legal_version_required':
       return 'Accept the terms and privacy policy to continue.';

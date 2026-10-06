@@ -8,6 +8,9 @@ import {
   type ReactNode,
 } from 'react';
 
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { isLegacyDemoEnabled } from '@/constants/devFlags';
 import { currentUser, orbitUsers } from '@/data/mockData';
 import { useHumanPotentialMetrics } from '@/humanPotential/HumanPotentialMetricsProvider';
@@ -44,6 +47,10 @@ interface LegacyContextValue {
 const LegacyContext = createContext<LegacyContextValue | null>(null);
 
 export function LegacyProvider({ children }: { children: ReactNode }) {
+  const { user: authUser } = useReelyouAuth();
+  const ownerUserId =
+    resolveActiveUserId(authUser) ??
+    (isExplicitDevDemoModeEnabled() ? currentUser.id : '');
   const { state: metricsState, isLoaded: metricsLoaded } = useHumanPotentialMetrics();
   const { contributions } = useSkywriteThreads();
   const { state: savedState, isLoaded: savedLoaded } = useSavedThreads();
@@ -71,21 +78,29 @@ export function LegacyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const userDirectory = useMemo(() => {
-    const map: Record<string, string> = { [currentUser.id]: currentUser.name };
-    for (const user of orbitUsers) {
-      map[user.id] = user.name;
+    const map: Record<string, string> = {};
+    if (ownerUserId) {
+      map[ownerUserId] =
+        authUser?.fullName?.trim() ||
+        (isExplicitDevDemoModeEnabled() ? currentUser.name : 'You');
+    }
+    if (isExplicitDevDemoModeEnabled()) {
+      map[currentUser.id] = currentUser.name;
+      for (const user of orbitUsers) {
+        map[user.id] = user.name;
+      }
     }
     if (isLegacyDemoEnabled()) {
       map['orbit-1'] = 'Alex Kim';
       map['sky-3'] = 'Priya Sharma';
     }
     return map;
-  }, []);
+  }, [authUser?.fullName, ownerUserId]);
 
   const synthesized = useMemo(
     () =>
       buildLegacyMoments({
-        ownerUserId: currentUser.id,
+        ownerUserId,
         metrics: metricsState,
         contributions,
         reflections: savedState.reflections,
@@ -102,6 +117,7 @@ export function LegacyProvider({ children }: { children: ReactNode }) {
       metricsState,
       savedState.reflections,
       skywrites,
+      ownerUserId,
       userState,
       userDirectory,
     ],
@@ -123,12 +139,12 @@ export function LegacyProvider({ children }: { children: ReactNode }) {
     const stableNow =
       reelMoments.length > 0 ? reelMoments[reelMoments.length - 1]!.occurredAt : 0;
     return buildReelSequence({
-      ownerUserId: currentUser.id,
+      ownerUserId,
       moments: reelMoments,
       userReviewed: userState.reelReview.userReviewed,
       now: stableNow,
     });
-  }, [userState.reelReview.hiddenMomentIds, userState.reelReview.userReviewed, visibleMoments]);
+  }, [ownerUserId, userState.reelReview.hiddenMomentIds, userState.reelReview.userReviewed, visibleMoments]);
 
   const hideMoment = useCallback(
     (legacyMomentId: string) => {

@@ -1,4 +1,5 @@
 import { authenticateUser, createUser, getUserRecord } from '../db/accountRepository.js';
+import { getUserProfile } from '../profile/userProfileRepository.js';
 import {
   assertUserMayAuthenticate,
   cancelAccountDeletion,
@@ -6,13 +7,35 @@ import {
   requestAccountDeletion,
 } from './accountDeletion.js';
 import {
-  emailDeliveryConfigured,
   requestPasswordReset,
   requestUsernameReminder,
   resetPasswordWithToken,
 } from './passwordRecovery.js';
 import { consumeRefreshToken, issueRefreshToken } from './refreshTokens.js';
 import { signAccessToken } from './jwt.js';
+
+function authUserForClient(userId: string): {
+  id: string;
+  fullName: string;
+  email: string;
+  username: string | null;
+  bio: string | null;
+  avatarMediaKey: string | null;
+  onboardingComplete: boolean;
+} {
+  const row = getUserRecord(userId);
+  if (!row) throw new Error('user_not_found');
+  const profile = getUserProfile(row.id);
+  return {
+    id: row.id,
+    fullName: row.fullName,
+    email: row.emailNormalized,
+    username: profile?.username ?? null,
+    bio: profile?.bio ?? null,
+    avatarMediaKey: profile?.avatarMediaKey ?? null,
+    onboardingComplete: profile?.onboardingComplete ?? false,
+  };
+}
 
 export function handleRegister(body: {
   email?: string;
@@ -28,7 +51,7 @@ export function handleRegister(body: {
       ok: true;
       accessToken: string;
       refreshToken: string;
-      user: { id: string; fullName: string; email: string };
+      user: ReturnType<typeof authUserForClient>;
     }
   | { ok: false; error: string } {
   const email = body.email?.trim() ?? '';
@@ -55,7 +78,7 @@ export function handleRegister(body: {
     });
     const accessToken = signAccessToken(user.id);
     const refreshToken = issueRefreshToken(user.id);
-    return { ok: true, accessToken, refreshToken, user };
+    return { ok: true, accessToken, refreshToken, user: authUserForClient(user.id) };
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNIQUE')) {
       return { ok: false, error: 'email_in_use' };
@@ -69,7 +92,7 @@ export function handleLogin(body: { email?: string; password?: string; rememberM
       ok: true;
       accessToken: string;
       refreshToken: string;
-      user: { id: string; fullName: string; email: string };
+      user: ReturnType<typeof authUserForClient>;
     }
   | { ok: false; error: string } {
   const email = body.email?.trim() ?? '';
@@ -83,7 +106,7 @@ export function handleLogin(body: { email?: string; password?: string; rememberM
   }
   const accessToken = signAccessToken(user.id);
   const refreshToken = issueRefreshToken(user.id);
-  return { ok: true, accessToken, refreshToken, user };
+  return { ok: true, accessToken, refreshToken, user: authUserForClient(user.id) };
 }
 
 export function handleRefresh(body: { refreshToken?: string }):
@@ -91,7 +114,7 @@ export function handleRefresh(body: { refreshToken?: string }):
       ok: true;
       accessToken: string;
       refreshToken: string;
-      user: { id: string; fullName: string; email: string };
+      user: ReturnType<typeof authUserForClient>;
     }
   | { ok: false; error: string } {
   const raw = body.refreshToken?.trim();
@@ -102,20 +125,26 @@ export function handleRefresh(body: { refreshToken?: string }):
   if (!row || !assertUserMayAuthenticate(userId)) {
     return { ok: false, error: 'invalid_credentials' };
   }
-  const user = { id: row.id, fullName: row.fullName, email: row.emailNormalized };
-  const accessToken = signAccessToken(user.id);
-  const refreshToken = issueRefreshToken(user.id);
-  return { ok: true, accessToken, refreshToken, user };
+  const accessToken = signAccessToken(row.id);
+  const refreshToken = issueRefreshToken(row.id);
+  return { ok: true, accessToken, refreshToken, user: authUserForClient(row.id) };
 }
 
 export async function handleForgotPassword(body: { email?: string }) {
   const email = body.email?.trim() ?? '';
   if (!email) return { ok: false as const, error: 'invalid_request' };
   const result = await requestPasswordReset(email);
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  if (!result.accountFound) {
+    return { ok: true as const, accountFound: false as const };
+  }
   return {
     ok: true as const,
-    emailSent: result.emailSent,
-    emailConfigured: emailDeliveryConfigured(),
+    accountFound: true as const,
+    emailSent: true as const,
+    maskedEmail: result.maskedEmail,
   };
 }
 
@@ -123,10 +152,17 @@ export async function handleForgotUsername(body: { email?: string }) {
   const email = body.email?.trim() ?? '';
   if (!email) return { ok: false as const, error: 'invalid_request' };
   const result = await requestUsernameReminder(email);
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+  if (!result.accountFound) {
+    return { ok: true as const, accountFound: false as const };
+  }
   return {
     ok: true as const,
-    emailSent: result.emailSent,
-    emailConfigured: emailDeliveryConfigured(),
+    accountFound: true as const,
+    emailSent: true as const,
+    maskedEmail: result.maskedEmail,
   };
 }
 
@@ -155,7 +191,7 @@ export function handleSession(
   }
   return {
     ok: true,
-    user: { id: row.id, fullName: row.fullName, email: row.emailNormalized },
+    user: authUserForClient(row.id),
     accountDeletion: getAccountDeletionStatus(row),
   };
 }

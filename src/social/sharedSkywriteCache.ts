@@ -1,16 +1,22 @@
+import { filterVisibleBetaSkywrites } from '@/skywrite/standaloneAudioSkywrite';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 const byAuthor = new Map<string, SkywriteRecord[]>();
 const byId = new Map<string, SkywriteRecord>();
 
 export function cacheRemoteSkywrites(authorUserId: string, posts: SkywriteRecord[]): void {
-  byAuthor.set(authorUserId, posts);
-  for (const post of posts) {
+  const visible = filterVisibleBetaSkywrites(posts);
+  byAuthor.set(authorUserId, visible);
+  for (const post of visible) {
     byId.set(post.id, post);
   }
 }
 
 export function cacheRemoteSkywrite(post: SkywriteRecord): void {
+  if (filterVisibleBetaSkywrites([post]).length === 0) {
+    byId.delete(post.id);
+    return;
+  }
   byId.set(post.id, post);
   if (!post.authorId) return;
   const existing = byAuthor.get(post.authorId) ?? [];
@@ -36,5 +42,7 @@ export function mergeCachedAuthorSkywrites(
   const byId = new Map<string, SkywriteRecord>();
   for (const post of local) byId.set(post.id, post);
   for (const post of cached) byId.set(post.id, post);
-  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return filterVisibleBetaSkywrites(
+    [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+  );
 }

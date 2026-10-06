@@ -62,6 +62,10 @@ import {
   type MySkyView,
   type MySkyVisibleLayers,
 } from '@/mySky';
+import { buildArrivalStarsSnapshot } from '@/mySky/buildArrivalStarsSnapshot';
+import { resolveCurrentSkyOwnerProfile } from '@/mySky/skyIdentity';
+import { resolveMySkySources } from '@/mySky/mySkyState';
+import type { MySkyStarDisplay } from '@/mySky/types';
 import {
   DEFAULT_MY_SKY_VIEWPORT,
   type MySkyViewportSnapshot,
@@ -85,11 +89,19 @@ import {
   loadSkyEvolution,
   saveSkyEvolution,
 } from '@/mySky/skyEvolutionPersistence';
+import { registerSignOutCleanup } from '@/auth/sessionLifecycle';
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
-import { currentUser } from '@/data/mockData';
+import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
+import { loadOnboardingState, saveOnboardingState } from '@/onboarding/onboardingPersistence';
 import { formatSkywriteServerSyncError } from '@/social/formatSkywriteServerSyncError';
 import { addToYourJourneyOnServer } from '@/social/sharedSkywriteApi';
+import {
+  fetchServerProfile,
+  mergeOnboardingWithServerProfile,
+  patchServerProfile,
+  syncOnboardingCompleteToServer,
+} from '@/profile/serverProfileApi';
 import { syncPublishedSkywriteToServer } from '@/social/publishSharedSkywrite';
 import {
   applyAddToYourJourney,
@@ -104,6 +116,7 @@ import {
   mapServerSkywriteToRecord,
 } from '@/social/sharedSkywriteApi';
 import { cacheRemoteSkywrites } from '@/social/sharedSkywriteCache';
+import { subscribeSkywriteLocalRecordSync } from '@/skywrite/library/skywriteLocalRecordSync';
 import {
   loadProfileSkyAreaShortcutIds,
   saveProfileSkyAreaShortcutIds,
@@ -120,13 +133,18 @@ import {
   type SkywriteRecord,
   type SkywritesState,
 } from '@/skywrite';
-import { ensureSkywriteVideoThumbnail } from '@/skywrite/publish/ensureSkywriteVideoThumbnail';
+import {
+  ensureSkywriteVideoThumbnail,
+  prepareSkywriteDraftForPublish,
+} from '@/skywrite/publish/ensureSkywriteVideoThumbnail';
 import {
   publishSkywriteDraft,
   type PublishSkywriteProgress,
   type PublishSkywriteResult,
 } from '@/skywrite/publish/publishSkywriteDraft';
 import { scheduleSkywritePostPublishEffects } from '@/skywrite/postPublish/scheduleSkywritePostPublishEffects';
+import { applySkywriteVideoCover } from '@/skywrite/library/applySkywriteVideoCover';
+import { onSkywriteCreated } from '@/journeyThreads/journeyThreadFutureHooks';
 import { dismissTodayFocusForDateKey } from '@/todayFocus/todayFocusSession';
 import { stripSkywriteRenderableContent } from '@/skywrite/lifecycle/skywriteContentLifecycle';
 import {
@@ -183,7 +201,9 @@ interface OnboardingContextValue {
   /** Clear personalization data while preserving AI toggle preference */
   clearPersonalizationData: () => void;
   /** Mark onboarding flow complete (Process Screen) — preserves all collected data */
-  completeOnboarding: () => void;
+  completeOnboarding: () => Promise<boolean>;
+  /** Per-user onboarding + library hydration finished for the active account */
+  userSessionHydrated: boolean;
   /** Active daily intention record (local-first, AI-ready) */
   todayFocus: TodayFocusRecord;
   /** Calm suggestions derived from onboarding profile — user can override */
@@ -254,6 +274,9 @@ interface OnboardingContextValue {
   /** Owner visibility preferences — local-first, immediately reflected in Public Sky. */
   mySkyVisibilitySettings: SkyVisibilitySettings;
   setMySkyVisibilitySettings: (settings: SkyVisibilitySettings) => void;
+  /** Star field including a just-published Skywrite — correct semantic color and highlight. */
+  buildArrivalStarsForRecord: (record: SkywriteRecord) => MySkyStarDisplay[];
+  applySkywriteVideoCoverAt: (skywriteId: string, seekMs: number) => Promise<{ ok: boolean }>;
 }
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -293,6 +316,25 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       contentOverrides: {},
     }));
   const [skyEvolution, setSkyEvolution] = useState<SkyEvolutionRecord>(EMPTY_SKY_EVOLUTION);
+  const [userSessionHydrated, setUserSessionHydrated] = useState(
+    () => !isReelyouAuthConfigured(),
+  );
+  const onboardingSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetSignedOutSessionMemory = useCallback(() => {
+    setState(EMPTY_ONBOARDING_STATE);
+    setTodayFocusState(reconcileTodayFocusForToday({ ...EMPTY_TODAY_FOCUS, dateKey: getLocalDateKey() }));
+    setCommunitiesState(EMPTY_COMMUNITIES);
+    setGuidingLightDismissState(EMPTY_GUIDING_LIGHT_DISMISS);
+    setSkywritesState(EMPTY_SKYWRITES);
+    skywritesRef.current = EMPTY_SKYWRITES;
+    setProfileSkyAreaShortcutIdsState([]);
+    setSkyEvolution(EMPTY_SKY_EVOLUTION);
+    setMySkyVisibilitySettingsState({
+      ...DEFAULT_SKY_VISIBILITY_SETTINGS,
+      contentOverrides: {},
+    });
+  }, []);
 
   const setMySkyViewport = useCallback((snapshot: MySkyViewportSnapshot) => {
     setMySkyViewportState(snapshot);
@@ -312,49 +354,73 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   }, [skywritesState]);
 
   useEffect(() => {
+    return registerSignOutCleanup(resetSignedOutSessionMemory);
+  }, [resetSignedOutSessionMemory]);
+
+  useEffect(() => {
     setActiveStorageUserId(activeUserId);
     let live = true;
-    void hydrateTodayFocusDismissState();
-    loadTodayFocus().then((record) => {
-      if (live) {
-        setTodayFocusState(reconcileTodayFocusForToday(record));
-      }
-    });
-    loadCommunities().then((record) => {
-      if (live) {
-        setCommunitiesState(record);
-      }
-    });
-    loadGuidingLightDismiss().then((record) => {
-      if (live) {
-        setGuidingLightDismissState(record);
-      }
-    });
-    loadSkywrites().then((record) => {
-      if (live) {
-        setSkywritesState(record);
-        skywritesRef.current = record;
-      }
-    });
-    loadProfileSkyAreaShortcutIds().then((ids) => {
-      if (live) {
-        setProfileSkyAreaShortcutIdsState(ids);
-      }
-    });
-    loadSkyEvolution().then((record) => {
-      if (live) {
-        setSkyEvolution(record);
-      }
-    });
-    loadSkyVisibilitySettings().then((record) => {
-      if (live) {
-        setMySkyVisibilitySettingsState(record);
-      }
-    });
+
+    if (isReelyouAuthConfigured() && !activeUserId) {
+      resetSignedOutSessionMemory();
+      setUserSessionHydrated(true);
+      return () => {
+        live = false;
+      };
+    }
+
+    setUserSessionHydrated(false);
+    void (async () => {
+      await hydrateTodayFocusDismissState();
+      const [
+        onboardingRecord,
+        focusRecord,
+        communitiesRecord,
+        guidingLightRecord,
+        skywritesRecord,
+        shortcutIds,
+        evolutionRecord,
+        visibilityRecord,
+        serverProfile,
+      ] = await Promise.all([
+        loadOnboardingState(),
+        loadTodayFocus(),
+        loadCommunities(),
+        loadGuidingLightDismiss(),
+        loadSkywrites(),
+        loadProfileSkyAreaShortcutIds(),
+        loadSkyEvolution(),
+        loadSkyVisibilitySettings(),
+        isSharedSocialPersistenceEnabled() ? fetchServerProfile() : Promise.resolve(null),
+      ]);
+      if (!live) return;
+      setState(mergeOnboardingWithServerProfile(onboardingRecord, serverProfile));
+      setTodayFocusState(reconcileTodayFocusForToday(focusRecord));
+      setCommunitiesState(communitiesRecord);
+      setGuidingLightDismissState(guidingLightRecord);
+      setSkywritesState(skywritesRecord);
+      skywritesRef.current = skywritesRecord;
+      setProfileSkyAreaShortcutIdsState(shortcutIds);
+      setSkyEvolution(evolutionRecord);
+      setMySkyVisibilitySettingsState(visibilityRecord);
+      setUserSessionHydrated(true);
+    })();
+
     return () => {
       live = false;
     };
-  }, [activeUserId]);
+  }, [activeUserId, resetSignedOutSessionMemory]);
+
+  useEffect(() => {
+    if (!activeUserId || !userSessionHydrated) return;
+    if (onboardingSaveTimer.current) clearTimeout(onboardingSaveTimer.current);
+    onboardingSaveTimer.current = setTimeout(() => {
+      void saveOnboardingState(state);
+    }, 250);
+    return () => {
+      if (onboardingSaveTimer.current) clearTimeout(onboardingSaveTimer.current);
+    };
+  }, [activeUserId, state, userSessionHydrated]);
 
   const mergeAuthorSkywritesFromServer = useCallback(async (authorUserId: string) => {
     if (!isSharedSocialPersistenceEnabled()) return;
@@ -389,6 +455,19 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       live = false;
     };
   }, [authUser?.id, mergeAuthorSkywritesFromServer]);
+
+  useEffect(() => {
+    return subscribeSkywriteLocalRecordSync((record) => {
+      setSkywritesState((current) => {
+        const posts = current.posts.map((post) => (post.id === record.id ? record : post));
+        if (posts.every((post, i) => post === current.posts[i])) return current;
+        const next: SkywritesState = { posts };
+        skywritesRef.current = next;
+        void saveSkywrites(next);
+        return next;
+      });
+    });
+  }, []);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -441,6 +520,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [basePersonalizationProfile, guidingLightDismiss],
   );
 
+  const sessionSkyOwner = useMemo(
+    () =>
+      authUser?.id
+        ? { id: authUser.id, fullName: authUser.fullName ?? null }
+        : null,
+    [authUser?.fullName, authUser?.id],
+  );
+
   const mySkyView = useMemo(
     () =>
       buildMySkyView(
@@ -454,6 +541,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         skyConnectionActivities,
         participatingCommunityIds,
         mySkyVisibilitySettings,
+        sessionSkyOwner,
       ),
     [
       basePersonalizationProfile,
@@ -464,6 +552,52 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       skyConnectionActivities,
       participatingCommunityIds,
       mySkyVisibilitySettings,
+      sessionSkyOwner,
+    ],
+  );
+
+  const applySkywriteVideoCoverAt = useCallback(async (skywriteId: string, seekMs: number) => {
+    const post = skywritesRef.current.posts.find((entry) => entry.id === skywriteId);
+    if (!post) return { ok: false };
+    const updated = await applySkywriteVideoCover(post, seekMs);
+    if (!updated) return { ok: false };
+    setSkywritesState((current) => {
+      const posts = current.posts.map((entry) => (entry.id === skywriteId ? updated : entry));
+      const next = { posts };
+      skywritesRef.current = next;
+      void saveSkywrites(next);
+      return next;
+    });
+    return { ok: true };
+  }, []);
+
+  const buildArrivalStarsForRecord = useCallback(
+    (record: SkywriteRecord): MySkyStarDisplay[] => {
+      const sources = resolveMySkySources(
+        {
+          ...basePersonalizationProfile,
+          skywrites: skywritesRef.current.posts,
+          guidingLight: guidingLightView.light,
+        },
+        skyEvolution,
+        skyConnectionActivities,
+        participatingCommunityIds,
+      );
+      sources.skyOwner = resolveCurrentSkyOwnerProfile(
+        basePersonalizationProfile.northStar.originalVision,
+        sessionSkyOwner,
+      );
+      return buildArrivalStarsSnapshot(sources, record, mySkyVisibleLayers);
+    },
+    [
+      basePersonalizationProfile,
+      guidingLightView.light,
+      mySkyVisibleLayers,
+      participatingCommunityIds,
+      skyConnectionActivities,
+      skyEvolution,
+      sessionSkyOwner,
+      skywritesState.posts,
     ],
   );
 
@@ -585,11 +719,19 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   const canSelectMoreChallenges = state.challenges.length < MAX_ONBOARDING_CHALLENGES;
 
+  const northStarServerSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const setNorthStarVision = useCallback((vision: string) => {
+    const trimmed = vision.slice(0, MAX_NORTH_STAR_VISION_LENGTH);
     setState((current) => ({
       ...current,
-      northStar: { originalVision: vision.slice(0, MAX_NORTH_STAR_VISION_LENGTH) },
+      northStar: { originalVision: trimmed },
     }));
+    if (!isSharedSocialPersistenceEnabled()) return;
+    if (northStarServerSyncTimer.current) clearTimeout(northStarServerSyncTimer.current);
+    northStarServerSyncTimer.current = setTimeout(() => {
+      void patchServerProfile({ bio: trimmed.trim() || null });
+    }, 600);
   }, []);
 
   const markStep = useCallback((step: OnboardingStepId, status: OnboardingStepStatus) => {
@@ -614,12 +756,23 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const completeOnboarding = useCallback(() => {
-    setState((current) => ({
-      ...current,
-      isOnboardingComplete: true,
-    }));
-  }, []);
+  const completeOnboarding = useCallback(async () => {
+    let nextState: OnboardingState | null = null;
+    setState((current) => {
+      nextState = { ...current, isOnboardingComplete: true };
+      return nextState;
+    });
+    if (!nextState) return false;
+    if (isSharedSocialPersistenceEnabled() && activeUserId) {
+      const synced = await syncOnboardingCompleteToServer(true, nextState);
+      if (!synced.ok) {
+        setState((current) => ({ ...current, isOnboardingComplete: false }));
+        return false;
+      }
+    }
+    const saved = await saveOnboardingState(nextState);
+    return saved;
+  }, [activeUserId]);
 
   const setTodayFocus = useCallback(async (value: string, source: TodayFocusSource) => {
     const trimmed = value.trim();
@@ -761,6 +914,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           saveMs: 0,
         };
       }
+      const authorUserId = activeUserId;
+      if (!authorUserId) {
+        return {
+          ok: false,
+          errorMessage: 'Sign in to publish a Skywrite.',
+          saveMs: 0,
+        };
+      }
       publishInFlightRef.current = true;
       let result: PublishSkywriteResult;
       let lastServerSyncError: string | null = null;
@@ -768,10 +929,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         | { uploadMs: number; serverMs: number; stages?: import('@/skywrite/publish/publishSkywriteDraft').PublishStageTimingMs }
         | undefined;
       try {
+        const draftForPublish = await prepareSkywriteDraftForPublish(draft);
         result = await publishSkywriteDraft(
-          draft,
+          draftForPublish,
           async (record) => {
-            let finalRecord = applyPublishRetentionFields(record, draft);
+            let finalRecord = applyPublishRetentionFields(record, draftForPublish);
             if (isSharedSocialPersistenceEnabled()) {
               const sync = await syncPublishedSkywriteToServer(finalRecord, onProgress);
               if (!sync.ok) {
@@ -783,7 +945,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
             }
             finalRecord = {
               ...finalRecord,
-              authorId: finalRecord.authorId ?? activeUserId,
+              authorId: finalRecord.authorId ?? authorUserId,
             };
             const withoutDup = skywritesRef.current.posts.filter((post) => post.id !== finalRecord.id);
             const next: SkywritesState = {
@@ -799,10 +961,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                   summary: 'A new Skywrite became a star in your sky.',
                 }),
               );
+              onSkywriteCreated(finalRecord);
             }
             return saved ? finalRecord : false;
           },
-          activeUserId,
+          authorUserId,
           onProgress,
         );
         if (result.ok && publishTiming) {
@@ -911,8 +1074,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           saveMs: 0,
         };
       }
+      const authorUserId = activeUserId;
+      if (!authorUserId) {
+        return {
+          ok: false,
+          errorMessage: 'Sign in to update this Skywrite.',
+          saveMs: 0,
+        };
+      }
+      const draftForPublish = await prepareSkywriteDraftForPublish(draft);
       const result = await publishSkywriteDraft(
-        draft,
+        draftForPublish,
         async (record) => {
           let finalRecord = record;
           if (isSharedSocialPersistenceEnabled()) {
@@ -932,7 +1104,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           }
           return saved ? finalRecord : false;
         },
-        existing.authorId ?? activeUserId,
+        existing.authorId ?? authorUserId,
         onProgress,
         { existingId: skywriteId, createdAt: existing.createdAt },
       );
@@ -1088,6 +1260,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setMySkyExploreEnabled,
       mySkyVisibilitySettings,
       setMySkyVisibilitySettings,
+      buildArrivalStarsForRecord,
+      applySkywriteVideoCoverAt,
       profile,
       goals,
       challenges,
@@ -1111,9 +1285,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       resetProfile: resetOnboarding,
       clearPersonalizationData,
       completeOnboarding,
+      userSessionHydrated,
     }),
     [
       state,
+      userSessionHydrated,
       personalizationProfile,
       humanPotentialProfile,
       aiContext,
@@ -1159,6 +1335,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setMySkyExploreEnabled,
       mySkyVisibilitySettings,
       setMySkyVisibilitySettings,
+      buildArrivalStarsForRecord,
+      applySkywriteVideoCoverAt,
       profile,
       goals,
       challenges,

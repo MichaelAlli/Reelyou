@@ -11,6 +11,8 @@ interface SkywritePlayEdgeNavigationProps {
   autoAdvanceCooldownMs?: number;
   topInset?: number;
   bottomInset?: number;
+  onHoldStart?: () => void;
+  onHoldEnd?: () => void;
 }
 
 function SkywritePlayEdgeNavigationComponent({
@@ -22,6 +24,8 @@ function SkywritePlayEdgeNavigationComponent({
   autoAdvanceCooldownMs = 120,
   topInset = 72,
   bottomInset = 160,
+  onHoldStart,
+  onHoldEnd,
 }: SkywritePlayEdgeNavigationProps) {
   const lastNavRef = useRef(0);
 
@@ -43,6 +47,9 @@ function SkywritePlayEdgeNavigationComponent({
         accessibilityRole="button"
         accessibilityLabel="Previous SkyReel item"
         onPress={() => tryNav(onPrevious, canPrevious)}
+        onLongPress={onHoldStart}
+        onPressOut={onHoldEnd}
+        delayLongPress={220}
       />
       <View style={styles.centerCorridor} pointerEvents="none" />
       <Pressable
@@ -51,6 +58,9 @@ function SkywritePlayEdgeNavigationComponent({
         accessibilityRole="button"
         accessibilityLabel="Next SkyReel item"
         onPress={() => tryNav(onNext, canNext)}
+        onLongPress={onHoldStart}
+        onPressOut={onHoldEnd}
+        delayLongPress={220}
       />
     </View>
   );

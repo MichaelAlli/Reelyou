@@ -31,4 +31,9 @@ export const MySkywritesCopy = {
   repostSkyreelSuccess: 'Posted to SkyReel',
   repostSkyreelPending: 'Posting to SkyReel…',
   repostSkyreelFailed: 'Couldn’t repost to SkyReel. Try again.',
+  editCover: 'Edit cover',
+  editCoverTitle: 'Choose a cover frame',
+  editCoverHint: 'Scrub to a moment that represents this video in your grid.',
+  editCoverSaved: 'Cover updated',
+  editCoverFailed: 'Couldn’t update cover. Try again.',
 } as const;

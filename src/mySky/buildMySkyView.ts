@@ -19,6 +19,7 @@ export function buildMySkyView(
   connectionActivities: SkyConnectionActivity[] = [],
   participatingCommunityIds: string[] = [],
   visibilitySettings: SkyVisibilitySettings = DEFAULT_SKY_VISIBILITY_SETTINGS,
+  sessionOwner?: { id: string; fullName?: string | null } | null,
 ): MySkyView {
   const sources = resolveMySkySources(
     profile,
@@ -26,7 +27,10 @@ export function buildMySkyView(
     connectionActivities,
     participatingCommunityIds,
   );
-  sources.skyOwner = resolveCurrentSkyOwnerProfile(profile.northStar.originalVision);
+  sources.skyOwner = resolveCurrentSkyOwnerProfile(
+    profile.northStar.originalVision,
+    sessionOwner,
+  );
 
   const view = buildMySkyViewFromSources(sources, visibleLayers);
   const nodes = applyVisibilityToNodes(view.nodes, visibilitySettings);

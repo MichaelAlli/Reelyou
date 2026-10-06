@@ -8,7 +8,8 @@ import { PlaySkyCue } from '@/components/skywrite/PlaySkyCue';
 import { SkywriteSkyOwnerHeader } from '@/components/skywrite/SkywriteSkyOwnerHeader';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { Fonts, Spacing } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { useOnboarding } from '@/onboarding';
 import { buildPublicSkyView, resolvePublicSkyConnectionStatus } from '@/mySky/buildPublicSkyView';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
@@ -42,6 +43,8 @@ function SkywriteOwnerSkySnapshotPanelComponent({
   guidanceActive,
 }: SkywriteOwnerSkySnapshotPanelProps) {
   const router = useRouter();
+  const { user: authUser } = useReelyouAuth();
+  const sessionOwnerId = resolveActiveUserId(authUser) ?? '';
   const { setMySkyExploreEnabled } = useOnboarding();
   const { width, height } = useWindowDimensions();
   const canvasWidth = width - Spacing.sm * 2;
@@ -51,9 +54,9 @@ function SkywriteOwnerSkySnapshotPanelComponent({
   const [canPlay, setCanPlay] = useState(false);
 
   const ownerPosts = useMemo(() => {
-    if (ownerId === currentUser.id) return ownerSkywrites ?? [];
+    if (sessionOwnerId && ownerId === sessionOwnerId) return ownerSkywrites ?? [];
     return ownerSkywrites ?? resolveOrbitOwnerSkywrites(ownerId);
-  }, [ownerId, ownerSkywrites]);
+  }, [ownerId, ownerSkywrites, sessionOwnerId]);
 
   useEffect(() => {
     void loadSkyHeaderStyleId(ownerId).then(setHeaderStyleId);
@@ -66,8 +69,9 @@ function SkywriteOwnerSkySnapshotPanelComponent({
       undefined,
       undefined,
       ownerPosts.length ? ownerPosts : undefined,
+      sessionOwnerId,
     );
-  }, [connectionStatus, ownerId, ownerPosts]);
+  }, [connectionStatus, ownerId, ownerPosts, sessionOwnerId]);
 
   useEffect(() => {
     if (!registryReady) {
@@ -78,13 +82,14 @@ function SkywriteOwnerSkySnapshotPanelComponent({
       ownerId,
       connectionStatus,
       ownerSkywrites: ownerPosts,
+      sessionOwnerId: sessionOwnerId || null,
       registry,
     });
     setCanPlay(steps.length > 0);
-  }, [connectionStatus, ownerId, ownerPosts, registry, registryReady]);
+  }, [connectionStatus, ownerId, ownerPosts, registry, registryReady, sessionOwnerId]);
 
   const exploreLabel =
-    ownerId === currentUser.id
+    sessionOwnerId && ownerId === sessionOwnerId
       ? SkywritePlayCopy.exploreFullSkySelf
       : SkywritePlayCopy.exploreFullSkyVisitor(displayName.split(' ')[0] ?? displayName);
 
@@ -96,7 +101,7 @@ function SkywriteOwnerSkySnapshotPanelComponent({
         : 'Suggested Sky';
 
   const openProfile = () => {
-    if (ownerId === currentUser.id) {
+    if (sessionOwnerId && ownerId === sessionOwnerId) {
       router.push('/(tabs)/profile' as never);
       return;
     }
@@ -104,7 +109,7 @@ function SkywriteOwnerSkySnapshotPanelComponent({
   };
 
   const openFullSky = () => {
-    if (ownerId === currentUser.id) {
+    if (sessionOwnerId && ownerId === sessionOwnerId) {
       setMySkyExploreEnabled(false);
       router.push('/(tabs)/sky' as never);
       return;

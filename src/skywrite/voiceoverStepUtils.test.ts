@@ -12,7 +12,7 @@ assert.equal(
 );
 assert.equal(
   inferMediaModeFromParts({ text: '', hasPhoto: false, hasVideo: false, hasAudio: true }),
-  'voice',
+  'text',
 );
 
 assert.ok(

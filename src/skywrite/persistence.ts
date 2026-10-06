@@ -21,6 +21,7 @@ import {
   buildMySkywritesLabeledDemoPosts,
   isMySkywritesLabeledDemoPost,
 } from '@/skywrite/library/mySkywritesLabeledDemoPosts';
+import { purgeDisabledStandaloneAudioSkywrites } from '@/skywrite/standaloneAudioSkywriteCleanup';
 import { migrateSkywritesForUser } from '@/skywrite/skywritePersistenceMigration';
 import { EMPTY_SKYWRITE_MEDIA, EMPTY_SKYWRITES } from '@/skywrite/types';
 import type { Mood, Privacy } from '@/types';
@@ -62,11 +63,17 @@ function parsePhoto(raw: unknown): SkywritePhotoMedia | null {
   if (!raw || typeof raw !== 'object') return null;
   const entry = raw as Partial<SkywritePhotoMedia>;
   if (typeof entry.uri !== 'string') return null;
+  const stageFit = entry.stageFit === 'fit' || entry.stageFit === 'fill' ? entry.stageFit : undefined;
   return {
     uri: entry.uri,
     remoteAssetId: typeof entry.remoteAssetId === 'string' ? entry.remoteAssetId : undefined,
     width: typeof entry.width === 'number' ? entry.width : undefined,
     height: typeof entry.height === 'number' ? entry.height : undefined,
+    stageFit,
+    framingOffsetX:
+      typeof entry.framingOffsetX === 'number' ? entry.framingOffsetX : undefined,
+    framingOffsetY:
+      typeof entry.framingOffsetY === 'number' ? entry.framingOffsetY : undefined,
   };
 }
 
@@ -225,7 +232,7 @@ function parseState(raw: string | null): SkywritesState {
 }
 
 function mergeLabeledRecentDemoPosts(state: SkywritesState): SkywritesState {
-  if (isReelyouAuthConfigured() || !isLegacyDemoEnabled()) return state;
+  if (!isLegacyDemoEnabled()) return state;
   const demos = buildMySkywritesLabeledDemoPosts();
   const existingIds = new Set(state.posts.map((post) => post.id));
   const toAdd = demos.filter((post) => !existingIds.has(post.id));
@@ -242,6 +249,11 @@ export async function loadSkywrites(): Promise<SkywritesState> {
     const merged = mergeLabeledRecentDemoPosts(state);
     if (merged !== state) {
       state = merged;
+      await saveSkywrites(state);
+    }
+    const cleanup = await purgeDisabledStandaloneAudioSkywrites(state);
+    if (cleanup.removed > 0 || cleanup.state.posts.length !== state.posts.length) {
+      state = cleanup.state;
       await saveSkywrites(state);
     }
     return state;

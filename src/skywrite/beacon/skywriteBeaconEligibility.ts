@@ -1,4 +1,3 @@
-import { currentUser } from '@/data/mockData';
 import { isContributionBeaconDemoEnabled, isLegacyDemoEnabled } from '@/constants/devFlags';
 import { buildLegacyDemoSkywrites } from '@/legacy/legacyDemoFixtures';
 import { EXPLORE_DEMO_SKYWRITES } from '@/explore/exploreDemoSkies';
@@ -20,7 +19,7 @@ export function withAuthorId(record: SkywriteRecord, fallbackAuthorId: string): 
 /** Public catalog for beacon routing — fixtures + local posts (deduped by id). */
 export function collectPublicSkywritesForBeacon(
   localPosts: readonly SkywriteRecord[],
-  viewerId: string = currentUser.id,
+  viewerId: string,
 ): Array<SkywriteRecord & { authorId: string }> {
   const byId = new Map<string, SkywriteRecord & { authorId: string }>();
 

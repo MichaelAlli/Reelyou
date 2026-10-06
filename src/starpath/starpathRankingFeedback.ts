@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { readStarpathScopedJson, writeStarpathScopedJson } from '@/starpath/starpathScopedStorage';
 
 const STORAGE_KEY = '@reellyou/starpath-ranking-feedback';
 
@@ -23,7 +23,7 @@ const EMPTY: RankingFeedbackState = { entries: [] };
 
 export async function loadRankingFeedback(): Promise<RankingFeedbackState> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await readStarpathScopedJson(STORAGE_KEY, (value) => value);
     if (!raw) return EMPTY;
     const parsed = JSON.parse(raw) as RankingFeedbackState;
     if (!Array.isArray(parsed.entries)) return EMPTY;
@@ -34,7 +34,7 @@ export async function loadRankingFeedback(): Promise<RankingFeedbackState> {
 }
 
 export async function saveRankingFeedback(state: RankingFeedbackState): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  await writeStarpathScopedJson(STORAGE_KEY, state);
 }
 
 export function fingerprintForCandidate(input: {

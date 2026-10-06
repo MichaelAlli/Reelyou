@@ -19,13 +19,25 @@ import { SkywriteSequenceEditorSheet } from '@/components/skywrite/SkywriteSeque
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
+import { FirstStarReinforcementCard } from '@/components/my-sky/FirstStarReinforcementCard';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
 import { MySkyStarInteractionOverlay } from '@/components/my-sky/MySkyStarInteractionOverlay';
+import { SkyStarMeaningIntroCard } from '@/components/my-sky/SkyStarMeaningIntroCard';
 import { SkywriteToSkyTransition } from '@/components/my-sky/SkywriteToSkyTransition';
+import { MySkyCopy } from '@/constants/mySkyCopy';
 import { BottomNav } from '@/components/BottomNav';
 import { CelestialArrivalMotion } from '@/constants/celestialMotion';
 import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
 import { applyArrivalHighlight } from '@/mySky/mySkyState';
+import {
+  resolveSkywriteStarMeaning,
+  type SkywriteStarMeaning,
+} from '@/mySky/getSkywriteStarColor';
+import {
+  loadMySkyStarIntroState,
+  markFirstStarReinforcementSeen,
+} from '@/mySky/mySkyStarIntroPersistence';
+import { useMySkyStarIntro } from '@/mySky/useMySkyStarIntro';
 import { useOnboarding } from '@/onboarding';
 import { useContributionBeaconOverlayQueue } from '@/skywrite/beacon/useActiveContributionBeacons';
 import { consumeReturnToSkyInvitationsAfterResponse } from '@/skywrite/invitations/skyInvitationFlow';
@@ -79,6 +91,28 @@ export function FocusedSkywriteScreen() {
   const { registry, ready: registryReady } = usePlaySkySequenceRegistry();
   const [headerStyleId, setHeaderStyleId] = useState<SkyHeaderStyleId>('starlight');
   const activeContributionBeacons = useContributionBeaconOverlayQueue();
+  const { showSkywriteIntro, dismissSkywriteIntro } = useMySkyStarIntro();
+  const [firstStarReinforcementVisible, setFirstStarReinforcementVisible] = useState(false);
+  const [firstStarReinforcementMeaning, setFirstStarReinforcementMeaning] =
+    useState<SkywriteStarMeaning | null>(null);
+
+  useEffect(() => {
+    if (skyArrivalHandoff?.skywriteStatus !== 'landed') return;
+    const skywriteId = skyArrivalHandoff.skywriteId;
+    void loadMySkyStarIntroState().then((intro) => {
+      if (intro.hasSeenFirstStarReinforcement) return;
+      const post = skywrites.find((entry) => entry.id === skywriteId);
+      if (!post) return;
+      setFirstStarReinforcementMeaning(resolveSkywriteStarMeaning(post));
+      setFirstStarReinforcementVisible(true);
+    });
+  }, [skyArrivalHandoff?.skywriteStatus, skyArrivalHandoff?.skywriteId, skywrites]);
+
+  const dismissFirstStarReinforcement = useCallback(() => {
+    setFirstStarReinforcementVisible(false);
+    setFirstStarReinforcementMeaning(null);
+    void markFirstStarReinforcementSeen();
+  }, []);
 
   useEffect(() => {
     void loadSkyHeaderStyleId(mySkyView.skyOwner.id).then(setHeaderStyleId);
@@ -109,6 +143,15 @@ export function FocusedSkywriteScreen() {
     }, []),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setMySkywritesOpen(false);
+        setSequenceEditorOpen(false);
+      };
+    }, []),
+  );
+
   const panelHeight = Math.min(Math.round(height * 0.72), 620);
   const regionCount = Math.min(
     3,
@@ -122,18 +165,24 @@ export function FocusedSkywriteScreen() {
     !arrivalOverlayActive && !arrivalLandingPhase,
   );
   const freezeStarField =
-    (arrivalOverlayActive || arrivalLandingPhase) &&
-    Boolean(skyArrivalHandoff?.renderStarsSnapshot);
+    arrivalOverlayActive && Boolean(skyArrivalHandoff?.renderStarsSnapshot);
 
   const displayView = useMemo(() => {
     const snapshot = skyArrivalHandoff?.renderStarsSnapshot;
+    const nodeId = skyArrivalHandoff?.skyNodeId ?? null;
     if (freezeStarField && snapshot) {
       return { ...mySkyView, stars: snapshot };
     }
-    if (!skyArrivalHandoff?.skyNodeId) return mySkyView;
+    if (nodeId && mySkyView.stars.some((star) => star.id === nodeId)) {
+      return {
+        ...mySkyView,
+        stars: applyArrivalHighlight(mySkyView.stars, nodeId),
+      };
+    }
+    if (!nodeId) return mySkyView;
     return {
       ...mySkyView,
-      stars: applyArrivalHighlight(mySkyView.stars, skyArrivalHandoff.skyNodeId),
+      stars: applyArrivalHighlight(mySkyView.stars, nodeId),
     };
   }, [
     freezeStarField,
@@ -211,6 +260,18 @@ export function FocusedSkywriteScreen() {
             compact
             message={navigationTipMessage('skywrite_basics')}
             onDismiss={skywriteNavTip.dismiss}
+          />
+        ) : null}
+
+        {showSkywriteIntro && !arrivalOverlayActive && !arrivalLandingPhase ? (
+          <SkyStarMeaningIntroCard
+            compact
+            title={MySkyCopy.starIntroSkywriteTitle}
+            body={MySkyCopy.starIntroSkywriteBody}
+            supportLine={MySkyCopy.starIntroSkywriteSupport}
+            onDismiss={() => {
+              void dismissSkywriteIntro();
+            }}
           />
         ) : null}
 
@@ -344,6 +405,13 @@ export function FocusedSkywriteScreen() {
         <View style={styles.arrivalOverlay} pointerEvents="none">
           <SkywriteToSkyTransition presentation="overlay" onComplete={handleArrivalComplete} />
         </View>
+      ) : null}
+
+      {firstStarReinforcementVisible && firstStarReinforcementMeaning ? (
+        <FirstStarReinforcementCard
+          meaning={firstStarReinforcementMeaning}
+          onDismiss={dismissFirstStarReinforcement}
+        />
       ) : null}
 
       <BottomNav />

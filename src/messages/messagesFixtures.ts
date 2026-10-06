@@ -53,6 +53,7 @@ export function buildFixtureMessagesState(): MessagesState {
   };
   state = receiveIncomingRequestLocal(
     state,
+    currentUser.id,
     'orbit-3',
     'Hi — I loved your recent Skywrite. Open to connecting?',
   );

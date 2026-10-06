@@ -6,6 +6,7 @@ import { mapServerSkywriteToRecord } from '@/social/sharedSkywriteApi';
 import { resolveMediaAccessUrl } from '@/social/sharedMediaApi';
 import { uploadSkywriteMediaForPublish } from '@/social/uploadSkywriteMedia';
 import { captureSkywriteVideoPosterUri } from '@/skywrite/publish/captureSkywriteVideoPoster';
+import { syncSkywriteLocalRecord } from '@/skywrite/library/skywriteLocalRecordSync';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 const repairInFlight = new Set<string>();
@@ -70,10 +71,11 @@ export async function repairSkywriteVideoThumbnailIfNeeded(
     );
     if (patched) {
       cacheRemoteSkywrite(patched);
+      syncSkywriteLocalRecord(patched);
       return patched;
     }
 
-    return {
+    const fallback: SkywriteRecord = {
       ...record,
       media: {
         ...record.media,
@@ -83,6 +85,9 @@ export async function repairSkywriteVideoThumbnailIfNeeded(
         },
       },
     };
+    cacheRemoteSkywrite(fallback);
+    syncSkywriteLocalRecord(fallback);
+    return fallback;
   } finally {
     repairInFlight.delete(record.id);
   }

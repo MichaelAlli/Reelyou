@@ -7,6 +7,10 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { OwnerProfileHero } from '@/components/profile/owner/OwnerProfileHero';
 import { OwnerProfileRelationshipCountsRow } from '@/components/profile/owner/OwnerProfileRelationshipCountsRow';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import { currentUser } from '@/data/mockData';
 import { buildProfileRelationshipCounts } from '@/social/skyFollow/profileRelationshipCounts';
 import { OwnerProfileMetricsStrip } from '@/components/profile/owner/OwnerProfileMetricsStrip';
@@ -24,6 +28,8 @@ import { useLegacyRippleViewModel } from '@/legacy/useLegacyRippleViewModel';
 import { OwnerProfilePhotoSheet } from '@/components/profile/owner/OwnerProfilePhotoSheet';
 import { useUserAvatar } from '@/identity/UserAvatarProvider';
 import { useProfilePhotoEditor } from '@/identity/useProfilePhotoEditor';
+import { deriveLivesImpacted } from '@/humanPotential/humanPotentialMetricsEngine';
+import { deriveContributionsMade } from '@/legacy/buildLegacyRippleViewModel';
 import { buildOwnerProfileView } from '@/profile/buildOwnerProfileView';
 import { profileOwnerCelestialBackground } from '@/profile/profileOwnerAssets';
 import { useOnboarding } from '@/onboarding';
@@ -33,36 +39,64 @@ import {
   buildVisitorSelfPreviewHref,
   VISITOR_PROFILE_QA_OWNER_ID,
 } from '@/profile/visitorProfileRoute';
+import { legacyRippleEnabled } from '@/constants/betaFeatures';
 import { Fonts } from '@/constants/theme';
 
 export function OwnerProfileScreen() {
   const router = useRouter();
-  const { skywrites, mySkyView, profileSkyAreaShortcutIds } = useOnboarding();
+  const { user: authUser } = useReelyouAuth();
+  const activeUserId = resolveActiveUserId(authUser);
+  const ownerId =
+    activeUserId ?? (isExplicitDevDemoModeEnabled() ? currentUser.id : '');
+  const { skywrites, mySkyView, profileSkyAreaShortcutIds, northStar } = useOnboarding();
   const { skyFollowGraph } = useReelyouConnect();
   const relationshipCounts = useMemo(
     () =>
       buildProfileRelationshipCounts({
         graph: skyFollowGraph,
-        profileOwnerId: currentUser.id,
-        viewerId: currentUser.id,
+        profileOwnerId: ownerId,
+        viewerId: ownerId,
         isOwnProfile: true,
       }),
-    [skyFollowGraph],
+    [ownerId, skyFollowGraph],
   );
   const userAvatar = useUserAvatar();
   const photoEditor = useProfilePhotoEditor();
 
-  const ownerView = useMemo(
-    () =>
-      buildOwnerProfileView({
-        skywrites,
-        profileSkyAreaShortcutIds,
-        avatarUriOverride: userAvatar.profilePhotoDisplayUri,
-      }),
-    [profileSkyAreaShortcutIds, skywrites, userAvatar.profilePhotoDisplayUri],
-  );
-  const { ownerUserId, metrics, contributions, userDirectory, blockedUserIds } =
+  const { model: rippleModel, metrics, contributions, userDirectory, blockedUserIds } =
     useLegacyRippleViewModel();
+  const ownerIdForMetrics = ownerId;
+
+  const ownerView = useMemo(() => {
+    const displayName =
+      authUser?.fullName?.trim() ||
+      (isReelyouAuthConfigured() ? 'Your profile' : 'You');
+    const northStarBio = northStar.originalVision.trim();
+    return buildOwnerProfileView({
+      owner: {
+        id: ownerId,
+        name: displayName,
+        bio: northStarBio || undefined,
+      },
+      skywrites,
+      profileSkyAreaShortcutIds,
+      avatarUriOverride: userAvatar.profilePhotoDisplayUri,
+      metrics: {
+        livesImpacted: deriveLivesImpacted(ownerIdForMetrics, metrics),
+        contributionsMade: deriveContributionsMade(ownerIdForMetrics, contributions),
+      },
+    });
+  }, [
+    authUser?.fullName,
+    northStar.originalVision,
+    ownerId,
+    profileSkyAreaShortcutIds,
+    contributions,
+    metrics,
+    ownerIdForMetrics,
+    skywrites,
+    userAvatar.profilePhotoDisplayUri,
+  ]);
   const [metricKind, setMetricKind] = useState<RippleMetricDetailKind | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [headerStyleOpen, setHeaderStyleOpen] = useState(false);
@@ -72,14 +106,14 @@ export function OwnerProfileScreen() {
     if (!metricKind) return null;
     return buildRippleMetricDetailView({
       kind: metricKind,
-      ownerUserId,
+      ownerUserId: ownerId,
       metrics,
       contributions,
       userDirectory,
       blockedUserIds,
       mode: 'owner',
     });
-  }, [blockedUserIds, contributions, metricKind, metrics, ownerUserId, userDirectory]);
+  }, [blockedUserIds, contributions, metricKind, metrics, ownerId, userDirectory]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {
@@ -90,6 +124,7 @@ export function OwnerProfileScreen() {
   }, [router]);
 
   const handleLegacy = useCallback(() => {
+    if (!legacyRippleEnabled()) return;
     router.push('/legacy' as never);
   }, [router]);
 
@@ -106,6 +141,10 @@ export function OwnerProfileScreen() {
       setTimeout(() => setShareAck(null), 2400);
     }
   }, [ownerView.identity.id, ownerView.identity.name]);
+
+  if (!ownerId) {
+    return <View style={styles.root} />;
+  }
 
   return (
     <View style={styles.root}>
@@ -139,10 +178,10 @@ export function OwnerProfileScreen() {
         onCustomizeSkyHeader={() => setHeaderStyleOpen(true)}
         onShareProfile={handleShareProfile}
         onPreviewProfile={() =>
-          router.push(buildVisitorSelfPreviewHref(undefined, { previewAs: 'public' }) as never)
+          router.push(buildVisitorSelfPreviewHref(ownerId, { previewAs: 'public' }) as never)
         }
         onPreviewProfileConnectedSky={() =>
-          router.push(buildVisitorSelfPreviewHref(undefined, { previewAs: 'connected' }) as never)
+          router.push(buildVisitorSelfPreviewHref(ownerId, { previewAs: 'connected' }) as never)
         }
         onPreviewDemoVisitor={() =>
           router.push(buildVisitorProfileHref(VISITOR_PROFILE_QA_OWNER_ID) as never)
@@ -176,6 +215,7 @@ export function OwnerProfileScreen() {
         <OwnerProfileMetricsStrip
           metrics={ownerView.metrics}
           onLegacyPress={handleLegacy}
+          legacyPressEnabled={legacyRippleEnabled()}
           onLivesImpactedPress={() => setMetricKind('lives')}
           onContributionsPress={() => setMetricKind('contributions')}
         />

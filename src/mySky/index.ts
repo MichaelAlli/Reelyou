@@ -120,6 +120,15 @@ export {
 } from './skyVisibilityPersistence';
 export { isPublicSkyNodeVisible, filterPublicSkyView } from './skyPublicVisibility';
 export { isPublicSkyAvailable, isPublicSkyDiscoverable, buildPublicSkyView } from './buildPublicSkyView';
+export {
+  getSkywriteStarColor,
+  getSkywriteStarAccessibilityLabel,
+  resolveMySkyStarAccessibilityLabel,
+  resolveSkywriteStarMeaning,
+  SkywriteStarSemanticColors,
+  type SkywriteStarMeaning,
+} from './getSkywriteStarColor';
+export { buildArrivalStarsSnapshot } from './buildArrivalStarsSnapshot';
 export { EMPTY_MY_SKY } from './types';
 export type {
   MySkyConstellation,

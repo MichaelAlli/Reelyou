@@ -1,3 +1,4 @@
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import { currentUser, orbitUsers } from '@/data/mockData';
 import {
   EXPLORE_DEMO_NORTH_STARS,
@@ -65,12 +66,16 @@ function resolveNorthStarVision(userId: string): string {
 function resolvePublicSkyOwnerSkywrites(
   userId: string,
   ownerSkywrites?: readonly SkywriteRecord[] | null,
+  sessionOwnerId?: string | null,
 ): SkywriteRecord[] {
   if (ownerSkywrites && ownerSkywrites.length > 0) {
     return [...ownerSkywrites];
   }
-  if (userId === currentUser.id) {
-    return ownerSkywrites ? [...ownerSkywrites] : [];
+  if (sessionOwnerId && userId === sessionOwnerId) {
+    return [];
+  }
+  if (isExplicitDevDemoModeEnabled() && userId === currentUser.id) {
+    return [];
   }
   return resolveOrbitOwnerSkywrites(userId);
 }
@@ -81,6 +86,7 @@ export function buildPublicSkyView(
   ownerVisibilitySettings?: SkyVisibilitySettings | null,
   previewNorthStarVision?: string | null,
   ownerSkywrites?: readonly SkywriteRecord[] | null,
+  sessionOwnerId?: string | null,
 ): MySkyView | null {
   const owner = resolvePublicSkyOwnerProfile(userId, connectionStatus);
   if (!owner) return null;
@@ -97,7 +103,7 @@ export function buildPublicSkyView(
 
   const sources: MySkySources = {
     northStarVision,
-    skywrites: resolvePublicSkyOwnerSkywrites(userId, ownerSkywrites),
+    skywrites: resolvePublicSkyOwnerSkywrites(userId, ownerSkywrites, sessionOwnerId),
     joinedCommunities: [],
     connectionActivities: [],
     participatingCommunityIds: [],
@@ -140,14 +146,22 @@ export function buildPublicSkyViewForOwner(owner: SkyOwnerProfile): MySkyView | 
 export function isPublicSkyAvailable(
   userId: string,
   ownerVisibilitySettings?: SkyVisibilitySettings | null,
+  sessionOwnerId?: string | null,
 ): boolean {
-  if (userId === currentUser.id) {
+  if (sessionOwnerId && userId === sessionOwnerId) {
+    const settings = resolveSkyVisibilitySettingsForOwner(userId, ownerVisibilitySettings);
+    return settings.skyVisibility !== 'private';
+  }
+  if (isExplicitDevDemoModeEnabled() && userId === currentUser.id) {
     const settings = resolveSkyVisibilitySettingsForOwner(userId, ownerVisibilitySettings);
     return settings.skyVisibility !== 'private';
   }
   if (isExploreDemoOwnerId(userId)) return true;
   if (isDemoVisitorMutualProfileOwner(userId)) return true;
-  if (!orbitUsers.some((user) => user.id === userId)) return false;
+  if (!orbitUsers.some((user) => user.id === userId) && !sessionOwnerId) return false;
+  if (!orbitUsers.some((user) => user.id === userId) && sessionOwnerId && userId !== sessionOwnerId) {
+    return false;
+  }
   const settings = resolveSkyVisibilitySettingsForOwner(userId, ownerVisibilitySettings);
   return settings.skyVisibility !== 'private';
 }

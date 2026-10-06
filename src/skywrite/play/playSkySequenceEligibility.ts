@@ -1,4 +1,5 @@
-import { currentUser } from '@/data/mockData';
+import { resolveLibraryOwnerUserId } from '@/auth/resolveLibraryOwnerUserId';
+import { isSkyReelActive } from '@/skywrite/play/skyReelActive';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 /** Rolling Play Sky window from publication or explicit repost. */
@@ -27,7 +28,8 @@ export function registerPlaySkyPublication(
   registry: PlaySkySequenceRegistry,
   record: Pick<SkywriteRecord, 'id' | 'authorId' | 'createdAt'>,
 ): PlaySkySequenceRegistry {
-  const ownerId = record.authorId ?? currentUser.id;
+  const ownerId = record.authorId?.trim() ?? resolveLibraryOwnerUserId(null);
+  if (!ownerId) return registry;
   const publishedMs = Date.parse(record.createdAt);
   const startMs = Number.isFinite(publishedMs) ? publishedMs : Date.now();
   return {
@@ -72,17 +74,13 @@ export function filterSkywriteIdsForPlaySkySequence(
   skywriteIds: readonly string[],
   registry: PlaySkySequenceRegistry,
   skywritesById: Map<string, SkywriteRecord>,
-  ownerId: string = currentUser.id,
+  ownerId: string,
   nowMs = Date.now(),
 ): string[] {
   return skywriteIds.filter((id) => {
     const post = skywritesById.get(id);
     if (!post) return false;
     if ((post.authorId ?? ownerId) !== ownerId) return true;
-    const entry = registry[id];
-    if (entry) return isPlaySkySequenceEligible(entry, nowMs);
-    const publishedMs = Date.parse(post.createdAt);
-    if (!Number.isFinite(publishedMs)) return true;
-    return nowMs < playSkyActiveUntilFromTimestamp(publishedMs);
+    return isSkyReelActive(post, registry, nowMs);
   });
 }

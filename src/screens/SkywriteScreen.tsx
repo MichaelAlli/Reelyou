@@ -50,7 +50,6 @@ import { Fonts, Radius, Spacing, TabBarHeight } from '@/constants/theme';
 import { useUserAvatar } from '@/identity/UserAvatarProvider';
 import { useOnboarding } from '@/onboarding';
 import { SKYWRITE_COMPOSE_REQUIRES_CANONICAL_BOTTOM_NAV } from '@/skywrite/skywriteComposerNavPolicy';
-import { takeFocusedSkywriteComposeStars } from '@/skywrite/focusedSkyComposeSnapshot';
 import { submitSkywriteToFocusedSky } from '@/skywrite/submitToFocusedSkywrite';
 import {
   createEmptySkywriteDraft,
@@ -66,6 +65,10 @@ import {
   type PhotoPickResult,
   type VideoPickResult,
 } from '@/skywrite';
+import {
+  composerAllowsVoiceCapture,
+  validateSkywriteDraftForBeta,
+} from '@/skywrite/standaloneAudioSkywrite';
 import type { SkywritePhotoMedia, SkywriteVideoMedia } from '@/skywrite/types';
 import type { Privacy } from '@/types';
 
@@ -99,7 +102,14 @@ export function SkywriteScreen() {
   const padH = measureHomePadH(screenWidth);
   const navContentInset = TabBarHeight + Math.max(insets.bottom, Spacing.sm);
   const avatarSize = Math.min(measureHomeAvatarSize(screenWidth), 88);
-  const { publishSkywrite, replaceSkywrite, skywrites, mySkyView, setSkyArrivalHandoff, state } =
+  const {
+    publishSkywrite,
+    replaceSkywrite,
+    skywrites,
+    buildArrivalStarsForRecord,
+    setSkyArrivalHandoff,
+    state,
+  } =
     useOnboarding();
   const { profilePhotoDisplayUri, profilePhotoRevision } = useUserAvatar();
   const composerPortraitSource = profilePhotoDisplayUri ? { uri: profilePhotoDisplayUri } : undefined;
@@ -147,6 +157,12 @@ export function SkywriteScreen() {
   const hasPhoto = Boolean(draft.media.photo?.uri);
   const hasVideo = Boolean(draft.media.video?.uri);
   const hasVoice = Boolean(draft.media.audio?.uri);
+  const hasText = draft.text.trim().length > 0;
+  const showVoiceComposer = composerAllowsVoiceCapture({
+    hasPhoto,
+    hasVideo,
+    hasText,
+  });
   const canShare = hasSkywriteContent(draft);
   const mediaActions = useMemo(
     () => getSkywriteMediaActionLabels(hasPhoto, hasVoice, hasVideo, draft.text.trim().length > 0),
@@ -301,6 +317,10 @@ export function SkywriteScreen() {
   }, [voice]);
 
   const handleVoicePress = useCallback(async () => {
+    if (!showVoiceComposer && !draft.media.audio) {
+      setMediaFeedback(SkywriteCopy.standaloneAudioBetaDisabled);
+      return;
+    }
     if (voice.isRecording) return;
     if (draft.media.audio) {
       await handleReRecord();
@@ -308,7 +328,7 @@ export function SkywriteScreen() {
     }
     setVoiceCaptureOpen(true);
     setMediaFeedback(null);
-  }, [draft.media.audio, handleReRecord, voice.isRecording]);
+  }, [draft.media.audio, handleReRecord, showVoiceComposer, voice.isRecording]);
 
   const handleStartRecord = useCallback(async () => {
     const started = await voice.startRecording();
@@ -322,14 +342,26 @@ export function SkywriteScreen() {
     const audio = await voice.finishRecording();
     setVoiceCaptureOpen(false);
     if (!audio) return;
-    setDraft((current) => ({
-      ...current,
-      media: {
-        ...current.media,
-        audio,
-      },
-    }));
-    setMediaFeedback(null);
+    setDraft((current) => {
+      const nextDraft = {
+        ...current,
+        media: {
+          ...current.media,
+          audio,
+        },
+      };
+      const betaError = validateSkywriteDraftForBeta(nextDraft);
+      if (betaError) {
+        setMediaFeedback(betaError);
+        void voice.removeAudio();
+        return {
+          ...current,
+          media: { ...current.media, audio: null },
+        };
+      }
+      setMediaFeedback(null);
+      return nextDraft;
+    });
   }, [voice]);
 
   const handleVoiceCancel = useCallback(async () => {
@@ -416,7 +448,6 @@ export function SkywriteScreen() {
     setIsPosting(true);
     setPublishError(null);
     setPostingLabel(SkywriteCopy.publishing);
-    const starsBeforeSubmit = takeFocusedSkywriteComposeStars() ?? mySkyView.stars;
     const onProgress = (progress: { phase: string; elapsedMs: number }) => {
       const seconds = Math.max(1, Math.round(progress.elapsedMs / 1000));
       const phaseLabel =
@@ -453,7 +484,8 @@ export function SkywriteScreen() {
     setPublishError(null);
 
     if (result.record.animateToSky) {
-      submitSkywriteToFocusedSky(result.record, starsBeforeSubmit, setSkyArrivalHandoff, router);
+      const arrivalStars = buildArrivalStarsForRecord(result.record);
+      submitSkywriteToFocusedSky(result.record, arrivalStars, setSkyArrivalHandoff, router);
       return;
     }
 
@@ -462,7 +494,7 @@ export function SkywriteScreen() {
     buildPublishDraft,
     editingSkywriteId,
     isPosting,
-    mySkyView.stars,
+    buildArrivalStarsForRecord,
     publishSkywrite,
     replaceSkywrite,
     router,
@@ -614,6 +646,19 @@ export function SkywriteScreen() {
                   video={draft.media.video}
                   suppressVideoPreview={hasVideo}
                   hasText={draft.text.trim().length > 0}
+                  onPhotoPatch={(patch) =>
+                    setDraft((current) =>
+                      current.media.photo
+                        ? {
+                            ...current,
+                            media: {
+                              ...current.media,
+                              photo: { ...current.media.photo, ...patch },
+                            },
+                          }
+                        : current,
+                    )
+                  }
                   audio={draft.media.audio}
                   onVideoDimensionsResolved={(width, height) =>
                     setDraft((current) =>
@@ -660,6 +705,7 @@ export function SkywriteScreen() {
                   onPhotoPress={handlePhotoPress}
                   onVideoPress={handleVideoPress}
                   onVoicePress={handleVoicePress}
+                  showVoice={showVoiceComposer || hasVoice}
                 />
 
                 {mediaFeedback ? <Text style={styles.mediaFeedback}>{mediaFeedback}</Text> : null}

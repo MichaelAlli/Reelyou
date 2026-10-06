@@ -1,12 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { readStarpathScopedJson, writeStarpathScopedJson } from '@/starpath/starpathScopedStorage';
 import type { StarPathViewportSnapshot } from '@/starpath/starpathPersistenceTypes';
 import { clampNumber, safeJsonParse } from '@/starpath/starpathPersistenceRecovery';
 
 const STORAGE_KEY = '@reellyou/starpath-viewport';
 
 export async function loadStarPathViewport(): Promise<StarPathViewportSnapshot | null> {
-  const { value, ok } = safeJsonParse<StarPathViewportSnapshot>(await AsyncStorage.getItem(STORAGE_KEY));
+  const raw = await readStarpathScopedJson(STORAGE_KEY, (value) => value);
+  const { value, ok } = safeJsonParse<StarPathViewportSnapshot>(raw);
   if (!ok || !value) return null;
   return {
     scrollY: clampNumber(value.scrollY, 0, 1_000_000, 0),
@@ -17,5 +17,5 @@ export async function loadStarPathViewport(): Promise<StarPathViewportSnapshot |
 }
 
 export async function saveStarPathViewport(snapshot: StarPathViewportSnapshot): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  await writeStarpathScopedJson(STORAGE_KEY, snapshot);
 }

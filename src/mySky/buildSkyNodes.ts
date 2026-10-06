@@ -1,3 +1,4 @@
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import {
   MY_SKY_CONSTELLATION_FIXTURES,
   MY_SKY_ITEM_FIXTURES,
@@ -34,6 +35,7 @@ import type { SkyGuidanceSource } from '@/mySky/skyGuidanceSources';
 import type { SkyImpactActivity } from '@/mySky/skyImpactSources';
 import type { JoinedCommunity } from '@/onboarding/personalization/communities/types';
 import { filterRenderableSkywrites } from '@/journey/skywriteJourneyContent';
+import { getSkywriteStarColor } from '@/mySky/getSkywriteStarColor';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 function skywriteTitle(text: string, mediaMode: string): string {
@@ -78,6 +80,7 @@ function buildSkywriteMetadata(post: SkywriteRecord): SkyNodeMetadata {
 function buildSkywriteNode(post: SkywriteRecord, vitality: number): SkyNode {
   const id = buildSkyNodeId(post.id);
   const layout = resolveStableNodePosition(id);
+  const semanticColor = getSkywriteStarColor(post);
 
   return refreshNodeVisual(
     {
@@ -94,7 +97,7 @@ function buildSkywriteNode(post: SkywriteRecord, vitality: number): SkyNode {
         glow: 0.8,
         opacity: 1,
         emphasis: 1,
-        color: layout.color,
+        color: semanticColor,
       },
       userGenerated: true,
       inferred: false,
@@ -291,11 +294,11 @@ function buildIdentityNode(owner: SkyOwnerProfile, vitality: number): SkyNode {
     createdAt: new Date().toISOString(),
     position: { x: layout.x, y: layout.y },
     visual: {
-      size: 7.2,
-      brightness: 1.12,
-      glow: 1.05,
+      size: 8.1,
+      brightness: 1.18,
+      glow: 1.12,
       opacity: 1,
-      emphasis: 1.08,
+      emphasis: 1.1,
       color: layout.color,
     },
     userGenerated: false,
@@ -367,7 +370,7 @@ export function buildSkyNodes(sources: MySkySources): BuiltSkyGraph {
   const skywriteNodes = activeSkywrites.map((post) => buildSkywriteNode(post, vitality));
   const focusReflectionNode = buildFocusReflectionNode(sources, vitality);
 
-  const useFixtures = activeSkywrites.length === 0;
+  const useFixtures = activeSkywrites.length === 0 && isExplicitDevDemoModeEnabled();
   const fixtureNodes = useFixtures
     ? MY_SKY_ITEM_FIXTURES.map((item) => buildFixtureNode(item, vitality))
     : [];

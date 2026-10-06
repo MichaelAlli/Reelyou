@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
+import { PostWelcomeAuthGuard } from '@/auth/PostWelcomeAuthGuard';
 import { PostWelcomeProviders } from '@/providers/PostWelcomeProviders';
 import { ReelyouMotion } from '@/constants/animation';
 import { ONBOARDING_SHARED_BACKGROUND } from '@/constants/onboardingAssets';
@@ -58,6 +59,14 @@ function PostWelcomeStack() {
           }
         />
         <Stack.Screen
+          name="skywrite/moment"
+          options={
+            Platform.OS === 'web'
+              ? { presentation: 'card', animation: 'fade' }
+              : { presentation: 'card' }
+          }
+        />
+        <Stack.Screen
           name="skywrite/saved/[savedThreadId]"
           options={
             Platform.OS === 'web'
@@ -90,7 +99,9 @@ function PostWelcomeStack() {
 export default function PostWelcomeLayout() {
   return (
     <PostWelcomeProviders>
-      <PostWelcomeStack />
+      <PostWelcomeAuthGuard>
+        <PostWelcomeStack />
+      </PostWelcomeAuthGuard>
     </PostWelcomeProviders>
   );
 }

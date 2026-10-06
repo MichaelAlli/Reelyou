@@ -15,7 +15,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { BottomNav } from '@/components/BottomNav';
 import { ModerationReportSheet } from '@/components/safety/ModerationReportSheet';
-import { currentUser } from '@/data/mockData';
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { CommunityExperienceCopy } from '@/constants/communityExperienceCopy';
 import { memberDisplayName } from '@/emergingConstellations/communitySocialFixtures';
@@ -33,6 +33,7 @@ export function EmergingConstellationPostScreen() {
   const { id, postId } = useLocalSearchParams<{ id?: string; postId?: string }>();
   const insets = useSafeAreaInsets();
   const tabInset = TabBarHeight + Math.max(insets.bottom, 8);
+  const { userId: sessionUserId } = useSessionUserId();
   const { messages, submitModerationReport, blockUser, limitUser } = useReelyouConnect();
   const blockedUserIds = messages.blockedUserIds;
   const {
@@ -92,10 +93,15 @@ export function EmergingConstellationPostScreen() {
     );
   }
 
-  const postEncouraged = hasEncouraged(encouragements, 'post', post.id, currentUser.id);
+  const postEncouraged = hasEncouraged(
+    encouragements,
+    'post',
+    post.id,
+    sessionUserId ?? '',
+  );
   const postEncourageCount = encouragementCountForTarget(encouragements, 'post', post.id);
   const authorName =
-    post.authorUserId === currentUser.id ? 'You' : memberDisplayName(post.authorUserId);
+    post.authorUserId === sessionUserId ? 'You' : memberDisplayName(post.authorUserId);
 
   return (
     <View style={styles.root}>
@@ -159,9 +165,14 @@ export function EmergingConstellationPostScreen() {
               <Text style={styles.emptyReplies}>{CommunityExperienceCopy.noPerspectivesYet}</Text>
             ) : (
               replies.map((reply) => {
-                const encouraged = hasEncouraged(encouragements, 'reply', reply.id, currentUser.id);
+                const encouraged = hasEncouraged(
+                  encouragements,
+                  'reply',
+                  reply.id,
+                  sessionUserId ?? '',
+                );
                 const replyAuthor =
-                  reply.authorUserId === currentUser.id
+                  reply.authorUserId === sessionUserId
                     ? 'You'
                     : memberDisplayName(reply.authorUserId);
                 return (
@@ -195,7 +206,7 @@ export function EmergingConstellationPostScreen() {
                         }>
                         <Text style={styles.report}>Report reply</Text>
                       </Pressable>
-                      {reply.authorUserId !== currentUser.id ? (
+                      {reply.authorUserId !== sessionUserId ? (
                         <Pressable
                           onPress={() =>
                             router.push(

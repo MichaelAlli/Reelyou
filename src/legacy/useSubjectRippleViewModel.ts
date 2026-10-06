@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
-import { currentUser } from '@/data/mockData';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useHumanPotentialMetrics } from '@/humanPotential/HumanPotentialMetricsProvider';
 import { EMPTY_HUMAN_POTENTIAL_METRICS_STATE } from '@/humanPotential/humanPotentialMetricsState';
@@ -23,7 +24,8 @@ export function useSubjectRippleViewModel(
   const { contributions, isLoaded: threadsLoaded } = useSkywriteThreads();
   const { messages, skyFollowGraph } = useReelyouConnect();
   const { skywrites } = useOnboarding();
-  const viewerUserId = currentUser.id;
+  const { user: authUser } = useReelyouAuth();
+  const viewerUserId = resolveActiveUserId(authUser) ?? '';
 
   const userDirectory = useMemo(() => buildRippleUserDirectory(), []);
 
@@ -43,8 +45,11 @@ export function useSubjectRippleViewModel(
   );
 
   const subjectMetrics =
-    subjectUserId === currentUser.id ? metrics : EMPTY_HUMAN_POTENTIAL_METRICS_STATE;
-  const subjectContributions = subjectUserId === currentUser.id ? contributions : [];
+    viewerUserId && subjectUserId === viewerUserId
+      ? metrics
+      : EMPTY_HUMAN_POTENTIAL_METRICS_STATE;
+  const subjectContributions =
+    viewerUserId && subjectUserId === viewerUserId ? contributions : [];
 
   const model = useMemo(() => {
     const ownerModel = buildLegacyRippleViewModel({

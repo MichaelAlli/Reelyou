@@ -35,7 +35,9 @@ import {
   SignUpNightBrandHeader,
 } from '@/components/auth';
 import { SignUpAppearanceDevPreview } from '@/components/dev/SignUpAppearanceDevPreview';
+import { mapAuthErrorToMessage } from '@/auth/authErrorMessages';
 import { recordLegalConsent } from '@/auth/legalConsentPersistence';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { LEGAL_DOCUMENT_VERSION } from '@/constants/legalDocuments';
 import { isThirdPartyOAuthSignInEnabled } from '@/config/betaReleaseFlags';
 import { AuthCopy } from '@/constants/auth';
@@ -47,10 +49,14 @@ import {
 } from '@/constants/signUpNightLayout';
 import { Fonts } from '@/constants/theme';
 import { useSignUpForm } from '@/hooks/use-sign-up-form';
+import { isSignUpFormValid } from '@/utils/signUpValidation';
 import { useThemedStyles } from '@/theme';
 
 export function SignUpNightScreen() {
   const router = useRouter();
+  const auth = useReelyouAuth();
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const insets = useSafeAreaInsets();
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const styles = useScreenStyles();
@@ -64,17 +70,51 @@ export function SignUpNightScreen() {
   const {
     values,
     errors,
-    canSubmit,
     showPassword,
     showConfirmPassword,
-    isSubmitting,
     updateField,
     markTouched,
     toggleTermsAccepted,
-    handleSubmit,
+    markAllTouched,
     setShowPassword,
     setShowConfirmPassword,
   } = useSignUpForm();
+
+  const canSubmitAccount = isSignUpFormValid(values) && !isSubmittingAuth;
+
+  const handleSubmit = useCallback(async () => {
+    markAllTouched();
+    if (!isSignUpFormValid(values)) return;
+
+    if (auth.configured) {
+      setAuthError(null);
+      setIsSubmittingAuth(true);
+      const consentAcceptedAt = Date.now();
+      const result = await auth.register({
+        email: values.email.trim(),
+        password: values.password,
+        fullName: values.fullName.trim(),
+        phone: values.phone.trim() || undefined,
+        termsAccepted: values.termsAccepted,
+        termsVersion: LEGAL_DOCUMENT_VERSION,
+        privacyVersion: LEGAL_DOCUMENT_VERSION,
+        consentAcceptedAt,
+      });
+      setIsSubmittingAuth(false);
+      if (!result.ok) {
+        setAuthError(mapAuthErrorToMessage(result.error));
+        return;
+      }
+      if (values.termsAccepted) {
+        await recordLegalConsent(true, LEGAL_DOCUMENT_VERSION);
+      }
+      router.replace('/onboarding/profile' as never);
+      return;
+    }
+
+    setIsSubmittingAuth(true);
+    setTimeout(() => setIsSubmittingAuth(false), 1200);
+  }, [auth, markAllTouched, router, values]);
 
   const openTerms = useCallback(() => {
     router.push('/legal/terms-of-service' as never);
@@ -218,15 +258,13 @@ export function SignUpNightScreen() {
           />
         </View>
 
+        {authError ? <Text style={styles.authError}>{authError}</Text> : null}
         <View style={styles.ctaBlock}>
           <AuthPrimaryButton
             label={AuthCopy.createAccount}
-            onPress={() => {
-              if (values.termsAccepted) void recordLegalConsent(true, LEGAL_DOCUMENT_VERSION);
-              handleSubmit();
-            }}
-            disabled={!canSubmit}
-            loading={isSubmitting}
+            onPress={() => void handleSubmit()}
+            disabled={!canSubmitAccount}
+            loading={isSubmittingAuth}
           />
         </View>
 
@@ -327,6 +365,14 @@ function useScreenStyles() {
       form: { gap: 0 },
       fieldsBlock: { gap: night.fieldGap },
       termsBlock: { marginTop: night.termsTopGap },
+      authError: {
+        fontFamily: Fonts.sans,
+        fontSize: 13,
+        lineHeight: 18,
+        color: '#ffb4b4',
+        textAlign: 'center',
+        marginTop: 8,
+      },
       ctaBlock: { marginTop: night.ctaTopGap },
       socialBlock: { marginTop: night.socialTopGap, gap: night.socialBlockGap },
       link: { color: night.goldAccent, fontWeight: '600' },

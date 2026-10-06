@@ -7,6 +7,7 @@ import { RippleMapCanvas } from '@/components/legacy/ripple/RippleMapCanvas';
 import { RippleNodeDetailPopup } from '@/components/legacy/ripple/RippleNodeDetailPopup';
 import { RippleCopy } from '@/constants/rippleCopy';
 import { Fonts, Spacing } from '@/constants/theme';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import { currentUser, orbitUsers } from '@/data/mockData';
 import { resolveRippleCenterOriginLabel } from '@/legacy/rippleCenterOrigin';
 import { useRippleNodePopup } from '@/legacy/useRippleNodePopup';
@@ -28,11 +29,17 @@ export function VisitorRippleMapScreen({ ownerId }: VisitorRippleMapScreenProps)
     useSubjectRippleViewModel(subjectId);
   const popup = useRippleNodePopup({ ownerUserId, metrics, userDirectory });
 
-  const subjectUser = useMemo(
-    () => orbitUsers.find((entry) => entry.id === subjectId) ?? currentUser,
-    [subjectId],
-  );
-  const centerLabel = useMemo(() => resolveRippleCenterOriginLabel(subjectUser as typeof currentUser), [subjectUser]);
+  const centerLabel = useMemo(() => {
+    const displayName = userDirectory[subjectId] ?? 'Connection';
+    const orbit =
+      isExplicitDevDemoModeEnabled() && subjectId === currentUser.id
+        ? currentUser
+        : orbitUsers.find((entry) => entry.id === subjectId);
+    return resolveRippleCenterOriginLabel({
+      name: displayName,
+      avatarInitials: orbit?.avatarInitials,
+    });
+  }, [subjectId, userDirectory]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {

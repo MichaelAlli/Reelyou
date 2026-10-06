@@ -1,13 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { SkywriteImmersiveMomentView } from '@/components/skywrite/SkywriteImmersiveMomentView';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { Fonts, Spacing } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
+import { useUserAvatar } from '@/identity/UserAvatarProvider';
+import { fetchSkyreelViewersForOwner } from '@/social/skyreelViewsApi';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
 import { resolveSkywriteViewerAccess } from '@/skywrite/access/resolveSkywriteViewerAccess';
@@ -19,7 +23,8 @@ import {
 } from '@/skywrite/play/skywritePlayLogic';
 import { resolveOwnerPlaySkySteps } from '@/skywrite/play/resolveOwnerPlaySkySteps';
 import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
-import { buildPublicSkyView, resolvePublicSkyConnectionStatus } from '@/mySky/buildPublicSkyView';
+import { resolvePublicSkyConnectionStatus } from '@/mySky/buildPublicSkyView';
+import { resolvePublicSkyOwnerProfile } from '@/mySky/skyIdentity';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
 import { loadSkywritePlaySequence } from '@/skywrite/play/skywritePlayPersistence';
 import type { SkywritePlayScope, SkywritePlayStep } from '@/skywrite/play/skywritePlayTypes';
@@ -44,16 +49,15 @@ import {
 } from '@/skywrite/play/skyreelFirstPostEdgeNavigation';
 import { exitSkyreel, persistSkyreelReturnFromParam } from '@/skywrite/play/skyreelNavigation';
 import {
-  formatSkyReelHourLabel,
-  isSkyReelAppearanceActive,
-  resolveSkyReelActiveUntilMs,
-  resolveSkyReelAppearancePublishedAtMs,
-  resolveSkyReelDisplayHour,
-} from '@/skywrite/play/skyReelExpiry';
+  formatSkyReelAgeLabel,
+  isSkyReelActive,
+  resolveSkyReelAppearanceStartMs,
+} from '@/skywrite/play/skyReelActive';
+import { resolveSkyReelActiveUntilMs } from '@/skywrite/play/skyReelExpiry';
+import { useSkyReelViewRecorder } from '@/skywrite/play/useSkyReelViewRecorder';
 import {
   findFirstEligibleStepIndex,
   findNextEligibleStepIndexAfter,
-  resolveMidPlaybackExpiryTransition,
 } from '@/skywrite/play/skywriteGuidedPlayExpiry';
 import {
   findNextStoryStepIndex,
@@ -63,8 +67,9 @@ import {
 } from '@/skywrite/play/skywriteStorySegments';
 import { stepUsesAttachedVoiceover } from '@/skywrite/voiceoverStepUtils';
 import { subscribeProtectedPlaybackStop } from '@/media/protectedPlaybackStop';
+import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
+import { resolveSkyReelStoryStillDwellMs } from '@/skywrite/play/skyReelStoryTiming';
 
-const STILL_DWELL_MS = 8500;
 const MANUAL_NAV_AUTO_ADVANCE_BLOCK_MS = 900;
 
 export function SkywriteGuidedPlayScreen() {
@@ -79,7 +84,16 @@ export function SkywriteGuidedPlayScreen() {
   }>();
   const playScope: SkywritePlayScope =
     scope === 'single' ? 'single' : scope === 'owner' ? 'owner' : 'focused';
+  const { user: authUser } = useReelyouAuth();
+  const activeUserId = resolveActiveUserId(authUser);
+  const viewerId = useEffectiveViewerId();
+  const { profilePhotoDisplayUri } = useUserAvatar();
   const { skywrites, mySkyView, aroundYourSkyFeed } = useOnboarding();
+  const [viewerSheetOpen, setViewerSheetOpen] = useState(false);
+  const [viewerRows, setViewerRows] = useState<
+    { userId: string; displayName: string; lastViewedAt: number }[]
+  >([]);
+  const [viewerCount, setViewerCount] = useState(0);
   const { messages, skyFollowGraph } = useReelyouConnect();
   const { lifecycle: contentLifecycle } = useSkywriteLibrary();
   const { registry, ready: registryReady, mergeServerRows } = usePlaySkySequenceRegistry();
@@ -109,7 +123,6 @@ export function SkywriteGuidedPlayScreen() {
   const [recordHydration, setRecordHydration] = useState<'idle' | 'loading' | 'failed'>('idle');
   const [recordFetchNonce, setRecordFetchNonce] = useState(0);
   const initialPlayIndexResolvedRef = useRef(false);
-  const appearanceActivePrevRef = useRef<boolean | null>(null);
   const exitPlaybackOnceRef = useRef(false);
   const transitionGenerationRef = useRef(0);
 
@@ -159,12 +172,13 @@ export function SkywriteGuidedPlayScreen() {
         );
         const connectionStatus = resolvePublicSkyConnectionStatus(ownerId, connectedActorIds);
         const ownerPosts =
-          ownerId === currentUser.id
+          activeUserId && ownerId === activeUserId
             ? skywrites
             : [...resolveOrbitOwnerSkywrites(ownerId), ...getCachedAuthorSkywrites(ownerId)];
         setSteps(
           resolveOwnerPlaySkySteps({
             ownerId,
+            sessionOwnerId: activeUserId,
             connectionStatus,
             ownerSkywrites: ownerPosts,
             registry,
@@ -178,8 +192,9 @@ export function SkywriteGuidedPlayScreen() {
           (remoteSingleRecord?.id === id ? remoteSingleRecord : null);
         const allowed =
           record &&
+          viewerId &&
           resolveSkywriteViewerAccess({
-            viewerId: currentUser.id,
+            viewerId,
             authorId: record.authorId ?? '',
             visibility: record.visibility,
             followGraph: skyFollowGraph,
@@ -197,7 +212,12 @@ export function SkywriteGuidedPlayScreen() {
             skywrites,
             config.focusedSky,
             config.singleBySkywriteId,
-            { playSkyRegistry: registry, retainExpiredInSequence: false, nowMs: Date.now() },
+            {
+              playSkyRegistry: registry,
+              retainExpiredInSequence: false,
+              nowMs: Date.now(),
+              sessionOwnerId: activeUserId,
+            },
           ),
         );
       }
@@ -207,6 +227,7 @@ export function SkywriteGuidedPlayScreen() {
       mounted = false;
     };
   }, [
+    activeUserId,
     contentLifecycle,
     id,
     messages.blockedUserIds,
@@ -217,6 +238,7 @@ export function SkywriteGuidedPlayScreen() {
     registry,
     registryReady,
     skyFollowGraph,
+    viewerId,
     skywrites,
     remoteSingleRecord,
     remoteFetchTick,
@@ -249,6 +271,47 @@ export function SkywriteGuidedPlayScreen() {
     remoteSingleRecord,
     skywrites,
   ]);
+
+  const postsById = useMemo(() => {
+    const map = new Map(skywrites.map((post) => [post.id, post]));
+    if (remoteSingleRecord) map.set(remoteSingleRecord.id, remoteSingleRecord);
+    for (const post of getCachedAuthorSkywrites(ownerId ?? '')) {
+      map.set(post.id, post);
+    }
+    return map;
+  }, [ownerId, remoteSingleRecord, skywrites]);
+
+  const { record: resolvedRecord } = useResolvedSkywriteRecord(record);
+  const playbackRecord = resolvedRecord ?? record;
+
+  const storyAuthorId =
+    playbackRecord?.authorId ?? record?.authorId ?? ownerId ?? activeUserId;
+  const isOwnerStory = storyAuthorId === activeUserId;
+  const connectedActorIds = useMemo(
+    () => resolveSkyConnectionActivities(aroundYourSkyFeed).map((entry) => entry.actorId),
+    [aroundYourSkyFeed],
+  );
+  const storyAuthorProfile = useMemo(() => {
+    if (isOwnerStory) return null;
+    const connectionStatus = resolvePublicSkyConnectionStatus(
+      storyAuthorId,
+      connectedActorIds,
+    );
+    return resolvePublicSkyOwnerProfile(storyAuthorId, connectionStatus);
+  }, [connectedActorIds, isOwnerStory, storyAuthorId]);
+  const storyAuthorName = isOwnerStory
+    ? authUser?.fullName?.trim() || 'You'
+    : storyAuthorProfile?.name?.trim() || 'Sky friend';
+  const storyAuthorAvatar = isOwnerStory
+    ? profilePhotoDisplayUri
+    : storyAuthorProfile?.avatarUri ?? null;
+
+  useSkyReelViewRecorder({
+    skywriteId: current?.skywriteId,
+    active: Boolean(current && !paused && playScope !== 'single'),
+    isOwner: isOwnerStory,
+    enabled: isSharedSocialPersistenceEnabled(),
+  });
 
   useEffect(() => {
     if (!stepsLoaded || !current || record) {
@@ -377,30 +440,11 @@ export function SkywriteGuidedPlayScreen() {
     setPaused(false);
     setUserStartedPlayback(true);
     startedRef.current = true;
+    setNeedsTapToPlay(false);
     setManualPlayNonce((n) => n + 1);
     setMediaStartNonce((n) => n + 1);
     autoAdvancePulseRef.current = Date.now();
-    if (current?.kind === 'audio' && record?.media.audio?.uri) {
-      void audioPreview.togglePreview(previewId, record.media.audio.uri, {
-        onStarted: dismissTapToPlay,
-        onFinished: () => {
-          if (paused || needsTapToPlay) return;
-          if (Date.now() - autoAdvancePulseRef.current < 500) return;
-          autoAdvancePulseRef.current = Date.now();
-          advance();
-        },
-      });
-    }
-  }, [
-    advance,
-    audioPreview,
-    current?.kind,
-    dismissTapToPlay,
-    needsTapToPlay,
-    paused,
-    previewId,
-    record?.media.audio?.uri,
-  ]);
+  }, []);
 
   useEffect(() => {
     if (index !== 0) {
@@ -419,7 +463,7 @@ export function SkywriteGuidedPlayScreen() {
             playScope === 'owner' && ownerId
               ? ownerId
               : playScope === 'focused'
-                ? currentUser.id
+                ? activeUserId
                 : null;
           if (refreshOwnerId) {
             void fetchAuthorServerSkywrites(refreshOwnerId).then((serverRows) => {
@@ -453,11 +497,11 @@ export function SkywriteGuidedPlayScreen() {
       (step) => step.skywriteId === current.skywriteId && step.stepId === current.stepId,
     );
     if (!stillPresent) {
-      const first = findFirstEligibleStepIndex(steps, registry, Date.now());
+      const first = findFirstEligibleStepIndex(steps, registry, Date.now(), postsById);
       if (first != null) setIndex(first);
       else handleExit();
     }
-  }, [current, handleExit, playScope, registry, steps, stepsLoaded]);
+  }, [current, handleExit, playScope, postsById, registry, steps, stepsLoaded]);
 
   useEffect(() => {
     if (!stepsLoaded || !registryReady || playScope === 'single') return;
@@ -465,47 +509,33 @@ export function SkywriteGuidedPlayScreen() {
     initialPlayIndexResolvedRef.current = true;
     const startIndex = Number(start);
     if (Number.isFinite(startIndex) && startIndex >= 0) return;
-    const firstEligible = findFirstEligibleStepIndex(steps, registry, Date.now());
+    const firstEligible = findFirstEligibleStepIndex(steps, registry, Date.now(), postsById);
     if (firstEligible != null) {
       setIndex(firstEligible);
     }
-  }, [playScope, registry, registryReady, start, steps, stepsLoaded]);
+  }, [playScope, postsById, registry, registryReady, start, steps, stepsLoaded]);
 
-  const skyReelActiveUntilMs = useMemo(() => {
-    if (!record) return null;
-    return resolveSkyReelActiveUntilMs(record.id, registry, record.createdAt);
-  }, [record, registry]);
-
-  const skyReelAppearancePublishedAtMs = useMemo(() => {
-    if (!record) return null;
-    return resolveSkyReelAppearancePublishedAtMs(record.id, registry, {
-      createdAt: record.createdAt,
-    });
-  }, [record, registry]);
-
-  const skyReelHourLabel = useMemo(() => {
-    if (playScope === 'single') return null;
-    const hour = resolveSkyReelDisplayHour(
-      skyReelAppearancePublishedAtMs,
-      skyReelActiveUntilMs,
-      Date.now(),
-    );
-    return formatSkyReelHourLabel(hour);
-  }, [playScope, skyReelActiveUntilMs, skyReelAppearancePublishedAtMs, hourLabelTick]);
-
-  const skyReelAppearanceActive =
-    playScope === 'single' ||
-    skyReelActiveUntilMs == null ||
-    isSkyReelAppearanceActive(skyReelActiveUntilMs);
+  const skyReelAgeLabel = useMemo(() => {
+    if (playScope === 'single' || !record) return null;
+    const start = resolveSkyReelAppearanceStartMs(record, registry);
+    return formatSkyReelAgeLabel(start, Date.now());
+  }, [playScope, record, registry, hourLabelTick]);
 
   const hasNextEligibleSkyReel = useMemo(() => {
     if (playScope === 'single') return index < steps.length - 1;
-    return findNextEligibleStepIndexAfter(steps, index, registry, Date.now()) != null;
-  }, [index, playScope, registry, steps]);
+    return (
+      findNextEligibleStepIndexAfter(steps, index, registry, Date.now(), postsById) != null
+    );
+  }, [index, playScope, postsById, registry, steps]);
 
   useEffect(() => {
-    appearanceActivePrevRef.current = null;
-  }, [current?.skywriteId, index]);
+    if (!isOwnerStory || !current?.skywriteId || playScope === 'single') return;
+    void fetchSkyreelViewersForOwner(current.skywriteId).then((result) => {
+      if (!result) return;
+      setViewerCount(result.count);
+      setViewerRows(result.viewers);
+    });
+  }, [current?.skywriteId, isOwnerStory, playScope, hourLabelTick]);
 
   const applyExpiryTransition = useCallback(
     (toIndex: number | 'exit') => {
@@ -527,35 +557,25 @@ export function SkywriteGuidedPlayScreen() {
     [bumpPlaySession, handleExit, haltOutgoingPlayback],
   );
 
-  const skipExpiredAppearance = useCallback(() => {
-    const nextEligible = findNextEligibleStepIndexAfter(steps, index, registry, Date.now());
-    applyExpiryTransition(nextEligible ?? 'exit');
-  }, [applyExpiryTransition, index, registry, steps]);
-
   useEffect(() => {
-    if (playScope === 'single' || !current?.skywriteId) return;
-    const until = resolveSkyReelActiveUntilMs(current.skywriteId, registry);
-    const nowActive = until == null || isSkyReelAppearanceActive(until, Date.now());
-    const transition = resolveMidPlaybackExpiryTransition(
-      steps,
-      index,
-      registry,
-      appearanceActivePrevRef.current,
-      nowActive,
-      Date.now(),
-    );
-    appearanceActivePrevRef.current = nowActive;
-    if (transition.kind === 'jump') {
-      applyExpiryTransition(transition.toIndex);
-    } else if (transition.kind === 'exit') {
-      applyExpiryTransition('exit');
+    if (playScope === 'single' || !record) return;
+    if (!isSkyReelActive(record, registry, Date.now())) {
+      const nextEligible = findNextEligibleStepIndexAfter(
+        steps,
+        index,
+        registry,
+        Date.now(),
+        postsById,
+      );
+      applyExpiryTransition(nextEligible ?? 'exit');
     }
   }, [
     applyExpiryTransition,
-    current?.skywriteId,
     hourLabelTick,
     index,
     playScope,
+    postsById,
+    record,
     registry,
     steps,
   ]);
@@ -577,15 +597,8 @@ export function SkywriteGuidedPlayScreen() {
 
   const handleEdgeNext = useCallback(() => {
     firstPostLeftRef.current = resetFirstPostLeftTapState();
-    if (playScope !== 'single' && current?.skywriteId) {
-      const until = resolveSkyReelActiveUntilMs(current.skywriteId, registry);
-      if (until != null && !isSkyReelAppearanceActive(until)) {
-        skipExpiredAppearance();
-        return;
-      }
-    }
     goNext();
-  }, [current?.skywriteId, goNext, playScope, registry, skipExpiredAppearance]);
+  }, [goNext]);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -615,14 +628,18 @@ export function SkywriteGuidedPlayScreen() {
     record && current ? stepUsesAttachedVoiceover(record, current.kind) : false;
 
   useEffect(() => {
-    if (!current || paused || needsTapToPlay || !skyReelAppearanceActive) return;
+    if (!current || paused || needsTapToPlay) return;
     if (attachedVoiceoverStep && (current.kind === 'text' || current.kind === 'photo')) {
       return;
     }
     if (current.kind === 'text' || current.kind === 'photo') {
+      const dwellMs = resolveSkyReelStoryStillDwellMs(
+        current.kind,
+        record?.text,
+      );
       const timer = setTimeout(() => {
         tryAutoAdvance();
-      }, STILL_DWELL_MS);
+      }, dwellMs);
       return () => clearTimeout(timer);
     }
     return undefined;
@@ -631,7 +648,7 @@ export function SkywriteGuidedPlayScreen() {
     current,
     needsTapToPlay,
     paused,
-    skyReelAppearanceActive,
+    record?.text,
     tryAutoAdvance,
   ]);
 
@@ -649,7 +666,7 @@ export function SkywriteGuidedPlayScreen() {
   if (steps.length === 0 || !current) {
     const isOwner =
       playScope === 'focused' ||
-      (playScope === 'owner' && ownerId === currentUser.id);
+      (playScope === 'owner' && activeUserId && ownerId === activeUserId);
     return (
       <View style={styles.root}>
         <HomeBackdrop />
@@ -741,7 +758,8 @@ export function SkywriteGuidedPlayScreen() {
     <View style={styles.root}>
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <SkywriteImmersiveMomentView
-          record={record}
+          record={playbackRecord ?? record}
+          viewerMode="skyreel"
           stepKind={current.kind}
           stepIndex={index}
           stepCount={steps.length}
@@ -756,11 +774,29 @@ export function SkywriteGuidedPlayScreen() {
           onNext={handleEdgeNext}
           canPrevious
           canNext={hasNextEligibleSkyReel}
-          skyReelActiveUntilMs={playScope === 'single' ? null : skyReelActiveUntilMs}
-          showSkyReelExpiry={playScope !== 'single'}
-          skyReelHourLabel={skyReelHourLabel}
-          skyReelAppearanceExpired={playScope !== 'single' && !skyReelAppearanceActive}
-          onSkipExpiredAppearance={skipExpiredAppearance}
+          showSkyReelExpiry={false}
+          storyAuthorName={playScope === 'single' ? undefined : storyAuthorName}
+          storyAuthorAvatarUri={storyAuthorAvatar}
+          storyAgeLabel={skyReelAgeLabel}
+          showSkyReelViewerAffordance={isOwnerStory && playScope !== 'single'}
+          skyReelViewerCount={viewerCount}
+          onOpenSkyReelViewers={() => setViewerSheetOpen(true)}
+          onStoryProfilePress={
+            playScope === 'single'
+              ? undefined
+              : () => {
+                  setPaused(true);
+                  if (isOwnerStory) {
+                    router.push('/profile' as never);
+                    return;
+                  }
+                  router.push(
+                    `/visitor-profile?id=${encodeURIComponent(storyAuthorId)}` as never,
+                  );
+                }
+          }
+          onStoryHoldPauseStart={() => setPaused(true)}
+          onStoryHoldPauseEnd={() => setPaused(false)}
           onMediaPlaybackStarted={dismissTapToPlay}
           onRegisterMediaStop={(stop) => {
             stopPlaybackRef.current = stop;
@@ -785,7 +821,7 @@ export function SkywriteGuidedPlayScreen() {
             });
           }}
           navigationMode="edgeTap"
-          narrationAutoplay={!paused && !needsTapToPlay && skyReelAppearanceActive}
+          narrationAutoplay={!paused && !needsTapToPlay}
           narrationPaused={paused}
           onNarrationFinished={() => {
             tryAutoAdvance();
@@ -795,6 +831,24 @@ export function SkywriteGuidedPlayScreen() {
           }}
         />
       </SafeAreaView>
+      <Modal visible={viewerSheetOpen} transparent animationType="slide">
+        <Pressable style={styles.viewerBackdrop} onPress={() => setViewerSheetOpen(false)}>
+          <View style={styles.viewerSheet}>
+            <Text style={styles.viewerTitle}>SkyReel viewers</Text>
+            <ScrollView style={styles.viewerList}>
+              {viewerRows.length === 0 ? (
+                <Text style={styles.viewerEmpty}>No viewers yet.</Text>
+              ) : (
+                viewerRows.map((row) => (
+                  <Text key={row.userId} style={styles.viewerRow}>
+                    {row.displayName}
+                  </Text>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -880,5 +934,40 @@ const styles = StyleSheet.create({
   playViewer: {
     flex: 1,
     minHeight: 0,
+  },
+  viewerBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  viewerSheet: {
+    maxHeight: '55%',
+    backgroundColor: 'rgba(8, 10, 28, 0.98)',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    padding: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.22)',
+  },
+  viewerTitle: {
+    fontFamily: Fonts.serif,
+    fontSize: 18,
+    color: '#F5F0FF',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  viewerList: { maxHeight: 320 },
+  viewerRow: {
+    fontFamily: Fonts.sans,
+    fontSize: 15,
+    color: '#FFF8F0',
+    paddingVertical: 10,
+  },
+  viewerEmpty: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    color: 'rgba(235,228,248,0.65)',
+    textAlign: 'center',
+    paddingVertical: 16,
   },
 });

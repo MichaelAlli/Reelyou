@@ -1,5 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { readStarpathScopedJson, writeStarpathScopedJson } from '@/starpath/starpathScopedStorage';
 import { loadUserAvatarIdentity } from '@/identity/userAvatarPersistence';
 import { DEFAULT_USER_AVATAR_IDENTITY } from '@/identity/userAvatarTypes';
 import { loadEmotionalContext } from '@/starpath/starpathEmotionalContextPersistence';
@@ -38,7 +37,7 @@ const DOMAIN_KEYS = {
 
 async function loadDomainRaw(key: string): Promise<string | null> {
   try {
-    return await AsyncStorage.getItem(key);
+    return await readStarpathScopedJson(key, (value) => value);
   } catch {
     return null;
   }
@@ -67,7 +66,7 @@ export async function hydrateStarPathAuthoritativeState(): Promise<{
     viewport,
     uiChrome,
   ] = await Promise.all([
-    AsyncStorage.getItem(STARPATH_PERSISTENCE_MANIFEST_KEY),
+    readStarpathScopedJson(STARPATH_PERSISTENCE_MANIFEST_KEY, (value) => value),
     loadDomainRaw(DOMAIN_KEYS.interactions),
     loadDomainRaw(DOMAIN_KEYS.dynamicWorld),
     loadDomainRaw(DOMAIN_KEYS.guidance),
@@ -148,5 +147,5 @@ export async function touchStarPathPersistenceManifest(): Promise<void> {
     lastSavedAt: Date.now(),
     lastHydratedAt: Date.now(),
   };
-  await AsyncStorage.setItem(STARPATH_PERSISTENCE_MANIFEST_KEY, JSON.stringify(manifest));
+  await writeStarpathScopedJson(STARPATH_PERSISTENCE_MANIFEST_KEY, manifest);
 }

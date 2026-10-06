@@ -8,6 +8,9 @@ import {
   type ReactNode,
 } from 'react';
 
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { currentUser } from '@/data/mockData';
 import { mergeSkyAreaCatalog, type SkyArea } from '@/skyAreas/skyAreaDefinition';
 import {
@@ -55,9 +58,12 @@ interface SkyAreaPreferencesContextValue {
 const SkyAreaPreferencesContext = createContext<SkyAreaPreferencesContextValue | null>(null);
 
 export function SkyAreaPreferencesProvider({ children }: { children: ReactNode }) {
-  const userId = currentUser.id;
+  const { user: authUser } = useReelyouAuth();
+  const userId =
+    resolveActiveUserId(authUser) ??
+    (isExplicitDevDemoModeEnabled() ? currentUser.id : '');
   const [record, setRecord] = useState<SkyAreaPreferencesRecord>(() =>
-    emptySkyAreaPreferences(userId),
+    emptySkyAreaPreferences(userId || 'anonymous'),
   );
   const [sharedAreas, setSharedAreas] = useState<SkyArea[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);

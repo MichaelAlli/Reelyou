@@ -38,9 +38,19 @@ function SkywriteStoryProgressBarComponent({
         let fill = 0;
         if (i < stepIndex) fill = 1;
         else if (i === stepIndex) fill = currentFill;
+        const isCurrent = i === stepIndex;
         return (
-          <View key={`story-seg-${i}`} style={styles.track}>
-            <View style={[styles.fill, { flex: fill }]} />
+          <View
+            key={`story-seg-${i}`}
+            style={[styles.track, isCurrent && styles.trackCurrent]}>
+            <View
+              style={[
+                styles.fill,
+                i < stepIndex && styles.fillComplete,
+                isCurrent && styles.fillActive,
+                { flex: fill },
+              ]}
+            />
             <View style={{ flex: Math.max(0, 1 - fill) }} />
           </View>
         );
@@ -65,11 +75,24 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     overflow: 'hidden',
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 248, 240, 0.28)',
+    backgroundColor: 'rgba(255, 248, 240, 0.22)',
+  },
+  trackCurrent: {
+    backgroundColor: 'rgba(232, 200, 114, 0.18)',
   },
   fill: {
     height: '100%',
-    backgroundColor: 'rgba(255, 248, 240, 0.95)',
+    backgroundColor: 'rgba(255, 248, 240, 0.92)',
     borderRadius: 2,
+  },
+  fillComplete: {
+    backgroundColor: 'rgba(255, 248, 240, 0.88)',
+  },
+  fillActive: {
+    backgroundColor: 'rgba(232, 200, 114, 0.95)',
+    shadowColor: '#E8C872',
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
   },
 });

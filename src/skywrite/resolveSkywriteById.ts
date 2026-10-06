@@ -13,6 +13,7 @@ export function resolveSkywriteById(
   const cached = skywriteId ? getCachedSkywrite(skywriteId) : undefined;
   const catalog = collectPublicSkywritesForBeacon(
     cached ? [...localPosts, cached] : localPosts,
+    '',
   );
   return resolveSkywriteForDisplay(catalog, skywriteId, lifecycle);
 }

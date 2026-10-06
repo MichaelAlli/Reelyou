@@ -11,7 +11,7 @@ import { LegacyMomentCard } from '@/components/legacy/LegacyMomentCard';
 import { GlowButton } from '@/components/GlowButton';
 import { LegacyCopy } from '@/constants/legacyCopy';
 import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
 import { canViewerAccessVisitorLegacyRoutes, canViewerSeeLegacyItem } from '@/legacy/legacyViewerAccess';
 import { useSubjectLegacyContent } from '@/legacy/useSubjectLegacyContent';
 import { buildVisitorProfileHref } from '@/profile/visitorProfileRoute';
@@ -34,14 +34,15 @@ export function VisitorLegacyScreen({ ownerId }: VisitorLegacyScreenProps) {
   const [segment, setSegment] = useState<'journey' | 'ripples'>('journey');
 
   const subjectId = ownerId ?? '';
+  const viewerUserId = useEffectiveViewerId() ?? '';
   const viewerContext = useMemo(
     () => ({
       subjectUserId: subjectId,
-      viewerUserId: currentUser.id,
+      viewerUserId,
       followGraph: skyFollowGraph,
       blockedUserIds: messages.blockedUserIds,
     }),
-    [messages.blockedUserIds, skyFollowGraph, subjectId],
+    [messages.blockedUserIds, skyFollowGraph, subjectId, viewerUserId],
   );
 
   const accessAllowed = subjectId ? canViewerAccessVisitorLegacyRoutes(viewerContext) : false;

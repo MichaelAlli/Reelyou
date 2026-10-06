@@ -1,4 +1,3 @@
-import { currentUser } from '@/data/mockData';
 import {
   buildSkyIdentityNodeId,
   resolvePublicSkyOwnerProfile,
@@ -125,7 +124,7 @@ export function buildNearbySkies(
   connectionActivities: SkyConnectionActivity[],
   communities: CommunitiesRecord,
   exploreEnabled: boolean,
-  selfId: string = currentUser.id,
+  selfId: string,
   maxExplore: number = DEFAULT_MAX_EXPLORE,
 ): NearbySkyAnchor[] {
   const catalog = buildSkySearchResults('', feed, connectionActivities, communities).filter(

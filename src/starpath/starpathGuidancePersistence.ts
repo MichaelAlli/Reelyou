@@ -1,12 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { readStarpathScopedJson, writeStarpathScopedJson } from '@/starpath/starpathScopedStorage';
 import { EMPTY_GUIDANCE_STATE, type StarPathGuidanceState } from '@/starpath/starpathGuidanceTypes';
 
 const STORAGE_KEY = '@reellyou/starpath-guidance';
 
 export async function loadStarPathGuidanceState(): Promise<StarPathGuidanceState> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await readStarpathScopedJson(STORAGE_KEY, (value) => value);
     if (!raw) return { ...EMPTY_GUIDANCE_STATE };
     const parsed = JSON.parse(raw) as StarPathGuidanceState;
     return {
@@ -21,5 +20,5 @@ export async function loadStarPathGuidanceState(): Promise<StarPathGuidanceState
 }
 
 export async function saveStarPathGuidanceState(state: StarPathGuidanceState): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  await writeStarpathScopedJson(STORAGE_KEY, state);
 }

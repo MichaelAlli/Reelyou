@@ -24,6 +24,7 @@ import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
 import { MySkyStarInsightBubble } from '@/components/my-sky/MySkyStarInsightBubble';
 import { MySkyCopy } from '@/constants/mySkyCopy';
 import { buildStarInsightBubble } from '@/mySky/buildStarInsightBubble';
+import { resolveMySkyStarAccessibilityLabel } from '@/mySky/getSkywriteStarColor';
 import type { StarNavigationTarget } from '@/mySky/resolveStarNavigation';
 import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
 import {
@@ -35,11 +36,12 @@ import type { SkyOwnerProfile } from '@/mySky/skyIdentity';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
 import type { SkyNode } from '@/mySky/skyNodeTypes';
 import {
+  findSkywriteById,
   pushStarNavigationTarget,
   resolveCanonicalSkywriteIdForStar,
   resolveStarNavigation,
 } from '@/mySky/resolveStarNavigation';
-import { pushSkyreelPlay } from '@/skywrite/play/skyreelNavigation';
+import { openSkywritePostView } from '@/skywrite/openSkywritePostView';
 import { resolveVisitorStarNavigation } from '@/mySky/resolveVisitorStarNavigation';
 import type { MySkyLayerId } from '@/mySky/skyLayers';
 import type { MySkyStarDisplay, MySkyView } from '@/mySky/types';
@@ -98,6 +100,8 @@ interface MySkyStarCanvasProps {
   onConnect?: () => void;
   /** Suspend edge focus navigation (modals, transient sky animations). */
   spatialFocusSuspended?: boolean;
+  /** Brief first-visit emphasis on the owner identity star. */
+  identityStarIntroPulse?: boolean;
 }
 
 function MySkyStarCanvasComponent({
@@ -132,6 +136,7 @@ function MySkyStarCanvasComponent({
   publicSkyConnectionStatus = 'none',
   onConnect,
   spatialFocusSuspended = false,
+  identityStarIntroPulse = false,
 }: MySkyStarCanvasProps) {
   const { stars, viewState, skyOwner, identityStar, nodes } = view;
   const spatialClearRef = useRef<(() => void) | null>(null);
@@ -399,6 +404,7 @@ function MySkyStarCanvasComponent({
         visitorMode,
         publicSkyOwnerId,
         skyOwnerId: skyOwner.id,
+        skywrites,
       });
     },
     [resolveNavigationTarget, router, visitorMode, publicSkyOwnerId, skyOwner.id],
@@ -439,16 +445,20 @@ function MySkyStarCanvasComponent({
     }
   }, []);
 
-  /** Same route as Focused Skywrite `focusedSkywriteImmersiveTap` / Play Sky single scope. */
-  const openImmersiveSkywriteById = useCallback(
+  /** Persistent Skywrite post view (not SkyReel story timer). */
+  const openSkywritePostById = useCallback(
     (skywriteId: string) => {
       closeInsightBubble();
-      pushSkyreelPlay(
-        router,
-        `/skywrite/play?scope=single&id=${skywriteId}&autoplay=1`,
+      const post = findSkywriteById(skywrites, skywriteId);
+      if (post) {
+        openSkywritePostView(router, post);
+        return;
+      }
+      router.push(
+        `/skywrite/moment?skywriteId=${encodeURIComponent(skywriteId)}&step=0` as never,
       );
     },
-    [closeInsightBubble, router],
+    [closeInsightBubble, router, skywrites],
   );
 
   const handleContentStarTap = useCallback(
@@ -457,12 +467,12 @@ function MySkyStarCanvasComponent({
       spatialClearRef.current?.();
       const skywriteId = resolveCanonicalSkywriteIdForStar(star, nodes);
       if (skywriteId) {
-        openImmersiveSkywriteById(skywriteId);
+        openSkywritePostById(skywriteId);
         return;
       }
       openInsightForStar(star);
     },
-    [nodes, openImmersiveSkywriteById, openInsightForStar],
+    [nodes, openSkywritePostById, openInsightForStar],
   );
 
   const handleStarPress = useCallback(
@@ -552,6 +562,8 @@ function MySkyStarCanvasComponent({
     );
 
   const accessibilityLabel = useCallback((star: MySkyStarDisplay) => {
+    const semantic = resolveMySkyStarAccessibilityLabel(star);
+    if (semantic) return semantic;
     if (star.type === 'skywrite' && star.sourceId) {
       return `Open skywrite: ${star.title ?? 'moment'}`;
     }
@@ -614,7 +626,8 @@ function MySkyStarCanvasComponent({
           worldWidth={world.width}
           worldHeight={world.height}
           active={ownBubbleActive}
-          prominence={1.06}
+          prominence={1.14}
+          identityIntroPulse={identityStarIntroPulse}
           onPress={handleOwnIdentityPress}
         />
 

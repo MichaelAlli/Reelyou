@@ -13,7 +13,6 @@ import { TabPill } from '@/components/TabPill';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useThemedStyles } from '@/theme/useTheme';
 import {
-  currentUser,
   impactMetrics,
   impactMoments,
   legacyStories,

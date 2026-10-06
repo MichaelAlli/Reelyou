@@ -1,4 +1,4 @@
-import { currentUser } from '@/data/mockData';
+import { useEffectiveViewerId } from '@/auth/useSessionUserId';
 import { useLegacy } from '@/legacy/LegacyProvider';
 import type { LegacyMoment } from '@/legacy/legacyMomentTypes';
 import type { ReelSequence } from '@/legacy/reelYouTypes';
@@ -21,8 +21,9 @@ const EMPTY_REEL: ReelSequence = {
  */
 export function useSubjectLegacyContent(subjectUserId: string) {
   const legacy = useLegacy();
+  const sessionOwnerId = useEffectiveViewerId();
 
-  if (!subjectUserId || subjectUserId !== currentUser.id) {
+  if (!subjectUserId || !sessionOwnerId || subjectUserId !== sessionOwnerId) {
     return {
       moments: [] as LegacyMoment[],
       reelSequence: EMPTY_REEL,

@@ -18,7 +18,7 @@ export type ProfileSkywritingTone = OwnerProfileSkywritingPreview['tone'];
 
 /** Owner profile — All plus three user-chosen Sky area shortcuts. */
 export function buildOwnerProfileSkywritingTabs(
-  shortcutIds: readonly SkyAreaCategoryId[] = PROFILE_BETA_PREVIEW_CATEGORY_IDS,
+  shortcutIds: readonly SkyAreaCategoryId[] = [],
 ): ProfileSkywritingTab[] {
   return [
     { id: SKY_AREA_TAB_ALL, label: 'All' },

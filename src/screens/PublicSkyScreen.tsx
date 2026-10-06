@@ -130,6 +130,7 @@ export function PublicSkyScreen({ userId }: PublicSkyScreenProps) {
         visitorMode: true,
         publicSkyOwnerId: userId,
         skyOwnerId: publicSkyView.skyOwner.id,
+        skywrites,
       });
     },
     [publicSkyView, router, skywrites, userId],

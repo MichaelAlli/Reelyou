@@ -10,6 +10,10 @@ export interface StoredAuthUser {
   id: string;
   fullName: string;
   email: string;
+  username?: string | null;
+  bio?: string | null;
+  avatarMediaKey?: string | null;
+  onboardingComplete?: boolean;
 }
 
 function webSessionStorage(): Storage | null {

@@ -1,12 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { readStarpathScopedJson, writeStarpathScopedJson } from '@/starpath/starpathScopedStorage';
 import { EMPTY_SIGNAL_STATE, type StarPathSignalState } from '@/starpath/starpathSignalTypes';
 
 const STORAGE_KEY = '@reellyou/starpath-signals';
 
 export async function loadStarPathSignalState(): Promise<StarPathSignalState> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await readStarpathScopedJson(STORAGE_KEY, (value) => value);
     if (!raw) return { ...EMPTY_SIGNAL_STATE };
     const parsed = JSON.parse(raw) as StarPathSignalState;
     return {
@@ -21,5 +20,5 @@ export async function loadStarPathSignalState(): Promise<StarPathSignalState> {
 }
 
 export async function saveStarPathSignalState(state: StarPathSignalState): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  await writeStarpathScopedJson(STORAGE_KEY, state);
 }

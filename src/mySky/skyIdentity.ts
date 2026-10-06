@@ -1,3 +1,4 @@
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
 import { currentUser, orbitUsers } from '@/data/mockData';
 import { resolveExploreDemoOwnerProfile } from '@/explore/exploreDemoSkies';
 import {
@@ -54,16 +55,50 @@ export function resolveSkyIdentityPosition(ownerId: string): SkyNodePosition & {
   };
 }
 
-export function resolveCurrentSkyOwnerProfile(northStarVision: string): SkyOwnerProfile {
+export function resolveCurrentSkyOwnerProfile(
+  northStarVision: string,
+  sessionOwner?: { id: string; fullName?: string | null } | null,
+): SkyOwnerProfile {
+  const northStarSummary = northStarVision.trim() || undefined;
+  if (sessionOwner?.id) {
+    const name = sessionOwner.fullName?.trim() || 'You';
+    const initials =
+      name
+        .split(/\s+/)
+        .map((part) => part[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || 'YO';
+    return {
+      id: sessionOwner.id,
+      name,
+      avatarInitials: initials,
+      avatarColor: '#FFD57A',
+      avatarUri: getCanonicalProfilePhotoDisplayUri(),
+      northStarSummary,
+      isSelf: true,
+    };
+  }
+  if (isExplicitDevDemoModeEnabled()) {
+    return {
+      id: currentUser.id,
+      name: currentUser.name,
+      subtitle: currentUser.subtitle,
+      bio: currentUser.bio,
+      avatarInitials: currentUser.avatarInitials,
+      avatarColor: currentUser.avatarColor,
+      avatarUri: getCanonicalProfilePhotoDisplayUri(),
+      northStarSummary,
+      isSelf: true,
+    };
+  }
   return {
-    id: currentUser.id,
-    name: currentUser.name,
-    subtitle: currentUser.subtitle,
-    bio: currentUser.bio,
-    avatarInitials: currentUser.avatarInitials,
-    avatarColor: currentUser.avatarColor,
+    id: '',
+    name: 'You',
+    avatarInitials: 'YO',
+    avatarColor: '#FFD57A',
     avatarUri: getCanonicalProfilePhotoDisplayUri(),
-    northStarSummary: northStarVision.trim() || undefined,
+    northStarSummary,
     isSelf: true,
   };
 }
@@ -72,7 +107,7 @@ export function resolvePublicSkyOwnerProfile(
   userId: string,
   connectionStatus: SkyConnectionStatus = 'none',
 ): SkyOwnerProfile | null {
-  if (userId === currentUser.id) {
+  if (isExplicitDevDemoModeEnabled() && userId === currentUser.id) {
     return {
       id: currentUser.id,
       name: currentUser.name,

@@ -9,6 +9,8 @@ import {
 } from 'react';
 
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { currentUser } from '@/data/mockData';
 import {
   deleteServerImportedDiscoveryData,
@@ -51,7 +53,9 @@ export function FriendDiscoveryProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<FriendDiscoveryState | null>(null);
   const { messages, skyFollowGraph, preferences } = useReelyouConnect();
   const auth = useReelyouAuth();
-  const viewerId = auth.configured && auth.user ? auth.user.id : currentUser.id;
+  const viewerId =
+    resolveActiveUserId(auth.user) ??
+    (isExplicitDevDemoModeEnabled() ? currentUser.id : '');
 
   useEffect(() => {
     let mounted = true;

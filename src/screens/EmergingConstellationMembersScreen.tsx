@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomNav } from '@/components/BottomNav';
-import { currentUser } from '@/data/mockData';
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { CAREER_TRANSITION_MEMBER_FIXTURES } from '@/emergingConstellations/communitySocialFixtures';
 import { useEmergingConstellations } from '@/emergingConstellations/EmergingConstellationsProvider';
@@ -17,6 +17,7 @@ export function EmergingConstellationMembersScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const insets = useSafeAreaInsets();
   const tabInset = TabBarHeight + Math.max(insets.bottom, 8);
+  const { userId: sessionUserId } = useSessionUserId();
   const { messages, canMessageUser, openOrCreateThreadWith } = useReelyouConnect();
   const blockedUserIds = messages.blockedUserIds;
   const limitedUserIds = messages.limitedUserIds;
@@ -59,7 +60,7 @@ export function EmergingConstellationMembersScreen() {
           <Text style={styles.sub}>People in {constellation.name} — no ranks, just presence.</Text>
 
           {members.map((member) => {
-            const isSelf = member.userId === currentUser.id;
+            const isSelf = member.userId === sessionUserId;
             const limited = limitedUserIds.includes(member.userId);
             return (
               <View key={member.userId} style={styles.row}>

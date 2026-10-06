@@ -68,13 +68,50 @@ export function addSkywriteComment(
   };
 }
 
+export function mergeServerCommentsForSkywrite(
+  state: SkywriteCommentState,
+  skywriteId: string,
+  serverComments: readonly {
+    id: string;
+    authorUserId: string;
+    text: string;
+    createdAt: number;
+  }[],
+): SkywriteCommentState {
+  if (serverComments.length === 0) return state;
+  const knownIds = new Set(state.comments.map((entry) => entry.commentId));
+  const additions: SkywriteCommentRecord[] = [];
+  for (const entry of serverComments) {
+    if (knownIds.has(entry.id)) continue;
+    additions.push({
+      commentId: entry.id,
+      skywriteId,
+      authorId: entry.authorUserId,
+      body: entry.text,
+      createdAt: entry.createdAt,
+      updatedAt: entry.createdAt,
+    });
+    knownIds.add(entry.id);
+  }
+  if (additions.length === 0) return state;
+  const ts = nowMs();
+  return {
+    comments: [...state.comments, ...additions],
+    updatedAt: ts,
+  };
+}
+
 export function deleteSkywriteComment(
   state: SkywriteCommentState,
   commentId: string,
-  authorId: string,
+  actorId: string,
+  postOwnerId?: string,
 ): { state: SkywriteCommentState; removed: SkywriteCommentRecord | null } {
   const target = state.comments.find((entry) => entry.commentId === commentId);
-  if (!target || target.authorId !== authorId) {
+  const mayRemove =
+    Boolean(target) &&
+    (target!.authorId === actorId || (postOwnerId != null && postOwnerId === actorId));
+  if (!target || !mayRemove) {
     return { state, removed: null };
   }
   const ts = nowMs();

@@ -6,7 +6,8 @@ import { rippleGlass } from '@/components/legacy/ripple/rippleGlass';
 import { LegacyRippleScreenShell } from '@/components/legacy/ripple/LegacyRippleScreenShell';
 import { RippleCopy } from '@/constants/rippleCopy';
 import { Fonts } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { buildRippleConnectionDetail } from '@/legacy/buildRippleConnectionDetail';
 import { leaveLegacyRippleRoute } from '@/legacy/legacyRippleLeaveNavigation';
 import { buildRippleUserDirectory } from '@/legacy/rippleUserDirectory';
@@ -22,20 +23,30 @@ function formatDate(ms: number): string {
 
 export function LegacyRippleConnectionScreen() {
   const router = useRouter();
+  const { user: authUser } = useReelyouAuth();
+  const ownerUserId = resolveActiveUserId(authUser) ?? '';
   const { personId } = useLocalSearchParams<{ personId: string }>();
   const decodedId = personId ? decodeURIComponent(personId) : '';
   const { state, isLoaded } = useHumanPotentialMetrics();
-  const userDirectory = useMemo(() => buildRippleUserDirectory(), []);
+  const userDirectory = useMemo(
+    () =>
+      buildRippleUserDirectory(
+        ownerUserId
+          ? { id: ownerUserId, name: authUser?.fullName?.trim() || 'You' }
+          : undefined,
+      ),
+    [authUser?.fullName, ownerUserId],
+  );
 
   const detail = useMemo(() => {
-    if (!decodedId || !isLoaded) return null;
+    if (!decodedId || !isLoaded || !ownerUserId) return null;
     return buildRippleConnectionDetail({
-      ownerUserId: currentUser.id,
+      ownerUserId,
       personUserId: decodedId,
       metrics: state,
       userDirectory,
     });
-  }, [decodedId, isLoaded, state, userDirectory]);
+  }, [decodedId, isLoaded, ownerUserId, state, userDirectory]);
 
   const handleBack = useCallback(() => {
     if (router.canGoBack()) {

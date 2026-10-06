@@ -9,6 +9,16 @@ export function skywriteVideoElementStyle(): ViewStyle {
   return { ...base, objectFit: 'contain' } as ViewStyle;
 }
 
+/** Vertical SkyReel / story stage (width ÷ height). */
+export const SKYWRITE_STORY_STAGE_ASPECT = 9 / 16;
+
+export function skywritePhotoAspectRatio(width?: number, height?: number): number {
+  if (width != null && height != null && height > 0) {
+    return width / height;
+  }
+  return 4 / 5;
+}
+
 /** Prefer stored dimensions; fall back to a neutral frame (not forced 9:16). */
 export function skywriteVideoAspectRatio(width?: number, height?: number): number {
   if (width != null && height != null && height > 0) {

@@ -10,6 +10,13 @@ export interface ServerSkywriteMediaRefs {
   videoAssetId?: string | null;
   audioAssetId?: string | null;
   thumbnailAssetId?: string | null;
+  photoMeta?: {
+    width?: number;
+    height?: number;
+    stageFit?: 'fit' | 'fill';
+    framingOffsetX?: number;
+    framingOffsetY?: number;
+  } | null;
   videoMeta?: {
     width?: number;
     height?: number;
@@ -18,6 +25,7 @@ export interface ServerSkywriteMediaRefs {
     framingOffsetX?: number;
     framingOffsetY?: number;
   } | null;
+  audioMeta?: { durationMs?: number } | null;
   originalVideoAudio?: 'on' | 'lower' | 'off';
   originalVideoVolume?: number;
   voiceoverVolume?: number;
@@ -51,6 +59,7 @@ export interface ServerSkywrite {
 export function mapServerSkywriteToRecord(row: ServerSkywrite): SkywriteRecord {
   const media = row.media ?? {};
   const videoMeta = media.videoMeta ?? null;
+  const photoMeta = media.photoMeta ?? null;
   const base: SkywriteRecord = {
     id: row.id,
     authorId: row.authorUserId,
@@ -72,6 +81,11 @@ export function mapServerSkywriteToRecord(row: ServerSkywrite): SkywriteRecord {
         ? {
             uri: buildRemoteAssetPlaceholderUri(media.photoAssetId),
             remoteAssetId: media.photoAssetId,
+            width: photoMeta?.width,
+            height: photoMeta?.height,
+            stageFit: photoMeta?.stageFit,
+            framingOffsetX: photoMeta?.framingOffsetX,
+            framingOffsetY: photoMeta?.framingOffsetY,
           }
         : null,
       video: media.videoAssetId
@@ -93,6 +107,7 @@ export function mapServerSkywriteToRecord(row: ServerSkywrite): SkywriteRecord {
         ? {
             uri: buildRemoteAssetPlaceholderUri(media.audioAssetId),
             remoteAssetId: media.audioAssetId,
+            durationMs: media.audioMeta?.durationMs,
           }
         : null,
       originalVideoAudio: media.originalVideoAudio,

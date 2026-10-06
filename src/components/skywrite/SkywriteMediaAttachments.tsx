@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
+import { SkywriteComposerPhotoPreview } from '@/components/skywrite/SkywriteComposerPhotoPreview';
 import { SkywriteComposerVideoPreview } from '@/components/skywrite/SkywriteComposerVideoPreview';
 import { SkywriteVoiceCapture } from '@/components/skywrite/SkywriteVoiceCapture';
 import { HomePalette } from '@/constants/homeLayout';
@@ -28,6 +29,7 @@ interface SkywriteMediaAttachmentsProps {
   onReRecord: () => void;
   onRemoveAudio: () => void;
   onVideoDimensionsResolved?: (width: number, height: number) => void;
+  onPhotoPatch?: (patch: Partial<SkywritePhotoMedia>) => void;
   /** When true, video is shown in an external immersive stage. */
   suppressVideoPreview?: boolean;
   hasText?: boolean;
@@ -53,16 +55,13 @@ function SkywriteMediaAttachmentsComponent({
   onReRecord,
   onRemoveAudio,
   onVideoDimensionsResolved,
+  onPhotoPatch,
   suppressVideoPreview = false,
   hasText = false,
 }: SkywriteMediaAttachmentsProps) {
   const { width: screenWidth } = useWindowDimensions();
   const previewWidth = Math.min(screenWidth - 48, 420);
   const isVoiceover = Boolean(photo || video || hasText);
-
-  const photoAspect =
-    photo?.width && photo?.height && photo.height > 0 ? photo.width / photo.height : 1;
-  const photoHeight = Math.min(220, previewWidth / photoAspect);
 
   const voiceMode = audio ? 'playback' : isRecording ? 'recording' : voiceCaptureOpen ? 'idle' : null;
 
@@ -110,12 +109,20 @@ function SkywriteMediaAttachmentsComponent({
       {photo ? (
         <View style={[styles.photoBlock, { width: previewWidth }]}>
           <View style={styles.photoFrame}>
-            <Image
-              source={{ uri: photo.uri }}
-              style={{ width: previewWidth, height: photoHeight }}
-              contentFit="cover"
-              accessibilityLabel="Attached photo"
-            />
+            {onPhotoPatch ? (
+              <SkywriteComposerPhotoPreview
+                photo={photo}
+                previewWidth={previewWidth}
+                onPhotoPatch={onPhotoPatch}
+              />
+            ) : (
+              <Image
+                source={{ uri: photo.uri }}
+                style={{ width: previewWidth, height: previewWidth * (16 / 9) }}
+                contentFit="cover"
+                accessibilityLabel="Attached photo"
+              />
+            )}
           </View>
           <View style={styles.photoActions}>
             <Pressable

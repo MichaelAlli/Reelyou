@@ -24,7 +24,8 @@ import {
 import { ModerationReportSheet } from '@/components/safety/ModerationReportSheet';
 import { EmotionAiCopy } from '@/constants/emotionAiCopy';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
-import { currentUser } from '@/data/mockData';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { Fonts, TabBarHeight } from '@/constants/theme';
 import { buildPublicSkyView } from '@/mySky/buildPublicSkyView';
 import { resolveOrbitOwnerSkywrites } from '@/profile/orbitProfileSkywriteFixtures';
@@ -76,6 +77,8 @@ export function VisitorProfileScreen({
   previewAccessMode,
 }: VisitorProfileScreenProps) {
   const router = useRouter();
+  const { user: authUser } = useReelyouAuth();
+  const sessionOwnerId = resolveActiveUserId(authUser) ?? '';
   const insets = useSafeAreaInsets();
   const tabContentInset = TabBarHeight + Math.max(insets.bottom, 8);
   const { aroundYourSkyFeed, skywrites, northStar } = useOnboarding();
@@ -148,7 +151,7 @@ export function VisitorProfileScreen({
     if (!ownerId) return null;
     return buildVisitorProfileView({
       ownerId,
-      viewerId: currentUser.id,
+      viewerId: sessionOwnerId,
       connectionStatus,
       followGraph: skyFollowGraph,
       blockedUserIds: messages.blockedUserIds,
@@ -209,7 +212,7 @@ export function VisitorProfileScreen({
     return buildProfileRelationshipCounts({
       graph: skyFollowGraph,
       profileOwnerId: ownerId,
-      viewerId: currentUser.id,
+      viewerId: sessionOwnerId,
       isOwnProfile: false,
     });
   }, [ownerId, skyFollowGraph]);
@@ -218,7 +221,7 @@ export function VisitorProfileScreen({
     if (!ownerId) return [];
     const demoIds = resolveDemoMutualConnectionUserIds(ownerId, messages.blockedUserIds);
     if (demoIds.length > 0) return demoIds;
-    return listSharedConnectionUserIds(skyFollowGraph, ownerId, currentUser.id).filter(
+    return listSharedConnectionUserIds(skyFollowGraph, ownerId, sessionOwnerId).filter(
       (id) => !messages.blockedUserIds.includes(id),
     );
   }, [messages.blockedUserIds, ownerId, skyFollowGraph]);
@@ -226,9 +229,9 @@ export function VisitorProfileScreen({
   const publicSkyPreview = useMemo(() => {
     if (!ownerId || !visitorView?.showSkyPreview) return null;
     const northStarOverride =
-      visitorPreview && ownerId === currentUser.id ? northStar.originalVision : undefined;
+      visitorPreview && ownerId === sessionOwnerId ? northStar.originalVision : undefined;
     const ownerSkywrites =
-      ownerId === currentUser.id ? skywrites : resolveOrbitOwnerSkywrites(ownerId);
+      ownerId === sessionOwnerId ? skywrites : resolveOrbitOwnerSkywrites(ownerId);
     return buildPublicSkyView(
       ownerId,
       connectionStatus,
@@ -279,17 +282,17 @@ export function VisitorProfileScreen({
   }, [canMessage, openOrCreateThreadWith, ownerId, router]);
 
   useEffect(() => {
-    if (ownerId === currentUser.id && !visitorPreview) {
+    if (ownerId === sessionOwnerId && !visitorPreview) {
       router.replace('/(tabs)/profile' as never);
     }
   }, [ownerId, router, visitorPreview]);
 
-  if (ownerId === currentUser.id && !visitorPreview) {
+  if (ownerId === sessionOwnerId && !visitorPreview) {
     return null;
   }
 
   const hideVisitorActions =
-    visitorPreview && ownerId === currentUser.id;
+    visitorPreview && ownerId === sessionOwnerId;
 
   if (!ownerId || !visitorView || isBlocked) {
     return (

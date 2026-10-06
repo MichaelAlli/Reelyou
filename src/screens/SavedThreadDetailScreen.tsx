@@ -9,7 +9,9 @@ import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { SavedThreadsCopy } from '@/constants/savedThreadsCopy';
 import { SkywriteCopy } from '@/constants/skywriteCopy';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
-import { currentUser, orbitUsers } from '@/data/mockData';
+import { isExplicitDevDemoModeEnabled } from '@/auth/demoMode';
+import { useSessionUserId } from '@/auth/useSessionUserId';
+import { orbitUsers } from '@/data/mockData';
 import { useOnboarding } from '@/onboarding';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { getSkyAreaCategory, isSkyAreaCategoryId } from '@/skyAreas/skyAreaCategory';
@@ -31,6 +33,7 @@ function formatWhen(ms: number): string {
 
 export function SavedThreadDetailScreen() {
   const router = useRouter();
+  const { userId: sessionOwnerId } = useSessionUserId();
   const { savedThreadId } = useLocalSearchParams<{ savedThreadId?: string }>();
   const { skywrites } = useOnboarding();
   const { messages } = useReelyouConnect();
@@ -66,9 +69,9 @@ export function SavedThreadDetailScreen() {
           ? { ...skywrite, authorId: skywrite.authorId ?? saved!.originalAuthorId }
           : null,
         blockedUserIds: messages.blockedUserIds,
-        viewerId: currentUser.id,
+        viewerId: sessionOwnerId ?? '',
       }),
-    [messages.blockedUserIds, saved, skywrite],
+    [messages.blockedUserIds, saved, sessionOwnerId, skywrite],
   );
 
   const responses = useMemo(
@@ -90,8 +93,12 @@ export function SavedThreadDetailScreen() {
 
   const authorName = useMemo(() => {
     if (!saved) return null;
-    return orbitUsers.find((user) => user.id === saved.originalAuthorId)?.name ?? null;
-  }, [saved]);
+    if (isExplicitDevDemoModeEnabled()) {
+      return orbitUsers.find((user) => user.id === saved.originalAuthorId)?.name ?? null;
+    }
+    if (saved.originalAuthorId === sessionOwnerId) return 'You';
+    return saved.originalAuthorId;
+  }, [saved, sessionOwnerId]);
 
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
@@ -172,7 +179,7 @@ export function SavedThreadDetailScreen() {
     ]);
   }, [router, saved, unsaveThreadById]);
 
-  if (!saved || saved.ownerUserId !== currentUser.id) {
+  if (!saved || !sessionOwnerId || saved.ownerUserId !== sessionOwnerId) {
     return (
       <View style={styles.root}>
         <HomeBackdrop />

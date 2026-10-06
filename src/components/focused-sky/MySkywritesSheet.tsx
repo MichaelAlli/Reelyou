@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  InteractionManager,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,13 +14,13 @@ import {
 import { CalmOverlaySheet } from '@/components/focused-sky/CalmOverlaySheet';
 import { useTransientToast } from '@/components/ui/TransientToast';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
+import { savedThreadsPublicUiEnabled } from '@/constants/betaFeatures';
 import { ProfileSkywritingsCopy } from '@/constants/profileSkywritingsCopy';
 import { MySkywritesCopy } from '@/constants/mySkywritesCopy';
 import { SavedThreadsCopy } from '@/constants/savedThreadsCopy';
 import { Fonts, Radius } from '@/constants/theme';
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
-import { currentUser } from '@/data/mockData';
 import { useOnboarding } from '@/onboarding';
 import {
   buildArchivedSavedThreadLibraryRows,
@@ -33,11 +34,13 @@ import {
 import { useSkywriteLibrary } from '@/skywrite/library/SkywriteLibraryProvider';
 import { useSavedThreads } from '@/skywrite/savedThreads/SavedThreadsProvider';
 import { SkywriteLibraryMediaCard } from '@/components/skywrite/SkywriteLibraryMediaCard';
+import { SkywriteVideoCoverSheet } from '@/components/skywrite/SkywriteVideoCoverSheet';
+import { skywriteHasVideoMedia } from '@/skywrite/media/getSkywriteThumbnail';
 import { useOverlayAudioPreviewScope } from '@/skywrite/media/useOverlayAudioPreviewScope';
-import { openSkywriteMediaPlay } from '@/skywrite/play/openSkywriteMediaPlay';
 import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
 import { useApplySkywriteContentDeletion } from '@/skywrite/lifecycle/useApplySkywriteContentDeletion';
 import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
+import { openSkywritePostView } from '@/skywrite/openSkywritePostView';
 
 interface MySkywritesSheetProps {
   visible: boolean;
@@ -59,7 +62,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const router = useRouter();
   const { user: authUser } = useReelyouAuth();
   const ownerUserId = resolveActiveUserId(authUser);
-  const { skywrites, addSkywriteToYourJourney } = useOnboarding();
+  const { skywrites, addSkywriteToYourJourney, applySkywriteVideoCoverAt } = useOnboarding();
   const { library, archiveSkywrite, restoreSkywrite } = useSkywriteLibrary();
   const { threadState, contributions } = useSkywriteThreads();
   const { state: savedThreadsState, archiveThread, restoreThread } = useSavedThreads();
@@ -71,6 +74,10 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const { repostToSkyreel } = usePlaySkySequenceRegistry();
   const { show: showToast, Toast: repostToast } = useTransientToast();
   const [repostPendingId, setRepostPendingId] = useState<string | null>(null);
+  const [coverEditRecord, setCoverEditRecord] = useState<MySkywriteLibraryRow['skywrite'] | null>(
+    null,
+  );
+  const showSavedThreadsTab = savedThreadsPublicUiEnabled();
 
   const handleRepostToSkyreel = useCallback(
     (skywriteId: string, skywrite: MySkywriteLibraryRow['skywrite']) => {
@@ -98,6 +105,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
         contributions,
         blockedUserIds: messages.blockedUserIds,
         followGraph: skyFollowGraph,
+        ownerUserId: ownerUserId || undefined,
         query,
       });
     }
@@ -106,7 +114,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
         localPosts: skywrites,
         library,
         query,
-        ownerUserId,
+        ownerUserId: ownerUserId || undefined,
       });
     }
     if (tab === 'saved') {
@@ -116,24 +124,28 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
         saved: savedThreadsState,
         contributions,
         blockedUserIds: messages.blockedUserIds,
+        ownerUserId: ownerUserId || undefined,
         query,
       });
     }
     if (tab === 'archived') {
+      const authored = buildAuthoredLibraryRows({
+        localPosts: skywrites,
+        library,
+        tab: 'archived',
+        query,
+        ownerUserId: ownerUserId || undefined,
+      });
+      if (!showSavedThreadsTab) return authored;
       return [
-        ...buildAuthoredLibraryRows({
-          localPosts: skywrites,
-          library,
-          tab: 'archived',
-          query,
-          ownerUserId,
-        }),
+        ...authored,
         ...buildArchivedSavedThreadLibraryRows({
           localPosts: skywrites,
           library,
           saved: savedThreadsState,
           contributions,
           blockedUserIds: messages.blockedUserIds,
+          ownerUserId: ownerUserId || undefined,
           query,
         }),
       ].sort((a, b) => b.sortMs - a.sortMs);
@@ -143,7 +155,7 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
       library,
       tab: 'recent',
       query,
-      ownerUserId,
+      ownerUserId: ownerUserId || undefined,
     });
   }, [
     contributions,
@@ -154,9 +166,16 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
     query,
     savedThreadsState,
     skywrites,
+    showSavedThreadsTab,
     tab,
     threadState.responses,
   ]);
+
+  useEffect(() => {
+    if (!showSavedThreadsTab && tab === 'saved') {
+      setTab('recent');
+    }
+  }, [showSavedThreadsTab, tab]);
 
   const emptyCopy =
     tab === 'archived'
@@ -174,10 +193,15 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
       void audioPreview.stopAll();
       onClose();
       if (row.savedThreadId) {
-        router.push(`/skywrite/saved/${row.savedThreadId}` as never);
+        InteractionManager.runAfterInteractions(() => {
+          router.push(`/skywrite/saved/${row.savedThreadId}` as never);
+        });
         return;
       }
-      openSkywriteMediaPlay(router, row.skywrite, { autoplay: true });
+      const post = row.skywrite;
+      InteractionManager.runAfterInteractions(() => {
+        openSkywritePostView(router, post);
+      });
     },
     [audioPreview, onClose, router],
   );
@@ -187,13 +211,16 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
     onClose();
   }, [audioPreview, onClose]);
 
-  const tabs: { id: MySkywritesTabId; label: string }[] = [
-    { id: 'recent', label: MySkywritesCopy.tabRecent },
-    { id: 'journey', label: MySkywritesCopy.tabYourJourney },
-    { id: 'saved', label: MySkywritesCopy.tabSavedThreads },
-    { id: 'archived', label: MySkywritesCopy.tabArchived },
-    { id: 'contributed', label: MySkywritesCopy.tabContributed },
-  ];
+  const tabs: { id: MySkywritesTabId; label: string }[] = useMemo(() => {
+    const all: { id: MySkywritesTabId; label: string }[] = [
+      { id: 'recent', label: MySkywritesCopy.tabRecent },
+      { id: 'journey', label: MySkywritesCopy.tabYourJourney },
+      { id: 'saved', label: MySkywritesCopy.tabSavedThreads },
+      { id: 'archived', label: MySkywritesCopy.tabArchived },
+      { id: 'contributed', label: MySkywritesCopy.tabContributed },
+    ];
+    return showSavedThreadsTab ? all : all.filter((entry) => entry.id !== 'saved');
+  }, [showSavedThreadsTab]);
 
   return (
     <CalmOverlaySheet visible={visible} onClose={handleClose} backdropLabel={MySkywritesCopy.close}>
@@ -255,6 +282,13 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                     label: MySkywritesCopy.repostPlaySky,
                     onPress: () => handleRepostToSkyreel(row.skywriteId, row.skywrite),
                   });
+                  if (skywriteHasVideoMedia(row.skywrite)) {
+                    menuActions.push({
+                      id: 'edit-cover',
+                      label: MySkywritesCopy.editCover,
+                      onPress: () => setCoverEditRecord(row.skywrite),
+                    });
+                  }
                 }
                 if (tab === 'recent' && !row.inYourJourney) {
                   menuActions.push({
@@ -321,6 +355,9 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
                   onPressMedia={() => openMedia(row)}
                   onToggleAudio={(previewId, uri) => void audioPreview.togglePreview(previewId, uri)}
                   isAudioPlaying={(previewId) => audioPreview.isPreviewPlaying(previewId)}
+                  getAudioPreviewProgress={(previewId) =>
+                    audioPreview.getPreviewProgress(previewId)
+                  }
                   compactGrid={tab === 'recent' || tab === 'journey'}
                   style={[
                     styles.mediaCard,
@@ -336,6 +373,21 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
           <Text style={styles.closeText}>{MySkywritesCopy.close}</Text>
         </Pressable>
         {repostToast}
+        <SkywriteVideoCoverSheet
+          visible={Boolean(coverEditRecord)}
+          record={coverEditRecord}
+          onClose={() => setCoverEditRecord(null)}
+          onSave={async (seekMs) => {
+            if (!coverEditRecord) return false;
+            const result = await applySkywriteVideoCoverAt(coverEditRecord.id, seekMs);
+            if (result.ok) {
+              showToast(MySkywritesCopy.editCoverSaved);
+              return true;
+            }
+            showToast(MySkywritesCopy.editCoverFailed);
+            return false;
+          }}
+        />
       </View>
     </CalmOverlaySheet>
   );

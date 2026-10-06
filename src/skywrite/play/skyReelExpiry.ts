@@ -1,19 +1,37 @@
 import type { PlaySkySequenceRegistry } from '@/skywrite/play/playSkySequenceEligibility';
 import { PLAY_SKY_SEQUENCE_WINDOW_MS } from '@/skywrite/play/playSkySequenceEligibility';
+import {
+  formatSkyReelAgeLabel,
+  isSkyReelActive,
+  resolveSkyReelActiveUntilMsForPost,
+  resolveSkyReelAppearanceStartMs,
+  type SkyReelTimingPost,
+} from '@/skywrite/play/skyReelActive';
+
+export {
+  formatSkyReelAgeLabel,
+  isSkyReelActive,
+  resolveSkyReelActiveUntilMsForPost,
+  resolveSkyReelAppearanceStartMs,
+};
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 
-/** Persisted SkyReel visibility end — not playback duration. */
+/** @deprecated Prefer resolveSkyReelActiveUntilMsForPost with the full post record. */
 export function resolveSkyReelActiveUntilMs(
   skywriteId: string,
   registry: PlaySkySequenceRegistry,
-  _createdAt?: string,
-): number | null {
+  options?: SkyReelTimingPost,
+): number {
+  if (options) {
+    return resolveSkyReelActiveUntilMsForPost(options, registry);
+  }
   const entry = registry[skywriteId];
   if (entry?.activeUntilMs && Number.isFinite(entry.activeUntilMs)) {
     return entry.activeUntilMs;
   }
-  return null;
+  const start = entry?.appearancePublishedAtMs ?? Date.now();
+  return start + PLAY_SKY_SEQUENCE_WINDOW_MS;
 }
 
 /** Server/client appearance start for the current SkyReel window (repost renews this only). */
@@ -57,7 +75,7 @@ export function isSkyReelAppearanceActive(
   activeUntilMs: number | null,
   nowMs = Date.now(),
 ): boolean {
-  if (activeUntilMs == null || !Number.isFinite(activeUntilMs)) return true;
+  if (activeUntilMs == null || !Number.isFinite(activeUntilMs)) return false;
   return nowMs < activeUntilMs;
 }
 

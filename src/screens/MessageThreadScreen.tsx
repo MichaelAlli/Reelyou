@@ -14,7 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ModerationReportSheet } from '@/components/safety/ModerationReportSheet';
-import { currentUser } from '@/data/mockData';
+import { directMessagesEnabled } from '@/constants/betaFeatures';
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { otherParticipantId } from '@/messages/messagesCanonical';
 import { Fonts } from '@/constants/theme';
@@ -22,6 +23,17 @@ import { Fonts } from '@/constants/theme';
 export function MessageThreadScreen() {
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const router = useRouter();
+  const { userId: sessionOwnerId } = useSessionUserId();
+
+  useEffect(() => {
+    if (!directMessagesEnabled()) {
+      router.replace('/(tabs)/home' as never);
+    }
+  }, [router]);
+
+  if (!directMessagesEnabled()) {
+    return null;
+  }
   const {
     messages: inbox,
     getThreadMessages,
@@ -46,8 +58,9 @@ export function MessageThreadScreen() {
 
   const otherId = useMemo(() => {
     if (!thread) return null;
-    return otherParticipantId(thread.participantIds);
-  }, [thread]);
+    if (!sessionOwnerId) return null;
+    return otherParticipantId(thread.participantIds, sessionOwnerId);
+  }, [sessionOwnerId, thread]);
 
   const otherName = searchableUsers.find((u) => u.id === otherId)?.name ?? 'Connection';
 
@@ -142,7 +155,7 @@ export function MessageThreadScreen() {
       >
         <ScrollView contentContainerStyle={styles.thread} testID="message-thread">
           {messages.map((m) => {
-            const mine = m.senderId === currentUser.id;
+            const mine = sessionOwnerId != null && m.senderId === sessionOwnerId;
             return (
               <View key={m.id} style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
                 <Text style={styles.bubbleText}>{m.text}</Text>

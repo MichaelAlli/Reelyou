@@ -4,7 +4,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Switch, Text, TextI
 
 import { FindFamiliarSkiesCopy as Copy } from '@/constants/findFamiliarSkiesCopy';
 import { Fonts } from '@/constants/theme';
-import { currentUser } from '@/data/mockData';
+import { useSessionUserId } from '@/auth/useSessionUserId';
 import { useFriendDiscovery } from '@/friendDiscovery/FriendDiscoveryProvider';
 import {
   FACEBOOK_DISCOVERY_BLOCKER,
@@ -30,6 +30,7 @@ export function FindYourPeoplePanel({
   showDisconnect = false,
   compact = false,
 }: FindYourPeoplePanelProps) {
+  const { userId: sessionOwnerId, displayName: sessionDisplayName } = useSessionUserId();
   const router = useRouter();
   const {
     state,
@@ -92,8 +93,8 @@ export function FindYourPeoplePanel({
 
   const handleInviteShare = useCallback(async () => {
     const result = await shareInvitationViaNativeSheet({
-      ownerId: currentUser.id,
-      displayName: currentUser.name,
+      ownerId: sessionOwnerId ?? '',
+      displayName: sessionDisplayName,
     });
     if (result === 'copied') flash(Copy.inviteCopied);
     else if (result === 'opened_composer' || result === 'shared') flash(Copy.inviteOpened);
@@ -102,14 +103,15 @@ export function FindYourPeoplePanel({
   }, [flash]);
 
   const handleCopy = useCallback(async () => {
-    const ok = await copyInvitationLink(currentUser.id);
+    if (!sessionOwnerId) return;
+    const ok = await copyInvitationLink(sessionOwnerId);
     if (ok) flash(Copy.inviteCopied);
   }, [flash]);
 
   const handleSms = useCallback(async () => {
     const result = await openSmsInvitationComposer({
-      ownerId: currentUser.id,
-      displayName: currentUser.name,
+      ownerId: sessionOwnerId ?? '',
+      displayName: sessionDisplayName,
     });
     if (result === 'opened_composer') flash(Copy.inviteOpened);
     else if (result === 'cancelled') flash(Copy.cancelNote);
@@ -118,8 +120,8 @@ export function FindYourPeoplePanel({
 
   const handleEmail = useCallback(async () => {
     const result = await openEmailInvitationComposer({
-      ownerId: currentUser.id,
-      displayName: currentUser.name,
+      ownerId: sessionOwnerId ?? '',
+      displayName: sessionDisplayName,
     });
     if (result === 'opened_composer') flash(Copy.inviteOpened);
     else if (result === 'cancelled') flash(Copy.cancelNote);
