@@ -77,7 +77,7 @@ assert.equal(findFirstEligibleStepIndex(stepsThree, regMidActive, expiredNow), 1
 assert.equal(findNextEligibleStepIndexAfter(stepsThree, 0, regMidActive, expiredNow), 1);
 
 const multiStep = [step('a', 'text'), step('a', 'photo'), step('b')];
-assert.equal(findNextEligibleStepIndexAfter(multiStep, 0, regMidActive, expiredNow), 2);
+assert.equal(findNextEligibleStepIndexAfter(multiStep, 1, regMidActive, expiredNow), 2);
 
 assert.deepEqual(
   resolveMidPlaybackExpiryTransition(stepsThree, 0, regAllExpired, null, false, expiredNow),

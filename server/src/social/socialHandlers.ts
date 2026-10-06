@@ -14,6 +14,7 @@ import {
   recoverSkywrite,
   addSkywriteToYourJourney,
   repostSkyreel,
+  patchSkywriteThumbnailAsset,
   removeBlock,
   removeFollow,
 } from './socialRepository.js';
@@ -85,6 +86,18 @@ export function handleRepostSkyreel(viewerId: string, skywriteId: string) {
 
 export function handleAddToYourJourney(viewerId: string, skywriteId: string) {
   const skywrite = addSkywriteToYourJourney(viewerId, skywriteId);
+  if (!skywrite) return { ok: false as const, error: 'not_allowed' };
+  return { ok: true as const, skywrite };
+}
+
+export function handlePatchSkywriteThumbnail(
+  viewerId: string,
+  skywriteId: string,
+  body: { thumbnailAssetId?: string },
+) {
+  const assetId = body.thumbnailAssetId?.trim();
+  if (!assetId) return { ok: false as const, error: 'invalid_thumbnail' };
+  const skywrite = patchSkywriteThumbnailAsset(viewerId, skywriteId, assetId);
   if (!skywrite) return { ok: false as const, error: 'not_allowed' };
   return { ok: true as const, skywrite };
 }

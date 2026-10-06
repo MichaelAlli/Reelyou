@@ -848,15 +848,18 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (result.ok && result.record.media.video?.uri && !result.record.media.video.thumbnailUri) {
+      if (result.ok && result.record.media.video?.uri) {
         const savedId = result.record.id;
-        void ensureSkywriteVideoThumbnail(result.record.media.video).then((video) => {
+        void ensureSkywriteVideoThumbnail(result.record.media.video).then(async (video) => {
           if (!video?.thumbnailUri) return;
+          const { repairSkywriteVideoThumbnailIfNeeded } = await import(
+            '@/social/repairSkywriteVideoThumbnail'
+          );
+          const base = { ...result.record, media: { ...result.record.media, video } };
+          const repaired = (await repairSkywriteVideoThumbnailIfNeeded(base)) ?? base;
           setSkywritesState((current) => {
             const posts = current.posts.map((post) =>
-              post.id === savedId
-                ? { ...post, media: { ...post.media, video } }
-                : post,
+              post.id === savedId ? repaired : post,
             );
             const next = { posts };
             skywritesRef.current = next;
@@ -934,12 +937,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         { existingId: skywriteId, createdAt: existing.createdAt },
       );
 
-      if (result.ok && result.record.media.video?.uri && !result.record.media.video.thumbnailUri) {
-        void ensureSkywriteVideoThumbnail(result.record.media.video).then((video) => {
+      if (result.ok && result.record.media.video?.uri) {
+        void ensureSkywriteVideoThumbnail(result.record.media.video).then(async (video) => {
           if (!video?.thumbnailUri) return;
+          const { repairSkywriteVideoThumbnailIfNeeded } = await import(
+            '@/social/repairSkywriteVideoThumbnail'
+          );
+          const base = { ...result.record, media: { ...result.record.media, video } };
+          const repaired = (await repairSkywriteVideoThumbnailIfNeeded(base)) ?? base;
           setSkywritesState((current) => {
             const posts = current.posts.map((post) =>
-              post.id === skywriteId ? { ...post, media: { ...post.media, video } } : post,
+              post.id === skywriteId ? repaired : post,
             );
             const next = { posts };
             skywritesRef.current = next;

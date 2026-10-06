@@ -1,3 +1,4 @@
+import { captureSkywriteVideoPosterUri } from '@/skywrite/publish/captureSkywriteVideoPoster';
 import type { SkywriteDraft, SkywriteVideoMedia } from '@/skywrite/types';
 
 /** Generates a persisted thumbnail URI for video posts when possible. */
@@ -7,17 +8,9 @@ export async function ensureSkywriteVideoThumbnail(
   if (!video?.uri) return video;
   if (video.thumbnailUri) return video;
 
-  try {
-    const VideoThumbnails = await import('expo-video-thumbnails');
-    const { uri } = await VideoThumbnails.getThumbnailAsync(video.uri, {
-      time: 0,
-      quality: 0.72,
-    });
-    if (!uri) return video;
-    return { ...video, thumbnailUri: uri };
-  } catch {
-    return video;
-  }
+  const uri = await captureSkywriteVideoPosterUri(video.uri);
+  if (!uri) return video;
+  return { ...video, thumbnailUri: uri };
 }
 
 /** Publish keeps the original video file; framing is display metadata on the record. */

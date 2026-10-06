@@ -4,6 +4,7 @@ import {
   resolveSkyReelActiveUntilMs,
 } from '@/skywrite/play/skyReelExpiry';
 import type { SkywritePlayStep } from '@/skywrite/play/skywritePlayTypes';
+import { uniqueSkywriteIdsInPlayOrder } from '@/skywrite/play/skywriteStorySegments';
 
 export function isStepSkyReelAppearanceActive(
   step: SkywritePlayStep,
@@ -53,8 +54,19 @@ export function findNextEligibleStepIndexAfter(
   registry: PlaySkySequenceRegistry,
   nowMs = Date.now(),
 ): number | null {
-  for (let i = fromIndex + 1; i < steps.length; i += 1) {
-    if (isStepSkyReelAppearanceActive(steps[i]!, registry, nowMs)) return i;
+  if (steps.length === 0 || fromIndex < 0 || fromIndex >= steps.length) return null;
+  const order = uniqueSkywriteIdsInPlayOrder(steps);
+  const currentId = steps[fromIndex]?.skywriteId;
+  if (!currentId) return null;
+  const segIdx = order.indexOf(currentId);
+  if (segIdx < 0) return null;
+  for (let s = segIdx + 1; s < order.length; s += 1) {
+    const nextId = order[s]!;
+    if (!isStepSkyReelAppearanceActive({ stepId: '', skywriteId: nextId, kind: 'text' }, registry, nowMs)) {
+      continue;
+    }
+    const nextStepIndex = steps.findIndex((step) => step.skywriteId === nextId);
+    if (nextStepIndex >= 0) return nextStepIndex;
   }
   return null;
 }

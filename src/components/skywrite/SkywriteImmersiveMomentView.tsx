@@ -173,7 +173,11 @@ function SkywriteImmersiveMomentViewComponent({
   const attachedVoiceover = stepUsesAttachedVoiceover(playbackRecord, stepKind);
   const narrationActive =
     attachedVoiceover && (stepKind === 'text' || stepKind === 'photo') && Boolean(playbackMedia.audio?.uri);
-  const narration = useSkywriteNarrationPlayback(narrationActive, playSessionId);
+  const isPublishedPlayerLayout = layoutMode === 'viewport' && !enablePreviewPlaybackChrome;
+  const standalonePublishedAudio =
+    isPublishedPlayerLayout && stepKind === 'audio' && Boolean(playbackMedia.audio?.uri);
+  const narrationPlaybackActive = narrationActive || standalonePublishedAudio;
+  const narration = useSkywriteNarrationPlayback(narrationPlaybackActive, playSessionId);
   const narrationStartedRef = useRef(false);
   const narrationSessionRef = useRef(0);
   const playSessionIdRef = useRef(playSessionId);
@@ -277,7 +281,7 @@ function SkywriteImmersiveMomentViewComponent({
   }, [autoPlayVideo, narrationActive, remoteMediaStatus, requestAutoPlay, sequencePaused, stepKind]);
 
   useEffect(() => {
-    if (!narrationActive || !narrationAutoplay || narrationPaused || narrationStartedRef.current) return;
+    if (!narrationPlaybackActive || !narrationAutoplay || narrationPaused || narrationStartedRef.current) return;
     if (remoteMediaStatus === 'loading') return;
     const uri = playbackMedia.audio?.uri;
     if (!uri) return;
@@ -288,19 +292,21 @@ function SkywriteImmersiveMomentViewComponent({
         if (narrationSessionRef.current !== playSessionIdRef.current) return;
         onNarrationFinished?.();
       })
-      .then((ok) => {
-        if (ok) {
+      .then((result) => {
+        if (result === 'ok') {
           setNarrationNeedsUserStart(false);
           onMediaPlaybackStarted?.();
-        } else {
+        } else if (result === 'play_failed') {
           setNarrationNeedsUserStart(true);
+        } else {
+          setNarrationNeedsUserStart(false);
         }
       });
   }, [
     narration,
-    narrationActive,
     narrationAutoplay,
     narrationPaused,
+    narrationPlaybackActive,
     mediaStartNonce,
     onMediaPlaybackStarted,
     onNarrationFinished,
@@ -436,7 +442,7 @@ function SkywriteImmersiveMomentViewComponent({
 
   const handlePublishedNarrationCenterTap = useCallback(() => {
     const uri = playbackMedia.audio?.uri;
-    if (!uri || !narrationActive) return;
+    if (!uri || !narrationPlaybackActive) return;
     if (narration.isPreparing) return;
     const onFinish = () => onNarrationFinished?.();
     if (narrationFault) {
@@ -460,12 +466,12 @@ function SkywriteImmersiveMomentViewComponent({
       void narration.pausePlayback().then(() => flashNarrationHint('Paused'));
       return;
     }
-    void narration.playUri(uri, playbackMedia, onFinish).then((ok) => {
-      if (ok) {
+    void narration.playUri(uri, playbackMedia, onFinish).then((result) => {
+      if (result === 'ok') {
         setNarrationNeedsUserStart(false);
         flashNarrationHint('Playing');
         onMediaPlaybackStarted?.();
-      } else {
+      } else if (result === 'play_failed') {
         setNarrationNeedsUserStart(true);
       }
     });
@@ -473,7 +479,7 @@ function SkywriteImmersiveMomentViewComponent({
     flashNarrationHint,
     mediaError,
     narration,
-    narrationActive,
+    narrationPlaybackActive,
     narrationFault,
     narration.hasEnded,
     narration.isPlaying,
@@ -549,13 +555,14 @@ function SkywriteImmersiveMomentViewComponent({
     0;
   const narrationPosition = narrationActive ? narration.positionMs : 0;
   const publishedImmersiveNarration =
-    !enablePreviewPlaybackChrome && narrationActive && Boolean(playbackMedia.audio?.uri);
+    !enablePreviewPlaybackChrome && narrationPlaybackActive && Boolean(playbackMedia.audio?.uri);
   const showNarrationToolbar =
     enablePreviewPlaybackChrome && narrationActive && Boolean(playbackMedia.audio?.uri);
   const showNarrationTapStart =
     publishedImmersiveNarration &&
     !tapToPlayPrompt &&
     narrationNeedsUserStart &&
+    narration.playbackError === 'play_failed' &&
     !narrationFault &&
     !narration.isPlaying &&
     !narration.isPreparing;
@@ -578,13 +585,13 @@ function SkywriteImmersiveMomentViewComponent({
     narrationPaused ||
     (stepKind === 'video' &&
       (playbackPhase === 'paused' || playbackPhase === 'loading' || remoteMediaStatus === 'loading')) ||
-    (narrationActive &&
+    (narrationPlaybackActive &&
       (narration.playbackPhase === 'paused' ||
         narration.playbackPhase === 'loading' ||
         remoteMediaStatus === 'loading'));
 
   const currentStorySegmentFill = useMemo(() => {
-    if (storyProgressPaused && narrationActive && narration.playbackPhase === 'paused') {
+    if (storyProgressPaused && narrationPlaybackActive && narration.playbackPhase === 'paused') {
       return safeStoryFillRatio(narration.positionMs, narration.durationMs || playbackMedia.audio?.durationMs);
     }
     if (storyProgressPaused && stepKind === 'video' && playbackPhase === 'paused') {
@@ -608,17 +615,12 @@ function SkywriteImmersiveMomentViewComponent({
       );
       return safeStoryFillRatio(videoPlayback.positionMs, dur);
     }
-    if (narrationActive) {
+    if (narrationPlaybackActive || stepKind === 'audio') {
       if (remoteMediaStatus === 'loading' || narration.playbackPhase === 'loading') return 0;
       if (narration.playbackPhase === 'ended') return 1;
       if (narration.playbackPhase === 'error') return 0;
       const dur = narration.durationMs || playbackMedia.audio?.durationMs || 0;
       return safeStoryFillRatio(narration.positionMs, dur);
-    }
-    if (stepKind === 'audio') {
-      const dur = overlayAudioProgress?.durationMs || record.media.audio?.durationMs || 0;
-      const pos = overlayAudioProgress?.positionMs ?? 0;
-      return safeStoryFillRatio(pos, dur);
     }
     if (stepKind === 'text' || stepKind === 'photo') {
       return safeStoryFillRatio(stillDwellElapsedMs, STORY_STILL_DWELL_MS);
@@ -655,6 +657,10 @@ function SkywriteImmersiveMomentViewComponent({
       })();
       return;
     }
+    if (stepKind === 'audio' && audioUri && standalonePublishedAudio) {
+      handlePublishedNarrationCenterTap();
+      return;
+    }
     if (stepKind === 'audio' && audioUri) {
       onToggleAudio(previewId, audioUri);
       flashNarrationHint(audioPlaying ? 'Paused' : 'Playing');
@@ -668,6 +674,7 @@ function SkywriteImmersiveMomentViewComponent({
     handlePublishedNarrationCenterTap,
     onToggleAudio,
     previewId,
+    standalonePublishedAudio,
     stepKind,
     videoPlayback,
   ]);
@@ -1059,9 +1066,13 @@ function SkywriteImmersiveMomentViewComponent({
       ) : null}
 
       {showNarrationTapStart ? (
-        <View style={styles.narrationTapStartBanner} pointerEvents="none">
-          <Text style={styles.tapBannerText}>Tap center to play voiceover</Text>
-        </View>
+        <Pressable
+          style={styles.narrationTapStartBanner}
+          accessibilityRole="button"
+          accessibilityLabel="Tap to start sound"
+          onPress={handlePublishedCenterTap}>
+          <Text style={styles.tapBannerText}>Tap center to start sound</Text>
+        </Pressable>
       ) : null}
 
       {narrationCenterHint ? (

@@ -59,6 +59,7 @@ import {
   handleListSkywrites,
   handleRecoverSkywrite,
   handleAddToYourJourney,
+  handlePatchSkywriteThumbnail,
   handleRepostSkyreel,
   handleUnblock,
   handleUnfollow,
@@ -496,6 +497,19 @@ const server = createServer(async (req, res) => {
     if (!session) return;
     const skywriteId = url.pathname.split('/')[4] ?? '';
     sendJson(res, 200, handleAddToYourJourney(session.userId, skywriteId), origin);
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname.match(/^\/v1\/content\/skywrites\/[^/]+\/media\/thumbnail$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const skywriteId = url.pathname.split('/')[4] ?? '';
+    try {
+      const body = await readJson<{ thumbnailAssetId?: string }>(req);
+      sendJson(res, 200, handlePatchSkywriteThumbnail(session.userId, skywriteId, body ?? {}), origin);
+    } catch {
+      sendJson(res, 400, { ok: false, error: 'invalid_body' }, origin);
+    }
     return;
   }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { repairSkywriteVideoThumbnailIfNeeded } from '@/social/repairSkywriteVideoThumbnail';
 import {
   invalidateSkywriteRemoteMediaCache,
   resolveSkywriteLibraryPreviewRecord,
@@ -51,6 +52,10 @@ export function useResolvedSkywriteLibraryPreview(record: SkywriteRecord | null 
         setDisplayRecord(next);
         setStatus(previewOk ? 'ready' : 'error');
         setPreviewError(!previewOk);
+        void repairSkywriteVideoThumbnailIfNeeded(next).then((repaired) => {
+          if (!repaired || generation !== resolveGenerationRef.current) return;
+          setDisplayRecord(repaired);
+        });
       })
       .catch(() => {
         if (generation !== resolveGenerationRef.current) return;

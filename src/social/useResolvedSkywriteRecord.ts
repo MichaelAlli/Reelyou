@@ -17,7 +17,12 @@ function recordNeedsRemoteResolve(record: SkywriteRecord | null | undefined): bo
     record.media.video?.thumbnailUri,
     record.media.audio?.uri,
   ];
-  return parts.some((uri) => Boolean(parseRemoteAssetIdFromUri(uri)));
+  if (parts.some((uri) => Boolean(parseRemoteAssetIdFromUri(uri)))) return true;
+  return (
+    Boolean(record.media.photo?.remoteAssetId) ||
+    Boolean(record.media.video?.remoteAssetId) ||
+    Boolean(record.media.audio?.remoteAssetId)
+  );
 }
 
 export function useResolvedSkywriteRecord(record: SkywriteRecord | null | undefined): {

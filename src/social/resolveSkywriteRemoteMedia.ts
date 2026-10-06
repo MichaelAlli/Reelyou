@@ -111,8 +111,9 @@ export async function resolveSkywriteVisualPreviewMedia(
     })();
 
     const [photoResolved, video] = await Promise.all([photoTask, videoTask]);
+    const previewMedia = { ...media, photo: photoResolved, video, audio: media.audio ?? null };
     return {
-      media: { ...media, photo: photoResolved, video, audio: media.audio ?? null },
+      media: previewMedia,
       previewOk,
     };
   } catch {
@@ -143,7 +144,16 @@ export async function resolveSkywriteRecord(
 export function recordNeedsLibraryPreviewResolve(record: SkywriteRecord | null | undefined): boolean {
   if (!record) return false;
   const uris = [record.media.photo?.uri, record.media.video?.thumbnailUri, record.media.video?.uri];
-  return uris.some((uri) => Boolean(parseRemoteAssetIdFromUri(uri)));
+  if (uris.some((uri) => Boolean(parseRemoteAssetIdFromUri(uri)))) return true;
+  if (record.media.video?.remoteAssetId && !record.media.video.thumbnailUri) return true;
+  if (
+    record.media.video?.remoteAssetId &&
+    record.media.video.thumbnailUri &&
+    !parseRemoteAssetIdFromUri(record.media.video.thumbnailUri)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function collectRemoteAssetIds(record: SkywriteRecord): string[] {

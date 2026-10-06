@@ -90,6 +90,7 @@ import type { CreateSkywriteInput, StoredSkywrite, SkywriteVisibility } from './
 import {
   attachAssetsToSkywrite,
   assertAssetsReadyForPublish,
+  getMediaAsset,
   purgeMediaForSkywrite,
 } from '../media/mediaRepository.js';
 import { canViewerAccessSkywrite } from './contentVisibility.js';
@@ -212,6 +213,22 @@ export function listRecoverableSkywritesForAuthor(authorUserId: string, now = Da
         isSkywriteInRecovery(s, now),
     )
     .sort((a, b) => (b.deletedAt ?? 0) - (a.deletedAt ?? 0));
+}
+
+export function patchSkywriteThumbnailAsset(
+  authorUserId: string,
+  skywriteId: string,
+  thumbnailAssetId: string,
+): StoredSkywrite | null {
+  const row = findSkywriteRow(skywriteId);
+  if (!row || row.authorUserId !== authorUserId || row.deletedAt) return null;
+  const asset = getMediaAsset(thumbnailAssetId);
+  if (!asset || asset.ownerUserId !== authorUserId || asset.status !== 'ready') return null;
+  if (!row.media.videoAssetId) return null;
+  row.media = { ...row.media, thumbnailAssetId };
+  asset.skywriteId = skywriteId;
+  persistAccountDatabase();
+  return row;
 }
 
 export function getSkywriteForViewer(id: string, viewerId: string): StoredSkywrite | undefined {

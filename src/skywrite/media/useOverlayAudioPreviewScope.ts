@@ -14,6 +14,7 @@ export type AudioPreviewCallbacks = {
 export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
   const engineRef = useRef<SkywriteAudioPlaybackEngine | null>(null);
   const finishRef = useRef<(() => void) | null>(null);
+  const autoAttemptKeyRef = useRef<string | null>(null);
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
     setPreviewError(null);
     setPreviewPositionMs(0);
     setPreviewDurationMs(0);
+    autoAttemptKeyRef.current = null;
     await unloadEngine();
   }, [unloadEngine]);
 
@@ -54,13 +56,26 @@ export function useOverlayAudioPreviewScope(overlayVisible: boolean) {
   }, [unloadEngine]);
 
   const togglePreview = useCallback(
-    async (previewId: string, uri: string, callbacks?: AudioPreviewCallbacks) => {
+    async (
+      previewId: string,
+      uri: string,
+      callbacks?: AudioPreviewCallbacks & { autoAttempt?: boolean },
+    ) => {
       if (activePreviewId === previewId && isPlaying) {
         await stopAll();
         return;
       }
 
+      if (callbacks?.autoAttempt) {
+        const attemptKey = `${previewId}:${uri}`;
+        if (autoAttemptKeyRef.current === attemptKey) return;
+        autoAttemptKeyRef.current = attemptKey;
+      }
+
       await stopAll();
+      if (callbacks?.autoAttempt) {
+        autoAttemptKeyRef.current = `${previewId}:${uri}`;
+      }
       setPreviewError(null);
       finishRef.current = callbacks?.onFinished ?? null;
 

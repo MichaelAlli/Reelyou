@@ -39,6 +39,13 @@ async function createWebHtmlEngine(
   el.preload = 'auto';
   el.volume = volume;
   // Do not set crossOrigin for signed CDN URLs — many buckets omit ACAO and playback then fails despite HTTP 200.
+  if (/\.webm(\?|$)/i.test(uri) || uri.includes('webm')) {
+    el.setAttribute('type', 'audio/webm');
+  } else if (/\.m4a(\?|$)/i.test(uri) || uri.includes('mp4')) {
+    el.setAttribute('type', 'audio/mp4');
+  } else if (/\.mp3(\?|$)/i.test(uri)) {
+    el.setAttribute('type', 'audio/mpeg');
+  }
   el.src = uri;
 
   let loaded = false;

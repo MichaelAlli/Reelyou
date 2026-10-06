@@ -56,6 +56,8 @@ import {
   resolveMidPlaybackExpiryTransition,
 } from '@/skywrite/play/skywriteGuidedPlayExpiry';
 import {
+  findNextStoryStepIndex,
+  findPreviousStoryStepIndex,
   resolveStorySegmentCount,
   resolveStorySegmentIndex,
 } from '@/skywrite/play/skywriteStorySegments';
@@ -101,6 +103,7 @@ export function SkywriteGuidedPlayScreen() {
   const manualNavUntilRef = useRef(0);
   const firstPostLeftRef = useRef<FirstPostLeftTapState>(resetFirstPostLeftTapState());
   const [hourLabelTick, setHourLabelTick] = useState(0);
+  const [sequenceRefreshKey, setSequenceRefreshKey] = useState(0);
   const [sequenceComplete, setSequenceComplete] = useState(false);
   const [recordHydration, setRecordHydration] = useState<'idle' | 'loading' | 'failed'>('idle');
   const [recordFetchNonce, setRecordFetchNonce] = useState(0);
@@ -165,7 +168,7 @@ export function SkywriteGuidedPlayScreen() {
             ownerSkywrites: ownerPosts,
             registry,
             nowMs: Date.now(),
-            retainExpiredInSequence: true,
+            retainExpiredInSequence: false,
           }),
         );
       } else if (playScope === 'single' && id) {
@@ -193,7 +196,7 @@ export function SkywriteGuidedPlayScreen() {
             skywrites,
             config.focusedSky,
             config.singleBySkywriteId,
-            { playSkyRegistry: registry, retainExpiredInSequence: true },
+            { playSkyRegistry: registry, retainExpiredInSequence: false, nowMs: Date.now() },
           ),
         );
       }
@@ -216,6 +219,7 @@ export function SkywriteGuidedPlayScreen() {
     skywrites,
     remoteSingleRecord,
     remoteFetchTick,
+    sequenceRefreshKey,
   ]);
 
   useEffect(() => {
@@ -310,13 +314,14 @@ export function SkywriteGuidedPlayScreen() {
     bumpPlaySession();
     setMediaStartNonce((n) => n + 1);
     setIndex((value) => {
-      if (value >= steps.length - 1) {
+      const next = findNextStoryStepIndex(steps, value);
+      if (next == null) {
         setSequenceComplete(true);
         return value;
       }
-      return value + 1;
+      return next;
     });
-  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback, steps.length]);
+  }, [bumpPlaySession, haltOutgoingPlayback, steps]);
 
   const restartCurrentStep = useCallback(() => {
     haltOutgoingPlayback();
@@ -333,13 +338,14 @@ export function SkywriteGuidedPlayScreen() {
     setNeedsTapToPlay(false);
     setMediaStartNonce((n) => n + 1);
     setIndex((value) => {
-      const next = Math.min(value + 1, steps.length - 1);
-      if (next >= steps.length - 1 && value === steps.length - 1) {
+      const next = findNextStoryStepIndex(steps, value);
+      if (next == null) {
         setSequenceComplete(true);
+        return value;
       }
       return next;
     });
-  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback, steps.length]);
+  }, [bumpPlaySession, haltOutgoingPlayback, steps]);
 
   const goPrevious = useCallback(() => {
     firstPostLeftRef.current = resetFirstPostLeftTapState();
@@ -349,8 +355,11 @@ export function SkywriteGuidedPlayScreen() {
     bumpPlaySession();
     setNeedsTapToPlay(false);
     setMediaStartNonce((n) => n + 1);
-    setIndex((value) => Math.max(value - 1, 0));
-  }, [audioPreview, bumpPlaySession, haltOutgoingPlayback]);
+    setIndex((value) => {
+      const prev = findPreviousStoryStepIndex(steps, value);
+      return prev ?? value;
+    });
+  }, [bumpPlaySession, haltOutgoingPlayback, steps]);
 
   const dismissTapToPlay = useCallback(() => {
     setNeedsTapToPlay(false);
@@ -394,15 +403,53 @@ export function SkywriteGuidedPlayScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state !== 'active') setPaused(true);
-      if (state === 'active') setHourLabelTick((t) => t + 1);
+      if (state === 'active') {
+        setHourLabelTick((t) => t + 1);
+        setSequenceRefreshKey((k) => k + 1);
+        if (isSharedSocialPersistenceEnabled()) {
+          const refreshOwnerId =
+            playScope === 'owner' && ownerId
+              ? ownerId
+              : playScope === 'focused'
+                ? currentUser.id
+                : null;
+          if (refreshOwnerId) {
+            void fetchAuthorServerSkywrites(refreshOwnerId).then((serverRows) => {
+              if (serverRows.length === 0) return;
+              cacheRemoteSkywrites(
+                refreshOwnerId,
+                serverRows.map((row) => mapServerSkywriteToRecord(row)),
+              );
+              void mergeServerRows(serverRows);
+              setRemoteFetchTick((tick) => tick + 1);
+            });
+          }
+        }
+      }
     });
     return () => sub.remove();
+  }, [mergeServerRows, ownerId, playScope]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHourLabelTick((t) => t + 1);
+      setSequenceRefreshKey((k) => k + 1);
+    }, 30_000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => setHourLabelTick((t) => t + 1), 30_000);
-    return () => clearInterval(timer);
-  }, []);
+    if (!stepsLoaded || steps.length === 0 || !current) return;
+    if (playScope === 'single') return;
+    const stillPresent = steps.some(
+      (step) => step.skywriteId === current.skywriteId && step.stepId === current.stepId,
+    );
+    if (!stillPresent) {
+      const first = findFirstEligibleStepIndex(steps, registry, Date.now());
+      if (first != null) setIndex(first);
+      else handleExit();
+    }
+  }, [current, handleExit, playScope, registry, steps, stepsLoaded]);
 
   useEffect(() => {
     if (!stepsLoaded || !registryReady || playScope === 'single') return;
@@ -570,25 +617,12 @@ export function SkywriteGuidedPlayScreen() {
       }, STILL_DWELL_MS);
       return () => clearTimeout(timer);
     }
-    if (current.kind === 'audio' && record?.media.audio?.uri && !audioPlaying) {
-      void audioPreview.togglePreview(previewId, record.media.audio.uri, {
-        onStarted: dismissTapToPlay,
-        onFinished: () => {
-          tryAutoAdvance();
-        },
-      });
-    }
     return undefined;
   }, [
     attachedVoiceoverStep,
-    audioPlaying,
-    audioPreview,
     current,
-    dismissTapToPlay,
     needsTapToPlay,
     paused,
-    previewId,
-    record?.media.audio?.uri,
     skyReelAppearanceActive,
     tryAutoAdvance,
   ]);

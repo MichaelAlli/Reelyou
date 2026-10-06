@@ -27,3 +27,35 @@ export function resolveStorySegmentIndex(
 export function resolveStorySegmentCount(steps: readonly SkywritePlayStep[]): number {
   return uniqueSkywriteIdsInPlayOrder(steps).length;
 }
+
+/** First step index of the next Skywrite post in sequence (not the next slide within the same post). */
+export function findNextStoryStepIndex(
+  steps: readonly SkywritePlayStep[],
+  stepIndex: number,
+): number | null {
+  if (steps.length === 0 || stepIndex < 0 || stepIndex >= steps.length) return null;
+  const order = uniqueSkywriteIdsInPlayOrder(steps);
+  const currentId = steps[stepIndex]?.skywriteId;
+  if (!currentId) return null;
+  const segIdx = order.indexOf(currentId);
+  if (segIdx < 0 || segIdx >= order.length - 1) return null;
+  const nextId = order[segIdx + 1]!;
+  const nextStepIndex = steps.findIndex((step) => step.skywriteId === nextId);
+  return nextStepIndex >= 0 ? nextStepIndex : null;
+}
+
+/** First step index of the previous Skywrite post in sequence. */
+export function findPreviousStoryStepIndex(
+  steps: readonly SkywritePlayStep[],
+  stepIndex: number,
+): number | null {
+  if (steps.length === 0 || stepIndex < 0 || stepIndex >= steps.length) return null;
+  const order = uniqueSkywriteIdsInPlayOrder(steps);
+  const currentId = steps[stepIndex]?.skywriteId;
+  if (!currentId) return null;
+  const segIdx = order.indexOf(currentId);
+  if (segIdx <= 0) return null;
+  const prevId = order[segIdx - 1]!;
+  const prevStepIndex = steps.findIndex((step) => step.skywriteId === prevId);
+  return prevStepIndex >= 0 ? prevStepIndex : null;
+}

@@ -7,6 +7,7 @@ import type { MediaAssetKind } from '@/social/sharedMediaTypes';
 import {
   buildRemoteAssetPlaceholderUri,
   isEphemeralMediaUri,
+  parseRemoteAssetIdFromUri,
 } from '@/social/sharedMediaConstants';
 import type { ServerSkywriteMediaRefs } from '@/social/sharedSkywriteApi';
 import type { SkywriteMedia } from '@/skywrite/types';
@@ -112,6 +113,9 @@ export async function uploadSkywriteMediaForPublish(
   }
   if (next.video?.remoteAssetId) {
     serverRefs.videoAssetId = next.video.remoteAssetId;
+  }
+  if (next.video?.thumbnailUri && parseRemoteAssetIdFromUri(next.video.thumbnailUri)) {
+    serverRefs.thumbnailAssetId = parseRemoteAssetIdFromUri(next.video.thumbnailUri)!;
   }
   if (next.audio?.remoteAssetId) {
     serverRefs.audioAssetId = next.audio.remoteAssetId;
