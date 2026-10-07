@@ -13,7 +13,7 @@ import {
 } from './passwordRecovery.js';
 import { consumeRefreshToken, issueRefreshToken } from './refreshTokens.js';
 import { signAccessToken } from './jwt.js';
-import { markPasswordForgotRouteHandlerInvoked } from '../email/emailDiagnosticState.js';
+import { completeForgotPasswordTrace, patchForgotPasswordTrace } from './forgotPasswordTrace.js';
 
 function authUserForClient(userId: string): {
   id: string;
@@ -131,12 +131,18 @@ export function handleRefresh(body: { refreshToken?: string }):
   return { ok: true, accessToken, refreshToken, user: authUserForClient(row.id) };
 }
 
-export async function handleForgotPassword(body: { email?: string }) {
-  markPasswordForgotRouteHandlerInvoked();
-  console.log('[password-reset] route-handler-invoked');
+export async function handleForgotPassword(body: { email?: string }, traceId?: string) {
+  if (traceId) {
+    await patchForgotPasswordTrace(traceId, {
+      handlerEnteredAt: new Date().toISOString(),
+    });
+  }
   const email = body.email?.trim() ?? '';
-  if (!email) return { ok: false as const, error: 'invalid_request' };
-  const result = await requestPasswordReset(email);
+  if (!email) {
+    if (traceId) await completeForgotPasswordTrace(traceId, 'invalid_request');
+    return { ok: false as const, error: 'invalid_request' };
+  }
+  const result = await requestPasswordReset(email, traceId);
   if (!result.ok) {
     return { ok: false as const, error: result.error };
   }

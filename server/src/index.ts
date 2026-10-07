@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { authenticateRequest } from './auth/authenticateRequest.js';
@@ -30,11 +31,12 @@ import {
 } from './config.js';
 import { markImportedDiscoveryData } from './db/accountRepository.js';
 import { initAccountDatabase } from './db/accountStore.js';
-import { resolveBuildIdentifier, sendBuildJson, sendEmailDiagnosticJson, sendHealthJson } from './diagnostics.js';
+import { sendBuildJson, sendEmailDiagnosticJson, sendHealthJson } from './diagnostics.js';
 import {
-  markRealForgotDeliveryFailedPath,
-  markRealForgotHandlerEntered,
-} from './email/emailDiagnosticState.js';
+  completeForgotPasswordTrace,
+  createForgotPasswordTrace,
+  loadForgotPasswordTrace,
+} from './auth/forgotPasswordTrace.js';
 import { emailProviderConfigured } from './email/transactionalEmail.js';
 import { discoverLiveResources } from './discoverResources.js';
 import {
@@ -112,10 +114,23 @@ async function readJson<T>(req: IncomingMessage): Promise<T> {
   return JSON.parse(raw) as T;
 }
 
-function sendJson(res: ServerResponse, status: number, body: unknown, origin?: string): void {
-  res.writeHead(status, { 'Content-Type': 'application/json', ...corsHeaders(origin) });
+function sendJson(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+  origin?: string,
+  extraHeaders?: Record<string, string>,
+): void {
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    ...corsHeaders(origin),
+    ...extraHeaders,
+  });
   res.end(JSON.stringify(body));
 }
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sendNoContent(res: ServerResponse, origin?: string): void {
   res.writeHead(204, corsHeaders(origin));
@@ -153,6 +168,22 @@ const server = createServer(async (req, res) => {
 
   if (req.method === 'GET' && pathname === '/__email-diagnostic') {
     await sendEmailDiagnosticJson(res, origin, corsHeaders);
+    return;
+  }
+
+  const forgotTraceMatch = pathname.match(/^\/__forgot-trace\/([^/]+)$/);
+  if (req.method === 'GET' && forgotTraceMatch) {
+    const traceId = decodeURIComponent(forgotTraceMatch[1]!);
+    if (!UUID_RE.test(traceId)) {
+      sendJson(res, 400, { ok: false, error: 'invalid_trace_id' }, origin);
+      return;
+    }
+    const trace = await loadForgotPasswordTrace(traceId);
+    if (!trace) {
+      sendJson(res, 404, { ok: false, error: 'trace_not_found' }, origin);
+      return;
+    }
+    sendJson(res, 200, { ok: true, trace }, origin);
     return;
   }
 
@@ -292,19 +323,24 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/v1/auth/password/forgot') {
-    markRealForgotHandlerEntered(resolveBuildIdentifier());
-    console.log('[REAL-FORGOT-HANDLER] entered');
+    const traceId = randomUUID();
+    await createForgotPasswordTrace(traceId);
+    console.log('[REAL-FORGOT-HANDLER] entered', { traceId });
+    const traceHeaders = { 'X-Reelyou-Trace-Id': traceId };
+
     if (!authConfigured()) {
-      sendJson(res, 503, { error: 'auth_not_configured' }, origin);
+      await completeForgotPasswordTrace(traceId, 'auth_not_configured');
+      sendJson(res, 503, { ok: false, error: 'auth_not_configured', traceId }, origin, traceHeaders);
       return;
     }
     if (!checkRateLimit(`password-forgot:${req.socket.remoteAddress ?? 'unknown'}`, 8, 15 * 60_000)) {
-      sendJson(res, 429, { ok: false, error: 'rate_limited' }, origin);
+      await completeForgotPasswordTrace(traceId, 'rate_limited');
+      sendJson(res, 429, { ok: false, error: 'rate_limited', traceId }, origin, traceHeaders);
       return;
     }
     try {
       const body = await readJson<{ email?: string }>(req);
-      const result = await handleForgotPassword(body ?? {});
+      const result = await handleForgotPassword(body ?? {}, traceId);
       const status = result.ok
         ? 200
         : result.error === 'email_delivery_failed'
@@ -313,12 +349,12 @@ const server = createServer(async (req, res) => {
             ? 400
             : 400;
       if (!result.ok && result.error === 'email_delivery_failed') {
-        markRealForgotDeliveryFailedPath(result.error);
-        console.log('[REAL-FORGOT-HANDLER] delivery-failed-path');
+        console.log('[REAL-FORGOT-HANDLER] delivery-failed-path', { traceId });
       }
-      sendJson(res, status, result, origin);
+      sendJson(res, status, { ...result, traceId }, origin, traceHeaders);
     } catch {
-      sendJson(res, 400, { error: 'bad_request' }, origin);
+      await completeForgotPasswordTrace(traceId, 'bad_request');
+      sendJson(res, 400, { ok: false, error: 'bad_request', traceId }, origin, traceHeaders);
     }
     return;
   }
