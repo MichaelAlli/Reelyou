@@ -15,10 +15,12 @@ type SubmitOutcome =
   | { kind: 'sent'; maskedEmail: string }
   | { kind: 'not_found' };
 
+type RecoveryMode = 'password' | 'username';
+
 export function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [mode, setMode] = useState<'password' | 'username'>('password');
+  const [mode, setMode] = useState<RecoveryMode>('password');
   const [outcome, setOutcome] = useState<SubmitOutcome>({ kind: 'idle' });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,39 +42,66 @@ export function ForgotPasswordScreen() {
     return () => clearInterval(id);
   }, [cooldownUntil]);
 
-  const submit = useCallback(async () => {
+  const validateEmail = useCallback((): string | null => {
     setError(null);
     setOutcome({ kind: 'idle' });
     const trimmed = email.trim();
     if (!trimmed) {
       setError('Enter the email address on your account.');
-      return;
+      return null;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       setError('Enter a valid email address.');
-      return;
+      return null;
     }
     if (cooldownUntil != null && cooldownUntil > Date.now()) {
       setError(`Please wait ${cooldownSec}s before requesting another email.`);
-      return;
+      return null;
     }
+    return trimmed;
+  }, [cooldownSec, cooldownUntil, email]);
+
+  const applyRecoveryResult = useCallback(
+    (result: Awaited<ReturnType<typeof requestPasswordReset>>) => {
+      if (!result.ok) {
+        setError(mapAuthErrorToMessage(result.error));
+        return;
+      }
+      if (!result.accountFound) {
+        setOutcome({ kind: 'not_found' });
+        return;
+      }
+      setOutcome({ kind: 'sent', maskedEmail: result.maskedEmail });
+      setCooldownUntil(Date.now() + RESEND_COOLDOWN_MS);
+    },
+    [],
+  );
+
+  /** Primary forgot-password action — always POST /v1/auth/password/forgot */
+  const sendPasswordResetEmail = useCallback(async () => {
+    const trimmed = validateEmail();
+    if (!trimmed) return;
     setLoading(true);
-    const result =
-      mode === 'password'
-        ? await requestPasswordReset(trimmed)
-        : await requestUsernameRecovery(trimmed);
+    const result = await requestPasswordReset(trimmed);
     setLoading(false);
-    if (!result.ok) {
-      setError(mapAuthErrorToMessage(result.error));
-      return;
-    }
-    if (!result.accountFound) {
-      setOutcome({ kind: 'not_found' });
-      return;
-    }
-    setOutcome({ kind: 'sent', maskedEmail: result.maskedEmail });
-    setCooldownUntil(Date.now() + RESEND_COOLDOWN_MS);
-  }, [cooldownSec, cooldownUntil, email, mode]);
+    applyRecoveryResult(result);
+  }, [applyRecoveryResult, validateEmail]);
+
+  /** "Forgot which email you used?" — POST /v1/auth/username/forgot */
+  const sendUsernameReminder = useCallback(async () => {
+    const trimmed = validateEmail();
+    if (!trimmed) return;
+    setLoading(true);
+    const result = await requestUsernameRecovery(trimmed);
+    setLoading(false);
+    applyRecoveryResult(result);
+  }, [applyRecoveryResult, validateEmail]);
+
+  const switchMode = useCallback((next: RecoveryMode) => {
+    setMode(next);
+    setOutcome({ kind: 'idle' });
+    setError(null);
+  }, []);
 
   const sendDisabled = loading || (cooldownUntil != null && cooldownUntil > Date.now());
 
@@ -120,19 +149,24 @@ export function ForgotPasswordScreen() {
             </Pressable>
           </View>
         ) : null}
-        <AuthPrimaryButton
-          label={
-            cooldownSec > 0
-              ? `Send again in ${cooldownSec}s`
-              : mode === 'password'
-                ? 'Send reset email'
-                : 'Send reminder'
-          }
-          onPress={() => void submit()}
-          loading={loading}
-          disabled={sendDisabled}
-        />
-        <Pressable onPress={() => setMode(mode === 'password' ? 'username' : 'password')}>
+        {mode === 'password' ? (
+          <AuthPrimaryButton
+            label={cooldownSec > 0 ? `Send again in ${cooldownSec}s` : 'Send reset email'}
+            onPress={() => void sendPasswordResetEmail()}
+            loading={loading}
+            disabled={sendDisabled}
+          />
+        ) : (
+          <AuthPrimaryButton
+            label={cooldownSec > 0 ? `Send again in ${cooldownSec}s` : 'Send reminder'}
+            onPress={() => void sendUsernameReminder()}
+            loading={loading}
+            disabled={sendDisabled}
+          />
+        )}
+        <Pressable
+          onPress={() => switchMode(mode === 'password' ? 'username' : 'password')}
+          accessibilityRole="button">
           <Text style={styles.link}>
             {mode === 'password' ? 'Forgot which email you used?' : 'Need to reset your password instead?'}
           </Text>
