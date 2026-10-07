@@ -1,7 +1,7 @@
 import { createTransport, type Transporter } from 'nodemailer';
 
 import { config } from '../config.js';
-import { normalizeEmailFrom } from './normalizeEmailFrom.js';
+import { isResendApiKeyFormatValid, normalizeEmailFrom } from './normalizeEmailFrom.js';
 import { resolveTransactionalEmailFrom } from './resolveEmailFrom.js';
 
 export type EmailSendResult = 'sent' | 'not_configured' | 'failed' | 'invalid_from';
@@ -34,6 +34,9 @@ export function emailProviderConfigured(): boolean {
   const from = resolveTransactionalEmailFrom();
   if (!from.ok) return false;
   if (config.isProduction && from.domain === 'resend.dev') return false;
+  if (config.isProduction) {
+    return isResendApiKeyFormatValid(config.email.resendApiKey);
+  }
   if (config.email.resendApiKey.trim()) return true;
   return getSmtpTransport() != null;
 }
@@ -62,6 +65,23 @@ export function resendSendDiagnostics(): {
     emailFromValid: resolved.ok,
     emailFromNormalized: resolved.ok && raw !== resolved.value,
   };
+}
+
+function resendHttpBodyIndicatesFailure(body: Record<string, unknown>): boolean {
+  if (body.error != null && body.error !== false) return true;
+  const statusCode = body.statusCode;
+  if (typeof statusCode === 'number' && statusCode >= 400) return true;
+  return false;
+}
+
+function resendHttpBodyIndicatesSuccess(body: Record<string, unknown>): boolean {
+  if (typeof body.id === 'string' && body.id.length > 0) return true;
+  const data = body.data;
+  if (data && typeof data === 'object') {
+    const nested = data as { id?: string };
+    if (typeof nested.id === 'string' && nested.id.length > 0) return true;
+  }
+  return false;
 }
 
 function parseResendErrorPayload(raw: string): {
@@ -131,9 +151,27 @@ export async function sendTransactionalEmail(input: {
     return 'invalid_from';
   }
 
-  const resendKey = config.email.resendApiKey.trim();
+  const recipient = input.to.trim();
+  if (!recipient || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient)) {
+    console.error('[reellyou-email] resend_send_failed', {
+      ...resendSendDiagnostics(),
+      phase: 'before_resend_api_call',
+      providerErrorCategory: 'invalid_recipient',
+    });
+    return 'failed';
+  }
+
+  const resendKey = config.email.resendApiKey;
   if (resendKey) {
     const diagnostics = resendSendDiagnostics();
+    const payload: Record<string, unknown> = {
+      from: fromResolved.value,
+      to: [recipient],
+      subject: input.subject,
+      text: input.text,
+    };
+    if (input.html) payload.html = input.html;
+
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -141,33 +179,34 @@ export async function sendTransactionalEmail(input: {
           Authorization: `Bearer ${resendKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          from: fromResolved.value,
-          to: [input.to],
-          subject: input.subject,
-          text: input.text,
-          html: input.html,
-        }),
+        body: JSON.stringify(payload),
       });
       const detail = await res.text().catch(() => '');
       if (res.ok) {
-        if (detail.trim()) {
-          try {
-            const body = JSON.parse(detail) as { id?: string; error?: unknown };
-            if (body.error) {
-              console.error('[reellyou-email] resend_send_failed', {
-                ...diagnostics,
-                phase: 'from_resend_response',
-                httpStatus: res.status,
-                providerErrorCategory: 'unexpected_error_in_ok_body',
-              });
-              return 'failed';
-            }
-          } catch {
-            /* 200 with non-json body still counts as sent */
+        if (!detail.trim()) return 'sent';
+        try {
+          const body = JSON.parse(detail) as Record<string, unknown>;
+          if (resendHttpBodyIndicatesFailure(body)) {
+            console.error('[reellyou-email] resend_send_failed', {
+              ...diagnostics,
+              phase: 'from_resend_response',
+              httpStatus: res.status,
+              providerErrorCategory: 'error_in_ok_http_status',
+              ...parseResendErrorPayload(detail),
+            });
+            return 'failed';
           }
+          if (resendHttpBodyIndicatesSuccess(body)) return 'sent';
+          console.error('[reellyou-email] resend_send_failed', {
+            ...diagnostics,
+            phase: 'from_resend_response',
+            httpStatus: res.status,
+            providerErrorCategory: 'missing_send_id',
+          });
+          return 'failed';
+        } catch {
+          return 'sent';
         }
-        return 'sent';
       }
       console.error('[reellyou-email] resend_send_failed', {
         ...diagnostics,
@@ -187,6 +226,10 @@ export async function sendTransactionalEmail(input: {
       });
       return 'failed';
     }
+  }
+
+  if (config.isProduction) {
+    return 'not_configured';
   }
 
   const transport = getSmtpTransport();

@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 
-import { normalizeEmailFrom, normalizeSecretEnv } from './normalizeEmailFrom.js';
+import {
+  isResendApiKeyFormatValid,
+  normalizeEmailFrom,
+  normalizeResendApiKey,
+  normalizeSecretEnv,
+} from './normalizeEmailFrom.js';
 
 function run() {
   const plain = normalizeEmailFrom('support@forwardarcgroup.com');
@@ -36,6 +41,16 @@ function run() {
   assert.equal(normalizeSecretEnv('  re_abc  '), 're_abc');
   assert.equal(normalizeSecretEnv('"re_abc"'), 're_abc');
   assert.equal(normalizeSecretEnv('Bearer re_abc'), 're_abc');
+
+  assert.equal(normalizeResendApiKey('re_abc123\n'), 're_abc123');
+  assert.equal(normalizeResendApiKey('  re_abc123  '), 're_abc123');
+  assert.equal(isResendApiKeyFormatValid('re_test_key_123456789012345678901234'), true);
+  assert.equal(isResendApiKeyFormatValid(''), false);
+  assert.equal(isResendApiKeyFormatValid('not-a-key'), false);
+
+  const reelyouFrom = normalizeEmailFrom('Reelyou <support@forwardarcgroup.com>');
+  assert.equal(reelyouFrom.ok, true);
+  if (reelyouFrom.ok) assert.equal(reelyouFrom.domain, 'forwardarcgroup.com');
 
   console.log('normalizeEmailFrom.test.ts ok');
 }

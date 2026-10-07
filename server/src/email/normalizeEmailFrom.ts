@@ -64,3 +64,12 @@ export function normalizeSecretEnv(value: string): string {
   }
   return s;
 }
+
+/** Resend keys must not contain whitespace/newlines from dashboard paste errors. */
+export function normalizeResendApiKey(raw: string): string {
+  return normalizeSecretEnv(raw).replace(/\s+/g, '');
+}
+
+export function isResendApiKeyFormatValid(key: string): boolean {
+  return key.length >= 12 && /^re_[A-Za-z0-9_]+$/.test(key);
+}

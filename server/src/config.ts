@@ -1,4 +1,9 @@
-import { normalizeEmailFrom, normalizeSecretEnv } from './email/normalizeEmailFrom.js';
+import {
+  isResendApiKeyFormatValid,
+  normalizeEmailFrom,
+  normalizeResendApiKey,
+  normalizeSecretEnv,
+} from './email/normalizeEmailFrom.js';
 
 function parseOrigins(raw: string | undefined): string[] {
   if (!raw?.trim()) {
@@ -68,7 +73,7 @@ export const config = {
   },
   appOrigin: normalizeSecretEnv(process.env.APP_ORIGIN ?? '') || 'http://localhost:8081',
   email: {
-    resendApiKey: normalizeSecretEnv(process.env.RESEND_API_KEY ?? ''),
+    resendApiKey: normalizeResendApiKey(process.env.RESEND_API_KEY ?? ''),
     smtpHost: normalizeSecretEnv(process.env.SMTP_HOST ?? ''),
     smtpPort: Math.max(Number(process.env.SMTP_PORT ?? 587), 1),
     smtpUser: normalizeSecretEnv(process.env.SMTP_USER ?? ''),
@@ -123,6 +128,9 @@ export function emailDeliveryConfigured(): boolean {
   const from = resolvedFromForDeliveryCheck();
   if (!from.ok) return false;
   if (config.isProduction && from.domain === 'resend.dev') return false;
+  if (config.isProduction) {
+    return isResendApiKeyFormatValid(config.email.resendApiKey);
+  }
   if (config.email.resendApiKey.length > 0) return true;
   return (
     config.email.smtpHost.length > 0 &&
