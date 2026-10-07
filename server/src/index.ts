@@ -80,8 +80,12 @@ import {
 } from './social/socialHandlers.js';
 import { processScheduledSkywritePurges } from './social/socialRepository.js';
 import { canViewerAccessMediaAsset } from './social/contentVisibility.js';
+import { logStartupRouteTable } from './runtimeInfo.js';
 
 assertProductionSecrets();
+
+/** Set true after initAccountDatabase() completes; health is served before this. */
+let accountDatabaseInitialized = false;
 
 function corsHeaders(origin: string | undefined): Record<string, string> {
   const allowed = resolveCorsAllowOrigin(origin);
@@ -130,26 +134,34 @@ function requireAuth(
 
 async function respondHealthCheck(res: ServerResponse, origin: string | undefined): Promise<void> {
   const databaseMode = config.databaseUrl ? 'postgres' : 'file';
-  const databaseReady =
-    databaseMode === 'file' ? true : await pingPostgres(config.databaseUrl);
+  let databaseReady = false;
+  if (!accountDatabaseInitialized) {
+    databaseReady = false;
+  } else if (databaseMode === 'file') {
+    databaseReady = true;
+  } else {
+    databaseReady = await pingPostgres(config.databaseUrl);
+  }
+  const emailConfigured = emailProviderConfigured();
   const ready =
+    accountDatabaseInitialized &&
     authConfigured() &&
     friendMatchConfigured() &&
     mediaStorageConfigured() &&
     databaseReady;
   sendJson(
     res,
-    ready ? 200 : 503,
+    200,
     {
-      ok: ready,
+      ok: true,
+      databaseReady,
+      emailConfigured,
       ready,
       databaseMode,
-      databaseReady,
       openAiConfigured: openAiConfigured(),
       authConfigured: authConfigured(),
       friendMatchConfigured: friendMatchConfigured(),
       mediaStorageConfigured: mediaStorageConfigured(),
-      emailConfigured: emailProviderConfigured(),
       deploymentRevision:
         process.env.RENDER_GIT_COMMIT?.trim() || process.env.GIT_COMMIT?.trim() || null,
       grantsGov: config.resources.grantsGovEnabled,
@@ -802,14 +814,25 @@ const server = createServer(async (req, res) => {
 });
 
 async function main(): Promise<void> {
-  await initAccountDatabase();
-  await processScheduledAccountDeletions();
-  await processScheduledSkywritePurges();
-  server.listen(config.port, () => {
-    console.log(
-      `[reellyou-server] listening on :${config.port} auth=${authConfigured()} friendMatch=${friendMatchConfigured()} db=${config.databaseUrl ? 'postgres' : 'file'}`,
-    );
+  await new Promise<void>((resolve) => {
+    server.listen(config.port, () => {
+      logStartupRouteTable(config.port);
+      console.log(
+        `[reellyou-server] listening on :${config.port} auth=${authConfigured()} friendMatch=${friendMatchConfigured()} db=${config.databaseUrl ? 'postgres' : 'file'}`,
+      );
+      resolve();
+    });
   });
+
+  try {
+    await initAccountDatabase();
+    accountDatabaseInitialized = true;
+    await processScheduledAccountDeletions();
+    await processScheduledSkywritePurges();
+    console.log('[reellyou-server] account database initialized');
+  } catch (err) {
+    console.error('[reellyou-server] account database init failed (health still available):', err);
+  }
 }
 
 main().catch((err) => {
