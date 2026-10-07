@@ -8,6 +8,8 @@ export function mapAuthErrorToMessage(error: string | undefined): string {
       return 'Sign-in is not available on this build. Check that the server is configured.';
     case 'account_locked':
       return 'This account is locked. Contact support if you need help.';
+    case 'api_not_found':
+      return 'Could not reach the Reelyou API. Confirm the app uses https://reellyou-api.onrender.com (not the web app URL).';
     case 'network_error':
       return 'Could not reach the server. Check your connection and try again.';
     case 'server_error':

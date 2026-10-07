@@ -5,12 +5,21 @@ export type AuthApiResult =
   | { ok: true; accessToken: string; refreshToken?: string | null; user: StoredAuthUser }
   | { ok: false; error: string };
 
+function mapHttpStatusToAuthError(status: number): string {
+  if (status === 404) return 'api_not_found';
+  if (status === 429) return 'rate_limited';
+  if (status === 503) return 'server_error';
+  if (status >= 500) return 'server_error';
+  if (status >= 400) return 'invalid_request';
+  return 'network_error';
+}
+
 async function parseAuthResponse(res: Response): Promise<{ ok: boolean; error?: string; body?: Record<string, unknown> }> {
   let body: Record<string, unknown> = {};
   try {
     body = (await res.json()) as Record<string, unknown>;
   } catch {
-    if (!res.ok) return { ok: false, error: res.status >= 500 ? 'server_error' : 'network_error' };
+    if (!res.ok) return { ok: false, error: mapHttpStatusToAuthError(res.status) };
     return { ok: false, error: 'server_error' };
   }
   if (body.ok === true) return { ok: true, body };

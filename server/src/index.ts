@@ -128,6 +128,38 @@ function requireAuth(
   return session;
 }
 
+async function respondHealthCheck(res: ServerResponse, origin: string | undefined): Promise<void> {
+  const databaseMode = config.databaseUrl ? 'postgres' : 'file';
+  const databaseReady =
+    databaseMode === 'file' ? true : await pingPostgres(config.databaseUrl);
+  const ready =
+    authConfigured() &&
+    friendMatchConfigured() &&
+    mediaStorageConfigured() &&
+    databaseReady;
+  sendJson(
+    res,
+    ready ? 200 : 503,
+    {
+      ok: ready,
+      ready,
+      databaseMode,
+      databaseReady,
+      openAiConfigured: openAiConfigured(),
+      authConfigured: authConfigured(),
+      friendMatchConfigured: friendMatchConfigured(),
+      mediaStorageConfigured: mediaStorageConfigured(),
+      emailConfigured: emailProviderConfigured(),
+      deploymentRevision:
+        process.env.RENDER_GIT_COMMIT?.trim() || process.env.GIT_COMMIT?.trim() || null,
+      grantsGov: config.resources.grantsGovEnabled,
+      arxiv: config.resources.arxivEnabled,
+      rssFeeds: config.resources.rssUrls.length,
+    },
+    origin,
+  );
+}
+
 const server = createServer(async (req, res) => {
   const origin = req.headers.origin;
   if (req.method === 'OPTIONS') {
@@ -144,37 +176,11 @@ const server = createServer(async (req, res) => {
 
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
 
-  if (req.method === 'GET' && url.pathname === '/health') {
-    const databaseMode = config.databaseUrl ? 'postgres' : 'file';
-    const databaseReady =
-      databaseMode === 'file'
-        ? true
-        : await pingPostgres(config.databaseUrl);
-    const ready =
-      authConfigured() &&
-      friendMatchConfigured() &&
-      mediaStorageConfigured() &&
-      databaseReady;
-    sendJson(
-      res,
-      ready ? 200 : 503,
-      {
-        ok: ready,
-        ready,
-        databaseMode,
-        databaseReady,
-        openAiConfigured: openAiConfigured(),
-        authConfigured: authConfigured(),
-        friendMatchConfigured: friendMatchConfigured(),
-        mediaStorageConfigured: mediaStorageConfigured(),
-        emailConfigured: emailProviderConfigured(),
-        deploymentRevision: process.env.RENDER_GIT_COMMIT?.trim() || process.env.GIT_COMMIT?.trim() || null,
-        grantsGov: config.resources.grantsGovEnabled,
-        arxiv: config.resources.arxivEnabled,
-        rssFeeds: config.resources.rssUrls.length,
-      },
-      origin,
-    );
+  if (
+    req.method === 'GET' &&
+    (url.pathname === '/health' || url.pathname === '/v1/health')
+  ) {
+    await respondHealthCheck(res, origin);
     return;
   }
 

@@ -112,8 +112,7 @@ export function SignUpNightScreen() {
       return;
     }
 
-    setIsSubmittingAuth(true);
-    setTimeout(() => setIsSubmittingAuth(false), 1200);
+    setAuthError(mapAuthErrorToMessage('auth_not_configured'));
   }, [auth, markAllTouched, router, values]);
 
   const openTerms = useCallback(() => {
