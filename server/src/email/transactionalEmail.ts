@@ -1,8 +1,10 @@
 import { createTransport, type Transporter } from 'nodemailer';
 
 import { config } from '../config.js';
+import { normalizeEmailFrom } from './normalizeEmailFrom.js';
+import { resolveTransactionalEmailFrom } from './resolveEmailFrom.js';
 
-export type EmailSendResult = 'sent' | 'not_configured' | 'failed';
+export type EmailSendResult = 'sent' | 'not_configured' | 'failed' | 'invalid_from';
 
 let smtpTransport: Transporter | null = null;
 
@@ -29,17 +31,16 @@ function getSmtpTransport(): Transporter | null {
 }
 
 export function emailProviderConfigured(): boolean {
+  const from = resolveTransactionalEmailFrom();
+  if (!from.ok) return false;
+  if (config.isProduction && from.domain === 'resend.dev') return false;
   if (config.email.resendApiKey.trim()) return true;
   return getSmtpTransport() != null;
 }
 
 function emailFromDomain(fromAddress: string): string | null {
-  const trimmed = fromAddress.trim();
-  const angle = trimmed.match(/<([^>@]+@[^>]+)>/);
-  const email = (angle?.[1] ?? trimmed).trim();
-  const at = email.lastIndexOf('@');
-  if (at <= 0 || at >= email.length - 1) return null;
-  return email.slice(at + 1).toLowerCase();
+  const normalized = normalizeEmailFrom(fromAddress);
+  return normalized.ok ? normalized.domain : null;
 }
 
 /** Safe env flags for server logs — never includes secrets or full addresses. */
@@ -48,13 +49,18 @@ export function resendSendDiagnostics(): {
   resendApiKeyPresent: boolean;
   emailFromPresent: boolean;
   emailFromDomain: string | null;
+  emailFromValid: boolean;
+  emailFromNormalized: boolean;
 } {
-  const from = config.email.fromAddress.trim();
+  const raw = config.email.fromAddress.trim();
+  const resolved = resolveTransactionalEmailFrom();
   return {
     provider: 'resend',
     resendApiKeyPresent: config.email.resendApiKey.trim().length > 0,
-    emailFromPresent: from.length > 0,
-    emailFromDomain: emailFromDomain(from),
+    emailFromPresent: raw.length > 0,
+    emailFromDomain: resolved.ok ? resolved.domain : emailFromDomain(raw),
+    emailFromValid: resolved.ok,
+    emailFromNormalized: resolved.ok && raw !== resolved.value,
   };
 }
 
@@ -62,9 +68,10 @@ function parseResendErrorPayload(raw: string): {
   providerErrorName?: string;
   providerErrorCode?: string;
   providerErrorMessage?: string;
+  providerErrorCategory?: string;
 } {
   const trimmed = raw.trim();
-  if (!trimmed) return {};
+  if (!trimmed) return { providerErrorCategory: 'empty_response_body' };
   try {
     const body = JSON.parse(trimmed) as Record<string, unknown>;
     const name = typeof body.name === 'string' ? body.name : undefined;
@@ -75,13 +82,20 @@ function parseResendErrorPayload(raw: string): {
         : typeof body.statusCode === 'number'
           ? String(body.statusCode)
           : undefined;
+    let category = 'provider_rejected';
+    const msg = (message ?? '').toLowerCase();
+    if (name === 'validation_error' || msg.includes('from')) category = 'invalid_sender';
+    else if (msg.includes('api key') || msg.includes('unauthorized')) category = 'invalid_api_key';
+    else if (msg.includes('domain')) category = 'unverified_domain';
+    else if (msg.includes('rate')) category = 'rate_limit';
     return {
       providerErrorName: name,
       providerErrorCode: code,
       providerErrorMessage: message?.slice(0, 300),
+      providerErrorCategory: category,
     };
   } catch {
-    return { providerErrorMessage: trimmed.slice(0, 300) };
+    return { providerErrorMessage: trimmed.slice(0, 300), providerErrorCategory: 'non_json_response' };
   }
 }
 
@@ -106,6 +120,17 @@ export async function sendTransactionalEmail(input: {
   text: string;
   html?: string;
 }): Promise<EmailSendResult> {
+  const fromResolved = resolveTransactionalEmailFrom();
+  if (!fromResolved.ok) {
+    console.error('[reellyou-email] resend_send_failed', {
+      ...resendSendDiagnostics(),
+      phase: 'before_resend_api_call',
+      providerErrorCategory: 'invalid_from_config',
+      providerErrorMessage: fromResolved.reason,
+    });
+    return 'invalid_from';
+  }
+
   const resendKey = config.email.resendApiKey.trim();
   if (resendKey) {
     const diagnostics = resendSendDiagnostics();
@@ -117,15 +142,33 @@ export async function sendTransactionalEmail(input: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: config.email.fromAddress,
+          from: fromResolved.value,
           to: [input.to],
           subject: input.subject,
           text: input.text,
           html: input.html,
         }),
       });
-      if (res.ok) return 'sent';
       const detail = await res.text().catch(() => '');
+      if (res.ok) {
+        if (detail.trim()) {
+          try {
+            const body = JSON.parse(detail) as { id?: string; error?: unknown };
+            if (body.error) {
+              console.error('[reellyou-email] resend_send_failed', {
+                ...diagnostics,
+                phase: 'from_resend_response',
+                httpStatus: res.status,
+                providerErrorCategory: 'unexpected_error_in_ok_body',
+              });
+              return 'failed';
+            }
+          } catch {
+            /* 200 with non-json body still counts as sent */
+          }
+        }
+        return 'sent';
+      }
       console.error('[reellyou-email] resend_send_failed', {
         ...diagnostics,
         phase: 'from_resend_response',
@@ -138,6 +181,7 @@ export async function sendTransactionalEmail(input: {
       console.error('[reellyou-email] resend_send_failed', {
         ...diagnostics,
         phase: 'before_resend_response',
+        providerErrorCategory: 'network_failure',
         providerErrorName: err.name,
         providerErrorMessage: err.message.slice(0, 300),
       });
@@ -149,7 +193,7 @@ export async function sendTransactionalEmail(input: {
   if (transport) {
     try {
       await transport.sendMail({
-        from: config.email.fromAddress,
+        from: fromResolved.value,
         to: input.to,
         subject: input.subject,
         text: input.text,

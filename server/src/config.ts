@@ -1,3 +1,5 @@
+import { normalizeEmailFrom, normalizeSecretEnv } from './email/normalizeEmailFrom.js';
+
 function parseOrigins(raw: string | undefined): string[] {
   if (!raw?.trim()) {
     return [
@@ -64,15 +66,15 @@ export const config = {
       secretAccessKey: process.env.MEDIA_S3_SECRET_ACCESS_KEY?.trim() ?? '',
     },
   },
-  appOrigin: process.env.APP_ORIGIN?.trim() || 'http://localhost:8081',
+  appOrigin: normalizeSecretEnv(process.env.APP_ORIGIN ?? '') || 'http://localhost:8081',
   email: {
-    resendApiKey: process.env.RESEND_API_KEY?.trim() ?? '',
-    smtpHost: process.env.SMTP_HOST?.trim() ?? '',
+    resendApiKey: normalizeSecretEnv(process.env.RESEND_API_KEY ?? ''),
+    smtpHost: normalizeSecretEnv(process.env.SMTP_HOST ?? ''),
     smtpPort: Math.max(Number(process.env.SMTP_PORT ?? 587), 1),
-    smtpUser: process.env.SMTP_USER?.trim() ?? '',
-    smtpPass: process.env.SMTP_PASS?.trim() ?? '',
+    smtpUser: normalizeSecretEnv(process.env.SMTP_USER ?? ''),
+    smtpPass: normalizeSecretEnv(process.env.SMTP_PASS ?? ''),
     smtpSecure: process.env.SMTP_SECURE === 'true',
-    fromAddress: process.env.EMAIL_FROM?.trim() || 'REELYOU <onboarding@resend.dev>',
+    fromAddress: normalizeSecretEnv(process.env.EMAIL_FROM ?? ''),
   },
   resources: {
     rssUrls: (process.env.RESOURCE_RSS_URLS ?? '')
@@ -110,13 +112,33 @@ export function mediaStorageConfigured(): boolean {
   );
 }
 
+function resolvedFromForDeliveryCheck(): ReturnType<typeof normalizeEmailFrom> {
+  const raw = config.email.fromAddress.trim();
+  if (raw) return normalizeEmailFrom(raw);
+  if (config.isProduction) return { ok: false, reason: 'missing_email_from' };
+  return normalizeEmailFrom('REELYOU <onboarding@resend.dev>');
+}
+
 export function emailDeliveryConfigured(): boolean {
+  const from = resolvedFromForDeliveryCheck();
+  if (!from.ok) return false;
+  if (config.isProduction && from.domain === 'resend.dev') return false;
   if (config.email.resendApiKey.length > 0) return true;
   return (
     config.email.smtpHost.length > 0 &&
     config.email.smtpUser.length > 0 &&
     config.email.smtpPass.length > 0
   );
+}
+
+export function productionAppOriginValid(): boolean {
+  if (!config.isProduction) return true;
+  try {
+    const u = new URL(config.appOrigin);
+    return u.protocol === 'https:' && u.hostname.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 export function assertProductionSecrets(): void {
@@ -126,8 +148,11 @@ export function assertProductionSecrets(): void {
   }
   if (!emailDeliveryConfigured()) {
     throw new Error(
-      '[reellyou-server] RESEND_API_KEY or SMTP_HOST/SMTP_USER/SMTP_PASS is required in production for password reset email.',
+      '[reellyou-server] RESEND_API_KEY (or SMTP) plus valid EMAIL_FROM on a verified domain is required in production.',
     );
+  }
+  if (!productionAppOriginValid()) {
+    throw new Error('[reellyou-server] APP_ORIGIN must be a valid https URL in production (password reset links).');
   }
   if (!friendMatchConfigured()) {
     throw new Error('[reellyou-server] FRIEND_MATCH_PEPPER (>=32 chars) is required in production.');
