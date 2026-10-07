@@ -1,10 +1,11 @@
 import { config } from '../config.js';
 import { normalizeEmailFrom, type NormalizeEmailFromResult } from './normalizeEmailFrom.js';
+import { effectiveEmailFromRaw } from './runtimeEmailSecrets.js';
 
 const DEV_FALLBACK_FROM = 'REELYOU <onboarding@resend.dev>';
 
 export function rawEmailFromEnv(): string {
-  return config.email.fromAddress.trim();
+  return effectiveEmailFromRaw(config.email.fromAddress);
 }
 
 export function resolveTransactionalEmailFrom(): NormalizeEmailFromResult {

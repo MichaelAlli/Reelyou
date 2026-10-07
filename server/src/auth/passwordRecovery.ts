@@ -72,6 +72,7 @@ export type PasswordResetRequestResult =
   | { ok: false; error: 'invalid_email' | 'email_delivery_failed' };
 
 export async function requestPasswordReset(email: string): Promise<PasswordResetRequestResult> {
+  console.log('[password-reset] handler-start');
   const normalized = normalizeEmail(email);
   if (!normalized) {
     return { ok: false, error: 'invalid_email' };
@@ -79,14 +80,45 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
 
   const user = findUserByEmail(email);
   if (!user) {
+    console.log('[password-reset] user-found=false');
     return { ok: true, accountFound: false };
   }
 
-  const token = createRecoveryToken(user.id, 'password_reset');
-  const link = buildResetLink(token);
-  const { text, html } = buildPasswordResetEmail(link);
+  console.log('[password-reset] user-found=true');
+  let token: string;
+  try {
+    token = createRecoveryToken(user.id, 'password_reset');
+    console.log('[password-reset] reset-record-created=true');
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('[password-reset] reset-record-created=false', {
+      exceptionName: err.name,
+      exceptionMessage: err.message.slice(0, 300),
+    });
+    throw error;
+  }
 
-  if (!emailProviderConfigured()) {
+  let link: string;
+  let text: string;
+  let html: string;
+  try {
+    link = buildResetLink(token);
+    ({ text, html } = buildPasswordResetEmail(link));
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('[password-reset] email-template-failed', {
+      exceptionName: err.name,
+      exceptionMessage: err.message.slice(0, 300),
+    });
+    throw error;
+  }
+
+  const providerReady = emailProviderConfigured();
+  console.log('[password-reset] email-provider-configured=' + providerReady, {
+    ...resendSendDiagnostics(),
+  });
+
+  if (!providerReady) {
     if (!config.isProduction) {
       console.warn(
         `[reellyou-auth] Email not configured — password reset link for ${user.emailNormalized}:\n${link}`,
@@ -101,18 +133,31 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
     return { ok: false, error: 'email_delivery_failed' };
   }
 
-  const sent = await sendTransactionalEmail({
-    to: user.emailNormalized,
-    subject: 'Reset your REELYOU password',
-    text,
-    html,
-  });
+  let sent: Awaited<ReturnType<typeof sendTransactionalEmail>>;
+  try {
+    sent = await sendTransactionalEmail({
+      to: user.emailNormalized,
+      subject: 'Reset your REELYOU password',
+      text,
+      html,
+    });
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('[password-reset] send-threw', {
+      exceptionName: err.name,
+      exceptionMessage: err.message.slice(0, 300),
+      ...resendSendDiagnostics(),
+    });
+    return { ok: false, error: 'email_delivery_failed' };
+  }
 
   if (sent !== 'sent') {
     console.error('[reellyou-auth] password_reset_email_failed', {
       ...resendSendDiagnostics(),
       phase:
-        sent === 'not_configured' ? 'before_resend_api_call' : 'from_resend_response',
+        sent === 'not_configured' || sent === 'invalid_from'
+          ? 'before_resend_api_call'
+          : 'from_resend_response',
       reason: sent,
     });
     return { ok: false, error: 'email_delivery_failed' };

@@ -1,13 +1,16 @@
 import { createTransport, type Transporter } from 'nodemailer';
 
+import { normalizeEmail } from '../friendMatch/identifierNormalize.js';
 import { config } from '../config.js';
 import {
   buildResendAuthorizationHeader,
   passwordRecoveryEmailConfigured,
   selectTransactionalEmailProvider,
 } from './emailProvider.js';
+import { senderAddressForLog } from './emailLogHelpers.js';
 import { normalizeEmailFrom } from './normalizeEmailFrom.js';
 import { resolveTransactionalEmailFrom } from './resolveEmailFrom.js';
+import { effectiveResendApiKey } from './runtimeEmailSecrets.js';
 
 export type EmailSendResult = 'sent' | 'not_configured' | 'failed' | 'invalid_from';
 
@@ -58,7 +61,7 @@ export function resendSendDiagnostics(): {
   const resolved = resolveTransactionalEmailFrom();
   return {
     provider: 'resend',
-    resendApiKeyPresent: config.email.resendApiKey.length > 0,
+    resendApiKeyPresent: effectiveResendApiKey(config.email.resendApiKey).length > 0,
     emailFromPresent: raw.length > 0,
     emailFromDomain: resolved.ok ? resolved.domain : emailFromDomain(raw),
     emailFromValid: resolved.ok,
@@ -148,7 +151,7 @@ async function sendViaResend(input: {
   from: string;
 }): Promise<EmailSendResult> {
   const diagnostics = resendSendDiagnostics();
-  const resendKey = config.email.resendApiKey;
+  const resendKey = effectiveResendApiKey(config.email.resendApiKey);
   const payload: Record<string, unknown> = {
     from: input.from,
     to: [input.to],
@@ -157,7 +160,27 @@ async function sendViaResend(input: {
   };
   if (input.html) payload.html = input.html;
 
+  console.log('[email] provider=resend', {
+    apiKeyPresent: resendKey.length > 0,
+    sender: senderAddressForLog(input.from),
+    recipientDomain: input.to.includes('@') ? input.to.split('@').pop() : 'invalid',
+  });
+
+  if (!resendKey) {
+    console.error('[email] resend-error-type=missing_api_key', { phase: 'before_resend_api_call' });
+    return 'not_configured';
+  }
+
+  if (typeof globalThis.fetch !== 'function') {
+    console.error('[email] resend-error-type=fetch_unavailable', {
+      exceptionName: 'ReferenceError',
+      exceptionMessage: 'globalThis.fetch is not a function',
+    });
+    return 'failed';
+  }
+
   try {
+    console.log('[email] before-resend-request');
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -167,6 +190,11 @@ async function sendViaResend(input: {
       body: JSON.stringify(payload),
     });
     const detail = await res.text().catch(() => '');
+    const parsedResend = parseResendErrorPayload(detail);
+    console.log('[email] resend-response-status=' + res.status, {
+      resendErrorType: res.ok ? undefined : parsedResend.providerErrorName,
+      resendErrorMessage: res.ok ? undefined : parsedResend.providerErrorMessage,
+    });
     if (res.ok) {
       if (!detail.trim()) return 'sent';
       try {
@@ -202,6 +230,9 @@ async function sendViaResend(input: {
     return 'failed';
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
+    console.error('[email] exception-name=' + err.name, {
+      exceptionMessage: err.message.slice(0, 300),
+    });
     console.error('[reellyou-email] resend_send_failed', {
       ...diagnostics,
       phase: 'before_resend_response',
@@ -230,8 +261,11 @@ export async function sendTransactionalEmail(input: {
     return 'invalid_from';
   }
 
-  const recipient = input.to.trim();
-  if (!recipient || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(recipient)) {
+  const recipient = normalizeEmail(input.to) ?? '';
+  if (!recipient) {
+    console.error('[email] resend-error-type=invalid_recipient', {
+      phase: 'before_resend_api_call',
+    });
     console.error('[reellyou-email] resend_send_failed', {
       ...resendSendDiagnostics(),
       phase: 'before_resend_api_call',
@@ -241,6 +275,10 @@ export async function sendTransactionalEmail(input: {
   }
 
   const provider = selectTransactionalEmailProvider(config);
+  console.log('[email] provider=' + provider, {
+    apiKeyPresent: effectiveResendApiKey(config.email.resendApiKey).length > 0,
+    sender: fromResolved.ok ? senderAddressForLog(fromResolved.value) : 'invalid',
+  });
   if (provider === 'resend') {
     return sendViaResend({
       to: recipient,

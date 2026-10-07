@@ -31,6 +31,7 @@ import {
 import { markImportedDiscoveryData } from './db/accountRepository.js';
 import { initAccountDatabase } from './db/accountStore.js';
 import { sendBuildJson, sendHealthJson } from './diagnostics.js';
+import { emailProviderConfigured } from './email/transactionalEmail.js';
 import { discoverLiveResources } from './discoverResources.js';
 import {
   handleDeleteImportedDiscoveryData,
@@ -82,6 +83,11 @@ import { canViewerAccessMediaAsset } from './social/contentVisibility.js';
 import { logStartupRouteTable } from './runtimeInfo.js';
 
 assertProductionSecrets();
+if (config.isProduction) {
+  console.log(
+    `[reellyou-server] production email ready=${emailProviderConfigured()} provider=resend`,
+  );
+}
 
 /** Set true after initAccountDatabase() completes; health is served before this. */
 let accountDatabaseInitialized = false;

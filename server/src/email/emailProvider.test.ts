@@ -74,6 +74,9 @@ async function run() {
   });
   assert.equal(selectTransactionalEmailProvider(withResendAndSmtp as typeof config), 'resend');
 
+  const savedResendEnv = process.env.RESEND_API_KEY;
+  process.env.RESEND_API_KEY = '';
+
   const prodNoResend = mockState({
     isProduction: true,
     email: {
@@ -95,10 +98,13 @@ async function run() {
   });
   assert.equal(selectTransactionalEmailProvider(devSmtpOnly as typeof config), 'smtp');
 
+  process.env.RESEND_API_KEY = savedResendEnv;
+
   assert.equal(selectTransactionalEmailProvider(config), 'resend');
   assert.equal(passwordRecoveryEmailConfigured(config), true);
 
   config.email.resendApiKey = '';
+  process.env.RESEND_API_KEY = '';
   assert.equal(selectTransactionalEmailProvider(config), 'none');
   assert.equal(passwordRecoveryEmailConfigured(config), false);
 

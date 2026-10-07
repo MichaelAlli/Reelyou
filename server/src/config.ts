@@ -90,6 +90,15 @@ export const config = {
   },
 };
 
+/** Re-read email secrets after module graph init (avoids stale empty keys from ESM load order). */
+export function refreshEmailSecretsFromEnv(): void {
+  config.email.resendApiKey = normalizeResendApiKey(process.env.RESEND_API_KEY ?? '');
+  const from = normalizeSecretEnv(process.env.EMAIL_FROM ?? '');
+  if (from.length > 0) config.email.fromAddress = from;
+}
+
+refreshEmailSecretsFromEnv();
+
 export function openAiConfigured(): boolean {
   return config.openAi.apiKey.length > 0;
 }
