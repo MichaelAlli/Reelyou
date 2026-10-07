@@ -65,9 +65,18 @@ export function normalizeSecretEnv(value: string): string {
   return s;
 }
 
-/** Resend keys must not contain whitespace/newlines from dashboard paste errors. */
+/**
+ * Normalize process.env.RESEND_API_KEY at config load.
+ * trim → strip quotes → strip accidental Bearer prefix → remove all whitespace/newlines.
+ */
 export function normalizeResendApiKey(raw: string): string {
-  return normalizeSecretEnv(raw).replace(/\s+/g, '');
+  let s = (raw ?? '').trim();
+  s = stripOuterQuotes(s);
+  if (/^bearer\s+/i.test(s)) {
+    s = s.replace(/^bearer\s+/i, '').trim();
+  }
+  s = s.replace(/[\s\r\n]+/g, '');
+  return s.trim();
 }
 
 export function isResendApiKeyFormatValid(key: string): boolean {

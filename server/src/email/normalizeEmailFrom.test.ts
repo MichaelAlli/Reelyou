@@ -44,6 +44,10 @@ function run() {
 
   assert.equal(normalizeResendApiKey('re_abc123\n'), 're_abc123');
   assert.equal(normalizeResendApiKey('  re_abc123  '), 're_abc123');
+  assert.equal(normalizeResendApiKey(' re_abc123 '), 're_abc123');
+  assert.equal(normalizeResendApiKey('\r\nre_abc123\r\n'), 're_abc123');
+  assert.equal(normalizeResendApiKey('   '), '');
+  assert.equal(isResendApiKeyFormatValid(normalizeResendApiKey('   ')), false);
   assert.equal(isResendApiKeyFormatValid('re_test_key_123456789012345678901234'), true);
   assert.equal(isResendApiKeyFormatValid(''), false);
   assert.equal(isResendApiKeyFormatValid('not-a-key'), false);

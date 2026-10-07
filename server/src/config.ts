@@ -1,9 +1,5 @@
-import {
-  isResendApiKeyFormatValid,
-  normalizeEmailFrom,
-  normalizeResendApiKey,
-  normalizeSecretEnv,
-} from './email/normalizeEmailFrom.js';
+import { passwordRecoveryEmailConfigured } from './email/emailProvider.js';
+import { normalizeResendApiKey, normalizeSecretEnv } from './email/normalizeEmailFrom.js';
 
 function parseOrigins(raw: string | undefined): string[] {
   if (!raw?.trim()) {
@@ -117,26 +113,8 @@ export function mediaStorageConfigured(): boolean {
   );
 }
 
-function resolvedFromForDeliveryCheck(): ReturnType<typeof normalizeEmailFrom> {
-  const raw = config.email.fromAddress.trim();
-  if (raw) return normalizeEmailFrom(raw);
-  if (config.isProduction) return { ok: false, reason: 'missing_email_from' };
-  return normalizeEmailFrom('REELYOU <onboarding@resend.dev>');
-}
-
 export function emailDeliveryConfigured(): boolean {
-  const from = resolvedFromForDeliveryCheck();
-  if (!from.ok) return false;
-  if (config.isProduction && from.domain === 'resend.dev') return false;
-  if (config.isProduction) {
-    return isResendApiKeyFormatValid(config.email.resendApiKey);
-  }
-  if (config.email.resendApiKey.length > 0) return true;
-  return (
-    config.email.smtpHost.length > 0 &&
-    config.email.smtpUser.length > 0 &&
-    config.email.smtpPass.length > 0
-  );
+  return passwordRecoveryEmailConfigured(config);
 }
 
 export function productionAppOriginValid(): boolean {
@@ -156,7 +134,7 @@ export function assertProductionSecrets(): void {
   }
   if (!emailDeliveryConfigured()) {
     throw new Error(
-      '[reellyou-server] RESEND_API_KEY (or SMTP) plus valid EMAIL_FROM on a verified domain is required in production.',
+      '[reellyou-server] RESEND_API_KEY, valid EMAIL_FROM, and https APP_ORIGIN are required in production.',
     );
   }
   if (!productionAppOriginValid()) {
