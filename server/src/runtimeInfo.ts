@@ -7,6 +7,7 @@ export const REGISTERED_HTTP_ROUTES: readonly string[] = [
   'GET /health',
   'GET /v1/health',
   'GET /__build',
+  'GET /__email-diagnostic',
   'POST /v1/auth/register',
   'POST /v1/auth/login',
   'POST /v1/auth/refresh',

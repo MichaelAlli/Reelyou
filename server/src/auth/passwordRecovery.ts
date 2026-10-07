@@ -12,6 +12,13 @@ import {
 } from '../email/transactionalEmail.js';
 import { maskEmail } from './maskEmail.js';
 import { config } from '../config.js';
+import {
+  markPasswordForgotEmailFunctionStart,
+  markPasswordForgotException,
+  markPasswordForgotHandlerStart,
+  markPasswordForgotSendResult,
+  markPasswordForgotUserFound,
+} from '../email/emailDiagnosticState.js';
 
 interface RecoveryTokenRow {
   id: string;
@@ -73,6 +80,7 @@ export type PasswordResetRequestResult =
 
 export async function requestPasswordReset(email: string): Promise<PasswordResetRequestResult> {
   console.log('[password-reset] handler-start');
+  markPasswordForgotHandlerStart();
   const normalized = normalizeEmail(email);
   if (!normalized) {
     return { ok: false, error: 'invalid_email' };
@@ -81,10 +89,12 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
   const user = findUserByEmail(email);
   if (!user) {
     console.log('[password-reset] user-found=false');
+    markPasswordForgotUserFound(false);
     return { ok: true, accountFound: false };
   }
 
   console.log('[password-reset] user-found=true');
+  markPasswordForgotUserFound(true);
   let token: string;
   try {
     token = createRecoveryToken(user.id, 'password_reset');
@@ -133,6 +143,9 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
     return { ok: false, error: 'email_delivery_failed' };
   }
 
+  console.log('[password-reset] email-function-start');
+  markPasswordForgotEmailFunctionStart();
+
   let sent: Awaited<ReturnType<typeof sendTransactionalEmail>>;
   try {
     sent = await sendTransactionalEmail({
@@ -143,6 +156,7 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
     });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
+    markPasswordForgotException(err.name, err.message);
     console.error('[password-reset] send-threw', {
       exceptionName: err.name,
       exceptionMessage: err.message.slice(0, 300),
@@ -150,6 +164,8 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
     });
     return { ok: false, error: 'email_delivery_failed' };
   }
+
+  markPasswordForgotSendResult(sent);
 
   if (sent !== 'sent') {
     console.error('[reellyou-auth] password_reset_email_failed', {

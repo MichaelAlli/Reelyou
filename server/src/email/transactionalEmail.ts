@@ -10,7 +10,34 @@ import {
 import { senderAddressForLog } from './emailLogHelpers.js';
 import { normalizeEmailFrom } from './normalizeEmailFrom.js';
 import { resolveTransactionalEmailFrom } from './resolveEmailFrom.js';
+import {
+  getPasswordForgotEmailTrace,
+  markBeforeResendRequest,
+  markPasswordForgotException,
+  markResendHttpResponse,
+  markSendTransactionalEmailStart,
+} from './emailDiagnosticState.js';
 import { effectiveResendApiKey } from './runtimeEmailSecrets.js';
+
+function passwordForgotTraceActive(): boolean {
+  return getPasswordForgotEmailTrace().emailFunctionStartAt != null;
+}
+
+function summarizeResendResponseBody(raw: string, httpStatus: number): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return httpStatus >= 200 && httpStatus < 300 ? 'empty_ok_body' : 'empty_body';
+  try {
+    const body = JSON.parse(trimmed) as Record<string, unknown>;
+    const parts: string[] = [];
+    if (typeof body.name === 'string') parts.push(`name=${body.name}`);
+    if (typeof body.message === 'string') parts.push(`message=${body.message.slice(0, 120)}`);
+    if (typeof body.statusCode === 'number') parts.push(`statusCode=${body.statusCode}`);
+    if (typeof body.id === 'string') parts.push('hasId=true');
+    return parts.length > 0 ? parts.join('; ') : 'json_without_known_fields';
+  } catch {
+    return 'non_json_body';
+  }
+}
 
 export type EmailSendResult = 'sent' | 'not_configured' | 'failed' | 'invalid_from';
 
@@ -181,6 +208,7 @@ async function sendViaResend(input: {
 
   try {
     console.log('[email] before-resend-request');
+    if (passwordForgotTraceActive()) markBeforeResendRequest();
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -191,10 +219,20 @@ async function sendViaResend(input: {
     });
     const detail = await res.text().catch(() => '');
     const parsedResend = parseResendErrorPayload(detail);
+    const bodySummary = summarizeResendResponseBody(detail, res.status);
     console.log('[email] resend-response-status=' + res.status, {
       resendErrorType: res.ok ? undefined : parsedResend.providerErrorName,
       resendErrorMessage: res.ok ? undefined : parsedResend.providerErrorMessage,
+      resendResponseBodySummary: bodySummary,
     });
+    if (passwordForgotTraceActive()) {
+      markResendHttpResponse({
+        status: res.status,
+        errorType: parsedResend.providerErrorName,
+        errorMessage: parsedResend.providerErrorMessage,
+        bodySummary,
+      });
+    }
     if (res.ok) {
       if (!detail.trim()) return 'sent';
       try {
@@ -230,6 +268,7 @@ async function sendViaResend(input: {
     return 'failed';
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
+    if (passwordForgotTraceActive()) markPasswordForgotException(err.name, err.message);
     console.error('[email] exception-name=' + err.name, {
       exceptionMessage: err.message.slice(0, 300),
     });
@@ -250,6 +289,12 @@ export async function sendTransactionalEmail(input: {
   text: string;
   html?: string;
 }): Promise<EmailSendResult> {
+  const provider = selectTransactionalEmailProvider(config);
+  if (passwordForgotTraceActive()) {
+    console.log('[email] email-function-start');
+    markSendTransactionalEmailStart(provider);
+  }
+
   const fromResolved = resolveTransactionalEmailFrom();
   if (!fromResolved.ok) {
     console.error('[reellyou-email] resend_send_failed', {
@@ -274,7 +319,6 @@ export async function sendTransactionalEmail(input: {
     return 'failed';
   }
 
-  const provider = selectTransactionalEmailProvider(config);
   console.log('[email] provider=' + provider, {
     apiKeyPresent: effectiveResendApiKey(config.email.resendApiKey).length > 0,
     sender: fromResolved.ok ? senderAddressForLog(fromResolved.value) : 'invalid',

@@ -30,7 +30,7 @@ import {
 } from './config.js';
 import { markImportedDiscoveryData } from './db/accountRepository.js';
 import { initAccountDatabase } from './db/accountStore.js';
-import { sendBuildJson, sendHealthJson } from './diagnostics.js';
+import { sendBuildJson, sendEmailDiagnosticJson, sendHealthJson } from './diagnostics.js';
 import { emailProviderConfigured } from './email/transactionalEmail.js';
 import { discoverLiveResources } from './discoverResources.js';
 import {
@@ -144,6 +144,11 @@ const server = createServer(async (req, res) => {
 
   if (req.method === 'GET' && pathname === '/__build') {
     sendBuildJson(res, origin, corsHeaders);
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/__email-diagnostic') {
+    sendEmailDiagnosticJson(res, origin, corsHeaders);
     return;
   }
 
