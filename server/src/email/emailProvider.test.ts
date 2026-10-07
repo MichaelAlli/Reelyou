@@ -5,7 +5,9 @@ import { join } from 'node:path';
 
 import { normalizeResendApiKey } from './normalizeEmailFrom.js';
 
-const VALID_KEY = 're_test_key_123456789012345678901234';
+import { RESEND_LIVE_SHAPED_TEST_KEY } from './testResendKeys.js';
+
+const VALID_KEY = RESEND_LIVE_SHAPED_TEST_KEY;
 
 type MockEmailSlice = {
   isProduction: boolean;

@@ -47,12 +47,12 @@ export function sendBuildJson(
   logDiagnosticAccess('GET', '/__build', 200);
 }
 
-export function sendEmailDiagnosticJson(
+export async function sendEmailDiagnosticJson(
   res: ServerResponse,
   origin: string | undefined,
   corsHeaders: (origin: string | undefined) => Record<string, string>,
-): void {
-  const body = buildEmailDiagnosticBody();
+): Promise<void> {
+  const body = await buildEmailDiagnosticBody();
   res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders(origin) });
   res.end(JSON.stringify(body));
   logDiagnosticAccess('GET', '/__email-diagnostic', 200);

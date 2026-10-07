@@ -80,5 +80,12 @@ export function normalizeResendApiKey(raw: string): string {
 }
 
 export function isResendApiKeyFormatValid(key: string): boolean {
-  return key.length >= 12 && /^re_[A-Za-z0-9_]+$/.test(key);
+  if (key.length < 12 || !/^re_[A-Za-z0-9_]+$/.test(key)) return false;
+  if (process.env.NODE_ENV === 'production' && key.startsWith('re_test_')) return false;
+  return true;
+}
+
+/** Production must not treat Resend test/sandbox keys as live delivery. */
+export function isResendApiKeyProductionLive(key: string): boolean {
+  return isResendApiKeyFormatValid(key) && !key.startsWith('re_test_');
 }

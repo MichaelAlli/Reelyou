@@ -30,7 +30,11 @@ import {
 } from './config.js';
 import { markImportedDiscoveryData } from './db/accountRepository.js';
 import { initAccountDatabase } from './db/accountStore.js';
-import { sendBuildJson, sendEmailDiagnosticJson, sendHealthJson } from './diagnostics.js';
+import { resolveBuildIdentifier, sendBuildJson, sendEmailDiagnosticJson, sendHealthJson } from './diagnostics.js';
+import {
+  markRealForgotDeliveryFailedPath,
+  markRealForgotHandlerEntered,
+} from './email/emailDiagnosticState.js';
 import { emailProviderConfigured } from './email/transactionalEmail.js';
 import { discoverLiveResources } from './discoverResources.js';
 import {
@@ -148,7 +152,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && pathname === '/__email-diagnostic') {
-    sendEmailDiagnosticJson(res, origin, corsHeaders);
+    await sendEmailDiagnosticJson(res, origin, corsHeaders);
     return;
   }
 
@@ -288,6 +292,8 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/v1/auth/password/forgot') {
+    markRealForgotHandlerEntered(resolveBuildIdentifier());
+    console.log('[REAL-FORGOT-HANDLER] entered');
     if (!authConfigured()) {
       sendJson(res, 503, { error: 'auth_not_configured' }, origin);
       return;
@@ -306,6 +312,10 @@ const server = createServer(async (req, res) => {
           : result.error === 'invalid_email'
             ? 400
             : 400;
+      if (!result.ok && result.error === 'email_delivery_failed') {
+        markRealForgotDeliveryFailedPath(result.error);
+        console.log('[REAL-FORGOT-HANDLER] delivery-failed-path');
+      }
       sendJson(res, status, result, origin);
     } catch {
       sendJson(res, 400, { error: 'bad_request' }, origin);

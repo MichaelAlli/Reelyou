@@ -1,5 +1,9 @@
 import type { config as AppConfig } from '../config.js';
-import { isResendApiKeyFormatValid, normalizeEmailFrom } from './normalizeEmailFrom.js';
+import {
+  isResendApiKeyFormatValid,
+  isResendApiKeyProductionLive,
+  normalizeEmailFrom,
+} from './normalizeEmailFrom.js';
 import { effectiveResendApiKey, effectiveEmailFromRaw } from './runtimeEmailSecrets.js';
 
 type EmailRuntimeConfig = typeof AppConfig;
@@ -62,7 +66,7 @@ export function passwordRecoveryEmailConfigured(state: EmailRuntimeConfig): bool
   const resendKey = effectiveResendApiKey(state.email.resendApiKey);
   const provider = selectTransactionalEmailProvider(state);
   if (state.isProduction) {
-    return provider === 'resend' && isResendApiKeyFormatValid(resendKey);
+    return provider === 'resend' && isResendApiKeyProductionLive(resendKey);
   }
   if (provider === 'resend') {
     return isResendApiKeyFormatValid(resendKey);

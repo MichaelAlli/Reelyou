@@ -1,19 +1,20 @@
 import { authConfigured, config, productionAppOriginValid } from '../config.js';
 import { API_SERVICE_NAME, resolveBuildIdentifier } from '../buildMeta.js';
-import { normalizeSecretEnv } from './normalizeEmailFrom.js';
+import { normalizeSecretEnv, isResendApiKeyProductionLive } from './normalizeEmailFrom.js';
 import { selectTransactionalEmailProvider } from './emailProvider.js';
 import { emailProviderConfigured } from './transactionalEmail.js';
+import { resolvePasswordForgotTraceForDiagnostic } from './emailDiagnosticPersistence.js';
 import { resolveTransactionalEmailFrom } from './resolveEmailFrom.js';
 import { effectiveEmailFromRaw, effectiveResendApiKey } from './runtimeEmailSecrets.js';
-import { getPasswordForgotEmailTrace } from './emailDiagnosticState.js';
 
-export function buildEmailDiagnosticBody(): Record<string, unknown> {
+export async function buildEmailDiagnosticBody(): Promise<Record<string, unknown>> {
   const jwtLen = config.auth.jwtSecret.length;
   const resendKey = effectiveResendApiKey(config.email.resendApiKey);
   const fromRaw = effectiveEmailFromRaw(config.email.fromAddress);
   const fromResolved = resolveTransactionalEmailFrom();
   const appOrigin =
     normalizeSecretEnv(process.env.APP_ORIGIN ?? '').trim() || config.appOrigin.trim();
+  const lastPasswordForgotAttempt = await resolvePasswordForgotTraceForDiagnostic();
 
   return {
     ok: true,
@@ -24,6 +25,7 @@ export function buildEmailDiagnosticBody(): Record<string, unknown> {
     authJwtSecretLengthValid: authConfigured(),
     resendApiKeyPresent: resendKey.length > 0,
     resendApiKeyLength: resendKey.length,
+    resendApiKeyProductionLive: isResendApiKeyProductionLive(resendKey),
     emailFromPresent: fromRaw.length > 0,
     emailFromValid: fromResolved.ok,
     emailFromDomain: fromResolved.ok ? fromResolved.domain : null,
@@ -33,6 +35,8 @@ export function buildEmailDiagnosticBody(): Record<string, unknown> {
     emailProviderConfigured: emailProviderConfigured(),
     passwordForgotRouteRegistered: true,
     fetchAvailable: typeof globalThis.fetch === 'function',
-    lastPasswordForgotAttempt: getPasswordForgotEmailTrace(),
+    realForgotHandlerMarker: lastPasswordForgotAttempt.realForgotHandlerEnteredAt,
+    deliveryFailedPathMarker: lastPasswordForgotAttempt.deliveryFailedPathAt,
+    lastPasswordForgotAttempt,
   };
 }

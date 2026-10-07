@@ -3,7 +3,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const VALID_KEY = 're_test_key_123456789012345678901234';
+import { RESEND_LIVE_SHAPED_TEST_KEY } from './testResendKeys.js';
+
+const VALID_KEY = RESEND_LIVE_SHAPED_TEST_KEY;
 
 process.env.AUTH_JWT_SECRET = 'test-jwt-secret-at-least-32-characters-long';
 process.env.FRIEND_MATCH_PEPPER = 'test-friend-match-pepper-32-chars-min';
@@ -16,7 +18,7 @@ process.env.RENDER_GIT_COMMIT = 'test-build-abc';
 
 async function run() {
   const { buildEmailDiagnosticBody } = await import('./emailDiagnostic.js');
-  const body = buildEmailDiagnosticBody();
+  const body = await buildEmailDiagnosticBody();
 
   assert.equal(body.passwordForgotRouteRegistered, true);
   assert.equal(body.resendApiKeyPresent, true);

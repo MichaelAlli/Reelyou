@@ -49,6 +49,10 @@ function run() {
   assert.equal(normalizeResendApiKey('   '), '');
   assert.equal(isResendApiKeyFormatValid(normalizeResendApiKey('   ')), false);
   assert.equal(isResendApiKeyFormatValid('re_test_key_123456789012345678901234'), true);
+  const prevNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  assert.equal(isResendApiKeyFormatValid('re_test_key_123456789012345678901234'), false);
+  process.env.NODE_ENV = prevNodeEnv;
   assert.equal(isResendApiKeyFormatValid(''), false);
   assert.equal(isResendApiKeyFormatValid('not-a-key'), false);
 
