@@ -10,10 +10,6 @@ import {
 import { senderAddressForLog } from './emailLogHelpers.js';
 import { normalizeEmailFrom } from './normalizeEmailFrom.js';
 import { resolveTransactionalEmailFrom } from './resolveEmailFrom.js';
-import {
-  completeForgotPasswordTrace,
-  patchForgotPasswordTrace,
-} from '../auth/forgotPasswordTrace.js';
 import { effectiveResendApiKey } from './runtimeEmailSecrets.js';
 
 function summarizeResendResponseBody(raw: string, httpStatus: number): string {
@@ -169,7 +165,6 @@ async function sendViaResend(input: {
   text: string;
   html?: string;
   from: string;
-  forgotTraceId?: string;
 }): Promise<EmailSendResult> {
   const diagnostics = resendSendDiagnostics();
   const resendKey = effectiveResendApiKey(config.email.resendApiKey);
@@ -202,11 +197,6 @@ async function sendViaResend(input: {
 
   try {
     console.log('[email] before-resend-request');
-    if (input.forgotTraceId) {
-      await patchForgotPasswordTrace(input.forgotTraceId, {
-        resendRequestStartingAt: new Date().toISOString(),
-      });
-    }
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -223,14 +213,6 @@ async function sendViaResend(input: {
       resendErrorMessage: res.ok ? undefined : parsedResend.providerErrorMessage,
       resendResponseBodySummary: bodySummary,
     });
-    if (input.forgotTraceId) {
-      await patchForgotPasswordTrace(input.forgotTraceId, {
-        resendRequestFinishedAt: new Date().toISOString(),
-        resendHttpStatus: res.status,
-        resendErrorType: parsedResend.providerErrorName ?? null,
-        resendErrorMessage: parsedResend.providerErrorMessage ?? null,
-      });
-    }
     if (res.ok) {
       if (!detail.trim()) return 'sent';
       try {
@@ -266,14 +248,6 @@ async function sendViaResend(input: {
     return 'failed';
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    if (input.forgotTraceId) {
-      await patchForgotPasswordTrace(input.forgotTraceId, {
-        resendRequestFinishedAt: new Date().toISOString(),
-        resendErrorType: err.name,
-        resendErrorMessage: err.message.slice(0, 300),
-      });
-      await completeForgotPasswordTrace(input.forgotTraceId, 'network_exception');
-    }
     console.error('[email] exception-name=' + err.name, {
       exceptionMessage: err.message.slice(0, 300),
     });
@@ -293,16 +267,8 @@ export async function sendTransactionalEmail(input: {
   subject: string;
   text: string;
   html?: string;
-  forgotTraceId?: string;
 }): Promise<EmailSendResult> {
   const provider = selectTransactionalEmailProvider(config);
-  if (input.forgotTraceId) {
-    console.log('[email] email-function-start');
-    await patchForgotPasswordTrace(input.forgotTraceId, {
-      emailFunctionEnteredAt: new Date().toISOString(),
-      providerSelected: provider,
-    });
-  }
 
   const fromResolved = resolveTransactionalEmailFrom();
   if (!fromResolved.ok) {
@@ -339,7 +305,6 @@ export async function sendTransactionalEmail(input: {
       text: input.text,
       html: input.html,
       from: fromResolved.value,
-      forgotTraceId: input.forgotTraceId,
     });
   }
 

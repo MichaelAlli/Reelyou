@@ -1,7 +1,6 @@
 import type { ServerResponse } from 'node:http';
 
-import { API_RUNTIME_ENTRY, API_SERVICE_NAME, resolveBuildIdentifier } from './buildMeta.js';
-import { buildEmailDiagnosticBody } from './email/emailDiagnostic.js';
+import { API_SERVICE_NAME, resolveBuildIdentifier } from './buildMeta.js';
 import { emailProviderConfigured } from './email/transactionalEmail.js';
 
 export { API_RUNTIME_ENTRY, API_SERVICE_NAME, resolveBuildIdentifier } from './buildMeta.js';
@@ -31,29 +30,3 @@ export function sendHealthJson(
   }
 }
 
-export function sendBuildJson(
-  res: ServerResponse,
-  origin: string | undefined,
-  corsHeaders: (origin: string | undefined) => Record<string, string>,
-): void {
-  const body = {
-    service: API_SERVICE_NAME,
-    runtime: API_RUNTIME_ENTRY,
-    build: resolveBuildIdentifier(),
-    nodeEnv: process.env.NODE_ENV?.trim() || 'development',
-  };
-  res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders(origin) });
-  res.end(JSON.stringify(body));
-  logDiagnosticAccess('GET', '/__build', 200);
-}
-
-export async function sendEmailDiagnosticJson(
-  res: ServerResponse,
-  origin: string | undefined,
-  corsHeaders: (origin: string | undefined) => Record<string, string>,
-): Promise<void> {
-  const body = await buildEmailDiagnosticBody();
-  res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders(origin) });
-  res.end(JSON.stringify(body));
-  logDiagnosticAccess('GET', '/__email-diagnostic', 200);
-}

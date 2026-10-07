@@ -13,8 +13,6 @@ import {
 } from './passwordRecovery.js';
 import { consumeRefreshToken, issueRefreshToken } from './refreshTokens.js';
 import { signAccessToken } from './jwt.js';
-import { completeForgotPasswordTrace, patchForgotPasswordTrace } from './forgotPasswordTrace.js';
-
 function authUserForClient(userId: string): {
   id: string;
   fullName: string;
@@ -131,18 +129,12 @@ export function handleRefresh(body: { refreshToken?: string }):
   return { ok: true, accessToken, refreshToken, user: authUserForClient(row.id) };
 }
 
-export async function handleForgotPassword(body: { email?: string }, traceId?: string) {
-  if (traceId) {
-    await patchForgotPasswordTrace(traceId, {
-      handlerEnteredAt: new Date().toISOString(),
-    });
-  }
+export async function handleForgotPassword(body: { email?: string }) {
   const email = body.email?.trim() ?? '';
   if (!email) {
-    if (traceId) await completeForgotPasswordTrace(traceId, 'invalid_request');
     return { ok: false as const, error: 'invalid_request' };
   }
-  const result = await requestPasswordReset(email, traceId);
+  const result = await requestPasswordReset(email);
   if (!result.ok) {
     return { ok: false as const, error: result.error };
   }

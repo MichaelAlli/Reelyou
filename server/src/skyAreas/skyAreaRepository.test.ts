@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import { loadAccountDatabase } from '../db/accountStore.js';
 import { SKY_AREA_PROMOTION_THRESHOLD } from './skyAreaConstants.js';
+import { normalizeSkyAreaName } from './normalizeSkyAreaName.js';
 import {
   ensureSkyAreaCatalogSeeded,
   resolveOrCreateSkyAreaForLabel,
@@ -19,26 +20,27 @@ async function run() {
   const userA = 'user-a';
   const userB = 'user-b';
   const userC = 'user-c';
-  const label = 'Movement Direction';
+  const label = `Movement Direction ${Date.now()}`;
+  const normalized = normalizeSkyAreaName(label);
 
   resolveOrCreateSkyAreaForLabel(label, userA);
-  let area = db.skyAreas!.find((entry) => entry.normalizedName === 'movement direction');
+  let area = db.skyAreas!.find((entry) => entry.normalizedName === normalized);
   assert.ok(area);
   assert.equal(area!.status, 'emerging');
   assert.equal(area!.uniqueUserCount, 1);
 
   resolveOrCreateSkyAreaForLabel(label, userB);
-  area = db.skyAreas!.find((entry) => entry.normalizedName === 'movement direction');
+  area = db.skyAreas!.find((entry) => entry.normalizedName === normalized);
   assert.equal(area!.uniqueUserCount, 2);
 
   resolveOrCreateSkyAreaForLabel(label, userC);
-  area = db.skyAreas!.find((entry) => entry.normalizedName === 'movement direction');
+  area = db.skyAreas!.find((entry) => entry.normalizedName === normalized);
   assert.equal(area!.uniqueUserCount, SKY_AREA_PROMOTION_THRESHOLD);
   assert.equal(area!.status, 'established');
   assert.ok(area!.promotedAt);
 
   resolveOrCreateSkyAreaForLabel(label, userA);
-  area = db.skyAreas!.find((entry) => entry.normalizedName === 'movement direction');
+  area = db.skyAreas!.find((entry) => entry.normalizedName === normalized);
   assert.equal(area!.uniqueUserCount, SKY_AREA_PROMOTION_THRESHOLD);
 
   const tooMany = setUserSkyAreaSelection(userA, {

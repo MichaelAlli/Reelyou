@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 import { authenticateRequest } from './auth/authenticateRequest.js';
@@ -36,12 +35,7 @@ import {
 } from './config.js';
 import { markImportedDiscoveryData } from './db/accountRepository.js';
 import { initAccountDatabase } from './db/accountStore.js';
-import { sendBuildJson, sendEmailDiagnosticJson, sendHealthJson } from './diagnostics.js';
-import {
-  completeForgotPasswordTrace,
-  createForgotPasswordTrace,
-  loadForgotPasswordTrace,
-} from './auth/forgotPasswordTrace.js';
+import { sendHealthJson } from './diagnostics.js';
 import { emailProviderConfigured } from './email/transactionalEmail.js';
 import { discoverLiveResources } from './discoverResources.js';
 import {
@@ -134,9 +128,6 @@ function sendJson(
   res.end(JSON.stringify(body));
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function sendNoContent(res: ServerResponse, origin?: string): void {
   res.writeHead(204, corsHeaders(origin));
   res.end();
@@ -165,32 +156,6 @@ const server = createServer(async (req, res) => {
   const origin = req.headers.origin;
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
   const pathname = url.pathname;
-
-  if (req.method === 'GET' && pathname === '/__build') {
-    sendBuildJson(res, origin, corsHeaders);
-    return;
-  }
-
-  if (req.method === 'GET' && pathname === '/__email-diagnostic') {
-    await sendEmailDiagnosticJson(res, origin, corsHeaders);
-    return;
-  }
-
-  const forgotTraceMatch = pathname.match(/^\/__forgot-trace\/([^/]+)$/);
-  if (req.method === 'GET' && forgotTraceMatch) {
-    const traceId = decodeURIComponent(forgotTraceMatch[1]!);
-    if (!UUID_RE.test(traceId)) {
-      sendJson(res, 400, { ok: false, error: 'invalid_trace_id' }, origin);
-      return;
-    }
-    const trace = await loadForgotPasswordTrace(traceId);
-    if (!trace) {
-      sendJson(res, 404, { ok: false, error: 'trace_not_found' }, origin);
-      return;
-    }
-    sendJson(res, 200, { ok: true, trace }, origin);
-    return;
-  }
 
   if (req.method === 'GET' && (pathname === '/health' || pathname === '/v1/health')) {
     const databaseReady = accountDatabaseInitialized;
@@ -357,24 +322,17 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/v1/auth/password/forgot') {
-    const traceId = randomUUID();
-    await createForgotPasswordTrace(traceId);
-    console.log('[REAL-FORGOT-HANDLER] entered', { traceId });
-    const traceHeaders = { 'X-Reelyou-Trace-Id': traceId };
-
     if (!authConfigured()) {
-      await completeForgotPasswordTrace(traceId, 'auth_not_configured');
-      sendJson(res, 503, { ok: false, error: 'auth_not_configured', traceId }, origin, traceHeaders);
+      sendJson(res, 503, { ok: false, error: 'auth_not_configured' }, origin);
       return;
     }
     if (!checkRateLimit(`password-forgot:${req.socket.remoteAddress ?? 'unknown'}`, 8, 15 * 60_000)) {
-      await completeForgotPasswordTrace(traceId, 'rate_limited');
-      sendJson(res, 429, { ok: false, error: 'rate_limited', traceId }, origin, traceHeaders);
+      sendJson(res, 429, { ok: false, error: 'rate_limited' }, origin);
       return;
     }
     try {
       const body = await readJson<{ email?: string }>(req);
-      const result = await handleForgotPassword(body ?? {}, traceId);
+      const result = await handleForgotPassword(body ?? {});
       const status = result.ok
         ? 200
         : result.error === 'email_delivery_failed'
@@ -382,13 +340,9 @@ const server = createServer(async (req, res) => {
           : result.error === 'invalid_email'
             ? 400
             : 400;
-      if (!result.ok && result.error === 'email_delivery_failed') {
-        console.log('[REAL-FORGOT-HANDLER] delivery-failed-path', { traceId });
-      }
-      sendJson(res, status, { ...result, traceId }, origin, traceHeaders);
+      sendJson(res, status, result, origin);
     } catch {
-      await completeForgotPasswordTrace(traceId, 'bad_request');
-      sendJson(res, 400, { ok: false, error: 'bad_request', traceId }, origin, traceHeaders);
+      sendJson(res, 400, { ok: false, error: 'bad_request' }, origin);
     }
     return;
   }

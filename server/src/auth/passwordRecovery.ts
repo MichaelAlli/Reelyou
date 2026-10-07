@@ -10,11 +10,6 @@ import {
   emailProviderConfigured,
   resendSendDiagnostics,
 } from '../email/transactionalEmail.js';
-import {
-  completeForgotPasswordTrace,
-  loadForgotPasswordTrace,
-  patchForgotPasswordTrace,
-} from './forgotPasswordTrace.js';
 import { maskEmail } from './maskEmail.js';
 import { config } from '../config.js';
 
@@ -76,60 +71,20 @@ export type PasswordResetRequestResult =
   | { ok: true; accountFound: true; emailSent: true; maskedEmail: string }
   | { ok: false; error: 'invalid_email' | 'email_delivery_failed' };
 
-export async function requestPasswordReset(
-  email: string,
-  traceId?: string,
-): Promise<PasswordResetRequestResult> {
-  if (traceId) {
-    await patchForgotPasswordTrace(traceId, {
-      passwordRecoveryEnteredAt: new Date().toISOString(),
-    });
-  }
-
+export async function requestPasswordReset(email: string): Promise<PasswordResetRequestResult> {
   const normalized = normalizeEmail(email);
   if (!normalized) {
-    if (traceId) await completeForgotPasswordTrace(traceId, 'invalid_email');
     return { ok: false, error: 'invalid_email' };
   }
 
   const user = findUserByEmail(email);
   if (!user) {
-    if (traceId) await completeForgotPasswordTrace(traceId, 'account_not_found');
     return { ok: true, accountFound: false };
   }
 
-  let token: string;
-  try {
-    token = createRecoveryToken(user.id, 'password_reset');
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    if (traceId) {
-      await patchForgotPasswordTrace(traceId, {
-        resendErrorType: err.name,
-        resendErrorMessage: err.message.slice(0, 300),
-      });
-      await completeForgotPasswordTrace(traceId, 'recovery_token_create_failed');
-    }
-    throw error;
-  }
-
-  let link: string;
-  let text: string;
-  let html: string;
-  try {
-    link = buildResetLink(token);
-    ({ text, html } = buildPasswordResetEmail(link));
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    if (traceId) {
-      await patchForgotPasswordTrace(traceId, {
-        resendErrorType: err.name,
-        resendErrorMessage: err.message.slice(0, 300),
-      });
-      await completeForgotPasswordTrace(traceId, 'email_template_failed');
-    }
-    throw error;
-  }
+  const token = createRecoveryToken(user.id, 'password_reset');
+  const link = buildResetLink(token);
+  const { text, html } = buildPasswordResetEmail(link);
 
   if (!emailProviderConfigured()) {
     if (!config.isProduction) {
@@ -143,7 +98,6 @@ export async function requestPasswordReset(
         reason: 'email_provider_not_configured',
       });
     }
-    if (traceId) await completeForgotPasswordTrace(traceId, 'email_provider_not_configured');
     return { ok: false, error: 'email_delivery_failed' };
   }
 
@@ -154,17 +108,9 @@ export async function requestPasswordReset(
       subject: 'Reset your REELYOU password',
       text,
       html,
-      forgotTraceId: traceId,
     });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    if (traceId) {
-      await patchForgotPasswordTrace(traceId, {
-        resendErrorType: err.name,
-        resendErrorMessage: err.message.slice(0, 300),
-      });
-      await completeForgotPasswordTrace(traceId, 'network_exception');
-    }
     console.error('[password-reset] send-threw', {
       exceptionName: err.name,
       exceptionMessage: err.message.slice(0, 300),
@@ -182,16 +128,9 @@ export async function requestPasswordReset(
           : 'from_resend_response',
       reason: sent,
     });
-    if (traceId) {
-      const existing = await loadForgotPasswordTrace(traceId);
-      if (!existing?.finalResult) {
-        await completeForgotPasswordTrace(traceId, `email_send_${sent}`);
-      }
-    }
     return { ok: false, error: 'email_delivery_failed' };
   }
 
-  if (traceId) await completeForgotPasswordTrace(traceId, 'email_sent');
   return {
     ok: true,
     accountFound: true,
