@@ -16,8 +16,11 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
-import { AddCustomSkyAreaInline } from '@/components/skyAreas/AddCustomSkyAreaInline';
+import { CommaSeparatedCustomSkyAreas } from '@/components/skyAreas/CommaSeparatedCustomSkyAreas';
+import { EstablishedSkyAreaPicker } from '@/components/skyAreas/EstablishedSkyAreaPicker';
 import { SkyAreaSelectChip } from '@/components/skyAreas/SkyAreaSelectChip';
+import { parseCommaSeparatedSkyAreas } from '@/skyAreas/parseCommaSeparatedSkyAreas';
+import { MAX_CUSTOM_SKY_AREAS } from '@/skyAreas/skyAreaBetaConfig';
 import {
   OnboardingBackButton,
   OnboardingBrandHeader,
@@ -38,9 +41,19 @@ export function OnboardingWhereYouLiveScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { markStep } = useOnboarding();
-  const { filterCatalog, isAreaSelected, toggleAreaSelection, setDiscovering, record, addCustomArea } =
-    useSkyAreaPreferences();
+  const {
+    filterCatalog,
+    isAreaSelected,
+    toggleAreaSelection,
+    setDiscovering,
+    record,
+    establishedAreas,
+    selectedIds,
+    saveSkyAreaSelectionToServer,
+  } = useSkyAreaPreferences();
   const [searchQuery, setSearchQuery] = useState('');
+  const [customCommaInput, setCustomCommaInput] = useState('');
+  const [customError, setCustomError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
 
@@ -49,8 +62,8 @@ export function OnboardingWhereYouLiveScreen() {
 
   const logoWidth = Math.min(width * 0.78, OnboardingProfileLayout.logoWidthMax);
 
-  const visibleAreas = useMemo(
-    () => filterCatalog(searchQuery),
+  const suggestedAreas = useMemo(
+    () => filterCatalog(searchQuery).slice(0, 16),
     [filterCatalog, searchQuery],
   );
 
@@ -111,9 +124,27 @@ export function OnboardingWhereYouLiveScreen() {
     [markStep, router],
   );
 
-  const handleContinue = useCallback(() => {
+  const handleContinue = useCallback(async () => {
+    const parsed = parseCommaSeparatedSkyAreas(customCommaInput);
+    if (parsed.length > MAX_CUSTOM_SKY_AREAS) {
+      setCustomError('You can add up to 5 new Sky Areas.');
+      return;
+    }
+    setCustomError(null);
+    setIsSubmitting(true);
+    const synced = await saveSkyAreaSelectionToServer(customCommaInput);
+    setIsSubmitting(false);
+    if (!synced.ok) {
+      setCustomError(
+        synced.error === 'max_custom_sky_areas'
+          ? 'You can add up to 5 new Sky Areas.'
+          : 'Unable to save your Sky Areas right now. Try again.',
+      );
+      return;
+    }
+    setCustomCommaInput('');
     finish('completed');
-  }, [finish]);
+  }, [customCommaInput, finish, saveSkyAreaSelectionToServer]);
 
   const handleSkip = useCallback(() => {
     finish('skipped');
@@ -145,6 +176,20 @@ export function OnboardingWhereYouLiveScreen() {
             <Text style={styles.changeAnytime}>{OnboardingWhereYouLiveCopy.changeAnytime}</Text>
           </View>
 
+          <Text style={styles.sectionLabel}>Established areas</Text>
+          <EstablishedSkyAreaPicker
+            areas={establishedAreas}
+            selectedIds={selectedIds}
+            onToggle={(skyAreaId) => {
+              if (discoveringActive) setDiscovering(false);
+              toggleAreaSelection(skyAreaId);
+            }}
+            placeholder="Search and select areas"
+          />
+
+          <Text style={styles.sectionLabel}>{OnboardingWhereYouLiveCopy.suggestedAreas}</Text>
+          <Text style={styles.softHint}>{OnboardingWhereYouLiveCopy.softSelectionHint}</Text>
+
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -154,11 +199,8 @@ export function OnboardingWhereYouLiveScreen() {
             accessibilityLabel={OnboardingWhereYouLiveCopy.searchPlaceholder}
           />
 
-          <Text style={styles.sectionLabel}>{OnboardingWhereYouLiveCopy.suggestedAreas}</Text>
-          <Text style={styles.softHint}>{OnboardingWhereYouLiveCopy.softSelectionHint}</Text>
-
           <View style={styles.chipGrid}>
-            {visibleAreas.map((area) => (
+            {suggestedAreas.map((area) => (
               <SkyAreaSelectChip
                 key={area.id}
                 area={area}
@@ -173,18 +215,20 @@ export function OnboardingWhereYouLiveScreen() {
             ))}
           </View>
 
-          <AddCustomSkyAreaInline
-            onAdd={(label) => {
-              const result = addCustomArea(label);
-              return result.error;
+          <CommaSeparatedCustomSkyAreas
+            value={customCommaInput}
+            onChangeText={(text) => {
+              setCustomCommaInput(text);
+              setCustomError(null);
             }}
+            error={customError}
           />
         </ScrollView>
 
         <View style={styles.footer}>
           <OnboardingPrimaryButton
             label={OnboardingWhereYouLiveCopy.continue}
-            onPress={handleContinue}
+            onPress={() => void handleContinue()}
             loading={isSubmitting}
             variant="gradient"
           />

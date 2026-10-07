@@ -42,7 +42,10 @@ export function AuthTextField({
   const day = SignUpDayLayout;
   const night = SignUpNightLayout;
   const [focused, setFocused] = useState(false);
+  const [internalSecureVisible, setInternalSecureVisible] = useState(false);
   const focusProgress = useSharedValue(0);
+  const isControlledSecure = secureVisible !== undefined;
+  const passwordVisible = isControlledSecure ? secureVisible : internalSecureVisible;
 
   const styles = useThemedStyles(() =>
     StyleSheet.create({
@@ -239,19 +242,28 @@ export function AuthTextField({
         placeholder={placeholder}
         style={[styles.input, style]}
         placeholderTextColor={isLight ? day.placeholderColor : night.fieldPlaceholder}
-        secureTextEntry={showSecureToggle ? !secureVisible : inputProps.secureTextEntry}
+        secureTextEntry={showSecureToggle ? !passwordVisible : inputProps.secureTextEntry}
         onFocus={handleFocus}
         onBlur={handleBlur}
       />
       {showSecureToggle ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={secureVisible ? 'Hide password' : 'Show password'}
-          hitSlop={8}
+          accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           android_ripple={{ color: 'rgba(221, 185, 69, 0.12)' }}
-          onPress={onToggleSecure}
+          onPress={() => {
+            if (onToggleSecure) {
+              onToggleSecure();
+              return;
+            }
+            setInternalSecureVisible((visible) => !visible);
+          }}
           style={({ pressed }) => [styles.toggle, pressed && { opacity: 0.72 }]}>
-          <AuthIcon name={secureVisible ? 'eye' : 'eyeSlash'} color={isLight ? dayIconColor : nightIconColor} />
+          <AuthIcon
+            name={passwordVisible ? 'eye' : 'eyeSlash'}
+            color={isLight ? dayIconColor : nightIconColor}
+          />
         </Pressable>
       ) : null}
     </>

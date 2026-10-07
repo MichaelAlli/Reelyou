@@ -15,6 +15,8 @@ export type SkyAreaSource = 'default' | 'custom';
 
 export type SkyAreaModerationStatus = 'active' | 'pending' | 'hidden' | 'merged' | 'blocked';
 
+export type SkyAreaCatalogStatus = 'established' | 'emerging' | 'hidden';
+
 /** Canonical Sky Area — defaults from SKY_AREA_CATEGORIES plus user-created areas. */
 export interface SkyArea {
   id: string;
@@ -28,6 +30,7 @@ export interface SkyArea {
   aliases?: string[];
   parentAreaId?: string;
   moderationStatus?: SkyAreaModerationStatus;
+  catalogStatus?: SkyAreaCatalogStatus;
   sortOrder: number;
   active: boolean;
   createdAt: number;

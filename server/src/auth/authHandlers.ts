@@ -34,7 +34,7 @@ function authUserForClient(userId: string): {
     username: profile?.username ?? null,
     bio: profile?.bio ?? null,
     avatarMediaKey: profile?.avatarMediaKey ?? null,
-    onboardingComplete: profile?.onboardingComplete ?? false,
+    onboardingComplete: profile?.onboardingComplete === true,
   };
 }
 

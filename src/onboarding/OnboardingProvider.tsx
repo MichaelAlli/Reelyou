@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -282,7 +283,7 @@ interface OnboardingContextValue {
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
-  const { user: authUser } = useReelyouAuth();
+  const { user: authUser, patchSessionUser } = useReelyouAuth();
   const activeUserId = resolveActiveUserId(authUser);
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [todayFocus, setTodayFocusState] = useState<TodayFocusRecord>(() =>
@@ -319,6 +320,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [userSessionHydrated, setUserSessionHydrated] = useState(
     () => !isReelyouAuthConfigured(),
   );
+  const [sessionLoadInProgress, setSessionLoadInProgress] = useState(false);
   const onboardingSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetSignedOutSessionMemory = useCallback(() => {
@@ -357,6 +359,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return registerSignOutCleanup(resetSignedOutSessionMemory);
   }, [resetSignedOutSessionMemory]);
 
+  useLayoutEffect(() => {
+    if (isReelyouAuthConfigured() && activeUserId) {
+      setSessionLoadInProgress(true);
+      setUserSessionHydrated(false);
+    }
+  }, [activeUserId]);
+
   useEffect(() => {
     setActiveStorageUserId(activeUserId);
     let live = true;
@@ -364,12 +373,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (isReelyouAuthConfigured() && !activeUserId) {
       resetSignedOutSessionMemory();
       setUserSessionHydrated(true);
+      setSessionLoadInProgress(false);
       return () => {
         live = false;
       };
     }
 
     setUserSessionHydrated(false);
+    setSessionLoadInProgress(true);
     void (async () => {
       await hydrateTodayFocusDismissState();
       const [
@@ -394,7 +405,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         isSharedSocialPersistenceEnabled() ? fetchServerProfile() : Promise.resolve(null),
       ]);
       if (!live) return;
-      setState(mergeOnboardingWithServerProfile(onboardingRecord, serverProfile));
+      const merged = mergeOnboardingWithServerProfile(onboardingRecord, serverProfile);
+      setState(merged);
+      if (serverProfile && activeUserId === serverProfile.userId) {
+        void patchSessionUser({
+          fullName: serverProfile.fullName,
+          username: serverProfile.username,
+          bio: serverProfile.bio,
+          avatarMediaKey: serverProfile.avatarMediaKey,
+          onboardingComplete: serverProfile.onboardingComplete,
+        });
+      }
       setTodayFocusState(reconcileTodayFocusForToday(focusRecord));
       setCommunitiesState(communitiesRecord);
       setGuidingLightDismissState(guidingLightRecord);
@@ -403,16 +424,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setProfileSkyAreaShortcutIdsState(shortcutIds);
       setSkyEvolution(evolutionRecord);
       setMySkyVisibilitySettingsState(visibilityRecord);
+      setSessionLoadInProgress(false);
       setUserSessionHydrated(true);
     })();
 
     return () => {
       live = false;
     };
-  }, [activeUserId, resetSignedOutSessionMemory]);
+  }, [activeUserId, patchSessionUser, resetSignedOutSessionMemory]);
 
   useEffect(() => {
-    if (!activeUserId || !userSessionHydrated) return;
+    if (!activeUserId || !userSessionHydrated || sessionLoadInProgress) return;
     if (onboardingSaveTimer.current) clearTimeout(onboardingSaveTimer.current);
     onboardingSaveTimer.current = setTimeout(() => {
       void saveOnboardingState(state);
@@ -420,7 +442,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return () => {
       if (onboardingSaveTimer.current) clearTimeout(onboardingSaveTimer.current);
     };
-  }, [activeUserId, state, userSessionHydrated]);
+  }, [activeUserId, sessionLoadInProgress, state, userSessionHydrated]);
 
   const mergeAuthorSkywritesFromServer = useCallback(async (authorUserId: string) => {
     if (!isSharedSocialPersistenceEnabled()) return;

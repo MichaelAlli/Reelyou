@@ -16,6 +16,8 @@ export function ResetPasswordScreen() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   const submit = useCallback(async () => {
     setError(null);
@@ -62,7 +64,8 @@ export function ResetPasswordScreen() {
               value={password}
               onChangeText={setPassword}
               placeholder="New password"
-              secureVisible={false}
+              secureVisible={passwordVisible}
+              onToggleSecure={() => setPasswordVisible((visible) => !visible)}
               showSecureToggle
               autoCapitalize="none"
               autoComplete="new-password"
@@ -73,7 +76,8 @@ export function ResetPasswordScreen() {
               value={confirm}
               onChangeText={setConfirm}
               placeholder="Confirm password"
-              secureVisible={false}
+              secureVisible={confirmVisible}
+              onToggleSecure={() => setConfirmVisible((visible) => !visible)}
               showSecureToggle
               autoCapitalize="none"
               autoComplete="new-password"

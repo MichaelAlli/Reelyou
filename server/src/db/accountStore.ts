@@ -68,6 +68,8 @@ export interface AccountDatabase {
     createdAt: number;
   }[];
   skyreelViews?: import('../social/skyreelViews.js').StoredSkyreelView[];
+  skyAreas?: import('../skyAreas/skyAreaRepository.js').StoredSkyArea[];
+  userSkyAreas?: import('../skyAreas/skyAreaRepository.js').UserSkyAreaLink[];
 }
 
 const EMPTY_DB: AccountDatabase = {
@@ -93,6 +95,8 @@ function normalizeLoaded(parsed: AccountDatabase): AccountDatabase {
     moderationReports: parsed.moderationReports ?? [],
     refreshTokens: parsed.refreshTokens ?? [],
     recoveryTokens: parsed.recoveryTokens ?? [],
+    skyAreas: parsed.skyAreas ?? [],
+    userSkyAreas: parsed.userSkyAreas ?? [],
   };
 }
 

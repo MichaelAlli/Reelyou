@@ -25,9 +25,12 @@ export function useReelyouSignIn() {
     if (auth.ready) {
       setRestoringSession(false);
       if (auth.isAuthenticated && userSessionHydrated) {
-        router.replace(
-          resolvePostLoginRoute(onboardingState, auth.user?.onboardingComplete) as never,
-        );
+        const route = resolvePostLoginRoute(onboardingState, auth.user?.onboardingComplete ?? null, {
+          userSessionHydrated,
+          authReady: auth.ready,
+          isAuthenticated: auth.isAuthenticated,
+        });
+        if (route) router.replace(route as never);
       }
       return;
     }

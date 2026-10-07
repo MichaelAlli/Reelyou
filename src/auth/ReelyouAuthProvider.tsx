@@ -50,6 +50,8 @@ interface ReelyouAuthContextValue {
   }) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshAccessToken: () => Promise<string | null>;
+  /** Merge server profile fields into the stored session user (does not sign out). */
+  patchSessionUser: (patch: Partial<StoredAuthUser>) => Promise<void>;
 }
 
 const ReelyouAuthContext = createContext<ReelyouAuthContextValue | null>(null);
@@ -165,6 +167,26 @@ export function ReelyouAuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const patchSessionUser = useCallback(async (patch: Partial<StoredAuthUser>) => {
+    let nextUser: StoredAuthUser | null = null;
+    setUser((current) => {
+      if (!current) return current;
+      nextUser = { ...current, ...patch };
+      return nextUser;
+    });
+    if (!nextUser) return;
+    const token = await loadAccessToken();
+    if (!token) return;
+    const rememberMe = await loadRememberMePreference();
+    const refreshToken = await loadRefreshToken();
+    await saveAuthSession({
+      accessToken: token,
+      refreshToken,
+      user: nextUser,
+      rememberMe,
+    });
+  }, []);
+
   const refreshAccessToken = useCallback(async () => {
     const refreshToken = await loadRefreshToken();
     if (!refreshToken) return null;
@@ -193,8 +215,9 @@ export function ReelyouAuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       refreshAccessToken,
+      patchSessionUser,
     }),
-    [accessToken, configured, login, logout, ready, refreshAccessToken, register, user],
+    [accessToken, configured, login, logout, patchSessionUser, ready, refreshAccessToken, register, user],
   );
 
   return <ReelyouAuthContext.Provider value={value}>{children}</ReelyouAuthContext.Provider>;

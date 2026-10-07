@@ -21,6 +21,11 @@ import {
   handlePutOnboarding,
 } from './profile/profileHandlers.js';
 import {
+  handleGetMySkyAreas,
+  handleGetSkyAreaCatalog,
+  handlePutMySkyAreas,
+} from './skyAreas/skyAreaHandlers.js';
+import {
   assertProductionSecrets,
   authConfigured,
   config,
@@ -288,6 +293,35 @@ const server = createServer(async (req, res) => {
       sendJson(res, result.ok ? 200 : 404, result, origin);
     } catch {
       sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/sky-areas/catalog') {
+    const search = url.searchParams.get('search') ?? undefined;
+    const establishedOnly = url.searchParams.get('established') === '1';
+    const result = handleGetSkyAreaCatalog(search, establishedOnly);
+    sendJson(res, 200, result, origin);
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/sky-areas/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const result = handleGetMySkyAreas(session.userId);
+    sendJson(res, 200, result, origin);
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/v1/sky-areas/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{ establishedIds?: string[]; customLabels?: string[] }>(req);
+      const result = handlePutMySkyAreas(session.userId, body ?? {});
+      sendJson(res, result.ok ? 200 : 400, result, origin);
+    } catch {
+      sendJson(res, 400, { ok: false, error: 'bad_request' }, origin);
     }
     return;
   }

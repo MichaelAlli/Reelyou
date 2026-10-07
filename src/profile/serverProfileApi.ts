@@ -70,7 +70,7 @@ export function mergeOnboardingWithServerProfile(
   const bio = server.bio?.trim() ?? '';
   return {
     ...local,
-    isOnboardingComplete: server.onboardingComplete,
+    isOnboardingComplete: server.onboardingComplete === true || local.isOnboardingComplete === true,
     northStar: bio.length > 0 ? { originalVision: bio } : local.northStar,
   };
 }

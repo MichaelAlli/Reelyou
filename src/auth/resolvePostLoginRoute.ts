@@ -1,16 +1,22 @@
 import type { OnboardingState } from '@/onboarding/onboardingState';
 
-/** Returning users land in the app; new accounts continue onboarding. */
+import {
+  resolveOnboardingRoutingStatus,
+  routeForOnboardingRoutingStatus,
+} from '@/auth/resolveOnboardingRouting';
+
+/** Returning users land in the app; new accounts continue onboarding. Returns null while loading. */
 export function resolvePostLoginRoute(
-  onboarding: Pick<OnboardingState, 'isOnboardingComplete' | 'steps'>,
-  serverOnboardingComplete?: boolean | null,
-): string {
-  if (serverOnboardingComplete === true || onboarding.isOnboardingComplete) {
-    return '/(tabs)/home';
-  }
-  const profileDone = onboarding.steps?.profile === 'completed';
-  if (profileDone) {
-    return '/(tabs)/home';
-  }
-  return '/onboarding/profile';
+  onboarding: Pick<OnboardingState, 'isOnboardingComplete'>,
+  serverOnboardingComplete: boolean | null | undefined,
+  options?: { userSessionHydrated?: boolean; authReady?: boolean; isAuthenticated?: boolean },
+): string | null {
+  const status = resolveOnboardingRoutingStatus({
+    authReady: options?.authReady ?? true,
+    isAuthenticated: options?.isAuthenticated ?? true,
+    userSessionHydrated: options?.userSessionHydrated ?? true,
+    serverOnboardingComplete,
+    localOnboardingComplete: onboarding.isOnboardingComplete === true,
+  });
+  return routeForOnboardingRoutingStatus(status);
 }
