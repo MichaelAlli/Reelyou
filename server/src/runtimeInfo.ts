@@ -6,6 +6,7 @@ export const SERVER_START_COMMAND = 'npm start → node --import tsx src/index.t
 export const REGISTERED_HTTP_ROUTES: readonly string[] = [
   'GET /health',
   'GET /v1/health',
+  'GET /__build',
   'POST /v1/auth/register',
   'POST /v1/auth/login',
   'POST /v1/auth/refresh',

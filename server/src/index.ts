@@ -28,10 +28,9 @@ import {
   mediaStorageConfigured,
   resolveCorsAllowOrigin,
 } from './config.js';
-import { emailProviderConfigured } from './email/transactionalEmail.js';
 import { markImportedDiscoveryData } from './db/accountRepository.js';
 import { initAccountDatabase } from './db/accountStore.js';
-import { pingPostgres } from './db/postgresAccountStore.js';
+import { sendBuildJson, sendHealthJson } from './diagnostics.js';
 import { discoverLiveResources } from './discoverResources.js';
 import {
   handleDeleteImportedDiscoveryData,
@@ -132,48 +131,28 @@ function requireAuth(
   return session;
 }
 
-async function respondHealthCheck(res: ServerResponse, origin: string | undefined): Promise<void> {
-  const databaseMode = config.databaseUrl ? 'postgres' : 'file';
-  let databaseReady = false;
-  if (!accountDatabaseInitialized) {
-    databaseReady = false;
-  } else if (databaseMode === 'file') {
-    databaseReady = true;
-  } else {
-    databaseReady = await pingPostgres(config.databaseUrl);
-  }
-  const emailConfigured = emailProviderConfigured();
-  const ready =
-    accountDatabaseInitialized &&
-    authConfigured() &&
-    friendMatchConfigured() &&
-    mediaStorageConfigured() &&
-    databaseReady;
-  sendJson(
-    res,
-    200,
-    {
-      ok: true,
-      databaseReady,
-      emailConfigured,
-      ready,
-      databaseMode,
-      openAiConfigured: openAiConfigured(),
-      authConfigured: authConfigured(),
-      friendMatchConfigured: friendMatchConfigured(),
-      mediaStorageConfigured: mediaStorageConfigured(),
-      deploymentRevision:
-        process.env.RENDER_GIT_COMMIT?.trim() || process.env.GIT_COMMIT?.trim() || null,
-      grantsGov: config.resources.grantsGovEnabled,
-      arxiv: config.resources.arxivEnabled,
-      rssFeeds: config.resources.rssUrls.length,
-    },
-    origin,
-  );
-}
-
 const server = createServer(async (req, res) => {
   const origin = req.headers.origin;
+  const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+  const pathname = url.pathname;
+
+  if (req.method === 'GET' && pathname === '/__build') {
+    sendBuildJson(res, origin, corsHeaders);
+    return;
+  }
+
+  if (req.method === 'GET' && (pathname === '/health' || pathname === '/v1/health')) {
+    const databaseReady = accountDatabaseInitialized;
+    sendHealthJson(
+      res,
+      origin,
+      corsHeaders,
+      databaseReady,
+      pathname === '/v1/health' ? '/v1/health' : '/health',
+    );
+    return;
+  }
+
   if (req.method === 'OPTIONS') {
     res.writeHead(204, corsHeaders(origin));
     res.end();
@@ -183,16 +162,6 @@ const server = createServer(async (req, res) => {
   const ip = clientIp(req);
   if (!checkRateLimit(ip, 120, 60_000)) {
     sendJson(res, 429, { error: 'rate_limited' }, origin);
-    return;
-  }
-
-  const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
-
-  if (
-    req.method === 'GET' &&
-    (url.pathname === '/health' || url.pathname === '/v1/health')
-  ) {
-    await respondHealthCheck(res, origin);
     return;
   }
 
@@ -815,7 +784,7 @@ const server = createServer(async (req, res) => {
 
 async function main(): Promise<void> {
   await new Promise<void>((resolve) => {
-    server.listen(config.port, () => {
+    server.listen(config.port, '0.0.0.0', () => {
       logStartupRouteTable(config.port);
       console.log(
         `[reellyou-server] listening on :${config.port} auth=${authConfigured()} friendMatch=${friendMatchConfigured()} db=${config.databaseUrl ? 'postgres' : 'file'}`,
