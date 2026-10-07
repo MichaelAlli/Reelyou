@@ -8,6 +8,7 @@ import {
   buildPasswordResetEmail,
   sendTransactionalEmail,
   emailProviderConfigured,
+  resendSendDiagnostics,
 } from '../email/transactionalEmail.js';
 import { maskEmail } from './maskEmail.js';
 import { config } from '../config.js';
@@ -91,7 +92,11 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
         `[reellyou-auth] Email not configured — password reset link for ${user.emailNormalized}:\n${link}`,
       );
     } else {
-      console.error('[reellyou-auth] Email provider not configured; password reset blocked.');
+      console.error('[reellyou-auth] password_reset_email_failed', {
+        ...resendSendDiagnostics(),
+        phase: 'before_resend_api_call',
+        reason: 'email_provider_not_configured',
+      });
     }
     return { ok: false, error: 'email_delivery_failed' };
   }
@@ -104,6 +109,12 @@ export async function requestPasswordReset(email: string): Promise<PasswordReset
   });
 
   if (sent !== 'sent') {
+    console.error('[reellyou-auth] password_reset_email_failed', {
+      ...resendSendDiagnostics(),
+      phase:
+        sent === 'not_configured' ? 'before_resend_api_call' : 'from_resend_response',
+      reason: sent,
+    });
     return { ok: false, error: 'email_delivery_failed' };
   }
 

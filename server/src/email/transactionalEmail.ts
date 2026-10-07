@@ -33,6 +33,58 @@ export function emailProviderConfigured(): boolean {
   return getSmtpTransport() != null;
 }
 
+function emailFromDomain(fromAddress: string): string | null {
+  const trimmed = fromAddress.trim();
+  const angle = trimmed.match(/<([^>@]+@[^>]+)>/);
+  const email = (angle?.[1] ?? trimmed).trim();
+  const at = email.lastIndexOf('@');
+  if (at <= 0 || at >= email.length - 1) return null;
+  return email.slice(at + 1).toLowerCase();
+}
+
+/** Safe env flags for server logs — never includes secrets or full addresses. */
+export function resendSendDiagnostics(): {
+  provider: 'resend';
+  resendApiKeyPresent: boolean;
+  emailFromPresent: boolean;
+  emailFromDomain: string | null;
+} {
+  const from = config.email.fromAddress.trim();
+  return {
+    provider: 'resend',
+    resendApiKeyPresent: config.email.resendApiKey.trim().length > 0,
+    emailFromPresent: from.length > 0,
+    emailFromDomain: emailFromDomain(from),
+  };
+}
+
+function parseResendErrorPayload(raw: string): {
+  providerErrorName?: string;
+  providerErrorCode?: string;
+  providerErrorMessage?: string;
+} {
+  const trimmed = raw.trim();
+  if (!trimmed) return {};
+  try {
+    const body = JSON.parse(trimmed) as Record<string, unknown>;
+    const name = typeof body.name === 'string' ? body.name : undefined;
+    const message = typeof body.message === 'string' ? body.message : undefined;
+    const code =
+      typeof body.code === 'string'
+        ? body.code
+        : typeof body.statusCode === 'number'
+          ? String(body.statusCode)
+          : undefined;
+    return {
+      providerErrorName: name,
+      providerErrorCode: code,
+      providerErrorMessage: message?.slice(0, 300),
+    };
+  } catch {
+    return { providerErrorMessage: trimmed.slice(0, 300) };
+  }
+}
+
 function buildPasswordResetHtml(link: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -56,6 +108,7 @@ export async function sendTransactionalEmail(input: {
 }): Promise<EmailSendResult> {
   const resendKey = config.email.resendApiKey.trim();
   if (resendKey) {
+    const diagnostics = resendSendDiagnostics();
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -73,10 +126,21 @@ export async function sendTransactionalEmail(input: {
       });
       if (res.ok) return 'sent';
       const detail = await res.text().catch(() => '');
-      console.error('[reellyou-email] Resend send failed:', res.status, detail.slice(0, 500));
+      console.error('[reellyou-email] resend_send_failed', {
+        ...diagnostics,
+        phase: 'from_resend_response',
+        httpStatus: res.status,
+        ...parseResendErrorPayload(detail),
+      });
       return 'failed';
     } catch (error) {
-      console.error('[reellyou-email] Resend request error:', error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error('[reellyou-email] resend_send_failed', {
+        ...diagnostics,
+        phase: 'before_resend_response',
+        providerErrorName: err.name,
+        providerErrorMessage: err.message.slice(0, 300),
+      });
       return 'failed';
     }
   }
