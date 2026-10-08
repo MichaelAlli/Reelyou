@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthPrimaryButton, AuthScreenScrollShell, AuthTextField } from '@/components/auth';
+import { QaPreviewReadOnlyBanner } from '@/components/qa/QaPreviewReadOnlyBanner';
+import { useQaPreviewMode } from '@/qa/QaPreviewContext';
 import { authWebRootFillStyle } from '@/constants/authViewportLayout';
 import { mapAuthErrorToMessage } from '@/auth/authErrorMessages';
 import { requestPasswordReset, requestUsernameRecovery } from '@/auth/reellyouAuthApi';
@@ -19,6 +21,7 @@ type RecoveryMode = 'password' | 'username';
 
 export function ForgotPasswordScreen() {
   const router = useRouter();
+  const qaPreview = useQaPreviewMode();
   const [email, setEmail] = useState('');
   const [mode, setMode] = useState<RecoveryMode>('password');
   const [outcome, setOutcome] = useState<SubmitOutcome>({ kind: 'idle' });
@@ -79,23 +82,25 @@ export function ForgotPasswordScreen() {
 
   /** Primary forgot-password action — always POST /v1/auth/password/forgot */
   const sendPasswordResetEmail = useCallback(async () => {
+    if (qaPreview.readOnly) return;
     const trimmed = validateEmail();
     if (!trimmed) return;
     setLoading(true);
     const result = await requestPasswordReset(trimmed);
     setLoading(false);
     applyRecoveryResult(result);
-  }, [applyRecoveryResult, validateEmail]);
+  }, [applyRecoveryResult, qaPreview.readOnly, validateEmail]);
 
   /** "Forgot which email you used?" — POST /v1/auth/username/forgot */
   const sendUsernameReminder = useCallback(async () => {
+    if (qaPreview.readOnly) return;
     const trimmed = validateEmail();
     if (!trimmed) return;
     setLoading(true);
     const result = await requestUsernameRecovery(trimmed);
     setLoading(false);
     applyRecoveryResult(result);
-  }, [applyRecoveryResult, validateEmail]);
+  }, [applyRecoveryResult, qaPreview.readOnly, validateEmail]);
 
   const switchMode = useCallback((next: RecoveryMode) => {
     setMode(next);
@@ -103,7 +108,8 @@ export function ForgotPasswordScreen() {
     setError(null);
   }, []);
 
-  const sendDisabled = loading || (cooldownUntil != null && cooldownUntil > Date.now());
+  const sendDisabled =
+    qaPreview.readOnly || loading || (cooldownUntil != null && cooldownUntil > Date.now());
 
   return (
     <View style={[styles.root, authWebRootFillStyle()]}>
@@ -112,6 +118,7 @@ export function ForgotPasswordScreen() {
         scrollBottomPadding={24}
         contentContainerStyle={styles.scrollContent}>
       <View style={styles.panel}>
+        <QaPreviewReadOnlyBanner />
         <Text style={styles.title}>{mode === 'password' ? 'Forgot password' : 'Forgot sign-in email'}</Text>
         <Text style={styles.subtitle}>
           {mode === 'password'

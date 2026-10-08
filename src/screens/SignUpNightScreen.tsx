@@ -26,6 +26,8 @@ import {
   SignUpNightBrandHeader,
 } from '@/components/auth';
 import { SignUpAppearanceDevPreview } from '@/components/dev/SignUpAppearanceDevPreview';
+import { QaPreviewReadOnlyBanner } from '@/components/qa/QaPreviewReadOnlyBanner';
+import { useQaPreviewMode } from '@/qa/QaPreviewContext';
 import { mapAuthErrorToMessage } from '@/auth/authErrorMessages';
 import { recordLegalConsent } from '@/auth/legalConsentPersistence';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
@@ -53,6 +55,7 @@ export function SignUpNightScreen() {
   const styles = useScreenStyles();
   const night = SignUpNightLayout;
   const nightLogoWidth = resolveSignUpNightLogoWidth(viewportWidth, viewportHeight);
+  const qaPreview = useQaPreviewMode();
 
   const foregroundOpacity = useSharedValue(0);
   const foregroundTranslateY = useSharedValue(12);
@@ -71,9 +74,10 @@ export function SignUpNightScreen() {
     setShowConfirmPassword,
   } = useSignUpForm();
 
-  const canSubmitAccount = isSignUpFormValid(values) && !isSubmittingAuth;
+  const canSubmitAccount = isSignUpFormValid(values) && !isSubmittingAuth && !qaPreview.readOnly;
 
   const handleSubmit = useCallback(async () => {
+    if (qaPreview.readOnly) return;
     markAllTouched();
     if (!isSignUpFormValid(values)) return;
 
@@ -104,7 +108,7 @@ export function SignUpNightScreen() {
     }
 
     setAuthError(mapAuthErrorToMessage('auth_not_configured'));
-  }, [auth, markAllTouched, router, values]);
+  }, [auth, markAllTouched, qaPreview.readOnly, router, values]);
 
   const openTerms = useCallback(() => {
     router.push('/legal/terms-of-service' as never);
@@ -151,6 +155,7 @@ export function SignUpNightScreen() {
 
   const content = (
     <View style={[styles.content, { paddingTop: topPadding }]}>
+      <QaPreviewReadOnlyBanner />
       <SignUpNightBrandHeader width={nightLogoWidth} style={styles.logo} />
 
       <View style={styles.segmentedBlock}>

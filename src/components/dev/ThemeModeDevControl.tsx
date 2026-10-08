@@ -6,12 +6,22 @@ import { useTheme } from '@/theme/useTheme';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 
 /**
- * DEV-ONLY theme QA controls — use only on `/dev-theme-lab` in development builds.
+ * DEV-ONLY theme QA controls — also on `/qa/screens` when EXPO_PUBLIC_ENABLE_QA_PREVIEW=1.
  */
-export function ThemeModeDevControl({ embedded = false }: { embedded?: boolean }) {
+export function ThemeModeDevControl({
+  embedded = false,
+  allowInternalQa = false,
+}: {
+  embedded?: boolean;
+  allowInternalQa?: boolean;
+}) {
   const { themeMode, resolvedAppearance, setThemeMode, setTimeOverride, tokens } = useTheme();
 
-  if (!__DEV__) {
+  const showControls =
+    (typeof __DEV__ !== 'undefined' && __DEV__) ||
+    (allowInternalQa && process.env.EXPO_PUBLIC_ENABLE_QA_PREVIEW === '1');
+
+  if (!showControls) {
     return null;
   }
 

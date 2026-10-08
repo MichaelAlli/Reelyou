@@ -7,12 +7,14 @@ import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { loadRememberMePreference } from '@/auth/reellyouAuthPersistence';
 import { useLogInForm } from '@/hooks/use-log-in-form';
 import { useOnboarding } from '@/onboarding';
+import { useQaPreviewMode } from '@/qa/QaPreviewContext';
 import { isLogInFormValid } from '@/utils/logInValidation';
 
 export function useReelyouSignIn() {
   const router = useRouter();
   const auth = useReelyouAuth();
   const { state: onboardingState, userSessionHydrated } = useOnboarding();
+  const qaPreview = useQaPreviewMode();
   const form = useLogInForm();
   const [authError, setAuthError] = useState<string | null>(null);
   const [restoringSession, setRestoringSession] = useState(auth.configured && !auth.ready);
@@ -24,7 +26,7 @@ export function useReelyouSignIn() {
     }
     if (auth.ready) {
       setRestoringSession(false);
-      if (auth.isAuthenticated && userSessionHydrated) {
+      if (auth.isAuthenticated && userSessionHydrated && !qaPreview.active) {
         const route = resolvePostLoginRoute(onboardingState, auth.user?.onboardingComplete ?? null, {
           userSessionHydrated,
           authReady: auth.ready,
@@ -43,6 +45,7 @@ export function useReelyouSignIn() {
     onboardingState,
     router,
     userSessionHydrated,
+    qaPreview.active,
   ]);
 
   useEffect(() => {

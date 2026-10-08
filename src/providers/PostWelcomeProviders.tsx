@@ -14,6 +14,7 @@ import { SavedThreadsProvider } from '@/skywrite/savedThreads/SavedThreadsProvid
 import { SkywriteCommentProvider } from '@/skywrite/comments/SkywriteCommentProvider';
 import { SkywriteThreadProvider } from '@/skywrite/threads/SkywriteThreadProvider';
 import { TodayFocusRecommendationsProvider } from '@/todayFocus/recommendations/TodayFocusRecommendationsProvider';
+import { QaPreviewProvider } from '@/qa/QaPreviewContext';
 import { ThemeProvider } from '@/theme';
 
 /**
@@ -27,6 +28,7 @@ import { ThemeProvider } from '@/theme';
 export function PostWelcomeProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
+      <QaPreviewProvider>
       <OnboardingProvider>
         <UserAvatarProvider>
         <SkyAreaPreferencesProvider>
@@ -54,6 +56,7 @@ export function PostWelcomeProviders({ children }: { children: ReactNode }) {
         </SkyAreaPreferencesProvider>
         </UserAvatarProvider>
       </OnboardingProvider>
+      </QaPreviewProvider>
     </ThemeProvider>
   );
 }

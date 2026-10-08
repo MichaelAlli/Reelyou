@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from 'react';
 
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { isQaPreviewGalleryAllowed } from '@/config/qaPreviewFlags';
 
 const PUBLIC_ROUTE_NAMES = new Set([
   'login',
@@ -18,6 +19,10 @@ function isPublicPostWelcomeRoute(segments: readonly string[]): boolean {
   return segments.some((segment) => segment === 'legal' || segment.startsWith('legal'));
 }
 
+function isInternalQaGalleryRoute(segments: readonly string[]): boolean {
+  return segments.some((segment) => segment === 'qa');
+}
+
 /**
  * When server auth is enabled, post-welcome app routes require a real session.
  * Auth entry screens remain reachable while signed out.
@@ -27,16 +32,20 @@ export function PostWelcomeAuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const segments = useSegments();
 
+  const qaGalleryRoute =
+    isInternalQaGalleryRoute(segments) && isQaPreviewGalleryAllowed(auth.user?.email ?? null);
+
   useEffect(() => {
     if (!isReelyouAuthConfigured()) return;
     if (!auth.ready) return;
     if (auth.isAuthenticated) return;
     if (isPublicPostWelcomeRoute(segments)) return;
+    if (qaGalleryRoute) return;
     router.replace('/welcome' as never);
-  }, [auth.isAuthenticated, auth.ready, router, segments]);
+  }, [auth.isAuthenticated, auth.ready, qaGalleryRoute, router, segments]);
 
   if (isReelyouAuthConfigured() && auth.ready && !auth.isAuthenticated) {
-    if (!isPublicPostWelcomeRoute(segments)) {
+    if (!isPublicPostWelcomeRoute(segments) && !qaGalleryRoute) {
       return null;
     }
   }

@@ -3,7 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { ScreenPreviewLauncher } from '@/components/dev/ScreenPreviewLauncher';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
+import { isQaPreviewFeatureEnabled, isQaPreviewGalleryAllowed } from '@/config/qaPreviewFlags';
 import { isScreenPreviewEnabled } from '@/constants/devFlags';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { Fonts } from '@/constants/theme';
 import { spacing } from '@/theme';
 
@@ -12,6 +14,12 @@ import { spacing } from '@/theme';
  * Never linked from production UX. Does not change production navigation flow.
  */
 export default function DevScreenPreviewScreen() {
+  const auth = useReelyouAuth();
+
+  if (isQaPreviewFeatureEnabled() && isQaPreviewGalleryAllowed(auth.user?.email ?? null)) {
+    return <Redirect href={'/qa/screens' as never} />;
+  }
+
   if (!isScreenPreviewEnabled()) {
     return <Redirect href={'/' as never} />;
   }

@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useGlobalSearchParams } from 'expo-router';
 import { AppState } from 'react-native';
 
 import {
@@ -93,6 +94,7 @@ import {
 import { registerSignOutCleanup } from '@/auth/sessionLifecycle';
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { isQaPreviewSessionAllowed } from '@/config/qaPreviewFlags';
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import { loadOnboardingState, saveOnboardingState } from '@/onboarding/onboardingPersistence';
 import { formatSkywriteServerSyncError } from '@/social/formatSkywriteServerSyncError';
@@ -285,6 +287,9 @@ const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { user: authUser, patchSessionUser } = useReelyouAuth();
   const activeUserId = resolveActiveUserId(authUser);
+  const qaParams = useGlobalSearchParams<{ qaPreview?: string }>();
+  const qaPreviewReadOnly =
+    qaParams.qaPreview === '1' && isQaPreviewSessionAllowed(authUser?.email ?? null);
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [todayFocus, setTodayFocusState] = useState<TodayFocusRecord>(() =>
     reconcileTodayFocusForToday({ ...EMPTY_TODAY_FOCUS, dateKey: getLocalDateKey() }),
@@ -434,6 +439,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   }, [activeUserId, patchSessionUser, resetSignedOutSessionMemory]);
 
   useEffect(() => {
+    if (qaPreviewReadOnly) return;
     if (!activeUserId || !userSessionHydrated || sessionLoadInProgress) return;
     if (onboardingSaveTimer.current) clearTimeout(onboardingSaveTimer.current);
     onboardingSaveTimer.current = setTimeout(() => {
@@ -442,7 +448,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     return () => {
       if (onboardingSaveTimer.current) clearTimeout(onboardingSaveTimer.current);
     };
-  }, [activeUserId, sessionLoadInProgress, state, userSessionHydrated]);
+  }, [activeUserId, qaPreviewReadOnly, sessionLoadInProgress, state, userSessionHydrated]);
 
   const mergeAuthorSkywritesFromServer = useCallback(async (authorUserId: string) => {
     if (!isSharedSocialPersistenceEnabled()) return;

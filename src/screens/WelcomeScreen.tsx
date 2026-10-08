@@ -8,7 +8,7 @@
  * keyboard, safe-area, validation, performance, and integration changes allowed.
  */
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View, ViewStyle, type ImageStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +24,7 @@ import { BodyText } from '@/components/typography/BodyText';
 import { BrandingAssets } from '@/constants/branding';
 import { WelcomeCopy } from '@/constants/welcome';
 import { authWebRootFillStyle, isAuthCompactViewport } from '@/constants/authViewportLayout';
+import { isQaPreviewSessionAllowed } from '@/config/qaPreviewFlags';
 import { colors, spacing } from '@/theme';
 
 /** Review mode: keeps Welcome screen static for local design review. */
@@ -56,13 +57,17 @@ export function WelcomeScreen() {
   const auth = useReelyouAuth();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ qaPreview?: string }>();
+  const qaPreviewActive =
+    params.qaPreview === '1' && isQaPreviewSessionAllowed(auth.user?.email ?? null);
 
   useEffect(() => {
+    if (qaPreviewActive) return;
     if (!auth.configured || !auth.ready) return;
     if (auth.isAuthenticated) {
       router.replace('/(tabs)/home' as never);
     }
-  }, [auth.configured, auth.isAuthenticated, auth.ready, router]);
+  }, [auth.configured, auth.isAuthenticated, auth.ready, qaPreviewActive, router]);
   const mobileCompact = isAuthCompactViewport(height);
   const isCompact = height < 900;
   const contentMaxWidth = Math.min(width - spacing.Spacing40, spacing.Spacing64 * 6);

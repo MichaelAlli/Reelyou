@@ -3,6 +3,8 @@ import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthPrimaryButton, AuthScreenScrollShell, AuthTextField } from '@/components/auth';
+import { QaPreviewReadOnlyBanner } from '@/components/qa/QaPreviewReadOnlyBanner';
+import { useQaPreviewMode } from '@/qa/QaPreviewContext';
 import { authWebRootFillStyle } from '@/constants/authViewportLayout';
 import { mapAuthErrorToMessage } from '@/auth/authErrorMessages';
 import { resetPasswordWithToken } from '@/auth/reellyouAuthApi';
@@ -10,6 +12,7 @@ import { Fonts } from '@/constants/theme';
 
 export function ResetPasswordScreen() {
   const router = useRouter();
+  const qaPreview = useQaPreviewMode();
   const { token } = useLocalSearchParams<{ token?: string }>();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -20,6 +23,7 @@ export function ResetPasswordScreen() {
   const [confirmVisible, setConfirmVisible] = useState(false);
 
   const submit = useCallback(async () => {
+    if (qaPreview.readOnly) return;
     setError(null);
     if (password.length < 8) {
       setError('Choose a password at least 8 characters long.');
@@ -46,7 +50,7 @@ export function ResetPasswordScreen() {
       return;
     }
     setDone(true);
-  }, [confirm, password, token]);
+  }, [confirm, password, qaPreview.readOnly, token]);
 
   return (
     <View style={[styles.root, authWebRootFillStyle()]}>
@@ -55,6 +59,7 @@ export function ResetPasswordScreen() {
         scrollBottomPadding={24}
         contentContainerStyle={styles.scrollContent}>
       <View style={styles.panel}>
+        <QaPreviewReadOnlyBanner />
         <Text style={styles.title}>Choose a new password</Text>
         {done ? (
           <>
@@ -88,7 +93,12 @@ export function ResetPasswordScreen() {
               textContentType="newPassword"
             />
             {error ? <Text style={styles.error}>{error}</Text> : null}
-            <AuthPrimaryButton label="Update password" onPress={() => void submit()} loading={loading} disabled={loading} />
+            <AuthPrimaryButton
+              label="Update password"
+              onPress={() => void submit()}
+              loading={loading}
+              disabled={loading || qaPreview.readOnly}
+            />
           </>
         )}
         <Pressable onPress={() => router.replace('/login' as never)}>

@@ -3,6 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePerformSignOut } from '@/auth/usePerformSignOut';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { isQaPreviewGalleryAllowed } from '@/config/qaPreviewFlags';
 import { isDevRuntime } from '@/constants/devFlags';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { Fonts } from '@/constants/theme';
@@ -11,7 +13,9 @@ import type { ThemeMode } from '@/theme/types';
 
 export function SettingsHubScreen() {
   const router = useRouter();
+  const auth = useReelyouAuth();
   const signOut = usePerformSignOut();
+  const showQaGallery = isQaPreviewGalleryAllowed(auth.user?.email ?? null);
   const { preferences, updatePreferences } = useReelyouConnect();
   const { themeMode, setThemeMode } = useThemeContext();
 
@@ -166,11 +170,24 @@ export function SettingsHubScreen() {
           <LinkRow label="Help & Support" onPress={() => router.push('/settings/help' as never)} />
         </Section>
 
+        {showQaGallery ? (
+          <Section title="Internal QA">
+            <LinkRow
+              label="Screen preview gallery"
+              onPress={() => router.push('/qa/screens' as never)}
+            />
+          </Section>
+        ) : null}
+
         {isDevRuntime() ? (
           <Section title="Developer">
             <LinkRow
               label="Auth diagnostic"
               onPress={() => router.push('/dev-auth-diagnostic' as never)}
+            />
+            <LinkRow
+              label="Legacy dev screen preview"
+              onPress={() => router.push('/dev-screen-preview' as never)}
             />
           </Section>
         ) : null}

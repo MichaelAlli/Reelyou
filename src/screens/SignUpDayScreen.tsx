@@ -10,6 +10,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SignUpAppearanceDevPreview } from '@/components/dev/SignUpAppearanceDevPreview';
+import { QaPreviewReadOnlyBanner } from '@/components/qa/QaPreviewReadOnlyBanner';
+import { useQaPreviewMode } from '@/qa/QaPreviewContext';
 import {
   AuthCelestialBackground,
   AuthScreenScrollShell,
@@ -42,6 +44,7 @@ export function SignUpDayScreen() {
   const styles = useScreenStyles();
   const day = SignUpDayLayout;
   const dayLogoWidth = resolveSignUpDayLogoWidth(viewportWidth, viewportHeight);
+  const qaPreview = useQaPreviewMode();
 
   const foregroundOpacity = useSharedValue(0);
   const foregroundTranslateY = useSharedValue(12);
@@ -90,7 +93,7 @@ export function SignUpDayScreen() {
     transform: [{ translateY: foregroundTranslateY.value }],
   }));
 
-  const canSubmitAccount = isSignUpFormValid(values) && !isSubmittingAuth;
+  const canSubmitAccount = isSignUpFormValid(values) && !isSubmittingAuth && !qaPreview.readOnly;
 
   const openTerms = useCallback(() => {
     router.push('/legal/terms-of-service' as never);
@@ -101,6 +104,7 @@ export function SignUpDayScreen() {
   }, [router]);
 
   const handleSubmit = useCallback(async () => {
+    if (qaPreview.readOnly) return;
     markAllTouched();
 
     if (!isSignUpFormValid(values)) {
@@ -134,7 +138,7 @@ export function SignUpDayScreen() {
     }
 
     setAuthError(mapAuthErrorToMessage('auth_not_configured'));
-  }, [auth, markAllTouched, router, values]);
+  }, [auth, markAllTouched, qaPreview.readOnly, router, values]);
 
   const goToLogIn = useCallback(() => {
     router.replace('/login' as never);
@@ -144,6 +148,7 @@ export function SignUpDayScreen() {
 
   const content = (
     <View style={[styles.content, { paddingTop: topPadding }]}>
+      <QaPreviewReadOnlyBanner />
       <SignUpDayBrandHeader width={dayLogoWidth} style={styles.logo} />
 
       <View style={styles.segmentedBlock}>
