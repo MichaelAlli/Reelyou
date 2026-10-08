@@ -1,5 +1,12 @@
 import { Platform, type ViewStyle } from 'react-native';
 
+import {
+  authWebViewportStyle,
+  isAuthCompactViewport,
+  resolveAuthAvailableContentWidth,
+  resolveAuthTopInset,
+} from '@/constants/authViewportLayout';
+
 /**
  * REELYOU Daytime Sign Up v1.0 — DESIGN LOCKED
  *
@@ -54,28 +61,25 @@ export const SignUpDayLayout = {
 } as const;
 
 export function signUpDayWebViewportStyle(): ViewStyle | undefined {
-  if (Platform.OS !== 'web') {
-    return undefined;
-  }
-
-  return {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100vw',
-    height: '100vh',
-  } as unknown as ViewStyle;
+  return authWebViewportStyle();
 }
 
-export function resolveSignUpDayLogoWidth(viewportWidth: number): number {
-  const available = viewportWidth - SignUpDayLayout.horizontalPadding * 2;
-  return Math.min(available, SignUpDayLayout.logoWidthMax);
+export function resolveSignUpDayLogoWidth(viewportWidth: number, viewportHeight?: number): number {
+  const available = resolveAuthAvailableContentWidth(viewportWidth, SignUpDayLayout.horizontalPadding);
+  let maxWidth = SignUpDayLayout.logoWidthMax;
+  if (viewportHeight != null && viewportHeight > 0 && isAuthCompactViewport(viewportHeight)) {
+    maxWidth = Math.min(maxWidth, Math.round(viewportHeight * 0.24));
+  }
+  return Math.min(available, maxWidth);
 }
 
 export function resolveSignUpDayTopInset(viewportHeight: number, safeTop: number): number {
-  return safeTop + Math.max(SignUpDayLayout.topInsetMin, Math.round(viewportHeight * SignUpDayLayout.topInsetRatio));
+  return resolveAuthTopInset(viewportHeight, safeTop, {
+    ratio: SignUpDayLayout.topInsetRatio,
+    minInset: SignUpDayLayout.topInsetMin,
+    compactRatio: 0.028,
+    compactMin: 22,
+  });
 }
 
 /** Subtle localized contrast for text over bright sky — readability only, not a redesign. */

@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AuthPrimaryButton, AuthTextField } from '@/components/auth';
+import { AuthPrimaryButton, AuthScreenScrollShell, AuthTextField } from '@/components/auth';
+import { authWebRootFillStyle } from '@/constants/authViewportLayout';
 import { mapAuthErrorToMessage } from '@/auth/authErrorMessages';
 import { requestPasswordReset, requestUsernameRecovery } from '@/auth/reellyouAuthApi';
 import { Fonts } from '@/constants/theme';
@@ -106,7 +106,11 @@ export function ForgotPasswordScreen() {
   const sendDisabled = loading || (cooldownUntil != null && cooldownUntil > Date.now());
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={[styles.root, authWebRootFillStyle()]}>
+      <AuthScreenScrollShell
+        edges={['top', 'bottom']}
+        scrollBottomPadding={24}
+        contentContainerStyle={styles.scrollContent}>
       <View style={styles.panel}>
         <Text style={styles.title}>{mode === 'password' ? 'Forgot password' : 'Forgot sign-in email'}</Text>
         <Text style={styles.subtitle}>
@@ -175,12 +179,14 @@ export function ForgotPasswordScreen() {
           <Text style={styles.back}>Back to sign in</Text>
         </Pressable>
       </View>
-    </SafeAreaView>
+      </AuthScreenScrollShell>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#050508', justifyContent: 'center', padding: 20 },
+  root: { flex: 1, backgroundColor: '#050508' },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20, paddingTop: 8 },
   panel: { gap: 14 },
   title: { fontFamily: Fonts.serif, fontSize: 24, color: '#FFF8F0', textAlign: 'center' },
   subtitle: {

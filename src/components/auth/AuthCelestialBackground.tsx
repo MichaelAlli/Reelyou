@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { BackgroundImage } from '@/components/layout/BackgroundImage';
 import { AuthTempAssets } from '@/constants/authAssets';
+import { authWebRootFillStyle } from '@/constants/authViewportLayout';
 import { useAuthAppearance } from '@/hooks/use-auth-appearance';
 
 interface AuthCelestialBackgroundProps {
@@ -101,11 +102,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     width: '100%',
-    ...(Platform.OS === 'web'
-      ? ({
-          minHeight: '100vh',
-        } as unknown as ViewStyle)
-      : null),
+    ...(authWebRootFillStyle() ?? null),
   },
   daySunriseGlow: {
     ...StyleSheet.absoluteFill,

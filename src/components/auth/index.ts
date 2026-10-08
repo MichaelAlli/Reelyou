@@ -1,4 +1,5 @@
 export { AuthCelestialBackground } from './AuthCelestialBackground';
+export { AuthScreenScrollShell } from './AuthScreenScrollShell';
 export { AuthCheckbox } from './AuthCheckbox';
 export { AuthDivider } from './AuthDivider';
 export { AuthIcon } from './AuthIcon';

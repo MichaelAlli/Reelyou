@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform, StyleSheet, useWindowDimensions, View, ViewStyle, type ImageStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 
@@ -22,6 +23,7 @@ import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { BodyText } from '@/components/typography/BodyText';
 import { BrandingAssets } from '@/constants/branding';
 import { WelcomeCopy } from '@/constants/welcome';
+import { authWebRootFillStyle, isAuthCompactViewport } from '@/constants/authViewportLayout';
 import { colors, spacing } from '@/theme';
 
 /** Review mode: keeps Welcome screen static for local design review. */
@@ -53,6 +55,7 @@ export function WelcomeScreen() {
   const router = useRouter();
   const auth = useReelyouAuth();
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!auth.configured || !auth.ready) return;
@@ -60,24 +63,29 @@ export function WelcomeScreen() {
       router.replace('/(tabs)/home' as never);
     }
   }, [auth.configured, auth.isAuthenticated, auth.ready, router]);
+  const mobileCompact = isAuthCompactViewport(height);
   const isCompact = height < 900;
   const contentMaxWidth = Math.min(width - spacing.Spacing40, spacing.Spacing64 * 6);
   const logoWidth = Math.min(width * WELCOME_LOGO_WIDTH_RATIO, WELCOME_LOGO_MAX_WIDTH);
   const logoHeight = logoWidth * WELCOME_LOGO_ASPECT;
-  const heroLift = Math.round(height * (isCompact ? 0.07 : 0.08));
+  const heroLift = mobileCompact ? Math.round(height * 0.02) : Math.round(height * (isCompact ? 0.07 : 0.08));
+  const actionsBottomPad = Math.max(
+    mobileCompact ? spacing.Spacing16 : isCompact ? spacing.Spacing20 : spacing.Spacing24,
+    insets.bottom + (Platform.OS === 'web' ? 16 : 12),
+  );
   const welcomeBackgroundImageStyle = resolveWelcomeBackgroundImageStyle();
 
   return (
-    <View style={[styles.root, Platform.OS === 'web' ? styles.rootWeb : null]}>
+    <View style={[styles.root, authWebRootFillStyle()]}>
       <StatusBar style="light" />
       <BackgroundImage
         source={BrandingAssets.welcomeBackground}
         resizeMode="cover"
         style={styles.background}
         imageStyle={welcomeBackgroundImageStyle}>
-        <ScreenContainer contentStyle={styles.container}>
-          <View style={[styles.layout, { maxWidth: contentMaxWidth }]}>
-            <View style={styles.heroRegion}>
+        <ScreenContainer scroll={mobileCompact} contentStyle={styles.container}>
+          <View style={[styles.layout, mobileCompact && styles.layoutScrollable, { maxWidth: contentMaxWidth }]}>
+            <View style={[styles.heroRegion, mobileCompact && styles.heroRegionScrollable]}>
               <View
                 style={[
                   styles.heroBlock,
@@ -112,7 +120,8 @@ export function WelcomeScreen() {
             <View
               style={[
                 styles.actionsBlock,
-                isCompact ? styles.actionsBlockCompact : styles.actionsBlockRegular,
+                mobileCompact && styles.actionsBlockScrollable,
+                { paddingBottom: actionsBottomPad },
               ]}>
               <PrimaryButton
                 label={WelcomeCopy.primaryCta}
@@ -137,10 +146,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.BackgroundPrimary,
   } satisfies ViewStyle,
-  rootWeb: {
-    minHeight: '100vh',
-    height: '100%',
-  } as unknown as ViewStyle,
   background: {
     flex: 1,
     width: '100%',
@@ -154,6 +159,11 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   } satisfies ViewStyle,
+  layoutScrollable: {
+    flex: undefined,
+    flexGrow: 1,
+    paddingTop: spacing.Spacing12,
+  } satisfies ViewStyle,
   heroRegion: {
     position: 'absolute',
     top: 0,
@@ -162,6 +172,15 @@ const styles = StyleSheet.create({
     left: 0,
     justifyContent: 'center',
     alignItems: 'center',
+  } satisfies ViewStyle,
+  heroRegionScrollable: {
+    position: 'relative',
+    top: undefined,
+    right: undefined,
+    bottom: undefined,
+    left: undefined,
+    justifyContent: 'flex-start',
+    flexGrow: 0,
   } satisfies ViewStyle,
   heroBlock: {
     alignItems: 'center',
@@ -182,10 +201,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
     zIndex: 1,
   } satisfies ViewStyle,
-  actionsBlockRegular: {
-    paddingBottom: spacing.Spacing24,
-  } satisfies ViewStyle,
-  actionsBlockCompact: {
-    paddingBottom: spacing.Spacing20,
+  actionsBlockScrollable: {
+    marginTop: spacing.Spacing24,
   } satisfies ViewStyle,
 });

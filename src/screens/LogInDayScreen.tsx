@@ -9,25 +9,16 @@
  */
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  AccessibilityInfo,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AuthCheckbox,
   AuthDivider,
   AuthPrimaryButton,
+  AuthScreenScrollShell,
   AuthSegmentedControl,
   AuthSocialButton,
   AuthTextField,
@@ -54,7 +45,7 @@ export function LogInDayScreen() {
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const styles = useScreenStyles();
   const day = LogInDayLayout;
-  const dayLogoWidth = resolveLogInDayLogoWidth(viewportWidth);
+  const dayLogoWidth = resolveLogInDayLogoWidth(viewportWidth, viewportHeight);
 
   const foregroundOpacity = useSharedValue(0);
   const foregroundTranslateY = useSharedValue(12);
@@ -213,27 +204,9 @@ export function LogInDayScreen() {
     <AuthAppearanceProvider isLight>
       <LogInDayBackground style={logInDayWebViewportStyle()}>
         <StatusBar style="dark" />
-        <SafeAreaView style={styles.safe} edges={['bottom']}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-            style={styles.flex}>
-            <ScrollView
-              automaticallyAdjustKeyboardInsets
-              contentContainerStyle={[
-                styles.scrollContent,
-                {
-                  minHeight: viewportHeight - insets.bottom,
-                  paddingBottom: insets.bottom + day.scrollBottomPadding,
-                },
-              ]}
-              keyboardDismissMode="interactive"
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}>
-              <Animated.View style={foregroundStyle}>{content}</Animated.View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
+        <AuthScreenScrollShell scrollBottomPadding={day.scrollBottomPadding}>
+          <Animated.View style={foregroundStyle}>{content}</Animated.View>
+        </AuthScreenScrollShell>
       </LogInDayBackground>
     </AuthAppearanceProvider>
   );
@@ -246,9 +219,6 @@ function useScreenStyles() {
 
   return useThemedStyles(() =>
     StyleSheet.create({
-      safe: { flex: 1 },
-      flex: { flex: 1 },
-      scrollContent: { flexGrow: 1, paddingBottom: 0 },
       content: {
         width: '100%',
         paddingHorizontal: day.horizontalPadding,

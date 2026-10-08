@@ -9,25 +9,16 @@
  */
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  AccessibilityInfo,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AuthCheckbox,
   AuthDivider,
   AuthPrimaryButton,
+  AuthScreenScrollShell,
   AuthSegmentedControl,
   AuthSocialButton,
   AuthTextField,
@@ -210,27 +201,9 @@ export function LogInNightScreen() {
     <AuthAppearanceProvider isLight={false}>
       <LogInNightBackground style={logInNightWebViewportStyle()}>
         <StatusBar style="light" />
-        <SafeAreaView style={styles.safe} edges={['bottom']}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-            style={styles.flex}>
-            <ScrollView
-              automaticallyAdjustKeyboardInsets
-              contentContainerStyle={[
-                styles.scrollContent,
-                {
-                  minHeight: viewportHeight - insets.bottom,
-                  paddingBottom: insets.bottom + night.scrollBottomPadding,
-                },
-              ]}
-              keyboardDismissMode="interactive"
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}>
-              <Animated.View style={foregroundStyle}>{content}</Animated.View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
+        <AuthScreenScrollShell scrollBottomPadding={night.scrollBottomPadding}>
+          <Animated.View style={foregroundStyle}>{content}</Animated.View>
+        </AuthScreenScrollShell>
       </LogInNightBackground>
     </AuthAppearanceProvider>
   );
@@ -241,9 +214,6 @@ function useScreenStyles() {
 
   return useThemedStyles((tokens) =>
     StyleSheet.create({
-      safe: { flex: 1 },
-      flex: { flex: 1 },
-      scrollContent: { flexGrow: 1, paddingBottom: 0 },
       content: {
         width: '100%',
         paddingHorizontal: night.horizontalPadding,

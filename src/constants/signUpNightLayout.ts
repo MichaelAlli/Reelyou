@@ -1,5 +1,11 @@
 import { Platform, type ViewStyle } from 'react-native';
 
+import {
+  authWebViewportStyle,
+  isAuthCompactViewport,
+  resolveAuthAvailableContentWidth,
+  resolveAuthTopInset,
+} from '@/constants/authViewportLayout';
 import { SPLASH_LAYOUT } from '@/constants/splashScene';
 
 /**
@@ -59,32 +65,29 @@ export const SignUpNightLayout = {
 } as const;
 
 export function signUpNightWebViewportStyle(): ViewStyle | undefined {
-  if (Platform.OS !== 'web') {
-    return undefined;
-  }
-
-  return {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100vw',
-    height: '100vh',
-  } as unknown as ViewStyle;
+  return authWebViewportStyle();
 }
 
 export function resolveSignUpNightLogoWidth(viewportWidth: number, viewportHeight?: number): number {
-  const available = viewportWidth - SignUpNightLayout.horizontalPadding * 2;
+  const available = resolveAuthAvailableContentWidth(viewportWidth, SignUpNightLayout.horizontalPadding);
+  let maxWidth = SignUpNightLayout.logoWidthMax;
 
-  if (viewportHeight != null) {
+  if (viewportHeight != null && viewportHeight > 0) {
     const splashLogoSize = Math.round(viewportHeight * SPLASH_LAYOUT.brandBlockHalfRatio * 2);
-    return Math.min(available, splashLogoSize);
+    maxWidth = Math.min(maxWidth, splashLogoSize);
+    if (isAuthCompactViewport(viewportHeight)) {
+      maxWidth = Math.min(maxWidth, Math.round(viewportHeight * 0.22));
+    }
   }
 
-  return Math.min(available, SignUpNightLayout.logoWidthMax);
+  return Math.min(available, maxWidth);
 }
 
 export function resolveSignUpNightTopInset(viewportHeight: number, safeTop: number): number {
-  return safeTop + Math.max(SignUpNightLayout.topInsetMin, Math.round(viewportHeight * SignUpNightLayout.topInsetRatio));
+  return resolveAuthTopInset(viewportHeight, safeTop, {
+    ratio: SignUpNightLayout.topInsetRatio,
+    minInset: SignUpNightLayout.topInsetMin,
+    compactRatio: 0.026,
+    compactMin: 20,
+  });
 }
