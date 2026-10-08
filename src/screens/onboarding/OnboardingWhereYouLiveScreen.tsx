@@ -2,7 +2,7 @@
  * ONBOARDING 02 — Where You Live in the Sky (functional layer on shared onboarding shell).
  */
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
   BackHandler,
@@ -10,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -18,7 +17,6 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 
 import { CommaSeparatedCustomSkyAreas } from '@/components/skyAreas/CommaSeparatedCustomSkyAreas';
 import { EstablishedSkyAreaPicker } from '@/components/skyAreas/EstablishedSkyAreaPicker';
-import { SkyAreaSelectChip } from '@/components/skyAreas/SkyAreaSelectChip';
 import { parseCommaSeparatedSkyAreas } from '@/skyAreas/parseCommaSeparatedSkyAreas';
 import { MAX_CUSTOM_SKY_AREAS } from '@/skyAreas/skyAreaBetaConfig';
 import {
@@ -42,8 +40,6 @@ export function OnboardingWhereYouLiveScreen() {
   const { width } = useWindowDimensions();
   const { markStep } = useOnboarding();
   const {
-    filterCatalog,
-    isAreaSelected,
     toggleAreaSelection,
     setDiscovering,
     record,
@@ -51,7 +47,6 @@ export function OnboardingWhereYouLiveScreen() {
     selectedIds,
     saveSkyAreaSelectionToServer,
   } = useSkyAreaPreferences();
-  const [searchQuery, setSearchQuery] = useState('');
   const [customCommaInput, setCustomCommaInput] = useState('');
   const [customError, setCustomError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,11 +56,6 @@ export function OnboardingWhereYouLiveScreen() {
   const foregroundTranslateY = useSharedValue(12);
 
   const logoWidth = Math.min(width * 0.78, OnboardingProfileLayout.logoWidthMax);
-
-  const suggestedAreas = useMemo(
-    () => filterCatalog(searchQuery).slice(0, 16),
-    [filterCatalog, searchQuery],
-  );
 
   const discoveringActive = record.stillDiscovering;
 
@@ -187,34 +177,7 @@ export function OnboardingWhereYouLiveScreen() {
             placeholder="Search and select areas"
           />
 
-          <Text style={styles.sectionLabel}>{OnboardingWhereYouLiveCopy.suggestedAreas}</Text>
-          <Text style={styles.softHint}>{OnboardingWhereYouLiveCopy.softSelectionHint}</Text>
-
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={OnboardingWhereYouLiveCopy.searchPlaceholder}
-            placeholderTextColor="rgba(235,228,248,0.45)"
-            style={styles.search}
-            accessibilityLabel={OnboardingWhereYouLiveCopy.searchPlaceholder}
-          />
-
-          <View style={styles.chipGrid}>
-            {suggestedAreas.map((area) => (
-              <SkyAreaSelectChip
-                key={area.id}
-                area={area}
-                selected={!discoveringActive && isAreaSelected(area.id)}
-                onPress={() => {
-                  if (discoveringActive) {
-                    setDiscovering(false);
-                  }
-                  toggleAreaSelection(area.id);
-                }}
-              />
-            ))}
-          </View>
-
+          <View style={styles.customSection}>
           <CommaSeparatedCustomSkyAreas
             value={customCommaInput}
             onChangeText={(text) => {
@@ -223,6 +186,7 @@ export function OnboardingWhereYouLiveScreen() {
             }}
             error={customError}
           />
+          </View>
         </ScrollView>
 
         <View style={styles.footer}>
@@ -257,13 +221,14 @@ const layout = OnboardingProfileLayout;
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: {
-    paddingBottom: 16,
-    gap: 12,
+    paddingBottom: 20,
+    gap: 14,
   },
   promptBlock: {
     alignItems: 'center',
     gap: 8,
     marginTop: 4,
+    marginBottom: 6,
   },
   title: {
     fontFamily: Fonts.sans,
@@ -294,38 +259,16 @@ const styles = StyleSheet.create({
     color: layout.goldAccent,
     textAlign: 'center',
   },
-  search: {
-    marginTop: 4,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: layout.chipBorder,
-    backgroundColor: 'rgba(8,12,22,0.55)',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 44,
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    color: layout.titleColor,
-  },
   sectionLabel: {
     fontFamily: Fonts.sans,
     fontSize: 12,
     fontWeight: '600',
     color: 'rgba(235,228,248,0.72)',
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: 2,
   },
-  softHint: {
-    fontFamily: Fonts.sans,
-    fontSize: 11,
-    color: 'rgba(235,228,248,0.5)',
-    textAlign: 'center',
-  },
-  chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'space-between',
+  customSection: {
+    marginTop: 10,
   },
   footer: {
     gap: 8,
