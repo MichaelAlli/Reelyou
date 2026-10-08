@@ -23,27 +23,29 @@ import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { BodyText } from '@/components/typography/BodyText';
 import { BrandingAssets } from '@/constants/branding';
 import { WelcomeCopy } from '@/constants/welcome';
-import { authWebRootFillStyle, isAuthCompactViewport } from '@/constants/authViewportLayout';
-import { resolveWelcomeForegroundTop } from '@/constants/welcomeForegroundLayout';
+import { authWebRootFillStyle } from '@/constants/authViewportLayout';
+import {
+  resolveWelcomeForegroundTop,
+  resolveWelcomeLogoWidth,
+  welcomeNeedsScrollLayout,
+} from '@/constants/welcomeForegroundLayout';
 import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 import { colors, spacing } from '@/theme';
 
-/** Review mode: keeps Welcome screen static for local design review. */
-const WELCOME_REVIEW_MODE = true;
-
 /** reelyou-welcome-logo-white-tagline-cropped.png — alpha-bounds crop, 1116 × 594 RGBA PNG. */
 const WELCOME_LOGO_ASPECT = 594 / 1116;
-const WELCOME_LOGO_WIDTH_RATIO = 0.92;
-const WELCOME_LOGO_MAX_WIDTH = 372;
 
 /** Full-bleed cover sizing for Welcome — fills viewport without bottom letterboxing. */
-function resolveWelcomeBackgroundImageStyle(): ImageStyle {
+function resolveWelcomeBackgroundImageStyle(viewportHeight: number): ImageStyle {
+  const objectPosition =
+    viewportHeight < 700 ? 'center 44%' : viewportHeight < 933 ? 'center 46%' : 'center center';
+
   if (Platform.OS === 'web') {
     return {
       height: '100%',
       width: '100%',
       objectFit: 'cover',
-      objectPosition: 'center center',
+      objectPosition,
     } as ImageStyle;
   }
 
@@ -70,17 +72,17 @@ export function WelcomeScreen() {
       router.replace('/(tabs)/home' as never);
     }
   }, [auth.configured, auth.isAuthenticated, auth.ready, qaPreviewActive, router]);
-  const mobileCompact = isAuthCompactViewport(height);
-  const isCompact = height < 900;
+
   const contentMaxWidth = Math.min(width - spacing.Spacing40, spacing.Spacing64 * 6);
-  const logoWidth = Math.min(width * WELCOME_LOGO_WIDTH_RATIO, WELCOME_LOGO_MAX_WIDTH);
+  const logoWidth = resolveWelcomeLogoWidth(width, height);
   const logoHeight = logoWidth * WELCOME_LOGO_ASPECT;
   const heroTopPad = resolveWelcomeForegroundTop({ height, topInset: insets.top });
   const actionsBottomPad = Math.max(
-    mobileCompact ? spacing.Spacing16 : isCompact ? spacing.Spacing20 : spacing.Spacing24,
-    insets.bottom + (Platform.OS === 'web' ? 20 : 12),
+    spacing.Spacing16,
+    insets.bottom + (Platform.OS === 'web' ? 22 : 14),
   );
-  const welcomeBackgroundImageStyle = resolveWelcomeBackgroundImageStyle();
+  const scrollEnabled = welcomeNeedsScrollLayout(height);
+  const welcomeBackgroundImageStyle = resolveWelcomeBackgroundImageStyle(height);
 
   return (
     <View style={[styles.root, authWebRootFillStyle()]}>
@@ -90,23 +92,17 @@ export function WelcomeScreen() {
         resizeMode="cover"
         style={styles.background}
         imageStyle={welcomeBackgroundImageStyle}>
-        <ScreenContainer scroll={mobileCompact} contentStyle={styles.container}>
-          <View style={[styles.layout, mobileCompact && styles.layoutScrollable, { maxWidth: contentMaxWidth }]}>
+        <ScreenContainer scroll={scrollEnabled} contentStyle={styles.container}>
+          <View style={[styles.layout, { maxWidth: contentMaxWidth }]}>
             <View
               style={[
-                styles.heroRegion,
-                mobileCompact && styles.heroRegionScrollable,
-                !mobileCompact && { paddingTop: heroTopPad },
+                styles.foregroundColumn,
+                {
+                  paddingTop: heroTopPad,
+                  paddingBottom: actionsBottomPad,
+                },
               ]}>
-              <View
-                style={[
-                  styles.heroBlock,
-                  {
-                    width,
-                    marginHorizontal: -spacing.Spacing24,
-                  },
-                  mobileCompact && { paddingTop: heroTopPad },
-                ]}>
+              <View style={[styles.heroBlock, { width }]}>
                 <BrandLogo
                   width={logoWidth}
                   source={BrandingAssets.welcomeLogoWhiteTaglineCropped}
@@ -116,6 +112,7 @@ export function WelcomeScreen() {
                     alignSelf: 'center',
                     backgroundColor: 'transparent',
                     height: logoHeight,
+                    maxWidth: '100%',
                   }}
                 />
 
@@ -127,22 +124,17 @@ export function WelcomeScreen() {
                   ))}
                 </View>
               </View>
-            </View>
 
-            <View
-              style={[
-                styles.actionsBlock,
-                mobileCompact && styles.actionsBlockScrollable,
-                { paddingBottom: actionsBottomPad },
-              ]}>
-              <PrimaryButton
-                label={WelcomeCopy.primaryCta}
-                onPress={() => router.push('/signup' as never)}
-              />
-              <SecondaryButton
-                label={WelcomeCopy.signInCta}
-                onPress={() => router.push('/login' as never)}
-              />
+              <View style={styles.actionsBlock}>
+                <PrimaryButton
+                  label={WelcomeCopy.primaryCta}
+                  onPress={() => router.push('/signup' as never)}
+                />
+                <SecondaryButton
+                  label={WelcomeCopy.signInCta}
+                  onPress={() => router.push('/login' as never)}
+                />
+              </View>
             </View>
           </View>
         </ScreenContainer>
@@ -171,36 +163,22 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   } satisfies ViewStyle,
-  layoutScrollable: {
-    flex: undefined,
-    flexGrow: 1,
-    paddingTop: spacing.Spacing12,
-  } satisfies ViewStyle,
-  heroRegion: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    justifyContent: 'flex-start',
+  foregroundColumn: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'space-between',
     alignItems: 'center',
-  } satisfies ViewStyle,
-  heroRegionScrollable: {
-    position: 'relative',
-    top: undefined,
-    right: undefined,
-    bottom: undefined,
-    left: undefined,
-    justifyContent: 'flex-start',
-    flexGrow: 0,
   } satisfies ViewStyle,
   heroBlock: {
     alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: spacing.Spacing8,
   } satisfies ViewStyle,
   copyBlock: {
     width: '100%',
+    maxWidth: 340,
     alignItems: 'center',
-    marginTop: spacing.Spacing8,
+    marginTop: spacing.Spacing12,
     paddingHorizontal: spacing.Spacing8,
   } satisfies ViewStyle,
   bodyLine: {
@@ -210,10 +188,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     gap: spacing.Spacing12,
-    marginTop: 'auto',
     zIndex: 1,
-  } satisfies ViewStyle,
-  actionsBlockScrollable: {
-    marginTop: spacing.Spacing24,
   } satisfies ViewStyle,
 });

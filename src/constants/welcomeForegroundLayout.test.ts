@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import {
   resolveWelcomeForegroundTop,
+  resolveWelcomeLogoWidth,
   welcomeForegroundFitsViewport,
 } from '@/constants/welcomeForegroundLayout';
 
@@ -21,10 +22,7 @@ for (const { label, height } of viewports) {
   );
 }
 
-assert.ok(
-  resolveWelcomeForegroundTop({ height: 844, topInset: 0 }) >
-    resolveWelcomeForegroundTop({ height: 667, topInset: 0 }) * 0.9,
-  'taller screens allow proportionally similar placement',
-);
+assert.ok(resolveWelcomeLogoWidth(390, 844) <= 302, '844-class logo stays within reference scale');
+assert.ok(resolveWelcomeLogoWidth(390, 667) <= 278, '667-class logo scales down');
 
 console.log('welcomeForegroundLayout.test.ts ok');

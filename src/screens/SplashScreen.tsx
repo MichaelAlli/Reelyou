@@ -20,6 +20,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LuxurySparkleLayer } from '@/components/splash/LuxurySparkleLayer';
+import { SplashArtworkEmbeddedLoadingMask } from '@/components/splash/SplashArtworkEmbeddedLoadingMask';
 import { SplashLoadingFooter } from '@/components/splash/SplashLoadingFooter';
 import { SplashLogoShimmer } from '@/components/splash/SplashLogoShimmer';
 import { SplashArtworkBackground } from '@/components/splash/SplashCelestialBackground';
@@ -95,6 +96,7 @@ export function SplashScreen({ qaGalleryPreview = false }: SplashScreenProps) {
       <StarShimmerLayer />
       <LuxurySparkleLayer />
       <SplashLogoShimmer />
+      <SplashArtworkEmbeddedLoadingMask />
       <SplashLoadingFooter />
       {qaGalleryPreview ? (
         <View

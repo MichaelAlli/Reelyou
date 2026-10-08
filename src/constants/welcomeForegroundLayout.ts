@@ -5,27 +5,39 @@ export interface WelcomeForegroundLayoutInput {
   topInset: number;
 }
 
-/** Top padding for Welcome hero block — sits inside the constellation ring, not on the upper arc. */
+/** Top padding for Welcome hero — logo sits inside the constellation ring (reference mobile comp). */
 export function resolveWelcomeForegroundTop(input: WelcomeForegroundLayoutInput): number {
   const { height, topInset } = input;
   const mobileCompact = isAuthCompactViewport(height);
 
-  if (mobileCompact) {
-    return topInset + Math.round(height * 0.08);
-  }
   if (height < 700) {
-    return topInset + Math.round(height * 0.11);
+    return topInset + Math.round(height * 0.1);
+  }
+  if (mobileCompact) {
+    return topInset + Math.round(height * 0.105);
   }
   if (height < 900) {
-    return topInset + Math.round(height * 0.14);
+    return topInset + Math.round(height * 0.12);
   }
-  return topInset + Math.round(height * 0.16);
+  return topInset + Math.round(height * 0.14);
+}
+
+/** Logo width — reference proportions; smaller than prior 0.92 fill. */
+export function resolveWelcomeLogoWidth(viewportWidth: number, viewportHeight: number): number {
+  const widthBase = viewportWidth > 0 ? viewportWidth : 390;
+  const ratio = viewportHeight < 700 ? 0.74 : viewportHeight < 933 ? 0.78 : 0.82;
+  const max = viewportHeight < 700 ? 278 : viewportHeight < 933 ? 302 : 318;
+  return Math.min(Math.round(widthBase * ratio), max);
 }
 
 /** Ensures CTA + Sign In fit above mobile browser chrome (reference widths). */
 export function welcomeForegroundFitsViewport(height: number): boolean {
   const top = resolveWelcomeForegroundTop({ height, topInset: 0 });
-  const reservedBottom = height < 700 ? 200 : 220;
-  const reservedHero = height < 700 ? 340 : 380;
+  const reservedBottom = height < 700 ? 188 : 204;
+  const reservedHero = height < 700 ? 300 : 330;
   return top + reservedHero + reservedBottom <= height;
+}
+
+export function welcomeNeedsScrollLayout(height: number): boolean {
+  return !welcomeForegroundFitsViewport(height);
 }
