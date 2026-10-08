@@ -10,7 +10,7 @@
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -29,6 +29,7 @@ import {
 import { StarShimmerLayer } from '@/components/splash/StarShimmerLayer';
 import { ReelyouEasing } from '@/constants/animation';
 import { SplashAnimation, SplashColors } from '@/constants/splashTheme';
+import { shouldSplashAutoAdvance } from '@/screens/splashAutoAdvance';
 
 /** Review mode: splash stays until manually continued. Set true only for local design review. */
 const SPLASH_REVIEW_MODE = false;
@@ -36,7 +37,12 @@ const SPLASH_REVIEW_MODE = false;
 /** Continue (Dev) appears only while review mode is enabled. */
 const SHOW_DEV_CONTINUE = SPLASH_REVIEW_MODE;
 
-export function SplashScreen() {
+export interface SplashScreenProps {
+  /** QA Screen Gallery — hold on splash for visual inspection; back link to gallery. */
+  qaGalleryPreview?: boolean;
+}
+
+export function SplashScreen({ qaGalleryPreview = false }: SplashScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const screenOpacity = useSharedValue<number>(1);
@@ -58,13 +64,22 @@ export function SplashScreen() {
   }, [goToWelcome, screenOpacity]);
 
   useEffect(() => {
-    if (SPLASH_REVIEW_MODE) {
+    if (
+      !shouldSplashAutoAdvance({
+        splashReviewMode: SPLASH_REVIEW_MODE,
+        qaGalleryPreview,
+      })
+    ) {
       return;
     }
 
     const timer = setTimeout(exitSplash, SplashAnimation.autoTransition);
     return () => clearTimeout(timer);
-  }, [exitSplash]);
+  }, [exitSplash, qaGalleryPreview]);
+
+  const returnToQaGallery = useCallback(() => {
+    router.replace('/qa/screens' as never);
+  }, [router]);
 
   const screenStyle = useAnimatedStyle(() => ({
     opacity: screenOpacity.value,
@@ -79,6 +94,19 @@ export function SplashScreen() {
       <StarShimmerLayer />
       <LuxurySparkleLayer />
       <SplashLogoShimmer />
+      {qaGalleryPreview ? (
+        <View
+          pointerEvents="box-none"
+          style={[styles.qaChrome, { paddingTop: insets.top + 8, paddingHorizontal: 12 + insets.left }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back to QA Screen Gallery"
+            onPress={returnToQaGallery}
+            style={({ pressed }) => [styles.qaBack, pressed && { opacity: 0.85 }]}>
+            <Text style={styles.qaBackText}>← QA Gallery</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {SHOW_DEV_CONTINUE && (
         <Pressable
           onPress={exitSplash}
@@ -110,5 +138,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  qaChrome: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+  },
+  qaBack: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.45)',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  qaBackText: {
+    color: SplashColors.goldChampagne,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 });

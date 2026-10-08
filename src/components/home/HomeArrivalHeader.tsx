@@ -6,6 +6,7 @@ import { HomeSparkleIcon } from '@/components/home/HomeIcons';
 import { HomeProfilePortrait } from '@/components/home/HomeProfilePortrait';
 import { HomeLayout, HomePalette, measureHomeAvatarSize } from '@/constants/homeLayout';
 import { getFirstName, getTimeGreeting } from '@/constants/homeCopy';
+import { reelyouDisplayNameTypography } from '@/constants/displayNameTypography';
 import { Fonts } from '@/constants/theme';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { useUserAvatar } from '@/identity/UserAvatarProvider';
@@ -119,11 +120,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   nameLine: {
-    fontFamily: Fonts.serif,
+    ...reelyouDisplayNameTypography,
     fontSize: 33,
-    fontWeight: '700',
     color: '#F0DCA8',
-    letterSpacing: -0.35,
     lineHeight: 38,
     ...Platform.select({
       ios: {

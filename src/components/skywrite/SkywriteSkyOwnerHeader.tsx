@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { reelyouDisplayNameTypography } from '@/constants/displayNameTypography';
 import { Fonts } from '@/constants/theme';
 import type { SkyHeaderStyleId } from '@/profile/skyHeaderStyleTypes';
 import { skyHeaderStylePresentation } from '@/profile/skyHeaderStylePresentation';
@@ -105,10 +106,8 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   name: {
-    fontFamily: Fonts.serif,
+    ...reelyouDisplayNameTypography,
     fontSize: 18,
-    fontWeight: '400',
-    letterSpacing: 0.15,
     textAlign: 'center',
   },
   constellation: {

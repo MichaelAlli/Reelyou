@@ -8,6 +8,7 @@ import {
   OWNER_PROFILE_HORIZONTAL_INSET,
   OWNER_PROFILE_PANEL_BORDER,
 } from '@/components/profile/owner/ownerProfileLayout';
+import { reelyouDisplayNameTypography } from '@/constants/displayNameTypography';
 import { Fonts } from '@/constants/theme';
 import type { OwnerProfileIdentity } from '@/profile/ownerProfileTypes';
 
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
   },
   name: {
     flex: 1,
-    fontFamily: Fonts.serif,
+    ...reelyouDisplayNameTypography,
     fontSize: 24,
     lineHeight: 29,
     color: '#FFF8F0',

@@ -44,7 +44,13 @@ export function withQaPreviewHref(
 
 /** Major production screens for internal visual QA — paths only, no duplicate components. */
 export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
-  { id: 'splash', section: 'auth', label: 'Splash', description: 'App entry splash', href: '/' },
+  {
+    id: 'splash',
+    section: 'auth',
+    label: 'Splash',
+    description: 'App entry splash (isolated preview route)',
+    href: '/qa/preview/splash',
+  },
   { id: 'welcome', section: 'auth', label: 'Welcome', description: 'Cinematic welcome', href: '/welcome' },
   { id: 'sign-in', section: 'auth', label: 'Sign In', description: 'Day / night login', href: '/login' },
   { id: 'sign-up', section: 'auth', label: 'Create Account', description: 'Day / night sign up', href: '/signup' },

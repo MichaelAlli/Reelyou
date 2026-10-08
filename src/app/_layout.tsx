@@ -38,6 +38,10 @@ export default function RootLayout() {
                 name="welcome"
                 options={{ contentStyle: { backgroundColor: LOCKED_CINEMATIC_BACKGROUND } }}
               />
+              <Stack.Screen
+                name="qa/preview/splash"
+                options={{ contentStyle: { backgroundColor: LOCKED_CINEMATIC_BACKGROUND } }}
+              />
               <Stack.Screen name="(post-welcome)" options={{ headerShown: false }} />
             </Stack>
           </View>
