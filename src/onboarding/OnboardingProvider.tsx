@@ -94,7 +94,7 @@ import {
 import { registerSignOutCleanup } from '@/auth/sessionLifecycle';
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
-import { isQaPreviewSessionAllowed } from '@/config/qaPreviewFlags';
+import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import { loadOnboardingState, saveOnboardingState } from '@/onboarding/onboardingPersistence';
 import { formatSkywriteServerSyncError } from '@/social/formatSkywriteServerSyncError';
@@ -288,8 +288,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { user: authUser, patchSessionUser } = useReelyouAuth();
   const activeUserId = resolveActiveUserId(authUser);
   const qaParams = useGlobalSearchParams<{ qaPreview?: string }>();
-  const qaPreviewReadOnly =
-    qaParams.qaPreview === '1' && isQaPreviewSessionAllowed(authUser?.email ?? null);
+  const qaPreviewReadOnly = isQaPreviewQueryActive(
+    typeof qaParams.qaPreview === 'string' ? qaParams.qaPreview : undefined,
+  );
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [todayFocus, setTodayFocusState] = useState<TodayFocusRecord>(() =>
     reconcileTodayFocusForToday({ ...EMPTY_TODAY_FOCUS, dateKey: getLocalDateKey() }),

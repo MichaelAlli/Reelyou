@@ -24,7 +24,7 @@ import { BodyText } from '@/components/typography/BodyText';
 import { BrandingAssets } from '@/constants/branding';
 import { WelcomeCopy } from '@/constants/welcome';
 import { authWebRootFillStyle, isAuthCompactViewport } from '@/constants/authViewportLayout';
-import { isQaPreviewSessionAllowed } from '@/config/qaPreviewFlags';
+import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 import { colors, spacing } from '@/theme';
 
 /** Review mode: keeps Welcome screen static for local design review. */
@@ -58,8 +58,9 @@ export function WelcomeScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ qaPreview?: string }>();
-  const qaPreviewActive =
-    params.qaPreview === '1' && isQaPreviewSessionAllowed(auth.user?.email ?? null);
+  const qaPreviewActive = isQaPreviewQueryActive(
+    typeof params.qaPreview === 'string' ? params.qaPreview : undefined,
+  );
 
   useEffect(() => {
     if (qaPreviewActive) return;

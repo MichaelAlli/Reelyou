@@ -1,8 +1,7 @@
 import { useGlobalSearchParams } from 'expo-router';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
-import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
-import { isQaPreviewSessionAllowed } from '@/config/qaPreviewFlags';
+import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 
 export interface QaPreviewContextValue {
   /** QA preview query param is active and access is allowed. */
@@ -20,11 +19,11 @@ const QaPreviewContext = createContext<QaPreviewContextValue>({
 
 export function QaPreviewProvider({ children }: { children: ReactNode }) {
   const params = useGlobalSearchParams<{ qaPreview?: string; qaState?: string }>();
-  const auth = useReelyouAuth();
 
   const value = useMemo((): QaPreviewContextValue => {
-    const allowed = isQaPreviewSessionAllowed(auth.user?.email ?? null);
-    const active = allowed && params.qaPreview === '1';
+    const active = isQaPreviewQueryActive(
+      typeof params.qaPreview === 'string' ? params.qaPreview : undefined,
+    );
     const rawState = params.qaState;
     const qaState =
       rawState === 'empty' || rawState === 'loading' || rawState === 'error' || rawState === 'populated'
@@ -36,7 +35,7 @@ export function QaPreviewProvider({ children }: { children: ReactNode }) {
       readOnly: active,
       qaState,
     };
-  }, [auth.user?.email, params.qaPreview, params.qaState]);
+  }, [params.qaPreview, params.qaState]);
 
   return <QaPreviewContext.Provider value={value}>{children}</QaPreviewContext.Provider>;
 }

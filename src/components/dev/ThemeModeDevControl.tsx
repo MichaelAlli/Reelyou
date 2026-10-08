@@ -6,7 +6,7 @@ import { useTheme } from '@/theme/useTheme';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 
 /**
- * DEV-ONLY theme QA controls — also on `/qa/screens` when EXPO_PUBLIC_ENABLE_QA_PREVIEW=1.
+ * DEV-ONLY theme QA controls — also on `/qa/screens` via allowInternalQa.
  */
 export function ThemeModeDevControl({
   embedded = false,
@@ -17,9 +17,7 @@ export function ThemeModeDevControl({
 }) {
   const { themeMode, resolvedAppearance, setThemeMode, setTimeOverride, tokens } = useTheme();
 
-  const showControls =
-    (typeof __DEV__ !== 'undefined' && __DEV__) ||
-    (allowInternalQa && process.env.EXPO_PUBLIC_ENABLE_QA_PREVIEW === '1');
+  const showControls = (typeof __DEV__ !== 'undefined' && __DEV__) || allowInternalQa;
 
   if (!showControls) {
     return null;

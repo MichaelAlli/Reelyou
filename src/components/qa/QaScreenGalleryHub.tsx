@@ -4,7 +4,6 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ThemeModeDevControl } from '@/components/dev/ThemeModeDevControl';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
-import { isQaPreviewFeatureEnabled } from '@/config/qaPreviewFlags';
 import { Fonts } from '@/constants/theme';
 import {
   groupQaPreviewTargets,
@@ -24,8 +23,7 @@ export function QaScreenGalleryHub() {
       <Text style={styles.title}>Screen preview</Text>
       <Text style={styles.note}>
         Tap a route to open the real screen with ?qaPreview=1 (read-only guards, no emails/resets).
-        Not linked in production navigation. Flag: EXPO_PUBLIC_ENABLE_QA_PREVIEW
-        {isQaPreviewFeatureEnabled() ? ' (on)' : ' (off)'}.
+        Direct URL only — not linked in app navigation.
       </Text>
 
       <View style={styles.themePanel}>

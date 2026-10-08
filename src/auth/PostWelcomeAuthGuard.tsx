@@ -3,7 +3,6 @@ import { useEffect, type ReactNode } from 'react';
 
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
-import { isQaPreviewGalleryAllowed } from '@/config/qaPreviewFlags';
 
 const PUBLIC_ROUTE_NAMES = new Set([
   'login',
@@ -32,8 +31,7 @@ export function PostWelcomeAuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const segments = useSegments();
 
-  const qaGalleryRoute =
-    isInternalQaGalleryRoute(segments) && isQaPreviewGalleryAllowed(auth.user?.email ?? null);
+  const qaGalleryRoute = isInternalQaGalleryRoute(segments);
 
   useEffect(() => {
     if (!isReelyouAuthConfigured()) return;
