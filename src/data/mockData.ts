@@ -192,29 +192,6 @@ export const starpathData = {
     'Your constellation shows strong connections in Creativity and Healing. Consider bridging these themes in your next Skywrite.',
 };
 
-export const onboardingSlides = [
-  {
-    id: '1',
-    title: 'Reflect on who you are becoming.',
-    subtitle: 'Your inner sky holds the story of your growth.',
-  },
-  {
-    id: '2',
-    title: 'Find people walking similar paths.',
-    subtitle: 'Orbit connects you with souls on parallel journeys.',
-  },
-  {
-    id: '3',
-    title: 'Encourage others and see your impact.',
-    subtitle: 'Every act of presence creates ripples of hope.',
-  },
-  {
-    id: '4',
-    title: 'Build a living legacy of the lives touched by your presence.',
-    subtitle: 'Legacy is the constellation of lives you have changed.',
-  },
-];
-
 export const mapFilters = [
   'Creativity',
   'Entrepreneurship',

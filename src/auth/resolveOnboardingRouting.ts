@@ -1,3 +1,6 @@
+/** First approved onboarding step (Sign Up / login continue here). */
+export const APPROVED_ONBOARDING_ENTRY_ROUTE = '/onboarding/profile';
+
 /** Distinct routing gate — never treat unknown as incomplete. */
 export type OnboardingRoutingStatus = 'loading' | 'complete' | 'incomplete';
 
@@ -25,5 +28,5 @@ export function resolveOnboardingRoutingStatus(input: {
 export function routeForOnboardingRoutingStatus(status: OnboardingRoutingStatus): string | null {
   if (status === 'loading') return null;
   if (status === 'complete') return '/(tabs)/home';
-  return '/onboarding/profile';
+  return APPROVED_ONBOARDING_ENTRY_ROUTE;
 }

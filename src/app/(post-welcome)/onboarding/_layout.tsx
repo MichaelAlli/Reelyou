@@ -1,7 +1,6 @@
 import { Stack } from 'expo-router';
 
 import { ReelyouMotion } from '@/constants/animation';
-import { OnboardingProvider } from '@/onboarding';
 
 export default function OnboardingLayout() {
   return (

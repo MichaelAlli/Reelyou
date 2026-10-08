@@ -17,40 +17,14 @@ import {
   impactMoments,
   legacyStories,
   mapFilters,
-  onboardingSlides,
   orbitUsers,
   profileStats,
   suggestedSkies,
 } from '@/data/mockData';
-import { useOnboarding } from '@/onboarding';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 export { SkywriteScreen } from '@/screens/SkywriteScreen';
-
-export function OnboardingScreen() {
-  const styles = useScreenStyles();
-  const router = useRouter();
-
-  return (
-    <ScreenLayout>
-      <Text style={styles.screenTitle}>Welcome to REELYOU</Text>
-      <Text style={styles.screenSubtitle}>A Human Potential Network</Text>
-      {onboardingSlides.map((slide, i) => (
-        <GlassCard key={slide.id} style={styles.slideCard} glow={i % 2 === 0 ? 'gold' : 'purple'}>
-          <Text style={styles.slideNumber}>{i + 1}</Text>
-          <Text style={styles.slideText}>{slide.title}</Text>
-          <Text style={styles.slideSub}>{slide.subtitle}</Text>
-        </GlassCard>
-      ))}
-      <GlowButton
-        label="Start My Sky"
-        onPress={() => router.replace('/(tabs)/home' as never)}
-        style={styles.cta}
-      />
-    </ScreenLayout>
-  );
-}
 
 export { StarpathScreen } from '@/screens/StarpathScreen';
 
@@ -260,33 +234,6 @@ function useScreenStyles() {
     color: tokens.secondaryText,
     marginBottom: Spacing.md,
     lineHeight: 22,
-  },
-  slideCard: {
-    marginBottom: Spacing.sm,
-  },
-  slideNumber: {
-    fontFamily: Fonts.sans,
-    fontSize: 12,
-    fontWeight: '700',
-    color: tokens.gold,
-    marginBottom: Spacing.xs,
-  },
-  slideText: {
-    fontFamily: Fonts.sans,
-    fontSize: 17,
-    fontWeight: '600',
-    color: tokens.primaryText,
-    lineHeight: 24,
-  },
-  slideSub: {
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    color: tokens.secondaryText,
-    lineHeight: 20,
-    marginTop: Spacing.xs,
-  },
-  cta: {
-    marginTop: Spacing.lg,
   },
   greeting: {
     fontFamily: Fonts.sans,
