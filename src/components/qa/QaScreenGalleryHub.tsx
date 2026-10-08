@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ThemeModeDevControl } from '@/components/dev/ThemeModeDevControl';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Fonts } from '@/constants/theme';
+import { openQaPreviewNavigation } from '@/qa/openQaPreviewNavigation';
 import {
   groupQaPreviewTargets,
   QA_PREVIEW_SECTION_LABELS,
@@ -49,7 +50,7 @@ export function QaScreenGalleryHub() {
               key={target.id}
               accessibilityRole="button"
               accessibilityLabel={`Preview ${target.label}`}
-              onPress={() => router.push(withQaPreviewHref(target.href) as never)}
+              onPress={() => openQaPreviewNavigation(router, target)}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
               <View style={styles.rowText}>
                 <Text style={styles.label}>{target.label}</Text>

@@ -24,6 +24,7 @@ import { BodyText } from '@/components/typography/BodyText';
 import { BrandingAssets } from '@/constants/branding';
 import { WelcomeCopy } from '@/constants/welcome';
 import { authWebRootFillStyle, isAuthCompactViewport } from '@/constants/authViewportLayout';
+import { resolveWelcomeForegroundTop } from '@/constants/welcomeForegroundLayout';
 import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 import { colors, spacing } from '@/theme';
 
@@ -74,10 +75,10 @@ export function WelcomeScreen() {
   const contentMaxWidth = Math.min(width - spacing.Spacing40, spacing.Spacing64 * 6);
   const logoWidth = Math.min(width * WELCOME_LOGO_WIDTH_RATIO, WELCOME_LOGO_MAX_WIDTH);
   const logoHeight = logoWidth * WELCOME_LOGO_ASPECT;
-  const heroLift = mobileCompact ? Math.round(height * 0.02) : Math.round(height * (isCompact ? 0.07 : 0.08));
+  const heroTopPad = resolveWelcomeForegroundTop({ height, topInset: insets.top });
   const actionsBottomPad = Math.max(
     mobileCompact ? spacing.Spacing16 : isCompact ? spacing.Spacing20 : spacing.Spacing24,
-    insets.bottom + (Platform.OS === 'web' ? 16 : 12),
+    insets.bottom + (Platform.OS === 'web' ? 20 : 12),
   );
   const welcomeBackgroundImageStyle = resolveWelcomeBackgroundImageStyle();
 
@@ -91,15 +92,20 @@ export function WelcomeScreen() {
         imageStyle={welcomeBackgroundImageStyle}>
         <ScreenContainer scroll={mobileCompact} contentStyle={styles.container}>
           <View style={[styles.layout, mobileCompact && styles.layoutScrollable, { maxWidth: contentMaxWidth }]}>
-            <View style={[styles.heroRegion, mobileCompact && styles.heroRegionScrollable]}>
+            <View
+              style={[
+                styles.heroRegion,
+                mobileCompact && styles.heroRegionScrollable,
+                !mobileCompact && { paddingTop: heroTopPad },
+              ]}>
               <View
                 style={[
                   styles.heroBlock,
                   {
                     width,
                     marginHorizontal: -spacing.Spacing24,
-                    transform: [{ translateY: -heroLift }],
                   },
+                  mobileCompact && { paddingTop: heroTopPad },
                 ]}>
                 <BrandLogo
                   width={logoWidth}
@@ -176,7 +182,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
   } satisfies ViewStyle,
   heroRegionScrollable: {
