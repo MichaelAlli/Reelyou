@@ -11,15 +11,15 @@ export function resolveWelcomeForegroundTop(input: WelcomeForegroundLayoutInput)
   const mobileCompact = isAuthCompactViewport(height);
 
   if (height < 700) {
-    return topInset + Math.round(height * 0.1);
-  }
-  if (mobileCompact) {
-    return topInset + Math.round(height * 0.105);
-  }
-  if (height < 900) {
     return topInset + Math.round(height * 0.12);
   }
-  return topInset + Math.round(height * 0.14);
+  if (mobileCompact) {
+    return topInset + Math.round(height * 0.125);
+  }
+  if (height < 900) {
+    return topInset + Math.round(height * 0.13);
+  }
+  return topInset + Math.round(height * 0.15);
 }
 
 /** Logo width — reference proportions; smaller than prior 0.92 fill. */
