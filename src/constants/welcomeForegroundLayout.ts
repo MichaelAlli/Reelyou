@@ -1,25 +1,22 @@
 import { isAuthCompactViewport } from '@/constants/authViewportLayoutCore';
 
-export interface WelcomeForegroundLayoutInput {
-  height: number;
-  topInset: number;
+/** Reserved vertical space for primary + secondary CTA and bottom safe padding. */
+export function resolveWelcomeActionsReserve(height: number): number {
+  return height < 700 ? 172 : 192;
 }
 
-/** Top padding for Welcome hero — logo sits inside the constellation ring (reference mobile comp). */
-export function resolveWelcomeForegroundTop(input: WelcomeForegroundLayoutInput): number {
-  const { height, topInset } = input;
-  const mobileCompact = isAuthCompactViewport(height);
-
+/**
+ * Slight downward shift after flex-centering so the lockup sits in the constellation ring
+ * (optical center, not geometric center of the hero band).
+ */
+export function resolveWelcomeHeroOpticalOffset(height: number): number {
   if (height < 700) {
-    return topInset + Math.round(height * 0.12);
+    return Math.round(height * 0.028);
   }
-  if (mobileCompact) {
-    return topInset + Math.round(height * 0.125);
+  if (isAuthCompactViewport(height)) {
+    return Math.round(height * 0.032);
   }
-  if (height < 900) {
-    return topInset + Math.round(height * 0.13);
-  }
-  return topInset + Math.round(height * 0.15);
+  return Math.round(height * 0.036);
 }
 
 /** Logo width — reference proportions; smaller than prior 0.92 fill. */
@@ -30,12 +27,10 @@ export function resolveWelcomeLogoWidth(viewportWidth: number, viewportHeight: n
   return Math.min(Math.round(widthBase * ratio), max);
 }
 
-/** Ensures CTA + Sign In fit above mobile browser chrome (reference widths). */
+/** Hero + actions fit without scroll on typical phone heights. */
 export function welcomeForegroundFitsViewport(height: number): boolean {
-  const top = resolveWelcomeForegroundTop({ height, topInset: 0 });
-  const reservedBottom = height < 700 ? 188 : 204;
-  const reservedHero = height < 700 ? 300 : 330;
-  return top + reservedHero + reservedBottom <= height;
+  const heroEstimate = height < 700 ? 290 : 320;
+  return height >= heroEstimate + resolveWelcomeActionsReserve(height) + 48;
 }
 
 export function welcomeNeedsScrollLayout(height: number): boolean {

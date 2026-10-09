@@ -25,7 +25,7 @@ import { BrandingAssets } from '@/constants/branding';
 import { WelcomeCopy } from '@/constants/welcome';
 import { authWebRootFillStyle } from '@/constants/authViewportLayout';
 import {
-  resolveWelcomeForegroundTop,
+  resolveWelcomeHeroOpticalOffset,
   resolveWelcomeLogoWidth,
   welcomeNeedsScrollLayout,
 } from '@/constants/welcomeForegroundLayout';
@@ -76,7 +76,7 @@ export function WelcomeScreen() {
   const contentMaxWidth = Math.min(width - spacing.Spacing40, spacing.Spacing64 * 6);
   const logoWidth = resolveWelcomeLogoWidth(width, height);
   const logoHeight = logoWidth * WELCOME_LOGO_ASPECT;
-  const heroTopPad = resolveWelcomeForegroundTop({ height, topInset: insets.top });
+  const heroOpticalOffset = resolveWelcomeHeroOpticalOffset(height);
   const actionsBottomPad = Math.max(
     spacing.Spacing16,
     insets.bottom + (Platform.OS === 'web' ? 22 : 14),
@@ -94,38 +94,45 @@ export function WelcomeScreen() {
         imageStyle={welcomeBackgroundImageStyle}>
         <ScreenContainer scroll={scrollEnabled} contentStyle={styles.container}>
           <View style={[styles.layout, { maxWidth: contentMaxWidth }]}>
-            <View
-              style={[
-                styles.foregroundColumn,
-                {
-                  paddingTop: heroTopPad,
-                  paddingBottom: actionsBottomPad,
-                },
-              ]}>
-              <View style={[styles.heroBlock, { width }]}>
-                <BrandLogo
-                  width={logoWidth}
-                  source={BrandingAssets.welcomeLogoWhiteTaglineCropped}
-                  theme="dark"
-                  variant="marketing"
-                  style={{
-                    alignSelf: 'center',
-                    backgroundColor: 'transparent',
-                    height: logoHeight,
-                    maxWidth: '100%',
-                  }}
-                />
+            <View style={styles.foregroundColumn}>
+              <View
+                style={[
+                  styles.heroCenterRegion,
+                  { paddingTop: insets.top + spacing.Spacing4 },
+                ]}>
+                <View
+                  style={[
+                    styles.heroBlock,
+                    { width, marginTop: heroOpticalOffset },
+                  ]}>
+                  <BrandLogo
+                    width={logoWidth}
+                    source={BrandingAssets.welcomeLogoWhiteTaglineCropped}
+                    theme="dark"
+                    variant="marketing"
+                    style={{
+                      alignSelf: 'center',
+                      backgroundColor: 'transparent',
+                      height: logoHeight,
+                      maxWidth: '100%',
+                    }}
+                  />
 
-                <View style={styles.copyBlock}>
-                  {WelcomeCopy.bodyLines.map((line) => (
-                    <BodyText key={line} style={styles.bodyLine}>
-                      {line}
-                    </BodyText>
-                  ))}
+                  <View style={styles.copyBlock}>
+                    {WelcomeCopy.bodyLines.map((line) => (
+                      <BodyText key={line} style={styles.bodyLine}>
+                        {line}
+                      </BodyText>
+                    ))}
+                  </View>
                 </View>
               </View>
 
-              <View style={styles.actionsBlock}>
+              <View
+                style={[
+                  styles.actionsBlock,
+                  { paddingBottom: actionsBottomPad },
+                ]}>
                 <PrimaryButton
                   label={WelcomeCopy.primaryCta}
                   onPress={() => router.push('/signup' as never)}
@@ -166,7 +173,12 @@ const styles = StyleSheet.create({
   foregroundColumn: {
     flex: 1,
     width: '100%',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+  } satisfies ViewStyle,
+  heroCenterRegion: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
     alignItems: 'center',
   } satisfies ViewStyle,
   heroBlock: {
@@ -188,6 +200,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     gap: spacing.Spacing12,
+    flexShrink: 0,
     zIndex: 1,
   } satisfies ViewStyle,
 });
