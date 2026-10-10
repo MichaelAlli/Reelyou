@@ -55,7 +55,12 @@ import {
 } from '@/mySky/buildNearbySkies';
 import { buildSkySearchResults } from '@/mySky/skySearchSources';
 import { computeSkyRegionContext } from '@/mySky/skyRegionContext';
-import { pushStarNavigationTarget, resolveStarNavigation } from '@/mySky/resolveStarNavigation';
+import {
+  pushStarNavigationTarget,
+  resolveCanonicalSkywriteIdForStar,
+  resolveStarNavigation,
+} from '@/mySky/resolveStarNavigation';
+import { isGuidanceSlotActive, selectActiveGuidance } from '@/guidance/selectActiveGuidance';
 import type { MySkyStarDisplay } from '@/mySky/types';
 import type { MySkyViewportSnapshot } from '@/mySky/mySkyViewportSession';
 import { computeSkyProximity, viewportSnapshotForWorldPoint } from '@/mySky/skyProximity';
@@ -95,7 +100,14 @@ export function MySkyScreen() {
     guidingLightView,
   } = useOnboarding();
 
-  const { showMySkyIntro, identityStarIntroPulse, dismissMySkyIntro } = useMySkyStarIntro();
+  const {
+    ready: starIntroReady,
+    hasSeenMySkyStarIntro,
+    dismissMySkyIntro,
+  } = useMySkyStarIntro();
+
+  const [starMeaningVisible, setStarMeaningVisible] = useState(false);
+  const pendingSkywriteStarRef = useRef<MySkyStarDisplay | null>(null);
 
   const [cleanSkyActive, setCleanSkyActive] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
@@ -124,6 +136,12 @@ export function MySkyScreen() {
 
   const { visibleLayers } = displayMySkyView.viewState;
   const northStarText = displayMySkyView.northStar.originalVision.trim();
+
+  const joinedCommunityIds = useMemo(
+    () => communities.joined.map((entry) => entry.id),
+    [communities.joined],
+  );
+  const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
 
   /** Same canonical joined list as EmergingConstellationScreen / provider `joinedMemberships`. */
   const joinedEmergingGroups = useMemo(
@@ -268,16 +286,113 @@ export function MySkyScreen() {
   const preExploreViewportRef = useRef<MySkyViewportSnapshot | null>(null);
   const exploreScrollOffsetRef = useRef(0);
   const exploreScrollActive = mySkyExploreEnabled && !cleanSkyActive;
-  const mySkyNavTip = useNavigationTip(
-    'my_sky_overview',
-    joinedGroupsNavReady && !cleanSkyActive && !exploreScrollActive,
+
+  const guidanceSurfaceEligible =
+    joinedGroupsNavReady &&
+    !cleanSkyActive &&
+    !exploreScrollActive &&
+    !searchVisible &&
+    !joinedGroupsSheetVisible &&
+    !constellationDetailVisible;
+
+  const mySkyNavTip = useNavigationTip('my_sky_overview', guidanceSurfaceEligible && !starMeaningVisible);
+
+  const activeMySkyGuidance = useMemo(
+    () =>
+      selectActiveGuidance([
+        { id: 'my_sky_star_meaning', active: starMeaningVisible },
+        { id: 'my_sky_nav_overview', active: mySkyNavTip.visible },
+        {
+          id: 'my_sky_joined_groups_coachmark',
+          active: showJoinedGroupsCoachmark,
+        },
+        {
+          id: 'my_sky_constellations_coachmark',
+          active: showConstellationsCoachmark,
+        },
+      ]),
+    [
+      mySkyNavTip.visible,
+      showConstellationsCoachmark,
+      showJoinedGroupsCoachmark,
+      starMeaningVisible,
+    ],
   );
 
-  const joinedCommunityIds = useMemo(
-    () => communities.joined.map((entry) => entry.id),
-    [communities.joined],
+  const mySkyNavTipVisible = isGuidanceSlotActive('my_sky_nav_overview', [
+    { id: 'my_sky_star_meaning', active: starMeaningVisible },
+    { id: 'my_sky_nav_overview', active: mySkyNavTip.visible },
+    { id: 'my_sky_joined_groups_coachmark', active: showJoinedGroupsCoachmark },
+    { id: 'my_sky_constellations_coachmark', active: showConstellationsCoachmark },
+  ]);
+
+  const joinedGroupsCoachmarkVisible = isGuidanceSlotActive('my_sky_joined_groups_coachmark', [
+    { id: 'my_sky_star_meaning', active: starMeaningVisible },
+    { id: 'my_sky_nav_overview', active: mySkyNavTip.visible },
+    { id: 'my_sky_joined_groups_coachmark', active: showJoinedGroupsCoachmark },
+    { id: 'my_sky_constellations_coachmark', active: showConstellationsCoachmark },
+  ]);
+
+  const constellationsCoachmarkVisible = isGuidanceSlotActive(
+    'my_sky_constellations_coachmark',
+    [
+      { id: 'my_sky_star_meaning', active: starMeaningVisible },
+      { id: 'my_sky_nav_overview', active: mySkyNavTip.visible },
+      { id: 'my_sky_joined_groups_coachmark', active: showJoinedGroupsCoachmark },
+      { id: 'my_sky_constellations_coachmark', active: showConstellationsCoachmark },
+    ],
   );
-  const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
+
+  const mySkySpatialGuidanceBlocked = activeMySkyGuidance !== null;
+
+  const identityStarIntroPulse = mySkyNavTipVisible;
+
+  const interceptContentStarTap = useCallback(
+    (star: MySkyStarDisplay) => {
+      if (!starIntroReady || hasSeenMySkyStarIntro || starMeaningVisible) {
+        return false;
+      }
+      const skywriteId = resolveCanonicalSkywriteIdForStar(star, displayMySkyView.nodes);
+      if (!skywriteId) {
+        return false;
+      }
+      pendingSkywriteStarRef.current = star;
+      setStarMeaningVisible(true);
+      return true;
+    },
+    [
+      displayMySkyView.nodes,
+      hasSeenMySkyStarIntro,
+      starIntroReady,
+      starMeaningVisible,
+    ],
+  );
+
+  const dismissStarMeaningIntro = useCallback(() => {
+    setStarMeaningVisible(false);
+    void dismissMySkyIntro();
+    const star = pendingSkywriteStarRef.current;
+    pendingSkywriteStarRef.current = null;
+    if (!star) {
+      return;
+    }
+    pushStarNavigationTarget(
+      router,
+      resolveStarNavigation(star, {
+        skywrites,
+        joinedCommunityIds: joinedCommunityIds,
+        guidanceActive,
+        nodes: displayMySkyView.nodes,
+      }),
+    );
+  }, [
+    dismissMySkyIntro,
+    displayMySkyView.nodes,
+    guidanceActive,
+    joinedCommunityIds,
+    router,
+    skywrites,
+  ]);
 
   const connectionActivities = useMemo(
     () => resolveSkyConnectionActivities(aroundYourSkyFeed),
@@ -606,7 +721,7 @@ export function MySkyScreen() {
                 onToggleExplore={handleToggleExplore}
                 onOpenSearch={() => setSearchVisible(true)}
               />
-              {mySkyNavTip.visible ? (
+              {mySkyNavTipVisible ? (
                 <NavigationTipCallout
                   compact
                   message={navigationTipMessage('my_sky_overview')}
@@ -632,7 +747,7 @@ export function MySkyScreen() {
                     onPress={openJoinedGroupsSheet}
                   />
                   <MySkyJoinedGroupsCoachmark
-                    visible={showJoinedGroupsCoachmark}
+                    visible={joinedGroupsCoachmarkVisible}
                     anchored
                     onDismiss={dismissJoinedGroupsCoachmark}
                   />
@@ -645,7 +760,7 @@ export function MySkyScreen() {
                     onPress={toggleConstellationSkyView}
                   />
                   <MySkyConstellationsCoachmark
-                    visible={showConstellationsCoachmark}
+                    visible={constellationsCoachmarkVisible}
                     onDismiss={dismissConstellationsCoachmark}
                   />
                 </View>
@@ -716,25 +831,20 @@ export function MySkyScreen() {
               searchVisible ||
               joinedGroupsSheetVisible ||
               constellationDetailVisible ||
-              constellationRevealActive
+              constellationRevealActive ||
+              mySkySpatialGuidanceBlocked
             }
             identityStarIntroPulse={identityStarIntroPulse}
+            interceptContentStarTap={interceptContentStarTap}
           />
           )}
-          {showMySkyIntro &&
-          !cleanSkyActive &&
-          !exploreScrollActive &&
-          !searchVisible &&
-          !joinedGroupsSheetVisible &&
-          !constellationDetailVisible ? (
+          {starMeaningVisible && guidanceSurfaceEligible ? (
             <View style={styles.starIntroDock} pointerEvents="box-none">
               <SkyStarMeaningIntroCard
                 title={MySkyCopy.starIntroMySkyTitle}
                 body={MySkyCopy.starIntroMySkyBody}
                 identityHint={MySkyCopy.starIntroMySkyIdentity}
-                onDismiss={() => {
-                  void dismissMySkyIntro();
-                }}
+                onDismiss={dismissStarMeaningIntro}
               />
             </View>
           ) : null}

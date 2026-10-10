@@ -102,6 +102,8 @@ interface MySkyStarCanvasProps {
   spatialFocusSuspended?: boolean;
   /** Brief first-visit emphasis on the owner identity star. */
   identityStarIntroPulse?: boolean;
+  /** Return true to consume the tap (skip default open behavior). */
+  interceptContentStarTap?: (star: MySkyStarDisplay) => boolean;
 }
 
 function MySkyStarCanvasComponent({
@@ -137,6 +139,7 @@ function MySkyStarCanvasComponent({
   onConnect,
   spatialFocusSuspended = false,
   identityStarIntroPulse = false,
+  interceptContentStarTap,
 }: MySkyStarCanvasProps) {
   const { stars, viewState, skyOwner, identityStar, nodes } = view;
   const spatialClearRef = useRef<(() => void) | null>(null);
@@ -465,6 +468,9 @@ function MySkyStarCanvasComponent({
     (star: MySkyStarDisplay) => {
       if (star.isIdentityStar) return;
       spatialClearRef.current?.();
+      if (interceptContentStarTap?.(star)) {
+        return;
+      }
       const skywriteId = resolveCanonicalSkywriteIdForStar(star, nodes);
       if (skywriteId) {
         openSkywritePostById(skywriteId);
@@ -472,7 +478,7 @@ function MySkyStarCanvasComponent({
       }
       openInsightForStar(star);
     },
-    [nodes, openSkywritePostById, openInsightForStar],
+    [interceptContentStarTap, nodes, openSkywritePostById, openInsightForStar],
   );
 
   const handleStarPress = useCallback(

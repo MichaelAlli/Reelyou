@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { shouldSuppressQaPreviewPersistence } from '@/config/qaPreviewPersistence';
 import {
   NAVIGATION_TIP_IDS,
   type NavigationTipId,
@@ -17,6 +18,9 @@ export async function wasNavigationTipDismissed(tipId: NavigationTipId): Promise
 }
 
 export async function markNavigationTipDismissed(tipId: NavigationTipId): Promise<void> {
+  if (shouldSuppressQaPreviewPersistence()) {
+    return;
+  }
   try {
     await AsyncStorage.setItem(`${KEY_PREFIX}${tipId}`, '1');
   } catch {

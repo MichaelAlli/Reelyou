@@ -10,8 +10,10 @@
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform, StyleSheet, useWindowDimensions, View, ViewStyle, type ImageStyle } from 'react-native';
+import { Platform, StyleSheet, View, ViewStyle, type ImageStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useLayoutViewportSize } from '@/hooks/useLayoutViewportSize';
 
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 
@@ -26,7 +28,7 @@ import { WelcomeCopy } from '@/constants/welcome';
 import {
   authScrollBottomPadding,
   authWebRootFillStyle,
-  authWebViewportStyle,
+  authWelcomeWebViewportStyle,
 } from '@/constants/authViewportLayout';
 import {
   resolveWelcomeContentScale,
@@ -63,7 +65,7 @@ function resolveWelcomeBackgroundImageStyle(viewportHeight: number): ImageStyle 
 export function WelcomeScreen() {
   const router = useRouter();
   const auth = useReelyouAuth();
-  const { width, height } = useWindowDimensions();
+  const { width, layoutHeight, effectiveHeight, visualOffsetTop } = useLayoutViewportSize();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ qaPreview?: string }>();
   const qaPreviewActive = isQaPreviewQueryActive(
@@ -78,17 +80,27 @@ export function WelcomeScreen() {
     }
   }, [auth.configured, auth.isAuthenticated, auth.ready, qaPreviewActive, router]);
 
+  const viewportHeight = effectiveHeight > 0 ? effectiveHeight : layoutHeight;
   const contentMaxWidth = Math.min(width - spacing.Spacing40, spacing.Spacing64 * 6);
-  const logoWidth = resolveWelcomeLogoWidth(width, height);
+  const logoWidth = resolveWelcomeLogoWidth(width, viewportHeight);
   const logoHeight = logoWidth * WELCOME_LOGO_ASPECT;
-  const contentScale = resolveWelcomeContentScale(height);
-  const heroOpticalOffset = resolveWelcomeHeroOpticalOffset(height);
-  const actionsBottomPad = authScrollBottomPadding(insets.bottom, spacing.Spacing16);
-  const scrollEnabled = welcomeNeedsScrollLayout(height);
-  const welcomeBackgroundImageStyle = resolveWelcomeBackgroundImageStyle(height);
+  const contentScale = resolveWelcomeContentScale(viewportHeight);
+  const heroOpticalOffset = resolveWelcomeHeroOpticalOffset(viewportHeight);
+  const actionsBottomPad = authScrollBottomPadding(
+    insets.bottom,
+    spacing.Spacing16,
+    layoutHeight,
+  );
+  const scrollEnabled = welcomeNeedsScrollLayout(viewportHeight);
+  const welcomeBackgroundImageStyle = resolveWelcomeBackgroundImageStyle(viewportHeight);
+  const welcomeWebShell = authWelcomeWebViewportStyle({
+    height: viewportHeight,
+    offsetTop: visualOffsetTop,
+    allowScroll: scrollEnabled,
+  });
 
   return (
-    <View style={[styles.root, authWebViewportStyle(), authWebRootFillStyle()]}>
+    <View style={[styles.root, welcomeWebShell, authWebRootFillStyle()]}>
       <StatusBar style="light" />
       <BackgroundImage
         source={BrandingAssets.welcomeBackground}
@@ -97,17 +109,27 @@ export function WelcomeScreen() {
         imageStyle={welcomeBackgroundImageStyle}>
         <ScreenContainer
           scroll={scrollEnabled}
-          contentStyle={[styles.container, scrollEnabled && styles.containerScroll]}>
+          edges={['top']}
+          contentStyle={[
+            styles.container,
+            scrollEnabled && styles.containerScroll,
+            !scrollEnabled && { maxHeight: viewportHeight },
+          ]}>
           <View
             style={[
               styles.layout,
-              scrollEnabled && styles.layoutScroll,
+              scrollEnabled && [styles.layoutScroll, { minHeight: viewportHeight }],
+              !scrollEnabled && { height: viewportHeight, maxHeight: viewportHeight },
               { maxWidth: contentMaxWidth },
             ]}>
-            <View style={styles.foregroundColumn}>
+            <View
+              style={[
+                styles.foregroundColumn,
+                scrollEnabled && styles.foregroundColumnScroll,
+              ]}>
               <View
                 style={[
-                  styles.heroCenterRegion,
+                  scrollEnabled ? styles.heroRegionScroll : styles.heroCenterRegion,
                   { paddingTop: insets.top + spacing.Spacing4 },
                 ]}>
                 <View
@@ -188,6 +210,13 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 0,
+  } satisfies ViewStyle,
+  foregroundColumnScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+    justifyContent: 'flex-start',
   } satisfies ViewStyle,
   containerScroll: {
     flexGrow: 1,
@@ -203,6 +232,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 1,
+  } satisfies ViewStyle,
+  heroRegionScroll: {
+    width: '100%',
+    alignItems: 'center',
+    flexShrink: 0,
+    flexGrow: 0,
+    paddingBottom: spacing.Spacing12,
   } satisfies ViewStyle,
   heroBlock: {
     alignItems: 'center',

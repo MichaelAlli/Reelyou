@@ -63,7 +63,13 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
   { id: 'onboarding-north-star', section: 'onboarding', label: 'Onboarding — North Star', description: 'Step 4', href: '/onboarding/north-star' },
   { id: 'onboarding-where-you-live', section: 'onboarding', label: 'Where do you live in the Sky?', description: 'Approved Sky Area picker', href: '/onboarding/where-you-live', keywords: 'sky area established' },
   { id: 'onboarding-find-familiar', section: 'onboarding', label: 'Find familiar skies', description: 'Friend discovery onboarding', href: '/onboarding/find-familiar-skies' },
-  { id: 'onboarding-starpath', section: 'onboarding', label: 'Onboarding — Starpath intro', description: 'Onboarding starpath', href: '/onboarding/starpath' },
+  {
+    id: 'onboarding-starpath',
+    section: 'onboarding',
+    label: 'Onboarding — Starpath intro',
+    description: 'Process / Starpath onboarding intro (ProcessStarPathExperience)',
+    href: '/process',
+  },
   { id: 'process', section: 'onboarding', label: 'Process', description: 'Post-onboarding transition', href: '/process' },
 
   { id: 'home', section: 'main', label: 'Home', description: 'Calm preview entry', href: '/home?preview=1' },

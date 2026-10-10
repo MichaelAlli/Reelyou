@@ -9,6 +9,7 @@ export {
 } from '@/constants/authViewportLayoutCore';
 
 import { authScrollBottomPadding as scrollBottomPaddingCore } from '@/constants/authViewportLayoutCore';
+import { resolveMobileBrowserChromeReserve } from '@/constants/welcomeForegroundLayout';
 
 /** Web/mobile Safari-friendly full viewport — avoids clipping under browser chrome. */
 export function authWebViewportStyle(): ViewStyle | undefined {
@@ -43,7 +44,35 @@ export function authWebRootFillStyle(): ViewStyle | undefined {
   } as unknown as ViewStyle;
 }
 
-export function authScrollBottomPadding(bottomInset: number, extra: number): number {
-  const webChrome = Platform.OS === 'web' ? 12 : 0;
+export function authScrollBottomPadding(
+  bottomInset: number,
+  extra: number,
+  layoutHeight = 844,
+): number {
+  const webChrome =
+    Platform.OS === 'web' ? resolveMobileBrowserChromeReserve(layoutHeight) : 0;
   return scrollBottomPaddingCore(bottomInset, extra, webChrome);
+}
+
+/** Welcome-only web shell — uses visual viewport height when provided. */
+export function authWelcomeWebViewportStyle(options: {
+  height: number;
+  offsetTop: number;
+  allowScroll: boolean;
+}): ViewStyle | undefined {
+  if (Platform.OS !== 'web') {
+    return undefined;
+  }
+
+  return {
+    position: 'fixed',
+    top: options.offsetTop,
+    left: 0,
+    right: 0,
+    bottom: 'auto',
+    width: '100vw',
+    height: options.height,
+    maxHeight: options.height,
+    overflow: options.allowScroll ? 'auto' : 'hidden',
+  } as unknown as ViewStyle;
 }

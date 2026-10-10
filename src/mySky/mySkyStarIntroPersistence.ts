@@ -1,3 +1,4 @@
+import { shouldSuppressQaPreviewPersistence } from '@/config/qaPreviewPersistence';
 import { readScopedJson, writeScopedJson } from '@/storage/scopedAsyncStorage';
 
 const STORAGE_KEY = 'reelyou.mySky.starIntro.v1';
@@ -31,6 +32,9 @@ export async function loadMySkyStarIntroState(): Promise<MySkyStarIntroState> {
 }
 
 export async function saveMySkyStarIntroState(state: MySkyStarIntroState): Promise<void> {
+  if (shouldSuppressQaPreviewPersistence()) {
+    return;
+  }
   await writeScopedJson(STORAGE_KEY, state);
 }
 

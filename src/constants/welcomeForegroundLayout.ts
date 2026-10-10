@@ -78,8 +78,20 @@ export function welcomeForegroundFitsViewport(layoutHeight: number): boolean {
 }
 
 export function welcomeNeedsScrollLayout(layoutHeight: number): boolean {
-  if (isAuthCompactViewport(layoutHeight)) {
+  if (layoutHeight > 0 && layoutHeight < 700) {
     return true;
   }
   return !welcomeForegroundFitsViewport(layoutHeight);
+}
+
+/** Estimated total foreground height for acceptance checks (hero + CTAs + padding). */
+export function estimateWelcomeForegroundHeight(layoutHeight: number): number {
+  const scale = resolveWelcomeContentScale(layoutHeight);
+  const heroEstimate = Math.round((layoutHeight < 700 ? 280 : 310) * scale);
+  return heroEstimate + resolveWelcomeActionsReserve(layoutHeight) + 48;
+}
+
+export function welcomeActionsFitInEffectiveViewport(layoutHeight: number): boolean {
+  const effective = resolveWelcomeEffectiveViewportHeight(layoutHeight);
+  return effective >= estimateWelcomeForegroundHeight(layoutHeight);
 }

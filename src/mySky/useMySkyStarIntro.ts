@@ -41,6 +41,7 @@ export function useMySkyStarIntro() {
     ready,
     showSkywriteIntro,
     showMySkyIntro,
+    hasSeenMySkyStarIntro: !ready || state === null || state.hasSeenMySkyStarIntro,
     identityStarIntroPulse,
     dismissSkywriteIntro,
     dismissMySkyIntro,

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, BackHandler } from 'react-native';
 import {
@@ -11,6 +11,7 @@ import {
 import { ReelyouEasing } from '@/constants/animation';
 import { HomeMotion } from '@/constants/homeLayout';
 import { ProcessScreenCopy } from '@/constants/processScreenCopy';
+import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 import { markHomeArrivalPending } from '@/home';
 import { useOnboarding } from '@/onboarding';
 import {
@@ -52,6 +53,10 @@ function scheduleExit(startedAt: number, finish: () => void) {
  */
 export function useProcessSession(): ProcessProgressState & ProcessSessionActions {
   const router = useRouter();
+  const params = useGlobalSearchParams<{ qaPreview?: string }>();
+  const qaPreviewActive = isQaPreviewQueryActive(
+    typeof params.qaPreview === 'string' ? params.qaPreview : undefined,
+  );
   const { completeOnboarding } = useOnboarding();
 
   const [statusLabel, setStatusLabel] = useState(ProcessScreenCopy.statusPrimary);
@@ -73,6 +78,10 @@ export function useProcessSession(): ProcessProgressState & ProcessSessionAction
     if (done.current) return;
     done.current = true;
     setIsComplete(true);
+    if (qaPreviewActive) {
+      setStatusLabel('QA preview — onboarding is not saved from this screen.');
+      return;
+    }
     void completeOnboarding().then((saved) => {
       if (!saved) {
         done.current = false;
@@ -88,7 +97,7 @@ export function useProcessSession(): ProcessProgressState & ProcessSessionAction
         },
       );
     });
-  }, [completeOnboarding, exitOpacity, onNavigateHome]);
+  }, [completeOnboarding, exitOpacity, onNavigateHome, qaPreviewActive]);
 
   const startProcessing = useCallback(() => {
     if (started.current) return;
