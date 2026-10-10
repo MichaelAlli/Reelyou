@@ -980,7 +980,7 @@ export function SkywriteDetailScreen() {
                             saveResponseAsAuthor({
                               skywriteId,
                               responseId: response.responseId,
-                              authorId: record.authorId,
+                              authorId: record.authorId ?? '',
                               skyAreaId: record.skyAreaId,
                             });
                           }}>

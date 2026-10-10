@@ -77,4 +77,5 @@ export interface SubmitModerationReportInput {
 export type SubmitModerationReportResult =
   | { ok: true; localOnly: true; reportId: string; duplicate: false }
   | { ok: true; localOnly: true; reportId: string; duplicate: true }
+  | { ok: true; localOnly: false; reportId: string; duplicate: boolean }
   | { ok: false; localOnly: true; error: 'storage_failed' | 'target_missing' };

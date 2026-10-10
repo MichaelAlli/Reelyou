@@ -69,7 +69,7 @@ import {
   composerAllowsVoiceCapture,
   validateSkywriteDraftForBeta,
 } from '@/skywrite/standaloneAudioSkywrite';
-import type { SkywritePhotoMedia, SkywriteVideoMedia } from '@/skywrite/types';
+import type { SkywriteDraft, SkywritePhotoMedia, SkywriteVideoMedia } from '@/skywrite/types';
 import type { Privacy } from '@/types';
 
 /** LOCKED NAV — /skywrite/compose must keep canonical BottomNav (Skywrite active). Do not remove or replace. */

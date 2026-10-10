@@ -22,6 +22,9 @@ export async function submitModerationReportToBackend(
     }),
   });
 
+  if (!res) {
+    return { ok: false, error: 'submit_failed' };
+  }
   const body = (await res.json()) as {
     ok?: boolean;
     reportId?: string;

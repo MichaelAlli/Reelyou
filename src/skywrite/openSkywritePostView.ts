@@ -1,11 +1,10 @@
-import type { Router } from 'expo-router';
-
+import type { ExpoPushRouter } from '@/navigation/expoPushRouter';
 import { resolvePrimaryMediaStepIndex } from '@/skywrite/play/skywritePlayLogic';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 /** Persistent post viewer — not SkyReel (no story timer / sequence engine). */
 export function openSkywritePostView(
-  router: Pick<Router, 'push'>,
+  router: ExpoPushRouter,
   post: Pick<SkywriteRecord, 'id' | 'text' | 'media' | 'mediaMode'>,
 ): void {
   const id = encodeURIComponent(post.id);

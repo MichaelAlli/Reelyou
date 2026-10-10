@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(212, 175, 55, 0.35)',
     borderRadius: 12,
     paddingHorizontal: spacing.Spacing16,
-    paddingVertical: spacing.Spacing10,
+    paddingVertical: spacing.Spacing12,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   section: {

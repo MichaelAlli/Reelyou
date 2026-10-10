@@ -102,7 +102,7 @@ export function buildRelateObservationFromComment(
     confidence: 'low',
     createdAt: ts,
     updatedAt: ts,
-    sourceSkywriteAllowAi: skywrite.allowAIContext !== false,
+    sourceSkywriteAllowAi: skywrite.allowAIContext,
   };
 }
 

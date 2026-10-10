@@ -59,7 +59,7 @@ export function useProcessSession(): ProcessProgressState & ProcessSessionAction
   );
   const { completeOnboarding } = useOnboarding();
 
-  const [statusLabel, setStatusLabel] = useState(ProcessScreenCopy.statusPrimary);
+  const [statusLabel, setStatusLabel] = useState<string>(ProcessScreenCopy.statusPrimary);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const done = useRef(false);

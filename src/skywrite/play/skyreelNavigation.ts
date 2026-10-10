@@ -1,4 +1,4 @@
-import type { Router } from 'expo-router';
+import type { ExpoPushRouter } from '@/navigation/expoPushRouter';
 
 const SESSION_KEY = '@reellyou/skyreel-return-href';
 const DEFAULT_FALLBACK_HREF = '/skywrite';
@@ -99,13 +99,17 @@ export function withSkyreelReturnTo(playPath: string, explicitReturnHref?: strin
   return `${playPath}${sep}returnTo=${encodeURIComponent(returnTo)}`;
 }
 
-export function pushSkyreelPlay(router: Pick<Router, 'push'>, playPath: string): void {
+export function pushSkyreelPlay(router: ExpoPushRouter, playPath: string): void {
   router.push(withSkyreelReturnTo(playPath) as never);
 }
 
 /** Safe exit — never throws GO_BACK when history is empty. */
 export function exitSkyreel(
-  router: Pick<Router, 'back' | 'replace' | 'canGoBack'>,
+  router: {
+    back: () => void;
+    replace: (href: never) => void;
+    canGoBack: () => boolean;
+  },
   returnToParam?: unknown,
 ): void {
   if (router.canGoBack()) {

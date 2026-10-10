@@ -285,7 +285,7 @@ export function SkywriteGuidedPlayScreen() {
   const playbackRecord = resolvedRecord ?? record;
 
   const storyAuthorId =
-    playbackRecord?.authorId ?? record?.authorId ?? ownerId ?? activeUserId;
+    playbackRecord?.authorId ?? record?.authorId ?? ownerId ?? activeUserId ?? '';
   const isOwnerStory = storyAuthorId === activeUserId;
   const connectedActorIds = useMemo(
     () => resolveSkyConnectionActivities(aroundYourSkyFeed).map((entry) => entry.actorId),

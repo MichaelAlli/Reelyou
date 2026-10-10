@@ -70,7 +70,7 @@ export const SkywritePlayEdgeNavigation = memo(SkywritePlayEdgeNavigationCompone
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     flexDirection: 'row',
     zIndex: 12,
   },

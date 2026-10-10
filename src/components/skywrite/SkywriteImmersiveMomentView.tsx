@@ -1350,7 +1350,7 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   photoBackdropDim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(5, 8, 20, 0.35)',
   },
   textStage: {
@@ -1611,7 +1611,7 @@ const styles = StyleSheet.create({
     bottom: 120,
   },
   expiredOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 20,
     justifyContent: 'center',
     alignItems: 'center',

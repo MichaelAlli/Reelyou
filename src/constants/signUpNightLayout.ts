@@ -70,7 +70,7 @@ export function signUpNightWebViewportStyle(): ViewStyle | undefined {
 
 export function resolveSignUpNightLogoWidth(viewportWidth: number, viewportHeight?: number): number {
   const available = resolveAuthAvailableContentWidth(viewportWidth, SignUpNightLayout.horizontalPadding);
-  let maxWidth = SignUpNightLayout.logoWidthMax;
+  let maxWidth: number = SignUpNightLayout.logoWidthMax;
 
   if (viewportHeight != null && viewportHeight > 0) {
     const splashLogoSize = Math.round(viewportHeight * SPLASH_LAYOUT.brandBlockHalfRatio * 2);

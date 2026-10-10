@@ -1,12 +1,11 @@
-import type { Router } from 'expo-router';
-
+import type { ExpoPushRouter } from '@/navigation/expoPushRouter';
 import { resolvePrimaryMediaStepIndex } from '@/skywrite/play/skywritePlayLogic';
 import { pushSkyreelPlay } from '@/skywrite/play/skyreelNavigation';
 import type { SkywriteRecord } from '@/skywrite/types';
 
 /** Opens the full-screen viewer on the post’s primary media step (not the detail screen). */
 export function openSkywriteMediaPlay(
-  router: Pick<Router, 'push'>,
+  router: ExpoPushRouter,
   record: Pick<SkywriteRecord, 'id' | 'text' | 'media' | 'mediaMode'>,
   options?: { autoplay?: boolean },
 ): void {

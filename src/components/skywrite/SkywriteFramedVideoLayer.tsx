@@ -3,6 +3,7 @@ import {
   forwardRef,
   memo,
   useCallback,
+  type Ref,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -46,7 +47,7 @@ interface SkywriteFramedVideoLayerProps {
   editable?: boolean;
   onVideoPatch?: (patch: Partial<SkywriteVideoMedia>) => void;
   onAdjustModeChange?: (active: boolean) => void;
-  videoRef?: VideoProps['ref'];
+  videoRef?: Ref<Video>;
   onPlaybackStatusUpdate?: VideoProps['onPlaybackStatusUpdate'];
   onLoad?: VideoProps['onLoad'];
   isPlaying?: boolean;
@@ -245,7 +246,7 @@ const SkywriteFramedVideoLayerComponent = forwardRef<
         cursor: 'grab',
         userSelect: 'none',
         touchAction: 'none',
-      } as ViewStyle;
+      } as unknown as ViewStyle;
     }
     return active;
   }, [adjustActive]);

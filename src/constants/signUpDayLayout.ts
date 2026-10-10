@@ -66,7 +66,7 @@ export function signUpDayWebViewportStyle(): ViewStyle | undefined {
 
 export function resolveSignUpDayLogoWidth(viewportWidth: number, viewportHeight?: number): number {
   const available = resolveAuthAvailableContentWidth(viewportWidth, SignUpDayLayout.horizontalPadding);
-  let maxWidth = SignUpDayLayout.logoWidthMax;
+  let maxWidth: number = SignUpDayLayout.logoWidthMax;
   if (viewportHeight != null && viewportHeight > 0 && isAuthCompactViewport(viewportHeight)) {
     maxWidth = Math.min(maxWidth, Math.round(viewportHeight * 0.24));
   }

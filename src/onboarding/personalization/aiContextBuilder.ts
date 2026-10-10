@@ -103,7 +103,7 @@ export function buildAiCompanionContext(
     (post) =>
       post.visibility !== 'private' &&
       post.allowAIContext &&
-      !post.authorId.startsWith('demo-sky-'),
+      !post.authorId?.startsWith('demo-sky-'),
   );
   if (aiEligibleSkywrites.length > 0) {
     const explicitHashtags = [

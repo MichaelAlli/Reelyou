@@ -95,7 +95,7 @@ export async function submitModerationReport(
         ok: true,
         localOnly: false,
         reportId: remote.reportId,
-        duplicate: remote.duplicate,
+        duplicate: remote.duplicate ?? false,
       };
     }
   }

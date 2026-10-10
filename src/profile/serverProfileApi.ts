@@ -33,7 +33,9 @@ export async function patchServerProfile(patch: {
     body: JSON.stringify(patch),
   });
   if (!res?.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    const body = res
+      ? ((await res.json().catch(() => ({}))) as { error?: string })
+      : {};
     return { ok: false, error: body.error ?? 'server_error' };
   }
   const body = (await res.json()) as { ok?: boolean; profile?: ServerUserProfile };
@@ -54,7 +56,9 @@ export async function syncOnboardingCompleteToServer(
     }),
   });
   if (!res?.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    const body = res
+      ? ((await res.json().catch(() => ({}))) as { error?: string })
+      : {};
     return { ok: false, error: body.error ?? 'server_error' };
   }
   const body = (await res.json()) as { ok?: boolean; profile?: ServerUserProfile };

@@ -10,7 +10,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform, StyleSheet, useWindowDimensions, View, ViewStyle, type ImageStyle } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
@@ -86,7 +86,6 @@ export function WelcomeScreen() {
   const actionsBottomPad = authScrollBottomPadding(insets.bottom, spacing.Spacing16, height);
   const scrollEnabled = welcomeNeedsScrollLayout(height);
   const welcomeBackgroundImageStyle = resolveWelcomeBackgroundImageStyle(height);
-
   return (
     <View
       style={[
@@ -103,7 +102,10 @@ export function WelcomeScreen() {
         imageStyle={welcomeBackgroundImageStyle}>
         <ScreenContainer
           scroll={scrollEnabled}
-          contentStyle={[styles.container, scrollEnabled && styles.containerScroll]}>
+          contentStyle={{
+            ...styles.container,
+            ...(scrollEnabled ? styles.containerScroll : null),
+          }}>
           <View
             style={[
               styles.layout,
@@ -176,36 +178,36 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: colors.BackgroundPrimary,
-  } satisfies ViewStyle,
+  },
   /** Minimal iPhone Safari fix — auth shell uses overflow:hidden; Welcome may scroll when needed. */
   webAllowVerticalScroll: {
-    overflow: 'auto',
-  } satisfies ViewStyle,
+    overflow: 'scroll',
+  } as ViewStyle,
   background: {
     flex: 1,
     width: '100%',
     height: '100%',
-  } satisfies ViewStyle,
+  },
   container: {
     alignItems: 'center',
-  } satisfies ViewStyle,
+  },
   layout: {
     flex: 1,
     width: '100%',
     alignItems: 'center',
-  } satisfies ViewStyle,
+  },
   foregroundColumn: {
     flex: 1,
     width: '100%',
     alignItems: 'center',
-  } satisfies ViewStyle,
+  },
   containerScroll: {
     flexGrow: 1,
     minHeight: '100%',
-  } satisfies ViewStyle,
+  },
   layoutScroll: {
     minHeight: '100%',
-  } satisfies ViewStyle,
+  },
   heroCenterRegion: {
     flex: 1,
     minHeight: 0,
@@ -213,27 +215,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 1,
-  } satisfies ViewStyle,
+  },
   heroBlock: {
     alignItems: 'center',
     alignSelf: 'center',
     paddingHorizontal: spacing.Spacing8,
-  } satisfies ViewStyle,
+  },
   copyBlock: {
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
     marginTop: spacing.Spacing12,
     paddingHorizontal: spacing.Spacing8,
-  } satisfies ViewStyle,
+  },
   bodyLine: {
     marginBottom: spacing.Spacing4,
-  } satisfies ViewStyle,
+  } as TextStyle,
   actionsBlock: {
     width: '100%',
     alignItems: 'center',
     gap: spacing.Spacing12,
     flexShrink: 0,
     zIndex: 1,
-  } satisfies ViewStyle,
+  },
 });

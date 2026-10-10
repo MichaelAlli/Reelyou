@@ -1,6 +1,6 @@
 import { BetaFeatures } from '@/constants/betaFeatures';
 import { SkywriteCopy } from '@/constants/skywriteCopy';
-import { buildSkywriteRecord } from '@/skywrite/draft';
+import { buildSkywriteRecord, createEmptySkywriteDraft } from '@/skywrite/draft';
 import type { SkywriteDraft, SkywriteRecord } from '@/skywrite/types';
 import { isStandaloneAudioRecord } from '@/skywrite/voiceoverStepUtils';
 
@@ -17,7 +17,7 @@ export function isStandaloneAudioSkywrite(
 
 export function isStandaloneAudioDraft(draft: Pick<SkywriteDraft, 'text' | 'media'>): boolean {
   const record = buildSkywriteRecord(
-    { ...draft, userHashtags: [] },
+    { ...createEmptySkywriteDraft(), ...draft, userHashtags: [] },
     'standalone-audio-check',
     new Date(0).toISOString(),
     'local',

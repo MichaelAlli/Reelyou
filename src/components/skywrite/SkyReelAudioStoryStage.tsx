@@ -174,7 +174,7 @@ export const SkyReelAudioStoryStage = memo(SkyReelAudioStoryStageComponent);
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

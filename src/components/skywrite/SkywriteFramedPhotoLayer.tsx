@@ -209,7 +209,7 @@ const SkywriteFramedPhotoLayerComponent = forwardRef<
     if (!adjustActive) return styles.adjustSurface;
     const active = { ...styles.adjustSurface, ...styles.adjustSurfaceActive };
     if (Platform.OS === 'web') {
-      return { ...active, cursor: 'grab', userSelect: 'none', touchAction: 'none' } as ViewStyle;
+      return { ...active, cursor: 'grab', userSelect: 'none', touchAction: 'none' } as unknown as ViewStyle;
     }
     return active;
   }, [adjustActive]);

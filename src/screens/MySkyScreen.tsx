@@ -384,6 +384,7 @@ export function MySkyScreen() {
         guidanceActive,
         nodes: displayMySkyView.nodes,
       }),
+      { skyOwnerId: displayMySkyView.skyOwner.id, skywrites },
     );
   }, [
     dismissMySkyIntro,

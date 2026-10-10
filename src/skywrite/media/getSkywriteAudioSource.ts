@@ -5,6 +5,19 @@ import {
 import { isStandaloneAudioSkywrite } from '@/skywrite/standaloneAudioSkywrite';
 import type { SkywriteAudioMedia, SkywriteRecord } from '@/skywrite/types';
 
+type SkywriteAudioParts = Pick<SkywriteRecord, 'media'> &
+  Partial<Pick<SkywriteRecord, 'text' | 'mediaMode'>>;
+
+function skywriteAudioEligibility(
+  record: SkywriteAudioParts,
+): Pick<SkywriteRecord, 'text' | 'media' | 'mediaMode'> {
+  return {
+    media: record.media,
+    text: record.text ?? '',
+    mediaMode: record.mediaMode ?? 'text',
+  };
+}
+
 /** Canonical persisted audio — `media.audio.uri` (+ `remoteAssetId`, `durationMs`). */
 export interface SkywriteAudioSource {
   uri: string | null;
@@ -21,9 +34,7 @@ export function isAudioOnlySkywrite(
   return isStandaloneAudioSkywrite(record);
 }
 
-export function getSkywriteAudioSource(
-  record: Pick<SkywriteRecord, 'text' | 'media' | 'mediaMode'>,
-): SkywriteAudioSource {
+export function getSkywriteAudioSource(record: SkywriteAudioParts): SkywriteAudioSource {
   const audio = record.media.audio;
   const uri = audio?.uri ?? null;
   const remoteAssetId =
@@ -32,14 +43,12 @@ export function getSkywriteAudioSource(
     uri,
     remoteAssetId,
     durationMs: audio?.durationMs,
-    standalone: isStandaloneAudioSkywrite(record),
+    standalone: isStandaloneAudioSkywrite(skywriteAudioEligibility(record)),
   };
 }
 
 /** Signed URL resolution required before HTML/expo-av can play. */
-export function skywriteAudioNeedsRemoteResolve(
-  record: Pick<SkywriteRecord, 'media'>,
-): boolean {
+export function skywriteAudioNeedsRemoteResolve(record: SkywriteAudioParts): boolean {
   const { uri, remoteAssetId } = getSkywriteAudioSource(record);
   if (!uri && !remoteAssetId) return false;
   if (parseRemoteAssetIdFromUri(uri)) return true;
@@ -58,9 +67,7 @@ export function hasPersistedSkywriteAudioAsset(record: SkywriteRecord): boolean 
 }
 
 /** URI safe for expo-av / HTML audio (not an unresolved `reelyou-asset://` placeholder). */
-export function getSkywritePlayableAudioUri(
-  record: Pick<SkywriteRecord, 'media'>,
-): string | null {
+export function getSkywritePlayableAudioUri(record: SkywriteAudioParts): string | null {
   const { uri } = getSkywriteAudioSource(record);
   if (!uri) return null;
   if (parseRemoteAssetIdFromUri(uri)) return null;
@@ -88,7 +95,7 @@ export function logSkyReelAudioInDev(
 }
 
 export function logMissingSkywriteAudioInDev(
-  record: Pick<SkywriteRecord, 'id' | 'media' | 'mediaMode'>,
+  record: Pick<SkywriteRecord, 'id'> & SkywriteAudioParts,
   context: string,
 ): void {
   if (!__DEV__) return;
@@ -98,7 +105,7 @@ export function logMissingSkywriteAudioInDev(
 }
 
 export function logUnrecoverableSkywriteAudioInDev(
-  record: Pick<SkywriteRecord, 'id' | 'media'>,
+  record: Pick<SkywriteRecord, 'id'> & SkywriteAudioParts,
   context: string,
 ): void {
   if (!__DEV__) return;

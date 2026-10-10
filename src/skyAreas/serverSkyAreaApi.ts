@@ -1,6 +1,6 @@
 import { authenticatedReellyouFetch } from '@/backend/authenticatedReellyouFetch';
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
-import { isReelyouBackendConfigured, resolveReellyouApiBaseUrl } from '@/backend/reellyouApiConfig';
+import { isReellyouBackendConfigured, resolveReellyouApiBaseUrl } from '@/backend/reellyouApiConfig';
 
 export interface ServerSkyAreaSummary {
   id: string;
@@ -16,7 +16,7 @@ export async function fetchSkyAreaCatalog(options?: {
   search?: string;
   establishedOnly?: boolean;
 }): Promise<ServerSkyAreaSummary[]> {
-  if (!isReelyouBackendConfigured()) return [];
+  if (!isReellyouBackendConfigured()) return [];
   const params = new URLSearchParams();
   if (options?.search?.trim()) params.set('search', options.search.trim());
   if (options?.establishedOnly) params.set('established', '1');
@@ -52,12 +52,15 @@ export async function saveMySkyAreas(input: {
     method: 'PUT',
     body: JSON.stringify(input),
   });
+  if (!res) {
+    return { ok: false, error: 'server_error' };
+  }
   const body = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     error?: string;
     skyAreaIds?: string[];
   };
-  if (!res?.ok || body.ok !== true) {
+  if (!res.ok || body.ok !== true) {
     return { ok: false, error: body.error ?? 'server_error' };
   }
   return { ok: true, skyAreaIds: body.skyAreaIds };

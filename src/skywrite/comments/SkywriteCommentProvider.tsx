@@ -97,6 +97,7 @@ export function SkywriteCommentProvider({ children }: { children: ReactNode }) {
 
   const canViewerComment = useCallback(
     (skywrite: SkywriteRecord) => {
+      if (!activeUserId) return false;
       const authorId = skywrite.authorId ?? activeUserId;
       return canCommentOnSkywrite({
         viewerId: activeUserId,
@@ -128,6 +129,9 @@ export function SkywriteCommentProvider({ children }: { children: ReactNode }) {
       starterKind?: SkywriteCommentStarterKind;
       clientRequestId?: string;
     }): Promise<AddCommentResult | AddCommentFailure> => {
+      if (!activeUserId) {
+        return { ok: false, reason: 'forbidden' };
+      }
       if (!canViewerComment(params.skywrite)) {
         return { ok: false, reason: 'forbidden' };
       }
@@ -184,6 +188,7 @@ export function SkywriteCommentProvider({ children }: { children: ReactNode }) {
 
   const deleteComment = useCallback(
     async (skywrite: SkywriteRecord, commentId: string) => {
+      if (!activeUserId) return false;
       const postOwnerId = skywrite.authorId ?? activeUserId;
       const result = deleteSkywriteComment(state, commentId, activeUserId, postOwnerId);
       if (!result.removed) return false;

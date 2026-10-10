@@ -21,7 +21,7 @@ export function getSkywriteThumbnail(
 }
 
 export function skywriteHasVideoMedia(record: Pick<SkywriteRecord, 'media' | 'mediaMode'>): boolean {
-  const kind = pickSkywriteMediaSource(record).kind;
+  const kind = pickSkywriteMediaSource({ ...record, text: '' }).kind;
   return kind === 'video' || kind === 'video_audio';
 }
 
