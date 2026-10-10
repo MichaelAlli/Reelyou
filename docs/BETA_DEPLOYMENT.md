@@ -73,6 +73,30 @@ Local dev without Postgres uses **`REELYOU_DB_PATH`** (JSON file).
 
 ---
 
+## Frontend static site (https://reelyou.onrender.com)
+
+The **web app** is a separate **Render Static Site** (not in `render.yaml` — API only).
+
+| Setting | Value |
+|---------|--------|
+| Branch | `feature/post-welcome-theme-system` (or your beta branch) |
+| Root directory | `Reelyou/` (repo subfolder if monorepo) |
+| Build command | `npm ci && npm run build:web` |
+| Publish directory | `dist` |
+
+Set **build-time** env vars from `.env.production.example` (`EXPO_PUBLIC_*`).
+
+After deploy, verify:
+
+```bash
+curl -s https://reelyou.onrender.com/build-meta.json
+node scripts/verify-frontend-deploy.mjs
+```
+
+**Common mismatch:** API auto-deploys from Docker on push; the static site **does not** unless Render is configured with the branch above and a successful `build:web`. Stale bundle hashes mean **pending or failed static deploy**, not missing Git pushes.
+
+---
+
 ## External setup checklist (after code is on GitHub)
 
 1. **Postgres** — Render **New → PostgreSQL** (~$7/mo) or equivalent; copy **`DATABASE_URL`** to the web service.

@@ -1,6 +1,11 @@
 import type { ServerResponse } from 'node:http';
 
 import { API_SERVICE_NAME, resolveBuildIdentifier } from './buildMeta.js';
+import {
+  authConfigured,
+  friendMatchConfigured,
+  mediaStorageConfigured,
+} from './config.js';
 import { emailProviderConfigured } from './email/transactionalEmail.js';
 
 export { API_RUNTIME_ENTRY, API_SERVICE_NAME, resolveBuildIdentifier } from './buildMeta.js';
@@ -21,6 +26,9 @@ export function sendHealthJson(
     service: API_SERVICE_NAME,
     databaseReady,
     emailConfigured: emailProviderConfigured(),
+    authConfigured: authConfigured(),
+    friendMatchConfigured: friendMatchConfigured(),
+    mediaStorageConfigured: mediaStorageConfigured(),
     build: resolveBuildIdentifier(),
   };
   res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders(origin) });

@@ -50,6 +50,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web --port 8090",
+    "build:web": "node scripts/render-static-build.mjs",
+    "verify:frontend-deploy": "node scripts/verify-frontend-deploy.mjs",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test:sifting": "npx tsx src/starpath/starpathSiftingEngine.test.ts",

@@ -54,7 +54,10 @@ import { parseUserReportedSupport, saveEmotionalContext } from '@/starpath/starp
 import type { UserSupportState } from '@/starpath/starpathEmotionalContextTypes';
 import { markGuideMentioned, markOpportunityOpened } from '@/starpath/starpathOpportunityOrganizer';
 import { EMPTY_RESOURCE_STATE, type StarPathResourceState } from '@/starpath/starpathOpportunityTypes';
-import { runOpportunityOrchestrator } from '@/starpath/starpathOpportunityOrchestrator';
+import {
+  runOpportunityOrchestrator,
+  type OpportunityOrchestratorWorldBridge,
+} from '@/starpath/starpathOpportunityOrchestrator';
 import { saveStarPathResourceState } from '@/starpath/starpathResourcePersistence';
 import {
   dismissResource,
@@ -290,8 +293,11 @@ export function StarPathExperienceProvider({
 
   const activeViewerId = viewerId;
 
-  const worldSignalBridge = useMemo(
-    () => ({
+  const worldSignalBridge = useMemo((): OpportunityOrchestratorWorldBridge | null => {
+    if (!activeViewerId) {
+      return null;
+    }
+    return {
       canonicalStore: canonicalSignalStore,
       userId: activeViewerId,
       signalPrefs: { quietMode: userPreferences.signalPreferences.quietMode },
@@ -303,15 +309,14 @@ export function StarPathExperienceProvider({
       },
       allowOpportunityWorldCue: userPreferences.discoveryPreferences.showOpportunityDiscovery,
       reduceMotion: userPreferences.accessibilityPreferences.preferReducedMotion,
-    }),
-    [
-      activeViewerId,
-      userPreferences.signalPreferences.quietMode,
-      userPreferences.discoveryPreferences.showOpportunityDiscovery,
-      userPreferences.accessibilityPreferences.preferReducedMotion,
-      messages.blockedUserIds,
-    ],
-  );
+    };
+  }, [
+    activeViewerId,
+    userPreferences.signalPreferences.quietMode,
+    userPreferences.discoveryPreferences.showOpportunityDiscovery,
+    userPreferences.accessibilityPreferences.preferReducedMotion,
+    messages.blockedUserIds,
+  ]);
 
   const signalsForSifting = useMemo(
     () => gateInteractionSignals(interactions.signals, userPreferences.personalizationPreferences),
@@ -373,7 +378,7 @@ export function StarPathExperienceProvider({
   }, [scheduleManifestTouch]);
 
   useEffect(() => {
-    if (!ready || !activeViewerId) return;
+    if (!ready || !activeViewerId || !worldSignalBridge) return;
     const gen = ++orchestratorGen.current;
     const baseInputs = buildGuidanceSafeInputs(
       interactions.signals,
@@ -465,7 +470,7 @@ export function StarPathExperienceProvider({
   }, [ready, resourceState.placedNodes]);
 
   useEffect(() => {
-    if (!ready || !resourceState.placedNodes.length) return;
+    if (!ready || !resourceState.placedNodes.length || !worldSignalBridge) return;
     const parsed = userPreferences.emotionalContextPreference.adjustGuidanceIntensity
       ? parseUserReportedSupport(focusForGuidance)
       : 'unknown';

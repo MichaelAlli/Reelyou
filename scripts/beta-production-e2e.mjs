@@ -53,13 +53,15 @@ async function main() {
   console.log(`[beta-e2e] API ${base}`);
   const health = await json('GET', '/health');
   console.log('[beta-e2e] health', health.status, health.data);
+  assert(health.status === 200 && health.data?.ok === true, 'health must return ok');
+  assert(health.data?.databaseReady === true, 'database not ready');
+  assert(health.data?.service === 'reellyou-api', 'unexpected health service name');
   assert(health.data?.authConfigured === true, 'auth not configured on server');
   assert(health.data?.mediaStorageConfigured === true, 'media storage not configured');
-
-  const hasProfileApi = health.data?.deploymentRevision != null || health.data?.emailConfigured != null;
-  if (!hasProfileApi && health.data?.emailConfigured === undefined) {
-    console.warn('[beta-e2e] WARN: health missing emailConfigured — likely pre-profile deploy revision');
-  }
+  assert(health.data?.emailConfigured === true, 'transactional email not configured');
+  const revision = health.data?.build ?? health.data?.deploymentRevision;
+  assert(typeof revision === 'string' && revision.length >= 7, 'missing deployment revision (build)');
+  console.log('[beta-e2e] deployment revision', revision);
 
   const a = await registerUser('A');
   const b = await registerUser('B');
