@@ -38,6 +38,9 @@
     "@types/react": "~19.2.2",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.0",
+    "pixelmatch": "^6.0.0",
+    "playwright": "^1.64.0",
+    "pngjs": "^7.0.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -71,6 +74,8 @@
     "test:reel-playback": "npx tsx src/legacy/reelYouPlayback.test.ts",
     "test:skyreel-guided-expiry": "npx tsx src/skywrite/play/skywriteGuidedPlayExpiry.test.ts",
     "test:starpath-ranking": "npx tsx src/starpath/starpathRankingFeedback.test.ts",
+    "test:welcome": "npx tsx src/screens/welcomeScreenRouting.test.ts && npx tsx src/screens/welcomeDesignLock.test.ts && npx tsx src/constants/welcomeForegroundLayout.test.ts && npx tsx src/constants/welcomeWebLayoutAcceptance.test.ts",
+    "test:welcome-visual": "node scripts/welcome-visual-regression.mjs",
     "server:install": "npm install --prefix server",
     "server:start": "npm run start --prefix server",
     "server:test": "npm run test --prefix server"

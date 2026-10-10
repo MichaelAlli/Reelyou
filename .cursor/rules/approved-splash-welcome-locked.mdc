@@ -39,3 +39,14 @@ Splash and Welcome are **approved production screens**. Preserve them exactly un
 ## Before any visual change
 
 Stop and ask for explicit user approval. State the exact files, properties, and visual delta.
+
+## Welcome v1.0 — official freeze (2026)
+
+Welcome is **DESIGN LOCKED 🔒**. See `docs/design-lock/WELCOME_SCREEN_v1_LOCKED.md`.
+
+Regression gates:
+
+- `npm run test:welcome` — structure, copy, layout math
+- `npm run test:welcome-visual` — PNG baselines in `test/visual-baselines/welcome/` (requires local web preview)
+
+Do not refresh baselines without explicit approval (`UPDATE_WELCOME_BASELINE=1` only).
