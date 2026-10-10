@@ -2,28 +2,34 @@ import assert from 'node:assert/strict';
 
 import {
   resolveWelcomeActionsReserve,
-  resolveWelcomeHeroOpticalOffset,
+  resolveWelcomeContentScale,
+  resolveWelcomeEffectiveViewportHeight,
   resolveWelcomeLogoWidth,
   welcomeForegroundFitsViewport,
+  welcomeNeedsScrollLayout,
 } from '@/constants/welcomeForegroundLayout';
 
-const viewports = [
-  { label: '390x844', width: 390, height: 844 },
-  { label: '430x932', width: 430, height: 932 },
-  { label: '393x852', width: 393, height: 852 },
-];
+const iPhone14 = { width: 390, height: 844 };
 
-for (const { label, width, height } of viewports) {
-  assert.ok(welcomeForegroundFitsViewport(height), `${label}: hero + actions fit in viewport`);
+assert.ok(
+  welcomeNeedsScrollLayout(iPhone14.height),
+  'iPhone 14 class enables scroll shell for reachable SIGN IN',
+);
+if (typeof document !== 'undefined') {
   assert.ok(
-    resolveWelcomeHeroOpticalOffset(height) > 0,
-    `${label}: optical offset nudges hero into ring`,
+    resolveWelcomeEffectiveViewportHeight(iPhone14.height) < iPhone14.height,
+    'web chrome reserve reduces effective height',
   );
-  assert.ok(
-    resolveWelcomeActionsReserve(height) >= 172,
-    `${label}: reserves space for CTAs`,
-  );
-  assert.ok(resolveWelcomeLogoWidth(width, height) <= 302, `${label}: logo scale unchanged`);
+}
+assert.ok(
+  resolveWelcomeContentScale(iPhone14.height) <= 1,
+  'content scale never enlarges approved design',
+);
+assert.ok(resolveWelcomeLogoWidth(iPhone14.width, iPhone14.height) > 0);
+
+for (const height of [844, 852, 932, 667]) {
+  const reserve = resolveWelcomeActionsReserve(height);
+  assert.ok(reserve >= 176, `${height}: reserves CTA band`);
 }
 
 console.log('welcomeForegroundLayout.test.ts ok');

@@ -1,8 +1,9 @@
-import { useRouter, useSegments } from 'expo-router';
+import { useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
 import { useEffect, type ReactNode } from 'react';
 
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 
 const PUBLIC_ROUTE_NAMES = new Set([
   'login',
@@ -30,20 +31,25 @@ export function PostWelcomeAuthGuard({ children }: { children: ReactNode }) {
   const auth = useReelyouAuth();
   const router = useRouter();
   const segments = useSegments();
+  const params = useGlobalSearchParams<{ qaPreview?: string }>();
+  const qaPreviewSession = isQaPreviewQueryActive(
+    typeof params.qaPreview === 'string' ? params.qaPreview : undefined,
+  );
 
   const qaGalleryRoute = isInternalQaGalleryRoute(segments);
+  const qaBypass = qaGalleryRoute || qaPreviewSession;
 
   useEffect(() => {
     if (!isReelyouAuthConfigured()) return;
     if (!auth.ready) return;
     if (auth.isAuthenticated) return;
     if (isPublicPostWelcomeRoute(segments)) return;
-    if (qaGalleryRoute) return;
+    if (qaBypass) return;
     router.replace('/welcome' as never);
-  }, [auth.isAuthenticated, auth.ready, qaGalleryRoute, router, segments]);
+  }, [auth.isAuthenticated, auth.ready, qaBypass, router, segments]);
 
   if (isReelyouAuthConfigured() && auth.ready && !auth.isAuthenticated) {
-    if (!isPublicPostWelcomeRoute(segments) && !qaGalleryRoute) {
+    if (!isPublicPostWelcomeRoute(segments) && !qaBypass) {
       return null;
     }
   }

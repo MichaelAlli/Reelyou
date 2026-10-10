@@ -1,38 +1,85 @@
 import { isAuthCompactViewport } from '@/constants/authViewportLayoutCore';
 
+function isWebRuntime(): boolean {
+  return typeof document !== 'undefined';
+}
+
+/** Estimated mobile browser chrome (Safari toolbars) subtracted on web. */
+export function resolveMobileBrowserChromeReserve(height: number): number {
+  if (!isWebRuntime()) {
+    return 0;
+  }
+  if (height < 700) {
+    return 96;
+  }
+  if (isAuthCompactViewport(height)) {
+    return 88;
+  }
+  return 64;
+}
+
+export function resolveWelcomeEffectiveViewportHeight(layoutHeight: number): number {
+  const base = layoutHeight > 0 ? layoutHeight : 844;
+  return Math.max(320, base - resolveMobileBrowserChromeReserve(base));
+}
+
 /** Reserved vertical space for primary + secondary CTA and bottom safe padding. */
 export function resolveWelcomeActionsReserve(height: number): number {
-  return height < 700 ? 172 : 192;
+  const effective = resolveWelcomeEffectiveViewportHeight(height);
+  return effective < 700 ? 176 : 196;
 }
 
 /**
- * Slight downward shift after flex-centering so the lockup sits in the constellation ring
- * (optical center, not geometric center of the hero band).
+ * Proportional scale for approved Welcome composition when vertical space is tight.
+ * Preserves relationships; only shrinks enough to keep CTAs on-screen.
  */
-export function resolveWelcomeHeroOpticalOffset(height: number): number {
-  if (height < 700) {
-    return Math.round(height * 0.028);
+export function resolveWelcomeContentScale(layoutHeight: number): number {
+  const effective = resolveWelcomeEffectiveViewportHeight(layoutHeight);
+  const heroEstimate = effective < 700 ? 280 : 310;
+  const required = heroEstimate + resolveWelcomeActionsReserve(layoutHeight) + 40;
+  if (effective >= required + 24) {
+    return 1;
   }
-  if (isAuthCompactViewport(height)) {
-    return Math.round(height * 0.032);
-  }
-  return Math.round(height * 0.036);
+  const ratio = (effective - resolveWelcomeActionsReserve(layoutHeight) - 40) / heroEstimate;
+  return Math.min(1, Math.max(0.88, ratio));
 }
 
-/** Logo width — reference proportions; smaller than prior 0.92 fill. */
-export function resolveWelcomeLogoWidth(viewportWidth: number, viewportHeight: number): number {
+/**
+ * Slight downward shift after flex-centering so the lockup sits in the constellation ring.
+ */
+export function resolveWelcomeHeroOpticalOffset(layoutHeight: number): number {
+  const effective = resolveWelcomeEffectiveViewportHeight(layoutHeight);
+  const scale = resolveWelcomeContentScale(layoutHeight);
+  if (effective < 700) {
+    return Math.round(effective * 0.024 * scale);
+  }
+  if (isAuthCompactViewport(layoutHeight)) {
+    return Math.round(effective * 0.028 * scale);
+  }
+  return Math.round(effective * 0.032 * scale);
+}
+
+/** Logo width — reference proportions with optional proportional scale. */
+export function resolveWelcomeLogoWidth(
+  viewportWidth: number,
+  layoutHeight: number,
+): number {
   const widthBase = viewportWidth > 0 ? viewportWidth : 390;
-  const ratio = viewportHeight < 700 ? 0.74 : viewportHeight < 933 ? 0.78 : 0.82;
-  const max = viewportHeight < 700 ? 278 : viewportHeight < 933 ? 302 : 318;
-  return Math.min(Math.round(widthBase * ratio), max);
+  const scale = resolveWelcomeContentScale(layoutHeight);
+  const ratio = layoutHeight < 700 ? 0.74 : layoutHeight < 933 ? 0.78 : 0.82;
+  const max = layoutHeight < 700 ? 278 : layoutHeight < 933 ? 302 : 318;
+  return Math.min(Math.round(widthBase * ratio * scale), Math.round(max * scale));
 }
 
-/** Hero + actions fit without scroll on typical phone heights. */
-export function welcomeForegroundFitsViewport(height: number): boolean {
-  const heroEstimate = height < 700 ? 290 : 320;
-  return height >= heroEstimate + resolveWelcomeActionsReserve(height) + 48;
+export function welcomeForegroundFitsViewport(layoutHeight: number): boolean {
+  const effective = resolveWelcomeEffectiveViewportHeight(layoutHeight);
+  const heroEstimate = Math.round(310 * resolveWelcomeContentScale(layoutHeight));
+  return effective >= heroEstimate + resolveWelcomeActionsReserve(layoutHeight) + 32;
 }
 
-export function welcomeNeedsScrollLayout(height: number): boolean {
-  return !welcomeForegroundFitsViewport(height);
+export function welcomeNeedsScrollLayout(layoutHeight: number): boolean {
+  if (isAuthCompactViewport(layoutHeight)) {
+    return true;
+  }
+  return !welcomeForegroundFitsViewport(layoutHeight);
 }

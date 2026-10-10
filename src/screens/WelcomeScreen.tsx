@@ -23,8 +23,13 @@ import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { BodyText } from '@/components/typography/BodyText';
 import { BrandingAssets } from '@/constants/branding';
 import { WelcomeCopy } from '@/constants/welcome';
-import { authWebRootFillStyle } from '@/constants/authViewportLayout';
 import {
+  authScrollBottomPadding,
+  authWebRootFillStyle,
+  authWebViewportStyle,
+} from '@/constants/authViewportLayout';
+import {
+  resolveWelcomeContentScale,
   resolveWelcomeHeroOpticalOffset,
   resolveWelcomeLogoWidth,
   welcomeNeedsScrollLayout,
@@ -76,24 +81,29 @@ export function WelcomeScreen() {
   const contentMaxWidth = Math.min(width - spacing.Spacing40, spacing.Spacing64 * 6);
   const logoWidth = resolveWelcomeLogoWidth(width, height);
   const logoHeight = logoWidth * WELCOME_LOGO_ASPECT;
+  const contentScale = resolveWelcomeContentScale(height);
   const heroOpticalOffset = resolveWelcomeHeroOpticalOffset(height);
-  const actionsBottomPad = Math.max(
-    spacing.Spacing16,
-    insets.bottom + (Platform.OS === 'web' ? 22 : 14),
-  );
+  const actionsBottomPad = authScrollBottomPadding(insets.bottom, spacing.Spacing16);
   const scrollEnabled = welcomeNeedsScrollLayout(height);
   const welcomeBackgroundImageStyle = resolveWelcomeBackgroundImageStyle(height);
 
   return (
-    <View style={[styles.root, authWebRootFillStyle()]}>
+    <View style={[styles.root, authWebViewportStyle(), authWebRootFillStyle()]}>
       <StatusBar style="light" />
       <BackgroundImage
         source={BrandingAssets.welcomeBackground}
         resizeMode="cover"
         style={styles.background}
         imageStyle={welcomeBackgroundImageStyle}>
-        <ScreenContainer scroll={scrollEnabled} contentStyle={styles.container}>
-          <View style={[styles.layout, { maxWidth: contentMaxWidth }]}>
+        <ScreenContainer
+          scroll={scrollEnabled}
+          contentStyle={[styles.container, scrollEnabled && styles.containerScroll]}>
+          <View
+            style={[
+              styles.layout,
+              scrollEnabled && styles.layoutScroll,
+              { maxWidth: contentMaxWidth },
+            ]}>
             <View style={styles.foregroundColumn}>
               <View
                 style={[
@@ -103,7 +113,11 @@ export function WelcomeScreen() {
                 <View
                   style={[
                     styles.heroBlock,
-                    { width, marginTop: heroOpticalOffset },
+                    {
+                      width,
+                      marginTop: heroOpticalOffset,
+                      transform: [{ scale: contentScale }],
+                    },
                   ]}>
                   <BrandLogo
                     width={logoWidth}
@@ -175,11 +189,20 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   } satisfies ViewStyle,
+  containerScroll: {
+    flexGrow: 1,
+    minHeight: '100%',
+  } satisfies ViewStyle,
+  layoutScroll: {
+    minHeight: '100%',
+  } satisfies ViewStyle,
   heroCenterRegion: {
     flex: 1,
+    minHeight: 0,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 1,
   } satisfies ViewStyle,
   heroBlock: {
     alignItems: 'center',
