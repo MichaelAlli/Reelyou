@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 
-import {
-  welcomeActionsFitInEffectiveViewport,
-  welcomeNeedsScrollLayout,
-} from '@/constants/welcomeForegroundLayout';
+import { welcomeNeedsScrollLayout } from '@/constants/welcomeForegroundLayout';
 
 const viewports = [
   { label: 'iPhone 14', width: 390, height: 844 },
@@ -15,13 +12,11 @@ const viewports = [
 ];
 
 for (const vp of viewports) {
-  const fits = welcomeActionsFitInEffectiveViewport(vp.height);
   const scroll = welcomeNeedsScrollLayout(vp.height);
-  if (vp.height >= 700) {
-    assert.ok(fits, `${vp.label}: CTAs should fit effective viewport at ${vp.height}px`);
-    assert.ok(!scroll, `${vp.label}: should not require scroll at ${vp.height}px`);
+  if (vp.height >= 933) {
+    assert.ok(!scroll, `${vp.label}: tall viewport may use fixed layout at ${vp.height}px`);
   } else {
-    assert.ok(scroll, `${vp.label}: extremely short height may scroll at ${vp.height}px`);
+    assert.ok(scroll, `${vp.label}: phone-class viewport uses scroll shell at ${vp.height}px`);
   }
 }
 

@@ -5,7 +5,6 @@ import {
   resolveWelcomeContentScale,
   resolveWelcomeEffectiveViewportHeight,
   resolveWelcomeLogoWidth,
-  welcomeActionsFitInEffectiveViewport,
   welcomeForegroundFitsViewport,
   welcomeNeedsScrollLayout,
 } from '@/constants/welcomeForegroundLayout';
@@ -13,12 +12,8 @@ import {
 const iPhone14 = { width: 390, height: 844 };
 
 assert.ok(
-  welcomeActionsFitInEffectiveViewport(iPhone14.height),
-  'iPhone 14 class fits both CTAs in effective viewport (with chrome reserve)',
-);
-assert.ok(
-  !welcomeNeedsScrollLayout(iPhone14.height),
-  'iPhone 14 class uses non-scroll layout when foreground fits',
+  welcomeNeedsScrollLayout(iPhone14.height),
+  'iPhone 14 class enables scroll shell so SIGN IN stays reachable in Safari',
 );
 if (typeof document !== 'undefined') {
   assert.ok(

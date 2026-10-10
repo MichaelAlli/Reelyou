@@ -78,7 +78,7 @@ export function welcomeForegroundFitsViewport(layoutHeight: number): boolean {
 }
 
 export function welcomeNeedsScrollLayout(layoutHeight: number): boolean {
-  if (layoutHeight > 0 && layoutHeight < 700) {
+  if (isAuthCompactViewport(layoutHeight)) {
     return true;
   }
   return !welcomeForegroundFitsViewport(layoutHeight);

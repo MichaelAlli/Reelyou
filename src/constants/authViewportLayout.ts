@@ -54,25 +54,3 @@ export function authScrollBottomPadding(
   return scrollBottomPaddingCore(bottomInset, extra, webChrome);
 }
 
-/** Welcome-only web shell — uses visual viewport height when provided. */
-export function authWelcomeWebViewportStyle(options: {
-  height: number;
-  offsetTop: number;
-  allowScroll: boolean;
-}): ViewStyle | undefined {
-  if (Platform.OS !== 'web') {
-    return undefined;
-  }
-
-  return {
-    position: 'fixed',
-    top: options.offsetTop,
-    left: 0,
-    right: 0,
-    bottom: 'auto',
-    width: '100vw',
-    height: options.height,
-    maxHeight: options.height,
-    overflow: options.allowScroll ? 'auto' : 'hidden',
-  } as unknown as ViewStyle;
-}
