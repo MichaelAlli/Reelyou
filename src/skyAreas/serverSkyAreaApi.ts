@@ -23,10 +23,18 @@ export async function fetchSkyAreaCatalog(options?: {
   const qs = params.toString();
   const base = resolveReellyouApiBaseUrl();
   if (!base) return [];
-  const res = await fetch(`${base}/v1/sky-areas/catalog${qs ? `?${qs}` : ''}`);
-  if (!res.ok) return [];
-  const body = (await res.json()) as { areas?: ServerSkyAreaSummary[] };
-  return body.areas ?? [];
+  const url = `${base}/v1/sky-areas/catalog${qs ? `?${qs}` : ''}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const body = (await res.json()) as { areas?: ServerSkyAreaSummary[] };
+    return body.areas ?? [];
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[reellyou-sky-areas] catalog_fetch_failed', { url, error });
+    }
+    return [];
+  }
 }
 
 export async function fetchMySkyAreas(): Promise<{

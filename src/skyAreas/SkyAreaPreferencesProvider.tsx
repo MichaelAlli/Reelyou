@@ -88,22 +88,30 @@ export function SkyAreaPreferencesProvider({ children }: { children: ReactNode }
       loadSharedSkyAreas(),
       fetchSkyAreaCatalog(),
       isReelyouAuthConfigured() && userId ? fetchMySkyAreas() : Promise.resolve(null),
-    ]).then(([loaded, shared, catalogRows, mine]) => {
-      if (!mounted) return;
-      const fromServer = catalogRows.map(mapServerSkyAreaSummary);
-      setServerCatalog(fromServer);
-      let nextRecord = loaded;
-      if (mine && mine.skyAreaIds.length > 0) {
-        for (const id of mine.skyAreaIds) {
-          if (!isSkyAreaSelected(nextRecord, id)) {
-            nextRecord = toggleSkyAreaSelection(nextRecord, id);
+    ])
+      .then(([loaded, shared, catalogRows, mine]) => {
+        if (!mounted) return;
+        const fromServer = catalogRows.map(mapServerSkyAreaSummary);
+        setServerCatalog(fromServer);
+        let nextRecord = loaded;
+        if (mine && mine.skyAreaIds.length > 0) {
+          for (const id of mine.skyAreaIds) {
+            if (!isSkyAreaSelected(nextRecord, id)) {
+              nextRecord = toggleSkyAreaSelection(nextRecord, id);
+            }
           }
         }
-      }
-      setRecord(nextRecord);
-      setSharedAreas([...shared, ...fromServer.filter((area) => area.source === 'custom')]);
-      setIsLoaded(true);
-    });
+        setRecord(nextRecord);
+        setSharedAreas([...shared, ...fromServer.filter((area) => area.source === 'custom')]);
+        setIsLoaded(true);
+      })
+      .catch((error) => {
+        if (__DEV__) {
+          console.warn('[reellyou-sky-areas] preferences_bootstrap_failed', error);
+        }
+        if (!mounted) return;
+        setIsLoaded(true);
+      });
     return () => {
       mounted = false;
     };

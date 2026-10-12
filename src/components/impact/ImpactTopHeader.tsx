@@ -1,17 +1,48 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { UserAvatarCircularImage } from '@/components/identity/UserAvatarCircularImage';
 import { RippleHeaderLogo } from '@/components/legacy/ripple/RippleHeaderLogo';
 import { rippleGlass } from '@/components/legacy/ripple/rippleGlass';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { currentUser } from '@/data/mockData';
 import { useUserAvatar } from '@/identity/UserAvatarProvider';
+import { Fonts } from '@/constants/theme';
+import { useQaPreviewMode } from '@/qa/QaPreviewContext';
+import { withQaPreviewHref } from '@/qa/qaPreviewRoutes';
 
-interface ImpactTopHeaderProps {
-  onOpenGuide?: () => void;
+/** Inner photo diameter — outer touch target stays ripple chrome (40×40). */
+const IMPACT_HEADER_AVATAR_PX = 36;
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'You';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase();
 }
 
-export function ImpactTopHeader({ onOpenGuide }: ImpactTopHeaderProps) {
-  const { profilePhotoDisplayUri } = useUserAvatar();
+export function ImpactTopHeader() {
+  const router = useRouter();
+  const qaPreview = useQaPreviewMode();
+  const { user: authUser } = useReelyouAuth();
+  const { profilePhotoDisplayUri, profilePhotoRevision } = useUserAvatar();
+
+  const displayName = authUser?.fullName?.trim() || currentUser.name;
+  const initials = initialsFromName(displayName);
+  const fallbackColor = currentUser.avatarColor;
+
+  const openProfile = () => {
+    const href = qaPreview.active
+      ? withQaPreviewHref('/profile')
+      : ('/(tabs)/profile' as const);
+    router.push(href as never);
+  };
+
+  const avatarFallback = (
+    <View style={[styles.initialsWrap, { backgroundColor: fallbackColor }]}>
+      <Text style={styles.initialsText}>{initials}</Text>
+    </View>
+  );
 
   return (
     <View style={styles.row}>
@@ -20,29 +51,27 @@ export function ImpactTopHeader({ onOpenGuide }: ImpactTopHeaderProps) {
         <RippleHeaderLogo />
       </View>
       <View style={styles.right}>
-        {onOpenGuide ? (
-          <Pressable
-            style={rippleGlass.chromeButton}
-            accessibilityRole="button"
-            accessibilityLabel="Impact guide"
-            onPress={onOpenGuide}>
-            <SymbolView
-              name={{ ios: 'sparkles', android: 'star', web: 'star' }}
-              size={17}
-              tintColor="#4A5568"
-            />
-          </Pressable>
-        ) : null}
-        {profilePhotoDisplayUri ? (
-          <Image
-            source={{ uri: profilePhotoDisplayUri }}
-            style={styles.avatar}
-            contentFit="cover"
-            accessibilityLabel="Your profile picture"
-          />
-        ) : (
-          <View style={styles.avatarPlaceholder} accessibilityElementsHidden />
-        )}
+        <Pressable
+          style={rippleGlass.chromeButton}
+          accessibilityRole="button"
+          accessibilityLabel="Open my profile"
+          onPress={openProfile}
+          hitSlop={4}>
+          <View style={styles.avatarCenter}>
+            {profilePhotoDisplayUri ? (
+              <UserAvatarCircularImage
+                uri={profilePhotoDisplayUri}
+                size={IMPACT_HEADER_AVATAR_PX}
+                recyclingKey={profilePhotoRevision}
+                accessibilityLabel="Your profile picture"
+                style={styles.avatarImage}
+                fallback={avatarFallback}
+              />
+            ) : (
+              avatarFallback
+            )}
+          </View>
+        </Pressable>
       </View>
     </View>
   );
@@ -68,19 +97,32 @@ const styles = StyleSheet.create({
   right: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     minWidth: 40,
     justifyContent: 'flex-end',
   },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  avatarCenter: {
+    width: IMPACT_HEADER_AVATAR_PX,
+    height: IMPACT_HEADER_AVATAR_PX,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: IMPACT_HEADER_AVATAR_PX / 2,
+    overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#FFFFFF',
   },
-  avatarPlaceholder: {
-    width: 36,
-    height: 36,
+  avatarImage: {
+    borderWidth: 0,
+  },
+  initialsWrap: {
+    width: IMPACT_HEADER_AVATAR_PX,
+    height: IMPACT_HEADER_AVATAR_PX,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initialsText: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FCFBF8',
   },
 });

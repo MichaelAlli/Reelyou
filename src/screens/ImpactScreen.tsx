@@ -1,6 +1,6 @@
 import { ImageBackground } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -15,7 +15,6 @@ import { ImpactPremiumMetricCard } from '@/components/impact/ImpactPremiumMetric
 import { ImpactRippleMomentRow } from '@/components/impact/ImpactRippleMomentRow';
 import { ImpactSupportBanner } from '@/components/impact/ImpactSupportBanner';
 import { ImpactTopHeader } from '@/components/impact/ImpactTopHeader';
-import { RippleInfoSheet } from '@/components/legacy/ripple/RippleInfoSheet';
 import { rippleGlass } from '@/components/legacy/ripple/rippleGlass';
 import {
   IMPACT_METRIC_DESCRIPTIONS,
@@ -35,8 +34,6 @@ export function ImpactScreen() {
 
   const { model, isLoaded, ownerUserId } = useLegacyRippleViewModel();
   const qaPreview = useQaPreviewMode();
-  const [infoOpen, setInfoOpen] = useState(false);
-
   const showPreviewHint = qaPreview.active && !ownerUserId;
 
   const hasAnyMetric = useMemo(
@@ -53,7 +50,7 @@ export function ImpactScreen() {
           contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
           bounces={false}>
           <View style={[styles.content, { width: contentWidth }]}>
-            <ImpactTopHeader onOpenGuide={() => setInfoOpen(true)} />
+            <ImpactTopHeader />
 
             <Text style={styles.heroTitle}>{ImpactCopy.heroTitle}</Text>
             <Text style={styles.heroSubtitle}>{ImpactCopy.heroSubtitle}</Text>
@@ -116,7 +113,6 @@ export function ImpactScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
-      <RippleInfoSheet visible={infoOpen} onClose={() => setInfoOpen(false)} />
     </View>
   );
 }
