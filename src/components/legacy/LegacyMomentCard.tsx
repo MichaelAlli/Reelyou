@@ -4,12 +4,15 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { legacySignalLabel, LegacyCopy } from '@/constants/legacyCopy';
+import { legacyCinematicText } from '@/constants/legacyCinematicText';
 import { Fonts, Radius, Spacing } from '@/constants/theme';
 import type { LegacyMoment } from '@/legacy/legacyMomentTypes';
 import { useThemedStyles } from '@/theme/useTheme';
 
 interface LegacyMomentCardProps {
   moment: LegacyMoment;
+  /** Fixed light text on dark card when Legacy Journey gradient is active. */
+  cinematicText?: boolean;
   onHide?: () => void;
   onEdit?: () => void;
   secondaryActionLabel?: string;
@@ -26,13 +29,18 @@ function formatSeason(ms: number): string {
 
 function LegacyMomentCardComponent({
   moment,
+  cinematicText = false,
   onHide,
   onEdit,
   secondaryActionLabel,
   onSecondaryAction,
 }: LegacyMomentCardProps) {
-  const styles = useThemedStyles((tokens) =>
-    StyleSheet.create({
+  const styles = useThemedStyles((tokens) => {
+    const primary = cinematicText ? legacyCinematicText.primary : tokens.primaryText;
+    const secondary = cinematicText ? legacyCinematicText.secondary : tokens.secondaryText;
+    const muted = cinematicText ? legacyCinematicText.muted : tokens.mutedText;
+    const gold = cinematicText ? legacyCinematicText.gold : tokens.gold;
+    return StyleSheet.create({
       wrap: {
         borderRadius: Radius.lg,
         overflow: 'hidden',
@@ -42,12 +50,12 @@ function LegacyMomentCardComponent({
       },
       gradient: { padding: Spacing.md, gap: Spacing.sm },
       metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-      date: { fontFamily: Fonts.sans, fontSize: 12, color: tokens.mutedText },
+      date: { fontFamily: Fonts.sans, fontSize: 12, color: muted },
       signal: {
         fontFamily: Fonts.sans,
         fontSize: 11,
         fontWeight: '600',
-        color: tokens.gold,
+        color: gold,
         textTransform: 'uppercase',
         letterSpacing: 0.6,
       },
@@ -55,16 +63,20 @@ function LegacyMomentCardComponent({
         fontFamily: Fonts.serif,
         fontSize: 20,
         fontWeight: '600',
-        color: tokens.primaryText,
+        color: primary,
         lineHeight: 26,
       },
       summary: {
         fontFamily: Fonts.sans,
         fontSize: 14,
         lineHeight: 20,
-        color: tokens.secondaryText,
+        color: secondary,
       },
-      people: { fontFamily: Fonts.sans, fontSize: 12, color: tokens.mutedText },
+      people: {
+        fontFamily: Fonts.sans,
+        fontSize: 12,
+        color: muted,
+      },
       mediaRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
       thumb: { width: 72, height: 72, borderRadius: Radius.md, backgroundColor: 'rgba(255,255,255,0.06)' },
       rippleTrail: {
@@ -73,12 +85,18 @@ function LegacyMomentCardComponent({
         gap: 6,
         marginTop: 4,
       },
-      rippleDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tokens.gold, opacity: 0.85 },
+      rippleDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: gold,
+        opacity: 0.85,
+      },
       rippleLine: { flex: 1, height: 1, backgroundColor: 'rgba(212, 175, 55, 0.35)' },
       actions: { flexDirection: 'row', gap: 16, marginTop: 4 },
-      action: { fontFamily: Fonts.sans, fontSize: 12, fontWeight: '600', color: tokens.gold },
-    }),
-  );
+      action: { fontFamily: Fonts.sans, fontSize: 12, fontWeight: '600', color: gold },
+    });
+  });
 
   const media = moment.mediaRefs;
   const showPhoto = media?.photoUri && !moment.sourceContentDeleted;

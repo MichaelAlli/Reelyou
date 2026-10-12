@@ -18,9 +18,9 @@ import { LegacySegmentToggle } from '@/components/legacy/LegacySegmentToggle';
 import { GlowButton } from '@/components/GlowButton';
 import { LegacyMomentCard } from '@/components/legacy/LegacyMomentCard';
 import { LegacyCopy } from '@/constants/legacyCopy';
+import { legacyCinematicText } from '@/constants/legacyCinematicText';
 import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
 import { useLegacy } from '@/legacy/LegacyProvider';
-import { useThemedStyles } from '@/theme/useTheme';
 
 const PROFILE_ME_ROUTE = '/(tabs)/profile' as const;
 
@@ -38,49 +38,7 @@ export function LegacyExperienceScreen() {
   } = useLegacy();
   const [showHidden, setShowHidden] = useState(false);
 
-  const styles = useThemedStyles((tokens) =>
-    StyleSheet.create({
-      root: { flex: 1 },
-      safe: { flex: 1 },
-      scroll: { paddingHorizontal: Spacing.lg },
-      back: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        alignSelf: 'flex-start',
-        minHeight: 44,
-        paddingRight: 12,
-        paddingLeft: 4,
-        marginTop: Spacing.sm,
-        borderRadius: 999,
-        backgroundColor: 'rgba(0, 0, 0, 0.18)',
-      },
-      backText: { fontFamily: Fonts.sans, fontSize: 14, fontWeight: '600', color: tokens.gold },
-      title: {
-        fontFamily: Fonts.serif,
-        fontSize: 32,
-        fontWeight: '600',
-        color: tokens.primaryText,
-        marginBottom: 8,
-      },
-      hero: { fontFamily: Fonts.sans, fontSize: 15, lineHeight: 22, color: tokens.secondaryText, marginBottom: 6 },
-      sub: { fontFamily: Fonts.sans, fontSize: 13, lineHeight: 19, color: tokens.mutedText, marginBottom: Spacing.lg },
-      reelCard: {
-        marginBottom: Spacing.lg,
-        padding: Spacing.md,
-        borderRadius: 16,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(212, 175, 55, 0.35)',
-        backgroundColor: 'rgba(212, 175, 55, 0.08)',
-      },
-      reelSub: { fontFamily: Fonts.sans, fontSize: 12, color: tokens.mutedText, marginTop: 8, textAlign: 'center' },
-      emptyTitle: { fontFamily: Fonts.serif, fontSize: 20, color: tokens.primaryText, marginBottom: 8 },
-      emptyBody: { fontFamily: Fonts.sans, fontSize: 14, lineHeight: 20, color: tokens.secondaryText },
-      section: { fontFamily: Fonts.sans, fontSize: 12, fontWeight: '600', color: tokens.gold, marginBottom: Spacing.sm },
-      toggleHidden: { marginTop: Spacing.md, marginBottom: Spacing.sm },
-      toggleText: { fontFamily: Fonts.sans, fontSize: 13, fontWeight: '600', color: tokens.gold },
-    }),
-  );
+  const styles = legacyExperienceStyles;
 
   const openRipples = useCallback(() => {
     router.push('/legacy/ripple' as never);
@@ -195,6 +153,7 @@ export function LegacyExperienceScreen() {
                 <LegacyMomentCard
                   key={moment.legacyMomentId}
                   moment={moment}
+                  cinematicText
                   onHide={showHidden ? undefined : () => confirmHide(moment.legacyMomentId)}
                   onEdit={() => promptEdit(moment.legacyMomentId, moment.title)}
                   secondaryActionLabel={showHidden ? LegacyCopy.restore : undefined}
@@ -220,3 +179,89 @@ export function LegacyExperienceScreen() {
     </View>
   );
 }
+
+const legacyExperienceStyles = StyleSheet.create({
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  scroll: { paddingHorizontal: Spacing.lg },
+  back: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    paddingRight: 12,
+    paddingLeft: 4,
+    marginTop: Spacing.sm,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
+  },
+  backText: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    fontWeight: '600',
+    color: legacyCinematicText.gold,
+  },
+  title: {
+    fontFamily: Fonts.serif,
+    fontSize: 32,
+    fontWeight: '600',
+    color: legacyCinematicText.primary,
+    marginBottom: 8,
+  },
+  hero: {
+    fontFamily: Fonts.sans,
+    fontSize: 15,
+    lineHeight: 22,
+    color: legacyCinematicText.secondary,
+    marginBottom: 6,
+  },
+  sub: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 19,
+    color: legacyCinematicText.muted,
+    marginBottom: Spacing.lg,
+  },
+  reelCard: {
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(212, 175, 55, 0.35)',
+    backgroundColor: 'rgba(212, 175, 55, 0.08)',
+  },
+  reelSub: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: legacyCinematicText.muted,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  emptyTitle: {
+    fontFamily: Fonts.serif,
+    fontSize: 20,
+    color: legacyCinematicText.primary,
+    marginBottom: 8,
+  },
+  emptyBody: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    lineHeight: 20,
+    color: legacyCinematicText.secondary,
+  },
+  section: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '600',
+    color: legacyCinematicText.gold,
+    marginBottom: Spacing.sm,
+  },
+  toggleHidden: { marginTop: Spacing.md, marginBottom: Spacing.sm },
+  toggleText: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    fontWeight: '600',
+    color: legacyCinematicText.gold,
+  },
+});
