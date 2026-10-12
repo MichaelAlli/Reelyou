@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/assets/*": ["./assets/*"],
+      "react-native": ["./src/test/node/reactNativeShim.ts"],
+      "@react-native-async-storage/async-storage": ["./src/test/node/asyncStorageShim.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}
