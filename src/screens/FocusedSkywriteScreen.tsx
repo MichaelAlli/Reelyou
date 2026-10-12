@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,6 +41,7 @@ import { useMySkyStarIntro } from '@/mySky/useMySkyStarIntro';
 import { useOnboarding } from '@/onboarding';
 import { useContributionBeaconOverlayQueue } from '@/skywrite/beacon/useActiveContributionBeacons';
 import { consumeReturnToSkyInvitationsAfterResponse } from '@/skywrite/invitations/skyInvitationFlow';
+import type { MySkywritesTabId } from '@/skywrite/library/buildMySkywritesLibrary';
 import { stageFocusedSkywriteComposeStars } from '@/skywrite/focusedSkyComposeSnapshot';
 import {
   defaultFocusedSkywriteIds,
@@ -56,8 +57,27 @@ import { SpatialFocusHost } from '@/spatialFocus/SpatialFocusHost';
 
 /** LOCKED FOCUSED SKYWRITE SKY — canonical shared Sky view; preserve stars, launcher, and arrival overlay flow unless explicitly authorized. */
 /** LOCKED NAV 01 SKYWRITE INTEGRATION — preserve existing stars, scrolling, launcher, arrival, constellation, and tap/detail systems. */
+const LIBRARY_TAB_IDS: MySkywritesTabId[] = [
+  'recent',
+  'journey',
+  'saved',
+  'archived',
+  'contributed',
+];
+
+function parseLibraryTabParam(raw: string | string[] | undefined): MySkywritesTabId | null {
+  const value = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+  if (!value) return null;
+  return LIBRARY_TAB_IDS.includes(value as MySkywritesTabId) ? (value as MySkywritesTabId) : null;
+}
+
 export function FocusedSkywriteScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    librarySheet?: string;
+    libraryTab?: string;
+    sequenceEditor?: string;
+  }>();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const {
@@ -86,6 +106,7 @@ export function FocusedSkywriteScreen() {
   const [beaconQueueIndex, setBeaconQueueIndex] = useState(0);
   const [invitationResponseAck, setInvitationResponseAck] = useState(false);
   const [mySkywritesOpen, setMySkywritesOpen] = useState(false);
+  const [libraryInitialTab, setLibraryInitialTab] = useState<MySkywritesTabId>('recent');
   const [sequenceEditorOpen, setSequenceEditorOpen] = useState(false);
   const { state: playSequenceState, updateFocusedConfig } = useSkywritePlaySequence();
   const { registry, ready: registryReady } = usePlaySkySequenceRegistry();
@@ -117,6 +138,17 @@ export function FocusedSkywriteScreen() {
   useEffect(() => {
     void loadSkyHeaderStyleId(mySkyView.skyOwner.id).then(setHeaderStyleId);
   }, [mySkyView.skyOwner.id]);
+
+  useEffect(() => {
+    if (params.librarySheet === '1') {
+      const tab = parseLibraryTabParam(params.libraryTab) ?? 'recent';
+      setLibraryInitialTab(tab);
+      setMySkywritesOpen(true);
+    }
+    if (params.sequenceEditor === '1') {
+      setSequenceEditorOpen(true);
+    }
+  }, [params.librarySheet, params.libraryTab, params.sequenceEditor]);
 
   const canPlaySky = useMemo(() => {
     if (!registryReady) return false;
@@ -392,7 +424,11 @@ export function FocusedSkywriteScreen() {
         onClearResponseSentAck={() => setInvitationResponseAck(false)}
       />
 
-      <MySkywritesSheet visible={mySkywritesOpen} onClose={() => setMySkywritesOpen(false)} />
+      <MySkywritesSheet
+        visible={mySkywritesOpen}
+        initialTab={libraryInitialTab}
+        onClose={() => setMySkywritesOpen(false)}
+      />
 
       <SkywriteSequenceEditorSheet
         visible={sequenceEditorOpen}

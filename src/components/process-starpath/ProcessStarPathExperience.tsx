@@ -218,7 +218,7 @@ function ProcessStarPathExperienceComponent({
   );
 
   return (
-    <Animated.View style={[styles.root, screenOp]}>
+    <Animated.View style={[styles.root, screenOp]} testID="process-starpath-experience">
       <ProcessStarPathBackdrop />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         {scrollable ? (

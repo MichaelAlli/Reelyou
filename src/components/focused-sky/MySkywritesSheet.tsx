@@ -45,6 +45,7 @@ import { openSkywritePostView } from '@/skywrite/openSkywritePostView';
 interface MySkywritesSheetProps {
   visible: boolean;
   onClose: () => void;
+  initialTab?: MySkywritesTabId;
 }
 
 function formatWhen(ms: number): string {
@@ -58,7 +59,11 @@ function formatWhen(ms: number): string {
   }
 }
 
-function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) {
+function MySkywritesSheetComponent({
+  visible,
+  onClose,
+  initialTab = 'recent',
+}: MySkywritesSheetProps) {
   const router = useRouter();
   const { user: authUser } = useReelyouAuth();
   const ownerUserId = resolveActiveUserId(authUser);
@@ -67,7 +72,13 @@ function MySkywritesSheetComponent({ visible, onClose }: MySkywritesSheetProps) 
   const { threadState, contributions } = useSkywriteThreads();
   const { state: savedThreadsState, archiveThread, restoreThread } = useSavedThreads();
   const { messages, skyFollowGraph } = useReelyouConnect();
-  const [tab, setTab] = useState<MySkywritesTabId>('recent');
+  const [tab, setTab] = useState<MySkywritesTabId>(initialTab);
+
+  useEffect(() => {
+    if (visible) {
+      setTab(initialTab);
+    }
+  }, [initialTab, visible]);
   const [query, setQuery] = useState('');
   const audioPreview = useOverlayAudioPreviewScope(visible);
   const applyDeletion = useApplySkywriteContentDeletion();
