@@ -311,15 +311,16 @@ export function FocusedSkywriteScreen() {
           }}
           disabled={!canPlaySky}
           disabledHint={SkywritePlayCopy.playSkyNoRecent}
-          journeyTitle={displayTitle}
-          onPressJourneyTitle={
-            canPlayJourney
-              ? () => {
-                  skywriteNavTip.dismissIfLearned();
-                  openJourneyPlay();
-                }
-              : undefined
-          }
+          journeyTitle={journeyReady ? displayTitle : undefined}
+          onPressJourneyTitle={() => {
+            skywriteNavTip.dismissIfLearned();
+            if (canPlayJourney) {
+              openJourneyPlay();
+              return;
+            }
+            setLibraryInitialTab('journey');
+            setMySkywritesOpen(true);
+          }}
           onEditJourneyTitle={() => setJourneyTitleEditorOpen(true)}
         />
 

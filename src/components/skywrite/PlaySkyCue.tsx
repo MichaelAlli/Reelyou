@@ -46,13 +46,16 @@ function PlaySkyCueComponent({
       {disabled && disabledHint ? (
         <Text style={styles.disabledHint}>{disabledHint}</Text>
       ) : null}
-      {journeyTitle && onPressJourneyTitle ? (
+      {journeyTitle ? (
         <Pressable
           onPress={onPressJourneyTitle}
+          disabled={!onPressJourneyTitle}
           hitSlop={12}
           style={styles.journeyTitleWrap}
           accessibilityRole="button"
-          accessibilityLabel={`Play ${journeyTitle}`}>
+          accessibilityLabel={
+            onPressJourneyTitle ? `Play ${journeyTitle}` : journeyTitle
+          }>
           <Text style={styles.journeyTitle}>{journeyTitle}</Text>
           {onEditJourneyTitle ? (
             <Pressable
