@@ -104,7 +104,12 @@ export function buildGuidanceSafeInputs(
     todayFocusText: todayFocusText?.trim() || null,
     skyContextAreaIds: journey?.skyContextAreaIds ?? [],
     journeyPatternAreaIds: journey?.journeyPatternAreaIds ?? [],
-    explicitGoalHints: journey?.explicitGoals ?? [],
+    explicitGoalHints: [
+      ...new Set([
+        ...(journey?.explicitGoals ?? []),
+        ...(journey?.journeyLibraryHashtagHints ?? []),
+      ]),
+    ],
     northStarSnippet: journey?.northStarVision?.trim() || null,
     latestSavedAt: latestSaved?.timestamp ?? null,
     primaryOpportunityNodeId: opportunityContext?.primaryOpportunityNodeId ?? null,

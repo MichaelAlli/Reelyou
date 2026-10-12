@@ -8,6 +8,7 @@ export async function fetchBackendResourceCandidates(
   const keywordHints = [
     ...ctx.inputs.explicitGoalHints,
     ...ctx.inputs.recentExplicitInterests,
+    ...ctx.inputs.journeyPatternAreaIds,
     ...(ctx.elevatedBranchId ? [ctx.elevatedBranchId] : []),
   ];
   const response = await fetchLiveResourceCandidates({

@@ -1,6 +1,10 @@
 import type { UserPersonalizationProfile } from '@/onboarding/personalization/types';
 
-import { filterRenderableSkywrites } from '@/journey/skywriteJourneyContent';
+import {
+  countSkyAreaPatterns,
+  filterJourneyLibraryForStarpathPersonalization,
+  filterSkywritesForStarpathPersonalization,
+} from '@/journey/journeyStarpathEligibility';
 
 const MIN_POSTS_FOR_AREA_PATTERN = 2;
 const MAX_PATTERN_AREAS = 4;
@@ -15,21 +19,13 @@ export interface JourneyPersonalizationBundle {
   skyContextAreaIds: string[];
   /** Inferred only after repeated, AI-permitted posts in the same area. */
   journeyPatternAreaIds: string[];
+  /** Saved Journey Library posts (inYourJourney) permitted for StarPath — not playback order. */
+  journeyLibrarySkywriteIds: string[];
+  /** Repeated themes within Journey Library only — same conservative threshold. */
+  journeyLibraryPatternAreaIds: string[];
+  /** Explicit hashtags from Journey Library posts — tentative hints only. */
+  journeyLibraryHashtagHints: string[];
   renderableSkywriteIds: string[];
-}
-
-function countSkyAreasFromPermittedPosts(
-  posts: readonly { skyAreaId?: string; allowAIContext?: boolean; visibility?: string }[],
-): Map<string, number> {
-  const counts = new Map<string, number>();
-  for (const post of posts) {
-    if (post.visibility === 'private') continue;
-    if (post.allowAIContext === false) continue;
-    const area = post.skyAreaId?.trim();
-    if (!area) continue;
-    counts.set(area, (counts.get(area) ?? 0) + 1);
-  }
-  return counts;
 }
 
 /**
@@ -40,14 +36,27 @@ export function buildJourneyPersonalizationBundle(input: {
   profile: UserPersonalizationProfile;
   selectedSkyAreaIds: readonly string[];
 }): JourneyPersonalizationBundle {
-  const renderable = filterRenderableSkywrites(input.profile.skywrites ?? []);
-  const areaCounts = countSkyAreasFromPermittedPosts(renderable);
+  const eligible = filterSkywritesForStarpathPersonalization(input.profile.skywrites ?? []);
+  const journeyLibrary = filterJourneyLibraryForStarpathPersonalization(input.profile.skywrites ?? []);
 
-  const journeyPatternAreaIds = [...areaCounts.entries()]
-    .filter(([, count]) => count >= MIN_POSTS_FOR_AREA_PATTERN)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, MAX_PATTERN_AREAS)
-    .map(([id]) => id);
+  const generalPatternAreaIds = countSkyAreaPatterns(
+    eligible,
+    MIN_POSTS_FOR_AREA_PATTERN,
+    MAX_PATTERN_AREAS,
+  );
+  const journeyLibraryPatternAreaIds = countSkyAreaPatterns(
+    journeyLibrary,
+    MIN_POSTS_FOR_AREA_PATTERN,
+    MAX_PATTERN_AREAS,
+  );
+
+  const journeyPatternAreaIds = [
+    ...new Set([...generalPatternAreaIds, ...journeyLibraryPatternAreaIds]),
+  ].slice(0, MAX_PATTERN_AREAS);
+
+  const journeyLibraryHashtagHints = [
+    ...new Set(journeyLibrary.flatMap((post) => post.userHashtags ?? [])),
+  ].slice(0, 12);
 
   return {
     northStarVision: input.profile.northStar.originalVision.trim(),
@@ -56,6 +65,9 @@ export function buildJourneyPersonalizationBundle(input: {
     todayFocusText: input.profile.todayFocus?.value?.trim() || null,
     skyContextAreaIds: [...input.selectedSkyAreaIds],
     journeyPatternAreaIds,
-    renderableSkywriteIds: renderable.map((post) => post.id),
+    journeyLibrarySkywriteIds: journeyLibrary.map((post) => post.id),
+    journeyLibraryPatternAreaIds,
+    journeyLibraryHashtagHints,
+    renderableSkywriteIds: eligible.map((post) => post.id),
   };
 }

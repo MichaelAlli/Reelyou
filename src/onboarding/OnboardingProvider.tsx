@@ -147,7 +147,10 @@ import {
 } from '@/skywrite/publish/publishSkywriteDraft';
 import { scheduleSkywritePostPublishEffects } from '@/skywrite/postPublish/scheduleSkywritePostPublishEffects';
 import { applySkywriteVideoCover } from '@/skywrite/library/applySkywriteVideoCover';
-import { onSkywriteCreated } from '@/journeyThreads/journeyThreadFutureHooks';
+import {
+  onJourneyLibraryMembershipChanged,
+  onSkywriteCreated,
+} from '@/journeyThreads/journeyThreadFutureHooks';
 import { dismissTodayFocusForDateKey } from '@/todayFocus/todayFocusSession';
 import { stripSkywriteRenderableContent } from '@/skywrite/lifecycle/skywriteContentLifecycle';
 import {
@@ -1084,6 +1087,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (!saved) return { ok: false };
       setSkywritesState(next);
       skywritesRef.current = next;
+      onJourneyLibraryMembershipChanged();
       return { ok: true };
     },
     [],

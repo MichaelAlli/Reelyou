@@ -29,6 +29,11 @@ export function onSkywriteCreated(_skywrite: SkywriteRecord): void {
   if (!silverLiningsEnabled()) return;
 }
 
+/** Journey Library membership changed — recomputes StarPath inputs only (no media reanalysis). */
+export function onJourneyLibraryMembershipChanged(): void {
+  notifyStarpathActivityChanged();
+}
+
 export function suggestRelatedThreads(_skywrite: SkywriteRecord): JourneyThreadRecord[] {
   if (!silverLiningsEnabled()) return [];
   return [];
