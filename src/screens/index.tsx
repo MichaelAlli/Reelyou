@@ -1,7 +1,6 @@
 import { ConstellationMap } from '@/components/ConstellationMap';
 import { GlassCard } from '@/components/GlassCard';
 import { GlowButton } from '@/components/GlowButton';
-import { ImpactMomentCard } from '@/components/ImpactMomentCard';
 import { LegacyCard } from '@/components/LegacyCard';
 import { MetricPill } from '@/components/MetricPill';
 import { OrbitAvatar } from '@/components/OrbitAvatar';
@@ -13,8 +12,6 @@ import { TabPill } from '@/components/TabPill';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useThemedStyles } from '@/theme/useTheme';
 import {
-  impactMetrics,
-  impactMoments,
   legacyStories,
   mapFilters,
   orbitUsers,
@@ -28,37 +25,7 @@ export { SkywriteScreen } from '@/screens/SkywriteScreen';
 
 export { StarpathScreen } from '@/screens/StarpathScreen';
 
-export function ImpactScreen() {
-  const styles = useScreenStyles();
-  return (
-    <ScreenLayout showTabBar>
-      <Text style={styles.screenTitle}>Impact</Text>
-      <Text style={styles.screenSubtitle}>The meaning you create in the world.</Text>
-
-      <View style={styles.metricsGrid}>
-        <MetricPill label="Lives Encouraged" value={impactMetrics.livesEncouraged} />
-        <MetricPill label="Contributions Made" value={impactMetrics.contributionsMade} accent="purple" />
-        <MetricPill label="Reflections Resonated" value={impactMetrics.reflectionsResonated} />
-        <MetricPill label="Doors Opened" value={impactMetrics.doorsOpened} accent="purple" />
-      </View>
-
-      <GlassCard style={styles.definitions}>
-        <Text style={styles.defTitle}>What these mean</Text>
-        <Text style={styles.defText}>
-          Lives Encouraged — people who felt uplifted because of you.{'\n'}
-          Contributions Made — actions that helped others.{'\n'}
-          Reflections Resonated — Skywrites that helped someone feel seen.{'\n'}
-          Doors Opened — opportunities you helped create for others.
-        </Text>
-      </GlassCard>
-
-      <SectionHeader title="Recent Impact Moments" />
-      {impactMoments.map((moment) => (
-        <ImpactMomentCard key={moment.id} moment={moment} />
-      ))}
-    </ScreenLayout>
-  );
-}
+export { ImpactScreen } from '@/screens/ImpactScreen';
 
 /** @deprecated Owner tab uses OwnerProfileScreen — retained export for legacy imports. */
 export { OwnerProfileScreen as ProfileScreen } from '@/screens/OwnerProfileScreen';
