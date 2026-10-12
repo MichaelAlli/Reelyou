@@ -1,8 +1,16 @@
-import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useRef, useState } from 'react';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type AccessibilityActionEvent,
+} from 'react-native';
 
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { Fonts, Radius } from '@/constants/theme';
+
+const JOURNEY_TITLE_LONG_PRESS_MS = 450;
 
 interface PlaySkyCueProps {
   onPress: () => void;
@@ -25,6 +33,34 @@ function PlaySkyCueComponent({
   disabled = false,
   disabledHint,
 }: PlaySkyCueProps) {
+  const suppressJourneyPressRef = useRef(false);
+  const [journeyTitleHeld, setJourneyTitleHeld] = useState(false);
+
+  const handleJourneyTitlePress = useCallback(() => {
+    if (suppressJourneyPressRef.current) {
+      suppressJourneyPressRef.current = false;
+      return;
+    }
+    onPressJourneyTitle?.();
+  }, [onPressJourneyTitle]);
+
+  const handleJourneyTitleLongPress = useCallback(() => {
+    if (!onEditJourneyTitle) return;
+    suppressJourneyPressRef.current = true;
+    setJourneyTitleHeld(true);
+    onEditJourneyTitle();
+    setTimeout(() => setJourneyTitleHeld(false), 220);
+  }, [onEditJourneyTitle]);
+
+  const handleJourneyAccessibilityAction = useCallback(
+    (event: AccessibilityActionEvent) => {
+      if (event.nativeEvent.actionName === 'edit') {
+        onEditJourneyTitle?.();
+      }
+    },
+    [onEditJourneyTitle],
+  );
+
   return (
     <View style={styles.wrap} pointerEvents="box-none">
       <Pressable
@@ -47,28 +83,34 @@ function PlaySkyCueComponent({
         <Text style={styles.disabledHint}>{disabledHint}</Text>
       ) : null}
       {journeyTitle ? (
-        <View style={styles.journeyTitleWrap}>
-          <Pressable
-            onPress={onPressJourneyTitle}
-            disabled={!onPressJourneyTitle}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={
-              onPressJourneyTitle ? `Play ${journeyTitle}` : journeyTitle
-            }>
-            <Text style={styles.journeyTitle}>{journeyTitle}</Text>
-          </Pressable>
-          {onEditJourneyTitle ? (
-            <Pressable
-              onPress={onEditJourneyTitle}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Edit Journey name"
-              style={styles.journeyEditIcon}>
-              <Text style={styles.journeyEditIconText}>✎</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        <Pressable
+          onPress={handleJourneyTitlePress}
+          onLongPress={onEditJourneyTitle ? handleJourneyTitleLongPress : undefined}
+          delayLongPress={JOURNEY_TITLE_LONG_PRESS_MS}
+          disabled={!onPressJourneyTitle && !onEditJourneyTitle}
+          hitSlop={12}
+          style={({ pressed }) => [
+            styles.journeyTitleWrap,
+            pressed && styles.journeyTitlePressed,
+            journeyTitleHeld && styles.journeyTitleHeld,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={
+            onPressJourneyTitle ? `Play ${journeyTitle}` : journeyTitle
+          }
+          accessibilityHint={
+            onEditJourneyTitle
+              ? 'Tap to play your journey. Long press to edit the title.'
+              : undefined
+          }
+          accessibilityActions={
+            onEditJourneyTitle
+              ? [{ name: 'edit', label: 'Edit journey title' }]
+              : undefined
+          }
+          onAccessibilityAction={onEditJourneyTitle ? handleJourneyAccessibilityAction : undefined}>
+          <Text style={styles.journeyTitle}>{journeyTitle}</Text>
+        </Pressable>
       ) : null}
       {!journeyTitle && showEditSequence && onEditSequence ? (
         <Pressable onPress={onEditSequence} hitSlop={8} style={styles.editLink}>
@@ -121,12 +163,10 @@ const styles = StyleSheet.create({
     color: 'rgba(196, 168, 255, 0.85)',
   },
   journeyTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     minHeight: 36,
     paddingHorizontal: 10,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   journeyTitle: {
     fontFamily: Fonts.sans,
@@ -135,15 +175,11 @@ const styles = StyleSheet.create({
     color: 'rgba(196, 168, 255, 0.92)',
     letterSpacing: 0.2,
   },
-  journeyEditIcon: {
-    minWidth: 28,
-    minHeight: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
+  journeyTitlePressed: {
+    opacity: 0.88,
   },
-  journeyEditIconText: {
-    fontSize: 12,
-    color: 'rgba(232, 200, 114, 0.75)',
+  journeyTitleHeld: {
+    opacity: 0.72,
   },
   pressed: { opacity: 0.9 },
   playPillDisabled: {
