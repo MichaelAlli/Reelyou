@@ -15,8 +15,14 @@ function scoreCandidate(
   let score = 0;
   const reasons: OpportunityReasonCode[] = [];
 
+  const branchBoostIds = new Set([
+    ...inputs.elevatedBranchIds,
+    ...inputs.journeyPatternAreaIds,
+    ...inputs.skyContextAreaIds,
+  ]);
+
   for (const branchId of c.relatedBranchIds) {
-    if (inputs.elevatedBranchIds.includes(branchId)) {
+    if (branchBoostIds.has(branchId)) {
       score += 0.35;
       reasons.push('branch_alignment');
     }
