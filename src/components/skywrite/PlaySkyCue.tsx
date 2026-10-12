@@ -47,22 +47,20 @@ function PlaySkyCueComponent({
         <Text style={styles.disabledHint}>{disabledHint}</Text>
       ) : null}
       {journeyTitle ? (
-        <Pressable
-          onPress={onPressJourneyTitle}
-          disabled={!onPressJourneyTitle}
-          hitSlop={12}
-          style={styles.journeyTitleWrap}
-          accessibilityRole="button"
-          accessibilityLabel={
-            onPressJourneyTitle ? `Play ${journeyTitle}` : journeyTitle
-          }>
-          <Text style={styles.journeyTitle}>{journeyTitle}</Text>
+        <View style={styles.journeyTitleWrap}>
+          <Pressable
+            onPress={onPressJourneyTitle}
+            disabled={!onPressJourneyTitle}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={
+              onPressJourneyTitle ? `Play ${journeyTitle}` : journeyTitle
+            }>
+            <Text style={styles.journeyTitle}>{journeyTitle}</Text>
+          </Pressable>
           {onEditJourneyTitle ? (
             <Pressable
-              onPress={(event) => {
-                event.stopPropagation?.();
-                onEditJourneyTitle();
-              }}
+              onPress={onEditJourneyTitle}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="Edit Journey name"
@@ -70,7 +68,7 @@ function PlaySkyCueComponent({
               <Text style={styles.journeyEditIconText}>✎</Text>
             </Pressable>
           ) : null}
-        </Pressable>
+        </View>
       ) : null}
       {!journeyTitle && showEditSequence && onEditSequence ? (
         <Pressable onPress={onEditSequence} hitSlop={8} style={styles.editLink}>
