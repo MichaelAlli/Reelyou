@@ -297,10 +297,28 @@ export const QA_PREVIEW_SCREEN_SPECS: QaPreviewScreenSpec[] = [
     screenMarker: 'MySkywritesSheet',
   },
   {
+    targetId: 'personalized-journey-skywrite',
+    appRouteFile: 'src/app/(post-welcome)/skywrite.tsx',
+    markerModule: 'src/screens/FocusedSkywriteScreen.tsx',
+    screenMarker: 'FocusedSkywriteScreen',
+  },
+  {
+    targetId: 'journey-player',
+    appRouteFile: 'src/app/(post-welcome)/skywrite/play.tsx',
+    markerModule: 'src/screens/SkywriteGuidedPlayScreen.tsx',
+    screenMarker: 'SkywriteGuidedPlayScreen',
+  },
+  {
+    targetId: 'edit-journey',
+    appRouteFile: 'src/app/(post-welcome)/skywrite.tsx',
+    markerModule: 'src/components/skywrite/JourneySequenceEditorSheet.tsx',
+    screenMarker: 'JourneySequenceEditorSheet',
+  },
+  {
     targetId: 'skywrite-sequence-editor',
     appRouteFile: 'src/app/(post-welcome)/skywrite.tsx',
-    markerModule: 'src/components/skywrite/SkywriteSequenceEditorSheet.tsx',
-    screenMarker: 'SkywriteSequenceEditorSheet',
+    markerModule: 'src/components/skywrite/JourneySequenceEditorSheet.tsx',
+    screenMarker: 'JourneySequenceEditorSheet',
   },
   {
     targetId: 'theme-lab',

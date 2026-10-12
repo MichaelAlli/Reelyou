@@ -15,6 +15,7 @@ import { SkywriteCommentProvider } from '@/skywrite/comments/SkywriteCommentProv
 import { SkywriteThreadProvider } from '@/skywrite/threads/SkywriteThreadProvider';
 import { TodayFocusRecommendationsProvider } from '@/todayFocus/recommendations/TodayFocusRecommendationsProvider';
 import { QaPreviewProvider } from '@/qa/QaPreviewContext';
+import { PersonalJourneyProvider } from '@/journey/PersonalJourneyProvider';
 import { ThemeProvider } from '@/theme';
 
 /**
@@ -33,6 +34,7 @@ export function PostWelcomeProviders({ children }: { children: ReactNode }) {
         <UserAvatarProvider>
         <SkyAreaPreferencesProvider>
           <SkywriteLibraryProvider>
+            <PersonalJourneyProvider>
             <SkywriteBeaconProvider>
               <SkywriteThreadProvider>
                 <ReelyouConnectProvider>
@@ -52,6 +54,7 @@ export function PostWelcomeProviders({ children }: { children: ReactNode }) {
                 </ReelyouConnectProvider>
               </SkywriteThreadProvider>
             </SkywriteBeaconProvider>
+            </PersonalJourneyProvider>
           </SkywriteLibraryProvider>
         </SkyAreaPreferencesProvider>
         </UserAvatarProvider>

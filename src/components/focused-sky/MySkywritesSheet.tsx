@@ -262,6 +262,22 @@ function MySkywritesSheetComponent({
           style={styles.search}
         />
 
+        {tab === 'journey' ? (
+          <Pressable
+            onPress={() => {
+              void audioPreview.stopAll();
+              onClose();
+              InteractionManager.runAfterInteractions(() => {
+                router.push('/skywrite?journeyEditor=1' as never);
+              });
+            }}
+            style={styles.editJourneyBtn}
+            accessibilityRole="button"
+            accessibilityLabel={MySkywritesCopy.editJourney}>
+            <Text style={styles.editJourneyText}>{MySkywritesCopy.editJourney}</Text>
+          </Pressable>
+        ) : null}
+
         <ScrollView
           style={styles.listScroll}
           contentContainerStyle={[
@@ -557,6 +573,21 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 11,
     color: 'rgba(232, 200, 114, 0.78)',
+  },
+  editJourneyBtn: {
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 200, 114, 0.35)',
+  },
+  editJourneyText: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E8C872',
   },
   closeBtn: {
     marginTop: 12,

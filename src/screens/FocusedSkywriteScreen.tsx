@@ -15,7 +15,12 @@ import { pushSkyreelPlay } from '@/skywrite/play/skyreelNavigation';
 import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
 import { loadSkyHeaderStyleId } from '@/profile/skyHeaderStylePersistence';
 import type { SkyHeaderStyleId } from '@/profile/skyHeaderStyleTypes';
-import { SkywriteSequenceEditorSheet } from '@/components/skywrite/SkywriteSequenceEditorSheet';
+import { JourneySequenceEditorSheet } from '@/components/skywrite/JourneySequenceEditorSheet';
+import { JourneyTitleEditorSheet } from '@/components/skywrite/JourneyTitleEditorSheet';
+import { usePersonalJourney } from '@/journey/PersonalJourneyProvider';
+import { resolveJourneyPlaySteps } from '@/journey/resolveJourneyPlaySteps';
+import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
+import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
@@ -77,6 +82,7 @@ export function FocusedSkywriteScreen() {
     librarySheet?: string;
     libraryTab?: string;
     sequenceEditor?: string;
+    journeyEditor?: string;
   }>();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -107,8 +113,12 @@ export function FocusedSkywriteScreen() {
   const [invitationResponseAck, setInvitationResponseAck] = useState(false);
   const [mySkywritesOpen, setMySkywritesOpen] = useState(false);
   const [libraryInitialTab, setLibraryInitialTab] = useState<MySkywritesTabId>('recent');
-  const [sequenceEditorOpen, setSequenceEditorOpen] = useState(false);
-  const { state: playSequenceState, updateFocusedConfig } = useSkywritePlaySequence();
+  const [journeyEditorOpen, setJourneyEditorOpen] = useState(false);
+  const [journeyTitleEditorOpen, setJourneyTitleEditorOpen] = useState(false);
+  const { user: authUser } = useReelyouAuth();
+  const ownerUserId = resolveActiveUserId(authUser);
+  const { displayTitle, settings: journeySettings, ready: journeyReady } = usePersonalJourney();
+  const { state: playSequenceState } = useSkywritePlaySequence();
   const { registry, ready: registryReady } = usePlaySkySequenceRegistry();
   const [headerStyleId, setHeaderStyleId] = useState<SkyHeaderStyleId>('starlight');
   const activeContributionBeacons = useContributionBeaconOverlayQueue();
@@ -145,10 +155,27 @@ export function FocusedSkywriteScreen() {
       setLibraryInitialTab(tab);
       setMySkywritesOpen(true);
     }
-    if (params.sequenceEditor === '1') {
-      setSequenceEditorOpen(true);
+    if (params.sequenceEditor === '1' || params.journeyEditor === '1') {
+      setJourneyEditorOpen(true);
     }
-  }, [params.librarySheet, params.libraryTab, params.sequenceEditor]);
+  }, [params.journeyEditor, params.librarySheet, params.libraryTab, params.sequenceEditor]);
+
+  const journeySteps = useMemo(() => {
+    if (!ownerUserId) return [];
+    return resolveJourneyPlaySteps({
+      skywrites,
+      ownerUserId,
+      orderedSkywriteIds: journeySettings.orderedSkywriteIds,
+      singleConfigs: playSequenceState.singleBySkywriteId,
+    });
+  }, [
+    journeySettings.orderedSkywriteIds,
+    ownerUserId,
+    playSequenceState.singleBySkywriteId,
+    skywrites,
+  ]);
+
+  const canPlayJourney = journeyReady && journeySteps.length > 0;
 
   const canPlaySky = useMemo(() => {
     if (!registryReady) return false;
@@ -162,11 +189,6 @@ export function FocusedSkywriteScreen() {
     return steps.length > 0;
   }, [mySkyView.stars, playSequenceState, registry, registryReady, skywrites]);
 
-  const hasSkywriteStars = useMemo(
-    () => defaultFocusedSkywriteIds(mySkyView.stars, skywrites).length > 0,
-    [mySkyView.stars, skywrites],
-  );
-
   useFocusEffect(
     useCallback(() => {
       if (!consumeReturnToSkyInvitationsAfterResponse()) return;
@@ -179,7 +201,8 @@ export function FocusedSkywriteScreen() {
     useCallback(() => {
       return () => {
         setMySkywritesOpen(false);
-        setSequenceEditorOpen(false);
+        setJourneyEditorOpen(false);
+        setJourneyTitleEditorOpen(false);
       };
     }, []),
   );
@@ -235,6 +258,11 @@ export function FocusedSkywriteScreen() {
     pushSkyreelPlay(router, '/skywrite/play?scope=focused&autoplay=1');
   }, [router]);
 
+  const openJourneyPlay = useCallback(() => {
+    primeWebAudioFromUserGesture();
+    pushSkyreelPlay(router, '/skywrite/play?scope=journey&autoplay=1');
+  }, [router]);
+
   const openOwnerProfile = useCallback(() => {
     router.push('/(tabs)/profile' as never);
   }, [router]);
@@ -283,8 +311,16 @@ export function FocusedSkywriteScreen() {
           }}
           disabled={!canPlaySky}
           disabledHint={SkywritePlayCopy.playSkyNoRecent}
-          showEditSequence={hasSkywriteStars}
-          onEditSequence={() => setSequenceEditorOpen(true)}
+          journeyTitle={displayTitle}
+          onPressJourneyTitle={
+            canPlayJourney
+              ? () => {
+                  skywriteNavTip.dismissIfLearned();
+                  openJourneyPlay();
+                }
+              : undefined
+          }
+          onEditJourneyTitle={() => setJourneyTitleEditorOpen(true)}
         />
 
         {skywriteNavTip.visible ? (
@@ -430,11 +466,14 @@ export function FocusedSkywriteScreen() {
         onClose={() => setMySkywritesOpen(false)}
       />
 
-      <SkywriteSequenceEditorSheet
-        visible={sequenceEditorOpen}
-        config={playSequenceState.focusedSky}
-        onClose={() => setSequenceEditorOpen(false)}
-        onChange={updateFocusedConfig}
+      <JourneySequenceEditorSheet
+        visible={journeyEditorOpen}
+        onClose={() => setJourneyEditorOpen(false)}
+      />
+
+      <JourneyTitleEditorSheet
+        visible={journeyTitleEditorOpen}
+        onClose={() => setJourneyTitleEditorOpen(false)}
       />
 
       {arrivalOverlayActive ? (

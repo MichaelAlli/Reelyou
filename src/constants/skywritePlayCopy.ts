@@ -17,6 +17,7 @@ export const SkywritePlayCopy = {
   next: 'Next',
   progress: (current: number, total: number) => `${current} of ${total}`,
   emptySequence: 'Add a Skywrite to play your Sky in sequence.',
+  emptyJourneySequence: 'Add Skywrites to Your Journey in My Skywrites to play them here.',
   playSkyEmptyOwnerHint:
     'Posts stay in Skywritings after 24 hours — repost one from My Skywrites to SkyReel.',
   pause: 'Pause',

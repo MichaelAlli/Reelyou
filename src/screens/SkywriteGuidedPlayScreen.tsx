@@ -69,6 +69,8 @@ import { stepUsesAttachedVoiceover } from '@/skywrite/voiceoverStepUtils';
 import { subscribeProtectedPlaybackStop } from '@/media/protectedPlaybackStop';
 import { useResolvedSkywriteRecord } from '@/social/useResolvedSkywriteRecord';
 import { resolveSkyReelStoryStillDwellMs } from '@/skywrite/play/skyReelStoryTiming';
+import { resolveJourneyPlaySteps } from '@/journey/resolveJourneyPlaySteps';
+import { usePersonalJourney } from '@/journey/PersonalJourneyProvider';
 
 const MANUAL_NAV_AUTO_ADVANCE_BLOCK_MS = 900;
 
@@ -83,7 +85,14 @@ export function SkywriteGuidedPlayScreen() {
     returnTo?: string;
   }>();
   const playScope: SkywritePlayScope =
-    scope === 'single' ? 'single' : scope === 'owner' ? 'owner' : 'focused';
+    scope === 'single'
+      ? 'single'
+      : scope === 'owner'
+        ? 'owner'
+        : scope === 'journey'
+          ? 'journey'
+          : 'focused';
+  const { settings: journeySettings, ready: journeySettingsReady } = usePersonalJourney();
   const { user: authUser } = useReelyouAuth();
   const activeUserId = resolveActiveUserId(authUser);
   const viewerId = useEffectiveViewerId();
@@ -163,10 +172,20 @@ export function SkywriteGuidedPlayScreen() {
 
   useEffect(() => {
     if (!registryReady) return;
+    if (playScope === 'journey' && !journeySettingsReady) return;
     let mounted = true;
     void loadSkywritePlaySequence().then((config) => {
       if (!mounted) return;
-      if (playScope === 'owner' && ownerId) {
+      if (playScope === 'journey' && activeUserId) {
+        setSteps(
+          resolveJourneyPlaySteps({
+            skywrites,
+            ownerUserId: activeUserId,
+            orderedSkywriteIds: journeySettings.orderedSkywriteIds,
+            singleConfigs: config.singleBySkywriteId,
+          }),
+        );
+      } else if (playScope === 'owner' && ownerId) {
         const connectedActorIds = resolveSkyConnectionActivities(aroundYourSkyFeed).map(
           (entry) => entry.actorId,
         );
@@ -243,6 +262,8 @@ export function SkywriteGuidedPlayScreen() {
     remoteSingleRecord,
     remoteFetchTick,
     sequenceRefreshKey,
+    journeySettings.orderedSkywriteIds,
+    journeySettingsReady,
   ]);
 
   useEffect(() => {
@@ -351,6 +372,7 @@ export function SkywriteGuidedPlayScreen() {
     (autoplay === '1' ||
       playScope === 'focused' ||
       playScope === 'owner' ||
+      playScope === 'journey' ||
       playScope === 'single') &&
     current?.kind === 'video';
 
@@ -492,7 +514,7 @@ export function SkywriteGuidedPlayScreen() {
 
   useEffect(() => {
     if (!stepsLoaded || steps.length === 0 || !current) return;
-    if (playScope === 'single') return;
+    if (playScope === 'single' || playScope === 'journey') return;
     const stillPresent = steps.some(
       (step) => step.skywriteId === current.skywriteId && step.stepId === current.stepId,
     );
@@ -504,7 +526,7 @@ export function SkywriteGuidedPlayScreen() {
   }, [current, handleExit, playScope, postsById, registry, steps, stepsLoaded]);
 
   useEffect(() => {
-    if (!stepsLoaded || !registryReady || playScope === 'single') return;
+    if (!stepsLoaded || !registryReady || playScope === 'single' || playScope === 'journey') return;
     if (initialPlayIndexResolvedRef.current) return;
     initialPlayIndexResolvedRef.current = true;
     const startIndex = Number(start);
@@ -516,13 +538,13 @@ export function SkywriteGuidedPlayScreen() {
   }, [playScope, postsById, registry, registryReady, start, steps, stepsLoaded]);
 
   const skyReelAgeLabel = useMemo(() => {
-    if (playScope === 'single' || !record) return null;
+    if (playScope === 'journey' || playScope === 'single' || !record) return null;
     const start = resolveSkyReelAppearanceStartMs(record, registry);
     return formatSkyReelAgeLabel(start, Date.now());
   }, [playScope, record, registry, hourLabelTick]);
 
   const hasNextEligibleSkyReel = useMemo(() => {
-    if (playScope === 'single') return index < steps.length - 1;
+    if (playScope === 'journey' || playScope === 'single') return index < steps.length - 1;
     return (
       findNextEligibleStepIndexAfter(steps, index, registry, Date.now(), postsById) != null
     );
@@ -558,7 +580,7 @@ export function SkywriteGuidedPlayScreen() {
   );
 
   useEffect(() => {
-    if (playScope === 'single' || !record) return;
+    if (playScope === 'journey' || playScope === 'single' || !record) return;
     if (!isSkyReelActive(record, registry, Date.now())) {
       const nextEligible = findNextEligibleStepIndexAfter(
         steps,
@@ -652,7 +674,7 @@ export function SkywriteGuidedPlayScreen() {
     tryAutoAdvance,
   ]);
 
-  if (!stepsLoaded || !registryReady) {
+  if (!stepsLoaded || !registryReady || (playScope === 'journey' && !journeySettingsReady)) {
     return (
       <View style={styles.root}>
         <HomeBackdrop />
@@ -666,13 +688,18 @@ export function SkywriteGuidedPlayScreen() {
   if (steps.length === 0 || !current) {
     const isOwner =
       playScope === 'focused' ||
+      playScope === 'journey' ||
       (playScope === 'owner' && activeUserId && ownerId === activeUserId);
     return (
       <View style={styles.root}>
         <HomeBackdrop />
         <SafeAreaView style={styles.safe}>
-          <Text style={styles.empty}>{SkywritePlayCopy.emptySequence}</Text>
-          {isOwner ? (
+          <Text style={styles.empty}>
+            {playScope === 'journey'
+              ? SkywritePlayCopy.emptyJourneySequence
+              : SkywritePlayCopy.emptySequence}
+          </Text>
+          {isOwner && playScope !== 'journey' ? (
             <Text style={styles.emptyHint}>{SkywritePlayCopy.playSkyEmptyOwnerHint}</Text>
           ) : null}
           {isOwner ? (
@@ -778,7 +805,9 @@ export function SkywriteGuidedPlayScreen() {
           storyAuthorName={playScope === 'single' ? undefined : storyAuthorName}
           storyAuthorAvatarUri={storyAuthorAvatar}
           storyAgeLabel={skyReelAgeLabel}
-          showSkyReelViewerAffordance={isOwnerStory && playScope !== 'single'}
+          showSkyReelViewerAffordance={
+            isOwnerStory && playScope !== 'single' && playScope !== 'journey'
+          }
           skyReelViewerCount={viewerCount}
           onOpenSkyReelViewers={() => setViewerSheetOpen(true)}
           onStoryProfilePress={

@@ -20,6 +20,11 @@ import {
   handlePutOnboarding,
 } from './profile/profileHandlers.js';
 import {
+  handleGetMyPersonalJourney,
+  handleGetUserPersonalJourneyForViewer,
+  handlePatchMyPersonalJourney,
+} from './journey/journeyHandlers.js';
+import {
   handleGetMySkyAreas,
   handleGetSkyAreaCatalog,
   handlePutMySkyAreas,
@@ -259,6 +264,39 @@ const server = createServer(async (req, res) => {
     } catch {
       sendJson(res, 400, { error: 'bad_request' }, origin);
     }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/journey/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    sendJson(res, 200, handleGetMyPersonalJourney(session.userId), origin);
+    return;
+  }
+
+  if (req.method === 'PATCH' && url.pathname === '/v1/journey/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{ customTitle?: unknown; orderedSkywriteIds?: unknown }>(req);
+      const result = handlePatchMyPersonalJourney(session.userId, body ?? {});
+      sendJson(res, result.ok ? 200 : 400, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname.match(/^\/v1\/journey\/users\/[^/]+$/)) {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const ownerUserId = decodeURIComponent(url.pathname.split('/')[4] ?? '');
+    sendJson(
+      res,
+      200,
+      handleGetUserPersonalJourneyForViewer(ownerUserId, session.userId),
+      origin,
+    );
     return;
   }
 

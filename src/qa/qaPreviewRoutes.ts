@@ -315,6 +315,30 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
     keywords: 'journey recents',
   },
   {
+    id: 'personalized-journey-skywrite',
+    section: 'content',
+    label: 'Personalized My Journey',
+    description: 'Skywrite hub — personalized Journey title and playback entry',
+    href: '/skywrite?qaState=populated',
+    keywords: 'journey title skywrite',
+  },
+  {
+    id: 'journey-player',
+    section: 'content',
+    label: 'Journey player',
+    description: 'Persistent Journey playback (not 24h SkyReel)',
+    href: '/skywrite/play?scope=journey&autoplay=0&qaState=populated',
+    keywords: 'journey play playback',
+  },
+  {
+    id: 'edit-journey',
+    section: 'content',
+    label: 'Edit Journey',
+    description: 'Reorder Journey Library playback order',
+    href: '/skywrite?journeyEditor=1&qaState=populated',
+    keywords: 'journey editor reorder sequence',
+  },
+  {
     id: 'library-recents',
     section: 'content',
     label: 'Recents (library)',
@@ -341,10 +365,10 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
   {
     id: 'skywrite-sequence-editor',
     section: 'content',
-    label: 'SkyReel sequence editing',
-    description: 'Focused sky — play sequence editor sheet',
-    href: '/skywrite?sequenceEditor=1',
-    keywords: 'sequence editor skyreel',
+    label: 'Edit Journey (legacy route)',
+    description: 'Opens Journey sequence editor (legacy sequenceEditor param)',
+    href: '/skywrite?sequenceEditor=1&qaState=populated',
+    keywords: 'sequence editor journey',
   },
 
   {

@@ -8,6 +8,9 @@ interface PlaySkyCueProps {
   onPress: () => void;
   onEditSequence?: () => void;
   showEditSequence?: boolean;
+  journeyTitle?: string;
+  onPressJourneyTitle?: () => void;
+  onEditJourneyTitle?: () => void;
   disabled?: boolean;
   disabledHint?: string;
 }
@@ -16,6 +19,9 @@ function PlaySkyCueComponent({
   onPress,
   onEditSequence,
   showEditSequence,
+  journeyTitle,
+  onPressJourneyTitle,
+  onEditJourneyTitle,
   disabled = false,
   disabledHint,
 }: PlaySkyCueProps) {
@@ -40,7 +46,30 @@ function PlaySkyCueComponent({
       {disabled && disabledHint ? (
         <Text style={styles.disabledHint}>{disabledHint}</Text>
       ) : null}
-      {showEditSequence && onEditSequence ? (
+      {journeyTitle && onPressJourneyTitle ? (
+        <Pressable
+          onPress={onPressJourneyTitle}
+          hitSlop={12}
+          style={styles.journeyTitleWrap}
+          accessibilityRole="button"
+          accessibilityLabel={`Play ${journeyTitle}`}>
+          <Text style={styles.journeyTitle}>{journeyTitle}</Text>
+          {onEditJourneyTitle ? (
+            <Pressable
+              onPress={(event) => {
+                event.stopPropagation?.();
+                onEditJourneyTitle();
+              }}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Edit Journey name"
+              style={styles.journeyEditIcon}>
+              <Text style={styles.journeyEditIconText}>✎</Text>
+            </Pressable>
+          ) : null}
+        </Pressable>
+      ) : null}
+      {!journeyTitle && showEditSequence && onEditSequence ? (
         <Pressable onPress={onEditSequence} hitSlop={8} style={styles.editLink}>
           <Text style={styles.editText}>{SkywritePlayCopy.editSequence}</Text>
         </Pressable>
@@ -89,6 +118,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: 'rgba(196, 168, 255, 0.85)',
+  },
+  journeyTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+  },
+  journeyTitle: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(196, 168, 255, 0.92)',
+    letterSpacing: 0.2,
+  },
+  journeyEditIcon: {
+    minWidth: 28,
+    minHeight: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  journeyEditIconText: {
+    fontSize: 12,
+    color: 'rgba(232, 200, 114, 0.75)',
   },
   pressed: { opacity: 0.9 },
   playPillDisabled: {

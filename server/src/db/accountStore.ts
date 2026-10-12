@@ -70,6 +70,14 @@ export interface AccountDatabase {
   skyreelViews?: import('../social/skyreelViews.js').StoredSkyreelView[];
   skyAreas?: import('../skyAreas/skyAreaRepository.js').StoredSkyArea[];
   userSkyAreas?: import('../skyAreas/skyAreaRepository.js').UserSkyAreaLink[];
+  personalJourneys?: Record<
+    string,
+    {
+      customTitle: string | null;
+      orderedSkywriteIds: string[];
+      updatedAt: number;
+    }
+  >;
 }
 
 const EMPTY_DB: AccountDatabase = {
@@ -97,6 +105,7 @@ function normalizeLoaded(parsed: AccountDatabase): AccountDatabase {
     recoveryTokens: parsed.recoveryTokens ?? [],
     skyAreas: parsed.skyAreas ?? [],
     userSkyAreas: parsed.userSkyAreas ?? [],
+    personalJourneys: parsed.personalJourneys ?? {},
   };
 }
 

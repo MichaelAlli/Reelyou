@@ -18,6 +18,8 @@ export const REGISTERED_HTTP_ROUTES: readonly string[] = [
   'GET /v1/profile/me',
   'PATCH /v1/profile/me',
   'PUT /v1/onboarding/me',
+  'GET|PATCH /v1/journey/me',
+  'GET /v1/journey/users/:userId',
   'GET /v1/sky-areas/catalog',
   'GET /v1/sky-areas/me',
   'PUT /v1/sky-areas/me',
