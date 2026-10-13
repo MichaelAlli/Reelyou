@@ -202,8 +202,8 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
     id: 'profile',
     section: 'main',
     label: 'Profile / Me',
-    description: 'Owner profile',
-    href: '/profile',
+    description: 'Owner profile (tab route — avoids alias redirect dropping qaPreview)',
+    href: '/(tabs)/profile',
   },
   {
     id: 'visitor-profile',

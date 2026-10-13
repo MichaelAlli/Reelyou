@@ -177,7 +177,7 @@ export const QA_PREVIEW_SCREEN_SPECS: QaPreviewScreenSpec[] = [
   },
   {
     targetId: 'profile',
-    appRouteFile: 'src/app/(post-welcome)/profile.tsx',
+    appRouteFile: 'src/app/(post-welcome)/(tabs)/profile.tsx',
     markerModule: 'src/screens/OwnerProfileScreen.tsx',
     screenMarker: 'OwnerProfileScreen',
   },

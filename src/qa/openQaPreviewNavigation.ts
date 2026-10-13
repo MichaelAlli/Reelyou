@@ -28,5 +28,10 @@ export function openQaPreviewNavigation(router: QaPreviewRouter, target: QaPrevi
     return;
   }
 
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.location.assign(href);
+    return;
+  }
+
   router.push(href as never);
 }

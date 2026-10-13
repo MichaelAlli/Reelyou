@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   buildMySkyPreviewHref,
@@ -38,5 +40,15 @@ assert.equal(
 const mySky = QA_PREVIEW_TARGETS.find((t) => t.id === 'my-sky');
 assert.ok(mySky);
 assert.notEqual(mySky!.href, '/sky', 'My Sky QA must not use bare /sky (stale session state)');
+
+const profile = QA_PREVIEW_TARGETS.find((t) => t.id === 'profile');
+assert.ok(profile);
+assert.match(profile!.href, /\(tabs\)\/profile/, 'Profile QA must target tab route directly');
+
+const profileAlias = readFileSync(
+  join(process.cwd(), 'src/app/(post-welcome)/profile.tsx'),
+  'utf8',
+);
+assert.match(profileAlias, /preserveQaPreviewRedirectHref/, 'profile alias must preserve qaPreview on redirect');
 
 console.log('[qaGalleryLandingRegression.test] ok');
