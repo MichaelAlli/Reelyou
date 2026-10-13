@@ -92,6 +92,11 @@ const entrepreneurBundle = buildJourneyPersonalizationBundle({
 });
 
 assert(actingBundle.explicitGoals.includes('Become a professional actor'), 'explicit goals preserved');
+assert(
+  actingBundle.journeyTextKeywordHints.some((h) => h.toLowerCase().includes('professional actor')),
+  'acting goal extracted from Skywrite text',
+);
+assert(actingBundle.journeyTentativeThemeTokens.includes('acting'), 'acting theme from text');
 assert(actingBundle.journeyPatternAreaIds.includes('creative'), 'acting area pattern from 3 posts');
 assert(actingBundle.journeyLibraryHashtagHints.includes('#acting'), 'journey hashtag hint');
 assert(

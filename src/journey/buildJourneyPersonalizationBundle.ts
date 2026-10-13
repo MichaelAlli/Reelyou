@@ -1,5 +1,6 @@
 import type { UserPersonalizationProfile } from '@/onboarding/personalization/types';
 
+import { extractJourneyTextSignalsFromProfileSkywrites } from '@/journey/extractJourneyTextSignals';
 import {
   countSkyAreaPatterns,
   filterJourneyLibraryForStarpathPersonalization,
@@ -25,6 +26,12 @@ export interface JourneyPersonalizationBundle {
   journeyLibraryPatternAreaIds: string[];
   /** Explicit hashtags from Journey Library posts — tentative hints only. */
   journeyLibraryHashtagHints: string[];
+  /** Phrases explicitly stated in permitted Skywrite body text. */
+  journeyExplicitTextStatements: string[];
+  /** Tentative theme tokens from repeated wording — not presented as facts in UI. */
+  journeyTentativeThemeTokens: string[];
+  /** Discovery keyword hints from explicit Skywrite phrasing. */
+  journeyTextKeywordHints: string[];
   renderableSkywriteIds: string[];
 }
 
@@ -58,6 +65,8 @@ export function buildJourneyPersonalizationBundle(input: {
     ...new Set(journeyLibrary.flatMap((post) => post.userHashtags ?? [])),
   ].slice(0, 12);
 
+  const textSignals = extractJourneyTextSignalsFromProfileSkywrites(input.profile.skywrites);
+
   return {
     northStarVision: input.profile.northStar.originalVision.trim(),
     explicitGoals: [...(input.profile.goals ?? [])],
@@ -68,6 +77,9 @@ export function buildJourneyPersonalizationBundle(input: {
     journeyLibrarySkywriteIds: journeyLibrary.map((post) => post.id),
     journeyLibraryPatternAreaIds,
     journeyLibraryHashtagHints,
+    journeyExplicitTextStatements: textSignals.explicitStatements,
+    journeyTentativeThemeTokens: textSignals.tentativeThemeTokens,
+    journeyTextKeywordHints: textSignals.keywordHints,
     renderableSkywriteIds: eligible.map((post) => post.id),
   };
 }

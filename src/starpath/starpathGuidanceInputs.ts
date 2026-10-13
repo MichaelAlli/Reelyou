@@ -108,6 +108,9 @@ export function buildGuidanceSafeInputs(
       ...new Set([
         ...(journey?.explicitGoals ?? []),
         ...(journey?.journeyLibraryHashtagHints ?? []),
+        ...(journey?.journeyTextKeywordHints ?? []),
+        ...(journey?.journeyExplicitTextStatements ?? []),
+        ...(journey?.journeyTentativeThemeTokens ?? []),
       ]),
     ],
     northStarSnippet: journey?.northStarVision?.trim() || null,
