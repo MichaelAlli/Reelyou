@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { mapAuthErrorToMessage } from '@/auth/authErrorMessages';
 import { resolvePostLoginRoute } from '@/auth/resolvePostLoginRoute';
+import { resolveServerOnboardingCompleteForRouting } from '@/auth/resolveServerOnboardingComplete';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { loadRememberMePreference } from '@/auth/reellyouAuthPersistence';
 import { useLogInForm } from '@/hooks/use-log-in-form';
@@ -13,7 +14,8 @@ import { isLogInFormValid } from '@/utils/logInValidation';
 export function useReelyouSignIn() {
   const router = useRouter();
   const auth = useReelyouAuth();
-  const { state: onboardingState, userSessionHydrated } = useOnboarding();
+  const { state: onboardingState, userSessionHydrated, persistedOnboardingComplete } =
+    useOnboarding();
   const qaPreview = useQaPreviewMode();
   const form = useLogInForm();
   const [authError, setAuthError] = useState<string | null>(null);
@@ -27,7 +29,11 @@ export function useReelyouSignIn() {
     if (auth.ready) {
       setRestoringSession(false);
       if (auth.isAuthenticated && userSessionHydrated && !qaPreview.active) {
-        const route = resolvePostLoginRoute(onboardingState, auth.user?.onboardingComplete ?? null, {
+        const serverComplete = resolveServerOnboardingCompleteForRouting(
+          auth.user?.onboardingComplete,
+          persistedOnboardingComplete,
+        );
+        const route = resolvePostLoginRoute(onboardingState, serverComplete, {
           userSessionHydrated,
           authReady: auth.ready,
           isAuthenticated: auth.isAuthenticated,
@@ -42,6 +48,7 @@ export function useReelyouSignIn() {
     auth.isAuthenticated,
     auth.ready,
     auth.user?.onboardingComplete,
+    persistedOnboardingComplete,
     onboardingState,
     router,
     userSessionHydrated,

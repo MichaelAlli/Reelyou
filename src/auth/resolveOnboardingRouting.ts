@@ -18,11 +18,10 @@ export function resolveOnboardingRoutingStatus(input: {
     return 'complete';
   }
 
-  if (input.localOnboardingComplete) return 'complete';
-
   if (input.serverOnboardingComplete === false) return 'incomplete';
 
-  return 'incomplete';
+  // Server completion unknown (fetch failed / not yet loaded) — never send to onboarding.
+  return 'loading';
 }
 
 export function routeForOnboardingRoutingStatus(status: OnboardingRoutingStatus): string | null {

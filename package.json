@@ -78,6 +78,7 @@
     "test:starpath-ranking": "npx tsx src/starpath/starpathRankingFeedback.test.ts",
     "test:welcome": "npx tsx src/screens/welcomeScreenRouting.test.ts && npx tsx src/screens/welcomeDesignLock.test.ts && npx tsx src/constants/welcomeForegroundLayout.test.ts && npx tsx src/constants/welcomeWebLayoutAcceptance.test.ts",
     "test:qa-gallery": "npx tsx src/qa/qaPreviewRoutes.test.ts && npx tsx src/qa/qaPreviewRouteRegistry.test.ts && npx tsx src/qa/openQaPreviewNavigation.test.ts && npx tsx src/qa/qaGalleryLandingRegression.test.ts && npx tsx src/qa/qaGalleryRouting.test.ts && npx tsx src/screens/ownerProfileQaPreview.test.ts",
+    "test:onboarding-routing": "npx tsx src/auth/resolveOnboardingRouting.test.ts && npx tsx src/auth/onboardingEntryRoute.test.ts && npx tsx src/auth/onboardingLoopRegression.test.ts",
     "test:welcome-visual": "node scripts/welcome-visual-regression.mjs",
     "server:install": "npm install --prefix server",
     "server:start": "npm run start --prefix server",

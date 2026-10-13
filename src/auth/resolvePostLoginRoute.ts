@@ -8,7 +8,8 @@ import {
 /** Returning users land in the app; new accounts continue onboarding. Returns null while loading. */
 export function resolvePostLoginRoute(
   onboarding: Pick<OnboardingState, 'isOnboardingComplete'>,
-  serverOnboardingComplete: boolean | null | undefined,
+  /** true | false from server; null = unknown (do not treat as incomplete). */
+  serverOnboardingComplete: boolean | null,
   options?: { userSessionHydrated?: boolean; authReady?: boolean; isAuthenticated?: boolean },
 ): string | null {
   const status = resolveOnboardingRoutingStatus({

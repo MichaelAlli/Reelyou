@@ -43,6 +43,17 @@ function run() {
   assert.equal(routeForOnboardingRoutingStatus('incomplete'), '/onboarding/profile');
   assert.equal(routeForOnboardingRoutingStatus('complete'), '/(tabs)/home');
 
+  assert.equal(
+    resolveOnboardingRoutingStatus({
+      authReady: true,
+      isAuthenticated: true,
+      userSessionHydrated: true,
+      serverOnboardingComplete: null,
+      localOnboardingComplete: false,
+    }),
+    'loading',
+  );
+
   console.log('resolveOnboardingRouting.test.ts ok');
 }
 

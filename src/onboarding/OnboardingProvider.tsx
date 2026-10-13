@@ -94,6 +94,7 @@ import {
 import { registerSignOutCleanup } from '@/auth/sessionLifecycle';
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { persistedOnboardingCompleteFromFetches } from '@/auth/resolveServerOnboardingComplete';
 import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import {
@@ -216,6 +217,8 @@ interface OnboardingContextValue {
   completeOnboarding: () => Promise<boolean>;
   /** Per-user onboarding + library hydration finished for the active account */
   userSessionHydrated: boolean;
+  /** Server onboarding completion after hydration; null = could not load (not incomplete). */
+  persistedOnboardingComplete: boolean | null;
   /** Active daily intention record (local-first, AI-ready) */
   todayFocus: TodayFocusRecord;
   /** Calm suggestions derived from onboarding profile — user can override */
@@ -335,10 +338,14 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [userSessionHydrated, setUserSessionHydrated] = useState(
     () => !isReelyouAuthConfigured(),
   );
+  const [persistedOnboardingComplete, setPersistedOnboardingComplete] = useState<boolean | null>(
+    null,
+  );
   const [sessionLoadInProgress, setSessionLoadInProgress] = useState(false);
   const onboardingSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetSignedOutSessionMemory = useCallback(() => {
+    setPersistedOnboardingComplete(null);
     setState(EMPTY_ONBOARDING_STATE);
     setTodayFocusState(reconcileTodayFocusForToday({ ...EMPTY_TODAY_FOCUS, dateKey: getLocalDateKey() }));
     setCommunitiesState(EMPTY_COMMUNITIES);
@@ -378,6 +385,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (isReelyouAuthConfigured() && activeUserId) {
       setSessionLoadInProgress(true);
       setUserSessionHydrated(false);
+      setPersistedOnboardingComplete(null);
     }
   }, [activeUserId]);
 
@@ -432,6 +440,16 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       }
       setState(merged);
 
+      const persistedComplete = isSharedSocialPersistenceEnabled()
+        ? persistedOnboardingCompleteFromFetches({
+            serverProfileComplete: serverProfile?.onboardingComplete,
+            remoteOnboardingComplete: remoteOnboarding?.complete,
+            serverProfileLoaded: serverProfile != null,
+            remoteOnboardingLoaded: remoteOnboarding != null,
+          })
+        : null;
+      setPersistedOnboardingComplete(persistedComplete);
+
       if (serverProfile && activeUserId === serverProfile.userId) {
         void patchSessionUser({
           fullName: serverProfile.fullName,
@@ -440,6 +458,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           avatarMediaKey: serverProfile.avatarMediaKey,
           onboardingComplete: serverProfile.onboardingComplete,
         });
+      } else if (
+        persistedComplete === true &&
+        remoteOnboarding?.complete === true &&
+        activeUserId
+      ) {
+        void patchSessionUser({ onboardingComplete: true });
       }
       setTodayFocusState(reconcileTodayFocusForToday(focusRecord));
       setCommunitiesState(communitiesRecord);
@@ -1347,10 +1371,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       clearPersonalizationData,
       completeOnboarding,
       userSessionHydrated,
+      persistedOnboardingComplete,
     }),
     [
       state,
       userSessionHydrated,
+      persistedOnboardingComplete,
       personalizationProfile,
       humanPotentialProfile,
       aiContext,
