@@ -41,13 +41,21 @@ import {
 } from '@/profile/visitorProfileRoute';
 import { legacyRippleEnabled } from '@/constants/betaFeatures';
 import { Fonts } from '@/constants/theme';
+import { useQaPreviewMode } from '@/qa/QaPreviewContext';
+
+/** Read-only owner Profile preview when gallery opens Me without a live session. */
+export const QA_OWNER_PROFILE_FIXTURE_ID = currentUser.id;
 
 export function OwnerProfileScreen() {
   const router = useRouter();
+  const qaPreview = useQaPreviewMode();
   const { user: authUser } = useReelyouAuth();
   const activeUserId = resolveActiveUserId(authUser);
   const ownerId =
-    activeUserId ?? (isExplicitDevDemoModeEnabled() ? currentUser.id : '');
+    activeUserId ??
+    (isExplicitDevDemoModeEnabled() ? currentUser.id : null) ??
+    (qaPreview.active ? QA_OWNER_PROFILE_FIXTURE_ID : null) ??
+    '';
   const { skywrites, mySkyView, profileSkyAreaShortcutIds, northStar } = useOnboarding();
   const { skyFollowGraph } = useReelyouConnect();
   const relationshipCounts = useMemo(
@@ -143,7 +151,15 @@ export function OwnerProfileScreen() {
   }, [ownerView.identity.id, ownerView.identity.name]);
 
   if (!ownerId) {
-    return <View style={styles.root} />;
+    return (
+      <View style={styles.root}>
+        <View style={styles.profileUnavailable}>
+          <Text style={styles.profileUnavailableText}>
+            Sign in to view your profile, or open Profile from the QA Gallery with preview mode.
+          </Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -265,5 +281,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#F5E6B8',
+  },
+  profileUnavailable: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  profileUnavailableText: {
+    fontFamily: Fonts.sans,
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(248, 249, 252, 0.72)',
+    textAlign: 'center',
   },
 });

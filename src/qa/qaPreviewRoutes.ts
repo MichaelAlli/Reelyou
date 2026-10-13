@@ -203,7 +203,7 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
     section: 'main',
     label: 'Profile / Me',
     description: 'Owner profile (tab route — avoids alias redirect dropping qaPreview)',
-    href: '/(tabs)/profile',
+    href: '/(tabs)/profile?qaState=populated',
   },
   {
     id: 'visitor-profile',
