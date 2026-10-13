@@ -16,6 +16,7 @@ import {
 } from './auth/authHandlers.js';
 import {
   handleGetProfile,
+  handleGetOnboarding,
   handlePatchProfile,
   handlePutOnboarding,
 } from './profile/profileHandlers.js';
@@ -326,6 +327,14 @@ const server = createServer(async (req, res) => {
     } catch {
       sendJson(res, 400, { ok: false, error: 'bad_request' }, origin);
     }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/onboarding/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const result = handleGetOnboarding(session.userId);
+    sendJson(res, result.ok ? 200 : 404, result, origin);
     return;
   }
 

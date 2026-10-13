@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { readScopedJson, writeScopedJson } from '@/storage/scopedAsyncStorage';
 
 export interface PersonalJourneySettings {
   customTitle: string | null;
@@ -32,15 +32,16 @@ function parse(raw: unknown): PersonalJourneySettings {
 }
 
 export async function loadLocalPersonalJourney(): Promise<PersonalJourneySettings> {
-  try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  return readScopedJson(STORAGE_KEY, (raw) => {
     if (!raw) return { ...EMPTY_PERSONAL_JOURNEY };
-    return parse(JSON.parse(raw));
-  } catch {
-    return { ...EMPTY_PERSONAL_JOURNEY };
-  }
+    try {
+      return parse(JSON.parse(raw));
+    } catch {
+      return { ...EMPTY_PERSONAL_JOURNEY };
+    }
+  });
 }
 
 export async function saveLocalPersonalJourney(settings: PersonalJourneySettings): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  await writeScopedJson(STORAGE_KEY, settings);
 }

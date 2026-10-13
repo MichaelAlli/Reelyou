@@ -17,6 +17,7 @@ export const REGISTERED_HTTP_ROUTES: readonly string[] = [
   'POST /v1/auth/account/deletion-cancel',
   'GET /v1/profile/me',
   'PATCH /v1/profile/me',
+  'GET /v1/onboarding/me',
   'PUT /v1/onboarding/me',
   'GET|PATCH /v1/journey/me',
   'GET /v1/journey/users/:userId',

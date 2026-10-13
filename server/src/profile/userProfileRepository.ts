@@ -31,6 +31,17 @@ export function getUserProfile(userId: string): UserProfileRecord | null {
   return rowToProfile(row);
 }
 
+export function getUserOnboardingSnapshot(
+  userId: string,
+): { complete: boolean; snapshot: Record<string, unknown> | null } | null {
+  const row = getUserRecord(userId);
+  if (!row) return null;
+  return {
+    complete: row.onboardingComplete === true,
+    snapshot: row.onboardingSnapshot ?? null,
+  };
+}
+
 export function updateUserProfile(
   userId: string,
   patch: {

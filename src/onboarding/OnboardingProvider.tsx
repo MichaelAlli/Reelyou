@@ -96,14 +96,20 @@ import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
-import { loadOnboardingState, saveOnboardingState } from '@/onboarding/onboardingPersistence';
+import {
+  loadOnboardingState,
+  mergeOnboardingStateWithServerSnapshot,
+  saveOnboardingState,
+} from '@/onboarding/onboardingPersistence';
 import { formatSkywriteServerSyncError } from '@/social/formatSkywriteServerSyncError';
 import { addToYourJourneyOnServer } from '@/social/sharedSkywriteApi';
 import {
   fetchServerProfile,
   mergeOnboardingWithServerProfile,
   patchServerProfile,
+  fetchOnboardingSnapshotFromServer,
   syncOnboardingCompleteToServer,
+  syncOnboardingSnapshotToServer,
 } from '@/profile/serverProfileApi';
 import { syncPublishedSkywriteToServer } from '@/social/publishSharedSkywrite';
 import {
@@ -402,6 +408,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         evolutionRecord,
         visibilityRecord,
         serverProfile,
+        remoteOnboarding,
       ] = await Promise.all([
         loadOnboardingState(),
         loadTodayFocus(),
@@ -412,10 +419,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         loadSkyEvolution(),
         loadSkyVisibilitySettings(),
         isSharedSocialPersistenceEnabled() ? fetchServerProfile() : Promise.resolve(null),
+        isSharedSocialPersistenceEnabled()
+          ? fetchOnboardingSnapshotFromServer()
+          : Promise.resolve(null),
       ]);
       if (!live) return;
-      const merged = mergeOnboardingWithServerProfile(onboardingRecord, serverProfile);
+      let merged = mergeOnboardingWithServerProfile(onboardingRecord, serverProfile);
+      if (remoteOnboarding?.snapshot) {
+        merged = mergeOnboardingStateWithServerSnapshot(merged, remoteOnboarding.snapshot);
+      }
       setState(merged);
+
       if (serverProfile && activeUserId === serverProfile.userId) {
         void patchSessionUser({
           fullName: serverProfile.fullName,
@@ -448,6 +462,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (onboardingSaveTimer.current) clearTimeout(onboardingSaveTimer.current);
     onboardingSaveTimer.current = setTimeout(() => {
       void saveOnboardingState(state);
+      if (isSharedSocialPersistenceEnabled()) {
+        void syncOnboardingSnapshotToServer(state.isOnboardingComplete, state);
+      }
     }, 250);
     return () => {
       if (onboardingSaveTimer.current) clearTimeout(onboardingSaveTimer.current);

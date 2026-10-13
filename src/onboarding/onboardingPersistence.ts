@@ -21,7 +21,7 @@ function isStepStatus(value: unknown): value is OnboardingStepStatus {
   return value === 'pending' || value === 'completed' || value === 'skipped';
 }
 
-function parseOnboardingState(raw: string | null): OnboardingState {
+export function parseOnboardingState(raw: string | null): OnboardingState {
   if (!raw) return { ...EMPTY_ONBOARDING_STATE };
   try {
     const parsed = JSON.parse(raw) as Partial<OnboardingState>;
@@ -59,4 +59,31 @@ export async function loadOnboardingState(): Promise<OnboardingState> {
 
 export async function saveOnboardingState(state: OnboardingState): Promise<boolean> {
   return writeScopedJson(STORAGE_KEY, state);
+}
+
+/** Restore goals and north star from server onboarding snapshot (cross-device). */
+export function mergeOnboardingStateWithServerSnapshot(
+  local: OnboardingState,
+  snapshot: Record<string, unknown> | null | undefined,
+): OnboardingState {
+  if (!snapshot || typeof snapshot !== 'object') return local;
+  let remote: OnboardingState;
+  try {
+    remote = parseOnboardingState(JSON.stringify(snapshot));
+  } catch {
+    return local;
+  }
+  return {
+    ...local,
+    interests: remote.interests.length > 0 ? remote.interests : local.interests,
+    goals: remote.goals.length > 0 ? remote.goals : local.goals,
+    challenges: remote.challenges.length > 0 ? remote.challenges : local.challenges,
+    northStar: remote.northStar.originalVision.trim()
+      ? remote.northStar
+      : local.northStar,
+    aiPersonalizationEnabled:
+      remote.aiPersonalizationEnabled ?? local.aiPersonalizationEnabled,
+    isOnboardingComplete: remote.isOnboardingComplete || local.isOnboardingComplete,
+    steps: { ...local.steps, ...remote.steps },
+  };
 }

@@ -43,6 +43,32 @@ export async function patchServerProfile(patch: {
   return { ok: true, profile: body.profile };
 }
 
+export async function fetchOnboardingSnapshotFromServer(): Promise<{
+  complete: boolean;
+  snapshot: Record<string, unknown> | null;
+} | null> {
+  if (!isReelyouAuthConfigured()) return null;
+  const res = await authenticatedReellyouFetch('/v1/onboarding/me', { method: 'GET' });
+  if (!res?.ok) return null;
+  const body = (await res.json()) as {
+    ok?: boolean;
+    complete?: boolean;
+    snapshot?: Record<string, unknown> | null;
+  };
+  if (body.ok !== true) return null;
+  return {
+    complete: body.complete === true,
+    snapshot: body.snapshot ?? null,
+  };
+}
+
+export async function syncOnboardingSnapshotToServer(
+  complete: boolean,
+  snapshot: OnboardingState,
+): Promise<{ ok: boolean; profile?: ServerUserProfile; error?: string }> {
+  return syncOnboardingCompleteToServer(complete, snapshot);
+}
+
 export async function syncOnboardingCompleteToServer(
   complete: boolean,
   snapshot?: OnboardingState,
