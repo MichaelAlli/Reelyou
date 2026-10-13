@@ -36,6 +36,16 @@ assert.equal(got.ok, true);
 assert.equal(got.complete, true);
 assert.deepEqual(got.snapshot?.goals, ['Acting']);
 
+const { loadAccountDatabase } = await import('../db/accountStore.js');
+const db = loadAccountDatabase();
+const row = db.users.find((u) => u.id === user.user.id);
+assert.ok(row);
+row!.onboardingComplete = false;
+row!.onboardingSnapshot = { isOnboardingComplete: true, goals: ['Legacy flag mismatch'] };
+const { handleGetOnboarding: getAgain } = await import('./profileHandlers.js');
+const healed = getAgain(user.user.id);
+assert.equal(healed.complete, true, 'GET /v1/onboarding/me honors snapshot.isOnboardingComplete');
+
 closeAccountDatabase();
 fs.unlinkSync(tmpDb);
 

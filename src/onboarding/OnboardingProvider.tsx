@@ -343,9 +343,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   );
   const [sessionLoadInProgress, setSessionLoadInProgress] = useState(false);
   const onboardingSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** When server already marked complete, do not debounce-sync incomplete back to Postgres. */
+  const serverOnboardingCompleteLocked = useRef(false);
 
   const resetSignedOutSessionMemory = useCallback(() => {
     setPersistedOnboardingComplete(null);
+    serverOnboardingCompleteLocked.current = false;
     setState(EMPTY_ONBOARDING_STATE);
     setTodayFocusState(reconcileTodayFocusForToday({ ...EMPTY_TODAY_FOCUS, dateKey: getLocalDateKey() }));
     setCommunitiesState(EMPTY_COMMUNITIES);
@@ -386,6 +389,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       setSessionLoadInProgress(true);
       setUserSessionHydrated(false);
       setPersistedOnboardingComplete(null);
+      serverOnboardingCompleteLocked.current = false;
     }
   }, [activeUserId]);
 
@@ -449,6 +453,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
           })
         : null;
       setPersistedOnboardingComplete(persistedComplete);
+      serverOnboardingCompleteLocked.current =
+        persistedComplete === true || merged.isOnboardingComplete === true;
 
       if (serverProfile && activeUserId === serverProfile.userId) {
         void patchSessionUser({
@@ -489,7 +495,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     onboardingSaveTimer.current = setTimeout(() => {
       void saveOnboardingState(state);
       if (isSharedSocialPersistenceEnabled()) {
-        void syncOnboardingSnapshotToServer(state.isOnboardingComplete, state);
+        const completeForServer =
+          serverOnboardingCompleteLocked.current || state.isOnboardingComplete === true;
+        void syncOnboardingSnapshotToServer(completeForServer, {
+          ...state,
+          isOnboardingComplete: completeForServer,
+        });
       }
     }, 250);
     return () => {

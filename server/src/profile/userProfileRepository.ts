@@ -1,5 +1,6 @@
 import { getUserRecord } from '../db/accountRepository.js';
 import { loadAccountDatabase, persistAccountDatabase, type StoredUser } from '../db/accountStore.js';
+import { onboardingCompleteFromRow } from './onboardingCompleteFromRow.js';
 
 export interface UserProfileRecord {
   userId: string;
@@ -20,7 +21,7 @@ function rowToProfile(row: StoredUser): UserProfileRecord {
     username: row.username ?? null,
     bio: row.bio ?? null,
     avatarMediaKey: row.avatarMediaKey ?? null,
-    onboardingComplete: row.onboardingComplete === true,
+    onboardingComplete: onboardingCompleteFromRow(row),
     updatedAt: row.profileUpdatedAt ?? row.createdAt,
   };
 }
@@ -37,7 +38,7 @@ export function getUserOnboardingSnapshot(
   const row = getUserRecord(userId);
   if (!row) return null;
   return {
-    complete: row.onboardingComplete === true,
+    complete: onboardingCompleteFromRow(row),
     snapshot: row.onboardingSnapshot ?? null,
   };
 }
