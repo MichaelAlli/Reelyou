@@ -30,6 +30,8 @@ export interface StoredUser {
   avatarMediaKey?: string | null;
   onboardingComplete?: boolean;
   onboardingSnapshot?: Record<string, unknown> | null;
+  /** Cross-device StarPath progress (saved resources, milestones, AI signal cache). */
+  starpathProgressSnapshot?: import('../starpath/starpathProgressTypes.js').StarpathProgressSnapshot | null;
   profileUpdatedAt?: number;
 }
 

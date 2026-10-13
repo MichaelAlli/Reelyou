@@ -21,6 +21,11 @@ import {
   handlePutOnboarding,
 } from './profile/profileHandlers.js';
 import {
+  handleGetJourneySignals,
+  handleGetStarpathProgress,
+  handlePutStarpathProgress,
+} from './starpath/starpathProgressHandlers.js';
+import {
   handleGetMyPersonalJourney,
   handleGetUserPersonalJourneyForViewer,
   handlePatchMyPersonalJourney,
@@ -349,6 +354,47 @@ const server = createServer(async (req, res) => {
       sendJson(res, result.ok ? 200 : 404, result, origin);
     } catch {
       sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/starpath/progress/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    const result = handleGetStarpathProgress(session.userId);
+    sendJson(res, result.ok ? 200 : 404, result, origin);
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/v1/starpath/progress/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const body = await readJson<{
+        resources?: {
+          savedResourceIds?: string[];
+          dismissedResourceIds?: string[];
+          snoozedResourceUntil?: Record<string, number>;
+        };
+        settledMilestoneIds?: string[];
+        emotional?: { supportState: string; userReportedLabel?: string | null } | null;
+      }>(req);
+      const result = handlePutStarpathProgress(session.userId, body ?? {});
+      sendJson(res, result.ok ? 200 : 404, result, origin);
+    } catch {
+      sendJson(res, 400, { error: 'bad_request' }, origin);
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/v1/starpath/journey-signals/me') {
+    const session = requireAuth(req, res, origin);
+    if (!session) return;
+    try {
+      const result = await handleGetJourneySignals(session.userId);
+      sendJson(res, result.ok ? 200 : 404, result, origin);
+    } catch {
+      sendJson(res, 500, { ok: false, error: 'server_error' }, origin);
     }
     return;
   }

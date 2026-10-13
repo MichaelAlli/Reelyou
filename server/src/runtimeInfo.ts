@@ -51,6 +51,8 @@ export const REGISTERED_HTTP_ROUTES: readonly string[] = [
   'POST /v1/moderation/reports',
   'POST /v1/starpath/explain',
   'POST /v1/starpath/resources/discover',
+  'GET|PUT /v1/starpath/progress/me',
+  'GET /v1/starpath/journey-signals/me',
 ];
 
 export function logStartupRouteTable(port: number): void {

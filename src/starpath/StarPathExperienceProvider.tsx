@@ -80,7 +80,19 @@ import { saveStarPathUiChrome } from '@/starpath/starpathUiChromePersistence';
 import type { StarPathNextStepType } from '@/starpath/starpathGuidanceTypes';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { registerStarpathActivityListener } from '@/journeyThreads/journeyThreadFutureHooks';
+import { applyServerJourneySignalsToBundle } from '@/journey/applyJourneyAiSignals';
 import { buildJourneyPersonalizationBundle } from '@/journey/buildJourneyPersonalizationBundle';
+import {
+  collectSettledMilestoneIds,
+  mergeDynamicWorldMilestonesFromCloud,
+  mergeResourceStateWithCloud,
+  resolveSupportStateFromCloud,
+} from '@/starpath/mergeStarpathCloudProgress';
+import {
+  fetchServerJourneyStarpathSignals,
+  fetchStarpathProgressFromServer,
+  syncStarpathProgressToServer,
+} from '@/starpath/serverStarpathProgressApi';
 import { useOnboarding } from '@/onboarding';
 import { useSkyAreaPreferences } from '@/skyAreas/SkyAreaPreferencesProvider';
 import { applyGuidePreferences } from '@/starpath/starpathGuidePreferenceFilter';
@@ -161,13 +173,20 @@ export function StarPathExperienceProvider({
   const { preferences: userPreferences, messages, skyFollowGraph } = useReelyouConnect();
   const { personalizationProfile } = useOnboarding();
   const { selectedIds: skyContextAreaIds } = useSkyAreaPreferences();
+  const [serverJourneySignals, setServerJourneySignals] = useState<
+    import('@/journey/applyJourneyAiSignals').ServerJourneyStarpathSignals | null
+  >(null);
+
   const journeyPersonalization = useMemo(
     () =>
-      buildJourneyPersonalizationBundle({
-        profile: personalizationProfile,
-        selectedSkyAreaIds: skyContextAreaIds,
-      }),
-    [personalizationProfile, skyContextAreaIds],
+      applyServerJourneySignalsToBundle(
+        buildJourneyPersonalizationBundle({
+          profile: personalizationProfile,
+          selectedSkyAreaIds: skyContextAreaIds,
+        }),
+        serverJourneySignals,
+      ),
+    [personalizationProfile, skyContextAreaIds, serverJourneySignals],
   );
   const userAvatar = useUserAvatar();
   const [ready, setReady] = useState(false);
@@ -218,12 +237,54 @@ export function StarPathExperienceProvider({
   const rankingFeedbackRef = useRef(rankingFeedback);
   rankingFeedbackRef.current = rankingFeedback;
   const [journeyActivityPulse, setJourneyActivityPulse] = useState(0);
+  const cloudProgressSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dynamicWorldRef = useRef(dynamicWorld);
+  dynamicWorldRef.current = dynamicWorld;
+  const supportStateRef = useRef(supportState);
+  supportStateRef.current = supportState;
+
+  const scheduleCloudProgressSync = useCallback(
+    (nextResources: StarPathResourceState) => {
+      if (!isReelyouAuthConfigured() || !viewerId) return;
+      if (cloudProgressSaveTimer.current) clearTimeout(cloudProgressSaveTimer.current);
+      cloudProgressSaveTimer.current = setTimeout(() => {
+        void syncStarpathProgressToServer({
+          resources: {
+            savedResourceIds: nextResources.savedResourceIds,
+            dismissedResourceIds: nextResources.dismissedResourceIds,
+            snoozedResourceUntil: nextResources.snoozedResourceUntil,
+          },
+          settledMilestoneIds: collectSettledMilestoneIds(dynamicWorldRef.current),
+          emotional: {
+            supportState: supportStateRef.current,
+            userReportedLabel: null,
+          },
+        });
+      }, 900);
+    },
+    [viewerId],
+  );
 
   useEffect(() => {
     return registerStarpathActivityListener(() => {
       setJourneyActivityPulse((value) => value + 1);
     });
   }, []);
+
+  useEffect(() => {
+    if (!isReelyouAuthConfigured() || !viewerId) {
+      setServerJourneySignals(null);
+      return;
+    }
+    let mounted = true;
+    void (async () => {
+      const { signals } = await fetchServerJourneyStarpathSignals();
+      if (mounted) setServerJourneySignals(signals);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [viewerId, journeyActivityPulse, personalizationProfile.skywrites?.length]);
 
   const resetStarpathSessionMemory = useCallback(() => {
     setInteractions({
@@ -258,17 +319,33 @@ export function StarPathExperienceProvider({
     let mounted = true;
     setReady(false);
     void (async () => {
-      const { bundle } = await hydrateStarPathAuthoritativeState();
-      const feedback = await loadRankingFeedback();
+      const [{ bundle }, feedback, cloud] = await Promise.all([
+        hydrateStarPathAuthoritativeState(),
+        loadRankingFeedback(),
+        isReelyouAuthConfigured() && viewerId
+          ? fetchStarpathProgressFromServer()
+          : Promise.resolve(null),
+      ]);
       if (!mounted) return;
       setRankingFeedback(feedback);
       setInteractions(bundle.interactions);
-      setDynamicWorld(bundle.dynamicWorld);
+      let nextDynamicWorld = bundle.dynamicWorld;
+      let nextResources = bundle.resources;
+      let nextSupport = bundle.emotional.supportState;
+      if (cloud) {
+        nextResources = mergeResourceStateWithCloud(nextResources, cloud.resources);
+        nextDynamicWorld = mergeDynamicWorldMilestonesFromCloud(
+          nextDynamicWorld,
+          cloud.settledMilestoneIds,
+        );
+        nextSupport = resolveSupportStateFromCloud(nextSupport, cloud.emotional);
+      }
+      setDynamicWorld(nextDynamicWorld);
       setGuidanceMeta(bundle.guidance);
       guidancePersistRef.current = bundle.guidance;
-      setResourceState(bundle.resources);
+      setResourceState(nextResources);
       setSignalState(bundle.signals);
-      setSupportState(bundle.emotional.supportState);
+      setSupportState(nextSupport);
       setUiChromeState(bundle.uiChrome);
       setSavedViewport(bundle.viewport);
       setReady(true);
@@ -365,9 +442,10 @@ export function StarPathExperienceProvider({
     if (resourceSaveTimer.current) clearTimeout(resourceSaveTimer.current);
     resourceSaveTimer.current = setTimeout(() => {
       void saveStarPathResourceState(next);
+      scheduleCloudProgressSync(next);
       scheduleManifestTouch();
     }, 320);
-  }, [scheduleManifestTouch]);
+  }, [scheduleCloudProgressSync, scheduleManifestTouch]);
 
   const scheduleSignalSave = useCallback((next: StarPathSignalState) => {
     if (signalSaveTimer.current) clearTimeout(signalSaveTimer.current);
@@ -529,11 +607,12 @@ export function StarPathExperienceProvider({
       if (dynamicSaveTimer.current) clearTimeout(dynamicSaveTimer.current);
       dynamicSaveTimer.current = setTimeout(() => {
         void saveStarPathDynamicWorld(result.world);
+        scheduleCloudProgressSync(resourceStateRef.current);
         scheduleManifestTouch();
       }, 320);
       return result.world;
     });
-  }, [ready, interactions.signals, siftingState, explorePulse, scheduleManifestTouch]);
+  }, [ready, interactions.signals, siftingState, explorePulse, scheduleCloudProgressSync, scheduleManifestTouch]);
 
   const guidancePack = useMemo(() => {
     const inputs = buildGuidanceSafeInputs(
