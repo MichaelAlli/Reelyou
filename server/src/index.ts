@@ -112,7 +112,7 @@ function corsHeaders(origin: string | undefined): Record<string, string> {
   const allowed = resolveCorsAllowOrigin(origin);
   return {
     'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 }

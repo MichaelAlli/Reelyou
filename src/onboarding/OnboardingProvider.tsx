@@ -427,6 +427,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       let merged = mergeOnboardingWithServerProfile(onboardingRecord, serverProfile);
       if (remoteOnboarding?.snapshot) {
         merged = mergeOnboardingStateWithServerSnapshot(merged, remoteOnboarding.snapshot);
+      } else if (remoteOnboarding?.complete === true) {
+        merged = { ...merged, isOnboardingComplete: true };
       }
       setState(merged);
 
@@ -818,10 +820,19 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         setState((current) => ({ ...current, isOnboardingComplete: false }));
         return false;
       }
+      if (synced.profile) {
+        await patchSessionUser({
+          fullName: synced.profile.fullName,
+          username: synced.profile.username,
+          bio: synced.profile.bio,
+          avatarMediaKey: synced.profile.avatarMediaKey,
+          onboardingComplete: synced.profile.onboardingComplete,
+        });
+      }
     }
     const saved = await saveOnboardingState(nextState);
     return saved;
-  }, [activeUserId]);
+  }, [activeUserId, patchSessionUser]);
 
   const setTodayFocus = useCallback(async (value: string, source: TodayFocusSource) => {
     const trimmed = value.trim();
