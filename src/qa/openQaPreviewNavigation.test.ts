@@ -11,4 +11,7 @@ assert.match(hub, /openQaPreviewNavigation/, 'gallery uses isolated splash navig
 const routes = readFileSync(join(process.cwd(), 'src/qa/qaPreviewRoutes.ts'), 'utf8');
 assert.match(routes, /href: '\/qa\/preview\/splash'/, 'splash catalog targets root preview route');
 
+const nav = readFileSync(join(process.cwd(), 'src/qa/openQaPreviewNavigation.ts'), 'utf8');
+assert.match(nav, /welcome/, 'welcome must use root-stack QA navigation');
+
 console.log('openQaPreviewNavigation.test.ts ok');

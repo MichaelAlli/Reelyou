@@ -4,6 +4,7 @@ import {
   QA_PREVIEW_SKYWRITE_PHOTO_ID,
   QA_PREVIEW_SKYWRITE_VIDEO_ID,
 } from '@/qa/qaPreviewFixtures';
+import { buildMySkyPreviewHref } from '@/qa/qaPreviewLandingParams';
 
 export type QaPreviewSectionId =
   | 'auth'
@@ -47,7 +48,10 @@ export function withQaPreviewHref(
   return `${path}${q ? `?${q}` : ''}${hash}`;
 }
 
-/** Major production screens for internal visual QA — paths only, no duplicate components. */
+/**
+ * Single QA Gallery catalog — hub, tests, and landing params derive from here only.
+ * Do not add parallel registries; extend qaPreviewScreenRegistry specs to match new ids.
+ */
 export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
   {
     id: 'splash',
@@ -161,15 +165,15 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
     id: 'my-sky',
     section: 'main',
     label: 'My Sky',
-    description: 'Sky tab',
-    href: '/sky',
+    description: 'Sky tab — Explore default (matches bottom nav)',
+    href: buildMySkyPreviewHref('explore'),
   },
   {
     id: 'my-sky-explore',
     section: 'main',
     label: 'My Sky — Explore (default tab)',
     description: 'Social-first Explore landing from bottom nav',
-    href: '/sky',
+    href: buildMySkyPreviewHref('explore'),
     keywords: 'explore followed skies',
   },
   {
@@ -177,7 +181,7 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
     section: 'main',
     label: 'My Sky — Personal',
     description: 'Owner personal sky (deep link)',
-    href: '/sky?personal=1',
+    href: buildMySkyPreviewHref('personal'),
     keywords: 'personal own sky',
   },
   {

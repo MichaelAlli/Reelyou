@@ -74,12 +74,14 @@ import { NavigationTipCallout } from '@/navigationTips/NavigationTipCallout';
 import { navigationTipMessage } from '@/navigationTips/navigationTipsCopy';
 import { useNavigationTip } from '@/navigationTips/useNavigationTip';
 import { useMySkyStarIntro } from '@/mySky/useMySkyStarIntro';
-import { isMySkyPersonalLandingParam, MY_SKY_PERSONAL_QUERY } from '@/mySky/mySkyTabLanding';
+import { resolveMySkyExploreLandingFromParams } from '@/mySky/mySkyTabLanding';
 import { useOnboarding } from '@/onboarding';
+import { useQaPreviewMode } from '@/qa/QaPreviewContext';
 
 export function MySkyScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const qaPreview = useQaPreviewMode();
   const { preferences, signals, signalsMeta, presentHomeSignal, listFollowingUserIds } =
     useReelyouConnect();
   const { activeSuggestion, membershipFor, joinedMemberships, resolveConstellation } =
@@ -409,11 +411,17 @@ export function MySkyScreen() {
   );
 
   useEffect(() => {
-    if (isMySkyPersonalLandingParam(params[MY_SKY_PERSONAL_QUERY])) {
+    const landing = resolveMySkyExploreLandingFromParams(params, {
+      qaPreviewActive: qaPreview.active,
+    });
+    if (landing === 'personal') {
       setMySkyExploreEnabled(false);
       return;
     }
-  }, [params, setMySkyExploreEnabled]);
+    if (landing === 'explore') {
+      setMySkyExploreEnabled(true);
+    }
+  }, [params, qaPreview.active, setMySkyExploreEnabled]);
 
   const effectiveExploreEnabled = useMemo(
     () => resolveEffectiveExploreEnabled(mySkyExploreEnabled, preferences.discoveryPreferences),
