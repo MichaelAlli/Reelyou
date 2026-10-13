@@ -165,6 +165,22 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
     href: '/sky',
   },
   {
+    id: 'my-sky-explore',
+    section: 'main',
+    label: 'My Sky — Explore (default tab)',
+    description: 'Social-first Explore landing from bottom nav',
+    href: '/sky',
+    keywords: 'explore followed skies',
+  },
+  {
+    id: 'my-sky-personal',
+    section: 'main',
+    label: 'My Sky — Personal',
+    description: 'Owner personal sky (deep link)',
+    href: '/sky?personal=1',
+    keywords: 'personal own sky',
+  },
+  {
     id: 'skywrite-hub',
     section: 'main',
     label: 'Skywrite hub',

@@ -269,7 +269,7 @@ export function FocusedSkywriteScreen() {
 
   const openMySky = useCallback(() => {
     setMySkyExploreEnabled(false);
-    router.push('/(tabs)/sky' as never);
+    router.push('/(tabs)/sky?personal=1' as never);
   }, [router, setMySkyExploreEnabled]);
 
   const handleArrivalComplete = useCallback(() => {

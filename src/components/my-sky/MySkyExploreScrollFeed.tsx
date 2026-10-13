@@ -22,6 +22,7 @@ import {
   isExploreDemoOwnerId,
 } from '@/explore/exploreDemoSkies';
 import type { NearbySkyAnchor } from '@/mySky/buildNearbySkies';
+import { sortOwnerIdsByRecentActivity } from '@/mySky/mySkyExploreSocialOrder';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useOnboarding } from '@/onboarding';
 import { resolveSkyConnectionActivities } from '@/mySky/skyConnectionSources';
@@ -55,7 +56,7 @@ function MySkyExploreScrollFeedComponent({
   const scrollRef = useRef<ScrollView>(null);
   const router = useRouter();
   const { userId: sessionOwnerId, displayName: sessionDisplayName } = useSessionUserId();
-  const { listFollowingUserIds } = useReelyouConnect();
+  const { listFollowingUserIds, messages } = useReelyouConnect();
   const { aroundYourSkyFeed, skywrites, communities, guidingLightView } = useOnboarding();
 
   const connectionActivities = useMemo(
@@ -74,9 +75,14 @@ function MySkyExploreScrollFeedComponent({
   const guidanceActive = Boolean(guidingLightView.light?.title?.trim());
 
   const sections = useMemo(() => {
-    const followingIds = sessionOwnerId
-      ? listFollowingUserIds().filter((id) => id !== sessionOwnerId)
-      : listFollowingUserIds();
+    const blocked = new Set(messages.blockedUserIds);
+    const followingIds = sortOwnerIdsByRecentActivity(
+      (sessionOwnerId
+        ? listFollowingUserIds().filter((id) => id !== sessionOwnerId)
+        : listFollowingUserIds()
+      ).filter((id) => !blocked.has(id)),
+      aroundYourSkyFeed,
+    );
     const connected = followingIds.map((id) => ({
       ownerId: id,
       kind: 'connected' as const,
@@ -101,7 +107,7 @@ function MySkyExploreScrollFeedComponent({
         kind: 'suggested' as const,
       }));
     return [...connected, ...demo, ...suggested];
-  }, [listFollowingUserIds, nearbyAnchors, sessionOwnerId]);
+  }, [aroundYourSkyFeed, listFollowingUserIds, messages.blockedUserIds, nearbyAnchors, sessionOwnerId]);
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     onScrollOffsetChange?.(event.nativeEvent.contentOffset.y);

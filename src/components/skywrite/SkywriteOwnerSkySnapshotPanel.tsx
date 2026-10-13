@@ -11,6 +11,7 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { useOnboarding } from '@/onboarding';
+import { mySkyPersonalTabHref } from '@/mySky/mySkyTabLanding';
 import { buildPublicSkyView, resolvePublicSkyConnectionStatus } from '@/mySky/buildPublicSkyView';
 import type { SkyConnectionStatus } from '@/mySky/skyIdentity';
 import { loadSkyHeaderStyleId } from '@/profile/skyHeaderStylePersistence';
@@ -111,7 +112,7 @@ function SkywriteOwnerSkySnapshotPanelComponent({
   const openFullSky = () => {
     if (sessionOwnerId && ownerId === sessionOwnerId) {
       setMySkyExploreEnabled(false);
-      router.push('/(tabs)/sky' as never);
+      router.push(mySkyPersonalTabHref() as never);
       return;
     }
     router.push(`/public-sky?id=${encodeURIComponent(ownerId)}` as never);

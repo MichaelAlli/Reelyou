@@ -10,6 +10,7 @@ import {
   OWNER_PROFILE_SECTION_GAP,
 } from '@/components/profile/owner/ownerProfileLayout';
 import { Fonts } from '@/constants/theme';
+import { mySkyPersonalTabHref } from '@/mySky/mySkyTabLanding';
 import type { MySkyView } from '@/mySky/types';
 
 interface OwnerProfileMySkyPreviewCardProps {
@@ -35,7 +36,7 @@ function OwnerProfileMySkyPreviewCardComponent({
           accessibilityRole="button"
           accessibilityLabel="View full My Sky"
           onPress={() =>
-            router.push((viewFullSkyHref ?? '/(tabs)/sky') as never)
+            router.push((viewFullSkyHref ?? mySkyPersonalTabHref()) as never)
           }>
           <Text style={styles.link}>View Full Sky →</Text>
         </Pressable>

@@ -13,6 +13,8 @@ import type { CommunitiesRecord } from '@/onboarding/personalization/communities
 import type { AroundYourSkyHomeFeed } from '@/social/aroundYourSky/types';
 import type { MySkyStarDisplay } from '@/mySky/types';
 
+import { compareSkySearchResultsForExplore } from '@/mySky/mySkyExploreSocialOrder';
+
 import type { SkyConnectionActivity } from './skyConnectionSources';
 import { stableSlotIndexForId } from './skyLayout';
 
@@ -126,22 +128,37 @@ export function buildNearbySkies(
   exploreEnabled: boolean,
   selfId: string,
   maxExplore: number = DEFAULT_MAX_EXPLORE,
+  followingUserIds: readonly string[] = [],
 ): NearbySkyAnchor[] {
-  const catalog = buildSkySearchResults('', feed, connectionActivities, communities).filter(
-    (entry) => entry.id !== selfId,
-  );
+  const followingSet = new Set(followingUserIds);
+  const catalog = buildSkySearchResults(
+    '',
+    feed,
+    connectionActivities,
+    communities,
+    exploreEnabled,
+    followingUserIds,
+  ).filter((entry) => entry.id !== selfId);
 
   const connectedResults = catalog
     .filter(
       (entry) =>
+        followingSet.has(entry.id) ||
         entry.connectionContext === 'connected' ||
         entry.connectionContext === 'mutual' ||
         entry.connectionContext === 'shared-community',
     )
+    .sort((a, b) => compareSkySearchResultsForExplore(a, b, feed, followingSet))
     .slice(0, MAX_CONNECTED);
 
   const exploreResults = exploreEnabled
-    ? catalog.filter((entry) => entry.connectionContext === 'discoverable').slice(0, maxExplore)
+    ? catalog
+        .filter(
+          (entry) =>
+            entry.connectionContext === 'discoverable' && !followingSet.has(entry.id),
+        )
+        .sort((a, b) => compareSkySearchResultsForExplore(a, b, feed, followingSet))
+        .slice(0, maxExplore)
     : [];
 
   const connectedAnchors = connectedResults

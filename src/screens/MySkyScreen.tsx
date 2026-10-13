@@ -1,6 +1,6 @@
 /** LOCKED MY SKY EXPERIENCE — preserve approved visuals/interactions unless explicitly authorized. */
 /** LOCKED NAV 01 MY SKY INTEGRATION — preserve pan/zoom, immersive exploration, direct taps, and current visuals. */
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -74,11 +74,14 @@ import { NavigationTipCallout } from '@/navigationTips/NavigationTipCallout';
 import { navigationTipMessage } from '@/navigationTips/navigationTipsCopy';
 import { useNavigationTip } from '@/navigationTips/useNavigationTip';
 import { useMySkyStarIntro } from '@/mySky/useMySkyStarIntro';
+import { isMySkyPersonalLandingParam, MY_SKY_PERSONAL_QUERY } from '@/mySky/mySkyTabLanding';
 import { useOnboarding } from '@/onboarding';
 
 export function MySkyScreen() {
   const router = useRouter();
-  const { preferences, signals, signalsMeta, presentHomeSignal } = useReelyouConnect();
+  const params = useLocalSearchParams();
+  const { preferences, signals, signalsMeta, presentHomeSignal, listFollowingUserIds } =
+    useReelyouConnect();
   const { activeSuggestion, membershipFor, joinedMemberships, resolveConstellation } =
     useEmergingConstellations();
   const {
@@ -400,6 +403,18 @@ export function MySkyScreen() {
     [aroundYourSkyFeed],
   );
 
+  const followingUserIds = useMemo(
+    () => listFollowingUserIds().filter((id) => id !== mySkyView.skyOwner.id),
+    [listFollowingUserIds, mySkyView.skyOwner.id],
+  );
+
+  useEffect(() => {
+    if (isMySkyPersonalLandingParam(params[MY_SKY_PERSONAL_QUERY])) {
+      setMySkyExploreEnabled(false);
+      return;
+    }
+  }, [params, setMySkyExploreEnabled]);
+
   const effectiveExploreEnabled = useMemo(
     () => resolveEffectiveExploreEnabled(mySkyExploreEnabled, preferences.discoveryPreferences),
     [mySkyExploreEnabled, preferences.discoveryPreferences],
@@ -419,6 +434,7 @@ export function MySkyScreen() {
         effectiveExploreEnabled,
         displayMySkyView.skyOwner.id,
         exploreCap,
+        followingUserIds,
       ),
     [
       aroundYourSkyFeed,
@@ -426,6 +442,7 @@ export function MySkyScreen() {
       connectionActivities,
       effectiveExploreEnabled,
       exploreCap,
+      followingUserIds,
       mySkyView.skyOwner.id,
     ],
   );
@@ -438,8 +455,9 @@ export function MySkyScreen() {
         connectionActivities,
         communities,
         effectiveExploreEnabled,
+        followingUserIds,
       ),
-    [aroundYourSkyFeed, communities, connectionActivities, effectiveExploreEnabled],
+    [aroundYourSkyFeed, communities, connectionActivities, effectiveExploreEnabled, followingUserIds],
   );
 
   const displayAnchors = useMemo(() => {

@@ -19,6 +19,7 @@ import { SkyArrivalCopy } from '@/constants/skyArrivalCopy';
 import { HomePalette } from '@/constants/homeLayout';
 import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
 import { applyArrivalHighlight } from '@/mySky/mySkyState';
+import { mySkyPersonalTabHref } from '@/mySky/mySkyTabLanding';
 import { useOnboarding } from '@/onboarding';
 
 const TOAST_SHOW_DELAY_MS = 500;
@@ -56,7 +57,7 @@ export function MySkyArrivalScreen() {
   useEffect(() => {
     if (skyArrivalHandoff?.justAddedToSky) return;
     if (landedStarIdRef.current) return;
-    router.replace('/(tabs)/sky' as never);
+    router.replace(mySkyPersonalTabHref() as never);
   }, [router, skyArrivalHandoff]);
 
   useEffect(() => {

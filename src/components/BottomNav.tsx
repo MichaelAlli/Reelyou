@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkywriteTabIcon } from '@/components/nav/SkywriteTabIcon';
 import { Fonts, Spacing, TabBarHeight } from '@/constants/theme';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
+import { useOnboarding } from '@/onboarding';
 import { useThemedStyles } from '@/theme/useTheme';
 
 type TabIconRenderer = (props: { size: number; active: boolean }) => ReactNode;
@@ -37,6 +38,7 @@ export function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const { setMySkyExploreEnabled } = useOnboarding();
   const styles = useThemedStyles((tokens) =>
     StyleSheet.create({
       container: {
@@ -170,6 +172,9 @@ export function BottomNav() {
                   return;
                 }
                 if (active) return;
+                if (tab.name === 'sky') {
+                  setMySkyExploreEnabled(true);
+                }
                 router.push(tab.href as never);
               }}>
               <View importantForAccessibility="no-hide-descendants">

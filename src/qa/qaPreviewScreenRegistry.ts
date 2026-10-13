@@ -152,6 +152,18 @@ export const QA_PREVIEW_SCREEN_SPECS: QaPreviewScreenSpec[] = [
     screenMarker: 'MySkyScreen',
   },
   {
+    targetId: 'my-sky-explore',
+    appRouteFile: 'src/app/(post-welcome)/(tabs)/sky.tsx',
+    markerModule: 'src/screens/MySkyScreen.tsx',
+    screenMarker: 'MySkyScreen',
+  },
+  {
+    targetId: 'my-sky-personal',
+    appRouteFile: 'src/app/(post-welcome)/(tabs)/sky.tsx',
+    markerModule: 'src/screens/MySkyScreen.tsx',
+    screenMarker: 'MySkyScreen',
+  },
+  {
     targetId: 'skywrite-hub',
     appRouteFile: 'src/app/(post-welcome)/skywrite.tsx',
     markerModule: 'src/screens/FocusedSkywriteScreen.tsx',

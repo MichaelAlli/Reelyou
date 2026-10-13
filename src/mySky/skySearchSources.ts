@@ -2,6 +2,8 @@ import { orbitUsers } from '@/data/mockData';
 import type { CommunitiesRecord } from '@/onboarding/personalization/communities/types';
 import type { AroundYourSkyHomeFeed } from '@/social/aroundYourSky/types';
 
+import { compareSkySearchResultsForExplore } from '@/mySky/mySkyExploreSocialOrder';
+
 import { isPublicSkyAvailable, isPublicSkyDiscoverable } from './buildPublicSkyView';
 import { resolvePublicSkyOwnerProfile } from './skyIdentity';
 import type { SkyConnectionActivity } from './skyConnectionSources';
@@ -141,7 +143,9 @@ export function buildSkySearchResults(
   connectionActivities: SkyConnectionActivity[],
   communities: CommunitiesRecord,
   exploreEnabled = true,
+  followingUserIds: readonly string[] = [],
 ): SkySearchResult[] {
+  const followingSet = new Set(followingUserIds);
   const catalog = new Map<string, SkySearchResult>();
 
   for (const user of orbitUsers) {
@@ -233,14 +237,6 @@ export function buildSkySearchResults(
     : filtered.filter((entry) => entry.connectionContext !== 'discoverable');
 
   return scoped
-    .sort((a, b) => {
-      const rank = (context: SkySearchConnectionContext) => {
-        if (context === 'connected') return 0;
-        if (context === 'mutual') return 1;
-        if (context === 'shared-community') return 2;
-        return 3;
-      };
-      return rank(a.connectionContext) - rank(b.connectionContext);
-    })
+    .sort((a, b) => compareSkySearchResultsForExplore(a, b, feed, followingSet))
     .slice(0, 24);
 }

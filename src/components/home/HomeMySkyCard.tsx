@@ -6,6 +6,7 @@ import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 import { HomeGlassCard } from '@/components/home/HomeGlassCard';
 import { HomeMySkyGraphic } from '@/components/home/graphics/HomeMySkyGraphic';
 import { HomeCopy } from '@/constants/homeCopy';
+import { mySkyPersonalTabHref } from '@/mySky/mySkyTabLanding';
 import { HomeLayout, HomePalette } from '@/constants/homeLayout';
 import { Fonts } from '@/constants/theme';
 import { useThemedStyles } from '@/theme/useTheme';
@@ -103,7 +104,7 @@ function HomeMySkyCardComponent({ animatedStyle }: HomeMySkyCardProps) {
             style={styles.ctaPress}
             accessibilityRole="button"
             accessibilityLabel="View My Sky"
-            onPress={() => router.push('/(tabs)/sky' as never)}>
+            onPress={() => router.push(mySkyPersonalTabHref() as never)}>
             <Text style={styles.cta}>{HomeCopy.mySkyCta}</Text>
           </Pressable>
         </View>
