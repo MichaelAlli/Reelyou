@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { EMPTY_ONBOARDING_STATE } from '@/onboarding/onboardingState';
 import { resolvePostLoginRoute } from '@/auth/resolvePostLoginRoute';
 import {
   persistedOnboardingCompleteFromFetches,
@@ -52,11 +53,32 @@ assert.equal(
 // TEST F: genuinely incomplete
 assert.equal(
   resolvePostLoginRoute(
-    { isOnboardingComplete: false },
+    { ...EMPTY_ONBOARDING_STATE, isOnboardingComplete: false },
     false,
     { authReady: true, isAuthenticated: true, userSessionHydrated: true },
   ),
   '/onboarding/profile',
+);
+
+// All steps done but Process never persisted isOnboardingComplete
+assert.equal(
+  resolvePostLoginRoute(
+    {
+      ...EMPTY_ONBOARDING_STATE,
+      isOnboardingComplete: false,
+      steps: {
+        profile: 'completed',
+        goals: 'completed',
+        challenges: 'completed',
+        screen4: 'completed',
+        whereYouLive: 'completed',
+        findFamiliarSkies: 'completed',
+      },
+    },
+    false,
+    { authReady: true, isAuthenticated: true, userSessionHydrated: true },
+  ),
+  '/(tabs)/home',
 );
 
 // Hydration: both fetches failed → unknown

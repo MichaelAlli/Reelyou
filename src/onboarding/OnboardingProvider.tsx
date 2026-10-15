@@ -95,6 +95,7 @@ import { registerSignOutCleanup } from '@/auth/sessionLifecycle';
 import { resolveActiveUserId } from '@/auth/resolveActiveUserId';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
 import { persistedOnboardingCompleteFromFetches } from '@/auth/resolveServerOnboardingComplete';
+import { isOnboardingFlowFinished } from '@/onboarding/isOnboardingFlowFinished';
 import { isQaPreviewQueryActive } from '@/config/qaPreviewFlags';
 import { isReelyouAuthConfigured } from '@/auth/reellyouAuthConfig';
 import {
@@ -440,6 +441,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
       if (remoteOnboarding?.snapshot) {
         merged = mergeOnboardingStateWithServerSnapshot(merged, remoteOnboarding.snapshot);
       } else if (remoteOnboarding?.complete === true) {
+        merged = { ...merged, isOnboardingComplete: true };
+      }
+      if (isOnboardingFlowFinished(merged) && !merged.isOnboardingComplete) {
         merged = { ...merged, isOnboardingComplete: true };
       }
       setState(merged);

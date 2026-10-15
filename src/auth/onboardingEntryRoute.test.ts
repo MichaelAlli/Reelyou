@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { LEGACY_ONBOARDING_INTRO_MARKERS } from '@/auth/legacyOnboardingIntroCopy';
 import { resolvePostLoginRoute } from '@/auth/resolvePostLoginRoute';
+import { EMPTY_ONBOARDING_STATE } from '@/onboarding/onboardingState';
 import {
   APPROVED_ONBOARDING_ENTRY_ROUTE,
   routeForOnboardingRoutingStatus,
@@ -21,7 +22,7 @@ assert.equal(routeForOnboardingRoutingStatus('complete'), '/(tabs)/home');
 
 assert.equal(
   resolvePostLoginRoute(
-    { isOnboardingComplete: true },
+    { ...EMPTY_ONBOARDING_STATE, isOnboardingComplete: true },
     false,
     { authReady: true, isAuthenticated: true, userSessionHydrated: true },
   ),
@@ -30,7 +31,7 @@ assert.equal(
 
 assert.equal(
   resolvePostLoginRoute(
-    { isOnboardingComplete: false },
+    { ...EMPTY_ONBOARDING_STATE, isOnboardingComplete: false },
     false,
     { authReady: true, isAuthenticated: true, userSessionHydrated: true },
   ),
@@ -39,7 +40,7 @@ assert.equal(
 
 assert.equal(
   resolvePostLoginRoute(
-    { isOnboardingComplete: false },
+    { ...EMPTY_ONBOARDING_STATE, isOnboardingComplete: false },
     true,
     { authReady: true, isAuthenticated: true, userSessionHydrated: true },
   ),

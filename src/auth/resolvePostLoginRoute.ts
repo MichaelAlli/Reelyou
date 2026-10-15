@@ -1,4 +1,5 @@
 import type { OnboardingState } from '@/onboarding/onboardingState';
+import { isOnboardingFlowFinished } from '@/onboarding/isOnboardingFlowFinished';
 
 import {
   resolveOnboardingRoutingStatus,
@@ -7,7 +8,7 @@ import {
 
 /** Returning users land in the app; new accounts continue onboarding. Returns null while loading. */
 export function resolvePostLoginRoute(
-  onboarding: Pick<OnboardingState, 'isOnboardingComplete'>,
+  onboarding: Pick<OnboardingState, 'isOnboardingComplete' | 'steps'>,
   /** true | false from server; null = unknown (do not treat as incomplete). */
   serverOnboardingComplete: boolean | null,
   options?: { userSessionHydrated?: boolean; authReady?: boolean; isAuthenticated?: boolean },
@@ -17,7 +18,7 @@ export function resolvePostLoginRoute(
     isAuthenticated: options?.isAuthenticated ?? true,
     userSessionHydrated: options?.userSessionHydrated ?? true,
     serverOnboardingComplete,
-    localOnboardingComplete: onboarding.isOnboardingComplete === true,
+    localOnboardingComplete: isOnboardingFlowFinished(onboarding),
   });
   return routeForOnboardingRoutingStatus(status);
 }

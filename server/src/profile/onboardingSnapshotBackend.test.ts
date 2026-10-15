@@ -46,6 +46,21 @@ const { handleGetOnboarding: getAgain } = await import('./profileHandlers.js');
 const healed = getAgain(user.user.id);
 assert.equal(healed.complete, true, 'GET /v1/onboarding/me honors snapshot.isOnboardingComplete');
 
+row!.onboardingComplete = false;
+row!.onboardingSnapshot = {
+  isOnboardingComplete: false,
+  steps: {
+    profile: 'completed',
+    goals: 'completed',
+    challenges: 'completed',
+    screen4: 'completed',
+    whereYouLive: 'completed',
+    findFamiliarSkies: 'completed',
+  },
+};
+const stepsDone = getAgain(user.user.id);
+assert.equal(stepsDone.complete, true, 'GET honors all steps finished when Process PUT never set flag');
+
 closeAccountDatabase();
 fs.unlinkSync(tmpDb);
 
