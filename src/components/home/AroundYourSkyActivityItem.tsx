@@ -20,7 +20,7 @@ function AroundYourSkyActivityItemComponent({ item }: AroundYourSkyActivityItemP
   const tappable = Boolean(item.destination);
   const messageEligible = Boolean(item.actorId && canMessageUser(item.actorId));
 
-  const styles = useThemedStyles((tokens) =>
+  const styles = useThemedStyles((_tokens) =>
     StyleSheet.create({
       row: {
         flexDirection: 'row',
@@ -61,12 +61,12 @@ function AroundYourSkyActivityItemComponent({ item }: AroundYourSkyActivityItemP
         fontFamily: Fonts.sans,
         fontSize: 12,
         lineHeight: 16,
-        color: tokens.secondaryText,
+        color: 'rgba(235, 228, 248, 0.78)',
       },
       time: {
         fontFamily: Fonts.sans,
         fontSize: 11,
-        color: tokens.mutedText,
+        color: 'rgba(235, 228, 248, 0.62)',
         marginTop: 1,
       },
       messageLink: {

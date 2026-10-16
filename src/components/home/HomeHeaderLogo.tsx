@@ -1,8 +1,9 @@
 import { memo, useMemo } from 'react';
-import { Image, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 
 import { BrandingAssets } from '@/constants/branding';
 import { HomeLayout, measureHomeContentWidth } from '@/constants/homeLayout';
+import { useHomeLayoutWidth } from '@/hooks/useHomeLayoutWidth';
 
 /** Native aspect of reelyou-welcome-logo-white-tagline-cropped.png (1116 × 594 RGBA PNG). */
 const TRANSPARENT_WORDMARK_ASPECT = 594 / 1116;
@@ -19,7 +20,7 @@ function measureLogoSize(boxWidth: number, boxHeight: number): { width: number; 
 }
 
 function HomeHeaderLogoComponent() {
-  const { width: screenWidth } = useWindowDimensions();
+  const screenWidth = useHomeLayoutWidth();
 
   const { boxWidth, boxHeight, logoWidth, logoHeight } = useMemo(() => {
     const slot = HomeLayout.iconCircleSm;

@@ -49,7 +49,7 @@ export function measureHomeAvatarSize(screenWidth: number): number {
     return Math.min(108, Math.max(88, base));
   }
   if (screenWidth <= 390) {
-    return Math.min(112, Math.max(96, base));
+    return Math.min(104, Math.max(92, base));
   }
   return Math.min(120, Math.max(105, base));
 }

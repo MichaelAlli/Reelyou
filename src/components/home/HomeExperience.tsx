@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { AccessibilityInfo, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -28,6 +28,7 @@ import { ReelyouEasing } from '@/constants/animation';
 import { HomeCopy } from '@/constants/homeCopy';
 import { TabBarHeight } from '@/constants/theme';
 import { HomeLayout, HomeMotion, measureHomePadH } from '@/constants/homeLayout';
+import { useHomeLayoutWidth } from '@/hooks/useHomeLayoutWidth';
 import { consumeHomeArrivalPending } from '@/home';
 import { NavigationTipCallout } from '@/navigationTips/NavigationTipCallout';
 import { navigationTipMessage } from '@/navigationTips/navigationTipsCopy';
@@ -62,7 +63,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
     showTodayFocusQuickPreview(focusPreview, openTodayFocus, openTodayFocusEdit);
   }, [focusPreview, openTodayFocus, openTodayFocusEdit]);
 
-  const { width: screenWidth } = useWindowDimensions();
+  const screenWidth = useHomeLayoutWidth();
   const insets = useSafeAreaInsets();
   const padH = measureHomePadH(screenWidth);
   const tabContentInset = TabBarHeight + Math.max(insets.bottom, 8);
@@ -215,7 +216,7 @@ function HomeExperienceComponent({ calmEntry = false }: HomeExperienceProps) {
             style={styles.scrollView}
             contentContainerStyle={[
               styles.scroll,
-              { paddingHorizontal: padH, paddingBottom: scrollBottomInset },
+              { paddingHorizontal: padH, paddingBottom: scrollBottomInset, maxWidth: '100%' },
             ]}
             showsVerticalScrollIndicator={false}
             bounces
@@ -277,9 +278,11 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     width: '100%',
+    ...(Platform.OS === 'web' ? ({ overflowX: 'hidden' } as const) : null),
   },
   scroll: {
     width: '100%',
+    alignSelf: 'center',
     paddingTop: 0,
     gap: HomeLayout.sectionGap,
   },

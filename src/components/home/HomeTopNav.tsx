@@ -29,7 +29,7 @@ function HomeTopNavComponent({
         style={[
           styles.sideSlot,
           styles.sideSlotLeft,
-          showTodayFocusQuickAccess ? { width: slot * 2 + 6 } : null,
+          showTodayFocusQuickAccess ? { width: slot * 2 + 6, flexShrink: 0 } : null,
         ]}
       >
         <Pressable
@@ -124,8 +124,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(6, 8, 22, 0.92)',
   },
   iconBtn: {
-    minWidth: 44,
-    minHeight: 44,
     width: slot,
     height: slot,
     borderRadius: slot / 2,

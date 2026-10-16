@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 
 import { HomeSparkleIcon } from '@/components/home/HomeIcons';
@@ -9,6 +9,7 @@ import { getFirstName, getTimeGreeting } from '@/constants/homeCopy';
 import { reelyouDisplayNameTypography } from '@/constants/displayNameTypography';
 import { Fonts } from '@/constants/theme';
 import { useReelyouAuth } from '@/auth/ReelyouAuthProvider';
+import { useHomeLayoutWidth } from '@/hooks/useHomeLayoutWidth';
 import { useUserAvatar } from '@/identity/UserAvatarProvider';
 
 interface HomeArrivalHeaderProps {
@@ -26,7 +27,7 @@ function HomeArrivalHeaderComponent({
   supportLine,
   onAvatarPress,
 }: HomeArrivalHeaderProps) {
-  const { width } = useWindowDimensions();
+  const width = useHomeLayoutWidth();
   const { user: authUser } = useReelyouAuth();
   const { profilePhotoDisplayUri, profilePhotoRevision } = useUserAvatar();
   const avatarSize = measureHomeAvatarSize(width);
@@ -40,7 +41,9 @@ function HomeArrivalHeaderComponent({
         <Animated.View style={greetingStyle}>
           <Text style={styles.greetingLine}>{getTimeGreeting()}</Text>
           <View style={styles.nameRow}>
-            <Text style={styles.nameLine}>{firstName}</Text>
+            <Text style={styles.nameLine} numberOfLines={1} ellipsizeMode="tail">
+              {firstName}
+            </Text>
             <View style={styles.sparkleGroup} importantForAccessibility="no-hide-descendants">
               <View style={styles.sparklePrimary}>
                 <HomeSparkleIcon size={12} color={HomePalette.goldBright} />
@@ -101,6 +104,7 @@ const styles = StyleSheet.create({
   },
   copy: {
     flex: 1,
+    minWidth: 0,
     gap: 9,
     paddingRight: 6,
     zIndex: 2,
@@ -116,11 +120,13 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
     marginTop: 1,
+    minWidth: 0,
   },
   nameLine: {
     ...reelyouDisplayNameTypography,
+    flexShrink: 1,
     fontSize: 33,
     color: '#F0DCA8',
     lineHeight: 38,
