@@ -400,6 +400,14 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
     keywords: 'living sky preview thumbnail my sky',
   },
   {
+    id: 'living-sky-two',
+    section: 'content',
+    label: 'Living Sky — two moments',
+    description: 'Synthetic snapshot with two eligible Skywrites',
+    href: '/qa/living-sky?fixture=two',
+    keywords: 'living sky two highlights',
+  },
+  {
     id: 'living-sky-one',
     section: 'content',
     label: 'Living Sky — one moment',

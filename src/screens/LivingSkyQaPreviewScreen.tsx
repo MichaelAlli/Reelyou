@@ -64,8 +64,8 @@ export function LivingSkyQaPreviewScreen() {
         </Text>
         <Text style={styles.note}>
           {visitor
-            ? 'Visitor view. Private and Sky Friends moments stay hidden.'
-            : 'Synthetic preview. Featured moments on this screen are not saved to an account.'}
+            ? 'Visitor view. Private and Sky Friends moments stay hidden. The visitor cannot change highlights.'
+            : 'Synthetic preview. Sky Highlights on this screen are not saved to an account.'}
         </Text>
         <SkywriteOwnerSkySnapshotPanel
           ownerId={LIVING_SKY_QA_OWNER_ID}
@@ -79,6 +79,10 @@ export function LivingSkyQaPreviewScreen() {
         />
         {fixture === 'manual' ? (
           <View style={styles.controls}>
+            <Text style={styles.note}>
+              {MySkywritesCopy.skyHighlightsTitle}. {MySkywritesCopy.skyHighlightsSupport}{' '}
+              {MySkywritesCopy.highlightsSelectedCount(manualIds?.length ?? 0)}
+            </Text>
             {posts.map((post) => {
               const featured = manualIds?.includes(post.id) ?? false;
               return (

@@ -4,7 +4,7 @@ import type { SkywriteRecord } from '@/skywrite/types';
 /** Existing synthetic Explore demo owner. Read-only. Never written to an account. */
 export const LIVING_SKY_QA_OWNER_ID = 'demo-sky-avery';
 
-export type LivingSkyQaFixture = 'three' | 'one' | 'none' | 'visitor' | 'manual';
+export type LivingSkyQaFixture = 'three' | 'two' | 'one' | 'none' | 'visitor' | 'manual';
 
 function demoPosts(): SkywriteRecord[] {
   return EXPLORE_DEMO_SKYWRITES[LIVING_SKY_QA_OWNER_ID].map((post) => ({ ...post, media: { ...post.media } }));
@@ -12,7 +12,14 @@ function demoPosts(): SkywriteRecord[] {
 
 export function parseLivingSkyQaFixture(value: string | string[] | undefined): LivingSkyQaFixture {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (raw === 'one' || raw === 'none' || raw === 'visitor' || raw === 'manual' || raw === 'three') {
+  if (
+    raw === 'one' ||
+    raw === 'two' ||
+    raw === 'none' ||
+    raw === 'visitor' ||
+    raw === 'manual' ||
+    raw === 'three'
+  ) {
     return raw;
   }
   return 'three';
@@ -28,6 +35,7 @@ export function livingSkyQaPosts(fixture: LivingSkyQaFixture): SkywriteRecord[] 
 
   if (fixture === 'none') return [];
   if (fixture === 'one') return [photo];
+  if (fixture === 'two') return [photo, text];
   if (fixture === 'visitor') {
     return [
       text,

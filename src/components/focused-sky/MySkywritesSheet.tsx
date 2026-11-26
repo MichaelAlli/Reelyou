@@ -45,8 +45,9 @@ import { useQaPreviewMode } from '@/qa/QaPreviewContext';
 import {
   clearLivingSkyFeaturedIds,
   consumeLivingSkyFeaturedDraftNotice,
+  setLivingSkyHighlightMode,
   toggleLivingSkyFeaturedId,
-  useLivingSkyFeaturedIds,
+  useLivingSkyHighlightPreference,
 } from '@/mySky/livingPreview/livingSkyFeaturedDraft';
 
 interface MySkywritesSheetProps {
@@ -75,7 +76,8 @@ function MySkywritesSheetComponent({
   const { user: authUser } = useReelyouAuth();
   const ownerUserId = resolveActiveUserId(authUser);
   const qaPreview = useQaPreviewMode();
-  const featuredIds = useLivingSkyFeaturedIds(ownerUserId, Boolean(ownerUserId));
+  const highlights = useLivingSkyHighlightPreference(ownerUserId, Boolean(ownerUserId));
+  const featuredIds = highlights.mode === 'manual' ? highlights.ids : [];
   const { skywrites, addSkywriteToYourJourney, applySkywriteVideoCoverAt } = useOnboarding();
   const { library, archiveSkywrite, restoreSkywrite } = useSkywriteLibrary();
   const { threadState, contributions } = useSkywriteThreads();
@@ -248,6 +250,47 @@ function MySkywritesSheetComponent({
         <Text style={styles.title}>{MySkywritesCopy.sheetTitle}</Text>
         <Text style={styles.subtitle}>{MySkywritesCopy.sheetSubtitle}</Text>
         <Text style={styles.hint}>{MySkywritesCopy.listHint}</Text>
+
+        {ownerUserId ? (
+          <View style={styles.highlights}>
+            <Text style={styles.highlightsTitle}>{MySkywritesCopy.skyHighlightsTitle}</Text>
+            <Text style={styles.highlightsSupport}>{MySkywritesCopy.skyHighlightsSupport}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: highlights.mode === 'automatic' }}
+              accessibilityLabel={MySkywritesCopy.automaticHighlights}
+              onPress={() => {
+                if (qaPreview.readOnly) {
+                  Alert.alert('My Sky', MySkywritesCopy.livingSkyFeatureQaOnly);
+                  return;
+                }
+                setLivingSkyHighlightMode(ownerUserId, 'automatic');
+              }}
+              style={[styles.highlightChoice, highlights.mode === 'automatic' && styles.highlightChoiceOn]}>
+              <Text style={styles.highlightChoiceTitle}>{MySkywritesCopy.automaticHighlights}</Text>
+              <Text style={styles.highlightChoiceHint}>{MySkywritesCopy.automaticHighlightsHint}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: highlights.mode === 'manual' }}
+              accessibilityLabel={MySkywritesCopy.myFeaturedMoments}
+              onPress={() => {
+                if (qaPreview.readOnly) {
+                  Alert.alert('My Sky', MySkywritesCopy.livingSkyFeatureQaOnly);
+                  return;
+                }
+                setLivingSkyHighlightMode(ownerUserId, 'manual');
+              }}
+              style={[styles.highlightChoice, highlights.mode === 'manual' && styles.highlightChoiceOn]}>
+              <Text style={styles.highlightChoiceTitle}>{MySkywritesCopy.myFeaturedMoments}</Text>
+              <Text style={styles.highlightChoiceHint}>{MySkywritesCopy.myFeaturedMomentsHint}</Text>
+              <Text style={styles.highlightCount}>
+                {MySkywritesCopy.highlightsSelectedCount(highlights.ids.length)}
+              </Text>
+            </Pressable>
+            <Text style={styles.highlightsDraft}>{MySkywritesCopy.highlightsDeviceDraft}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.tabRow}>
           {tabs.map((entry) => {
@@ -499,6 +542,64 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 12,
+  },
+  highlights: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 200, 114, 0.28)',
+    padding: 10,
+    marginBottom: 12,
+    gap: 6,
+  },
+  highlightsTitle: {
+    fontFamily: Fonts.serif,
+    fontSize: 16,
+    color: '#F5F0FF',
+    textAlign: 'center',
+  },
+  highlightsSupport: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    color: 'rgba(235,228,248,0.72)',
+    textAlign: 'center',
+  },
+  highlightChoice: {
+    minHeight: 44,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    justifyContent: 'center',
+  },
+  highlightChoiceOn: {
+    backgroundColor: 'rgba(232, 200, 114, 0.12)',
+  },
+  highlightChoiceTitle: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#E8C872',
+    textAlign: 'center',
+  },
+  highlightChoiceHint: {
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    lineHeight: 15,
+    color: 'rgba(235,228,248,0.62)',
+    textAlign: 'center',
+  },
+  highlightCount: {
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    color: '#F5F0FF',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  highlightsDraft: {
+    fontFamily: Fonts.sans,
+    fontSize: 10,
+    lineHeight: 14,
+    color: 'rgba(235,228,248,0.45)',
+    textAlign: 'center',
   },
   tabRow: {
     flexDirection: 'row',

@@ -21,6 +21,14 @@ import type {
 /** Matches Play Sky's 24-hour window. Used only to reject expired SkyReel-only media. */
 const SKYREEL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+/** Automatic highlights stay fixed inside this window, then may change. Not a running timer. */
+export const LIVING_SKY_HIGHLIGHT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export function livingSkyHighlightWindowId(nowMs: number): number {
+  if (!Number.isFinite(nowMs) || nowMs <= 0) return 0;
+  return Math.floor(nowMs / LIVING_SKY_HIGHLIGHT_WINDOW_MS);
+}
+
 interface EligibleMoment extends LivingSkyPreviewMoment {
   createdAtMs: number;
   inJourney: boolean;
@@ -148,17 +156,16 @@ function toMoment(
   };
 }
 
-function selectAutomatic(eligible: readonly EligibleMoment[]): EligibleMoment[] {
-  const sorted = [...eligible].sort(compareRecent);
+function pickInOrder(ordered: readonly EligibleMoment[]): EligibleMoment[] {
   const picked: EligibleMoment[] = [];
   const meanings = new Set<EligibleMoment['meaning']>();
-  const first = sorted[0];
+  const first = ordered[0];
   if (!first) return picked;
   picked.push(first);
   meanings.add(first.meaning);
 
   while (picked.length < LIVING_SKY_FEATURED_MAX) {
-    const remaining = sorted.filter((entry) => !picked.some((item) => item.postId === entry.postId));
+    const remaining = ordered.filter((entry) => !picked.some((item) => item.postId === entry.postId));
     if (remaining.length === 0) break;
     const varied = remaining.find((entry) => !meanings.has(entry.meaning));
     const next = varied ?? remaining[0];
@@ -167,6 +174,34 @@ function selectAutomatic(eligible: readonly EligibleMoment[]): EligibleMoment[] 
     meanings.add(next.meaning);
   }
   return picked;
+}
+
+function rotateFrom<T>(items: readonly T[], offset: number): T[] {
+  if (items.length === 0) return [];
+  const start = ((offset % items.length) + items.length) % items.length;
+  return items.map((_, index) => items[(start + index) % items.length]!);
+}
+
+/**
+ * Newest moment stays. With more than three eligible posts, the other slots
+ * move once per 24-hour window. A post from the current window is included
+ * immediately. Skywrite records do not carry an engagement count, so none is invented.
+ */
+function selectAutomatic(eligible: readonly EligibleMoment[], nowMs: number): EligibleMoment[] {
+  const sorted = [...eligible].sort(compareRecent);
+  if (sorted.length <= LIVING_SKY_FEATURED_MAX) return pickInOrder(sorted);
+
+  const windowId = livingSkyHighlightWindowId(nowMs);
+  const windowStart = windowId * LIVING_SKY_HIGHLIGHT_WINDOW_MS;
+  const anchor = sorted[0];
+  if (!anchor) return [];
+  const fresh = sorted.filter(
+    (entry) => entry.postId !== anchor.postId && entry.createdAtMs >= windowStart,
+  );
+  const older = sorted.filter(
+    (entry) => entry.postId !== anchor.postId && entry.createdAtMs < windowStart,
+  );
+  return pickInOrder([anchor, ...fresh, ...rotateFrom(older, windowId)]);
 }
 
 /** Persistent Skywrite moments for the living preview. Does not create stars or posts. */
@@ -211,7 +246,7 @@ export function selectLivingSkyFeaturedMoments(
     eligible.push(moment);
   }
 
-  if (input.manualIds && input.manualIds.length > 0) {
+  if (input.manualIds) {
     const byPost = new Map(eligible.map((entry) => [entry.postId, entry]));
     const manual: EligibleMoment[] = [];
     const seen = new Set<string>();
@@ -225,12 +260,10 @@ export function selectLivingSkyFeaturedMoments(
       manual.push(moment);
       if (manual.length >= LIVING_SKY_FEATURED_MAX) break;
     }
-    if (manual.length > 0) {
-      return { mode: 'manual', moments: manual.map(stripScore) };
-    }
+    return { mode: 'manual', moments: manual.map(stripScore) };
   }
 
-  return { mode: 'automatic', moments: selectAutomatic(eligible).map(stripScore) };
+  return { mode: 'automatic', moments: selectAutomatic(eligible, nowMs).map(stripScore) };
 }
 
 function stripScore(moment: EligibleMoment): LivingSkyPreviewMoment {

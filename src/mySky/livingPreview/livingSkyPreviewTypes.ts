@@ -46,8 +46,9 @@ export interface LivingSkyPreviewSelectionInput {
   viewerIsOwner: boolean;
   access: LivingSkyPreviewAccess;
   /**
-   * null = automatic.
-   * A list is the owner's explicit order (already capped). Ineligible ids are dropped.
+   * null = automatic highlights.
+   * An array, including an empty one, is the owner's manual list.
+   * Ineligible ids are dropped. Nothing is added to fill the list.
    */
   manualIds: readonly string[] | null;
   unavailableIds?: ReadonlySet<string>;

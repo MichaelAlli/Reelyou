@@ -8,19 +8,29 @@ import {
 } from '@/mySky/livingPreview/livingSkyFeaturedLogic';
 
 /**
- * DEVICE DRAFT — NOT PRODUCTION.
+ * DEVICE DRAFT — NOT CROSS-DEVICE.
  *
- * Manual Sky featuring is stored on this device so the owner can preview it.
- * It is not synced, and visitors never read another account's draft.
- *
- * Approved backend shape (not implemented — needs owner approval, no SQL migration):
- * optional `featuredSkywriteIds: string[]` (max 3) on StoredUser inside the
- * existing `reellyou_app_state` JSONB payload, written only by the owner through
- * the current profile update path after id and privacy checks.
+ * The owner's manual Sky Highlights choice is kept on this device so the
+ * controls can be reviewed. Visitors never read it. It does not survive a
+ * device change. Backend persistence is waiting on owner approval.
  */
 export const LIVING_SKY_FEATURED_PERSISTENCE = 'device-draft-not-production' as const;
 
-const memory = new Map<string, string[]>();
+export type LivingSkyHighlightMode = 'automatic' | 'manual';
+
+export interface LivingSkyHighlightPreference {
+  mode: LivingSkyHighlightMode;
+  ids: readonly string[];
+}
+
+interface DraftRecord {
+  mode: LivingSkyHighlightMode;
+  ids: string[];
+}
+
+const AUTOMATIC: DraftRecord = { mode: 'automatic', ids: [] };
+
+const memory = new Map<string, DraftRecord>();
 const hydrated = new Set<string>();
 const dirty = new Set<string>();
 const listeners = new Set<() => void>();
@@ -33,8 +43,34 @@ function emit(): void {
   for (const listener of listeners) listener();
 }
 
+function parseStored(raw: string | null): DraftRecord {
+  if (!raw) return { ...AUTOMATIC };
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) {
+      const ids = sanitizeLivingSkyFeaturedIds(parsed);
+      return { mode: ids.length > 0 ? 'manual' : 'automatic', ids };
+    }
+    if (!parsed || typeof parsed !== 'object') return { ...AUTOMATIC };
+    const record = parsed as { mode?: unknown; ids?: unknown };
+    const ids = sanitizeLivingSkyFeaturedIds(Array.isArray(record.ids) ? record.ids : []);
+    return { mode: record.mode === 'manual' ? 'manual' : 'automatic', ids };
+  } catch {
+    return { ...AUTOMATIC };
+  }
+}
+
+function readRecord(ownerId: string): DraftRecord {
+  return memory.get(ownerId) ?? { ...AUTOMATIC };
+}
+
+export function readLivingSkyHighlightPreference(ownerId: string): LivingSkyHighlightPreference {
+  const record = readRecord(ownerId);
+  return { mode: record.mode, ids: record.ids };
+}
+
 export function readLivingSkyFeaturedIds(ownerId: string): readonly string[] {
-  return memory.get(ownerId) ?? [];
+  return readRecord(ownerId).ids;
 }
 
 export function subscribeLivingSkyFeaturedIds(listener: () => void): () => void {
@@ -44,50 +80,56 @@ export function subscribeLivingSkyFeaturedIds(listener: () => void): () => void 
   };
 }
 
-export async function hydrateLivingSkyFeaturedIds(ownerId: string): Promise<readonly string[]> {
-  if (!ownerId || dirty.has(ownerId)) return readLivingSkyFeaturedIds(ownerId);
-  if (hydrated.has(ownerId)) return readLivingSkyFeaturedIds(ownerId);
+export async function hydrateLivingSkyFeaturedIds(ownerId: string): Promise<LivingSkyHighlightPreference> {
+  if (!ownerId || dirty.has(ownerId) || hydrated.has(ownerId)) {
+    return readLivingSkyHighlightPreference(ownerId);
+  }
   try {
     const raw = await AsyncStorage.getItem(storageKey(ownerId));
-    if (!dirty.has(ownerId)) {
-      const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-      memory.set(ownerId, sanitizeLivingSkyFeaturedIds(Array.isArray(parsed) ? parsed : []));
-    }
+    if (!dirty.has(ownerId)) memory.set(ownerId, parseStored(raw));
   } catch {
-    if (!dirty.has(ownerId) && !memory.has(ownerId)) memory.set(ownerId, []);
+    if (!dirty.has(ownerId) && !memory.has(ownerId)) memory.set(ownerId, { ...AUTOMATIC });
   }
   hydrated.add(ownerId);
   emit();
-  return readLivingSkyFeaturedIds(ownerId);
+  return readLivingSkyHighlightPreference(ownerId);
 }
 
-async function persist(ownerId: string, ids: readonly string[]): Promise<void> {
+async function persist(ownerId: string, record: DraftRecord): Promise<void> {
   hydrated.add(ownerId);
   try {
-    await AsyncStorage.setItem(storageKey(ownerId), JSON.stringify(ids));
+    await AsyncStorage.setItem(storageKey(ownerId), JSON.stringify(record));
   } catch {
     /* draft stays in memory for this session */
   }
 }
 
-export function toggleLivingSkyFeaturedId(ownerId: string, postId: string): LivingSkyFeaturedToggle {
-  const result = applyLivingSkyFeaturedToggle(readLivingSkyFeaturedIds(ownerId), postId);
-  if (!result.changed) return result;
+function writeRecord(ownerId: string, record: DraftRecord): void {
   dirty.add(ownerId);
-  memory.set(ownerId, result.ids);
+  memory.set(ownerId, { mode: record.mode, ids: sanitizeLivingSkyFeaturedIds(record.ids) });
   emit();
-  void persist(ownerId, result.ids);
+  void persist(ownerId, readRecord(ownerId));
+}
+
+export function setLivingSkyHighlightMode(ownerId: string, mode: LivingSkyHighlightMode): void {
+  if (!ownerId) return;
+  const current = readRecord(ownerId);
+  if (current.mode === mode) return;
+  writeRecord(ownerId, { mode, ids: current.ids });
+}
+
+export function toggleLivingSkyFeaturedId(ownerId: string, postId: string): LivingSkyFeaturedToggle {
+  const result = applyLivingSkyFeaturedToggle(readRecord(ownerId).ids, postId);
+  if (!result.changed) return result;
+  writeRecord(ownerId, { mode: 'manual', ids: result.ids });
   return result;
 }
 
 export function clearLivingSkyFeaturedIds(ownerId: string): void {
-  dirty.add(ownerId);
-  memory.set(ownerId, []);
-  emit();
-  void persist(ownerId, []);
+  setLivingSkyHighlightMode(ownerId, 'automatic');
 }
 
-const EMPTY_IDS: readonly string[] = [];
+const EMPTY_PREFERENCE: LivingSkyHighlightPreference = { mode: 'automatic', ids: [] };
 let draftNoticeShown = false;
 
 export function consumeLivingSkyFeaturedDraftNotice(): boolean {
@@ -96,20 +138,20 @@ export function consumeLivingSkyFeaturedDraftNotice(): boolean {
   return true;
 }
 
-export function useLivingSkyFeaturedIds(
+export function useLivingSkyHighlightPreference(
   ownerId: string | null | undefined,
   enabled: boolean,
-): readonly string[] {
-  const [ids, setIds] = useState<readonly string[]>(EMPTY_IDS);
+): LivingSkyHighlightPreference {
+  const [preference, setPreference] = useState<LivingSkyHighlightPreference>(EMPTY_PREFERENCE);
 
   useEffect(() => {
     if (!enabled || !ownerId) {
-      setIds(EMPTY_IDS);
+      setPreference(EMPTY_PREFERENCE);
       return;
     }
     let active = true;
     const apply = () => {
-      if (active) setIds(readLivingSkyFeaturedIds(ownerId));
+      if (active) setPreference(readLivingSkyHighlightPreference(ownerId));
     };
     apply();
     void hydrateLivingSkyFeaturedIds(ownerId).then(apply);
@@ -120,5 +162,12 @@ export function useLivingSkyFeaturedIds(
     };
   }, [enabled, ownerId]);
 
-  return enabled && ownerId ? ids : EMPTY_IDS;
+  return enabled && ownerId ? preference : EMPTY_PREFERENCE;
+}
+
+export function useLivingSkyFeaturedIds(
+  ownerId: string | null | undefined,
+  enabled: boolean,
+): readonly string[] {
+  return useLivingSkyHighlightPreference(ownerId, enabled).ids;
 }

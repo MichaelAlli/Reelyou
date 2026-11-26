@@ -10,12 +10,18 @@ import {
   placeLivingSkyPreview,
 } from '@/mySky/livingPreview/livingSkyPreviewPlacement';
 import {
+  beginLivingSkyFadeIn,
+  beginLivingSkyFadeOut,
   bindLivingSkyPreviewRotation,
+  completeLivingSkyFadeIn,
+  completeLivingSkyFadeOut,
+  createLivingSkyCycleState,
   LIVING_SKY_PREVIEW_INTERVAL_MS,
   nextLivingSkyPreviewIndex,
   shouldCycleLivingSkyPreviews,
 } from '@/mySky/livingPreview/livingSkyPreviewRotation';
 import {
+  livingSkyHighlightWindowId,
   resolveLivingSkyPreviewTarget,
   selectLivingSkyFeaturedMoments,
 } from '@/mySky/livingPreview/livingSkyPreviewSelection';
@@ -298,5 +304,85 @@ const qaVisitor = livingSkyQaPosts('visitor');
 assert.equal(qaVisitor.some((entry) => entry.visibility === 'private'), true);
 assert.equal(livingSkyQaPosts('none').length, 0);
 assert.equal(livingSkyQaPosts('one').length, 1);
+assert.equal(livingSkyQaPosts('two').length, 2);
+
+const day = 24 * 60 * 60 * 1000;
+const older = [0, 1, 2, 3].map((offset) =>
+  post({
+    id: `older-${offset}`,
+    createdAt: new Date(NOW - (10 + offset) * day).toISOString(),
+  }),
+);
+const windowA = livingSkyHighlightWindowId(NOW);
+const windowB = livingSkyHighlightWindowId(NOW + day);
+assert.notEqual(windowA, windowB);
+const highlightsA = selectOwner(older, null);
+const highlightsAAgain = selectLivingSkyFeaturedMoments({
+  stars: older.map((entry) => star(entry.id)),
+  posts: older,
+  skyOwnerId: 'owner-a',
+  viewerIsOwner: true,
+  access: ownerAccess,
+  manualIds: null,
+  nowMs: NOW,
+});
+assert.deepEqual(
+  highlightsA.moments.map((moment) => moment.postId),
+  highlightsAAgain.moments.map((moment) => moment.postId),
+);
+assert.equal(highlightsA.moments.length, 3);
+assert.equal(highlightsA.moments[0]?.postId, 'older-0');
+const highlightsB = selectLivingSkyFeaturedMoments({
+  stars: older.map((entry) => star(entry.id)),
+  posts: older,
+  skyOwnerId: 'owner-a',
+  viewerIsOwner: true,
+  access: ownerAccess,
+  manualIds: null,
+  nowMs: NOW + day,
+});
+assert.notDeepEqual(
+  highlightsA.moments.map((moment) => moment.postId),
+  highlightsB.moments.map((moment) => moment.postId),
+);
+const fresh = post({ id: 'fresh', createdAt: new Date(NOW - 60 * 60 * 1000).toISOString() });
+const withFresh = selectLivingSkyFeaturedMoments({
+  stars: [fresh, ...older].map((entry) => star(entry.id)),
+  posts: [fresh, ...older],
+  skyOwnerId: 'owner-a',
+  viewerIsOwner: true,
+  access: ownerAccess,
+  manualIds: null,
+  nowMs: NOW,
+});
+assert.equal(withFresh.moments[0]?.postId, 'fresh');
+assert.equal(withFresh.moments.some((moment) => moment.postId === 'fresh'), true);
+
+const manualTwo = selectOwner([text, photo, video], ['photo', 'text']);
+assert.equal(manualTwo.mode, 'manual');
+assert.deepEqual(
+  manualTwo.moments.map((moment) => moment.postId),
+  ['photo', 'text'],
+);
+const manualNone = selectOwner([text, photo, video], []);
+assert.equal(manualNone.mode, 'manual');
+assert.equal(manualNone.moments.length, 0);
+const manualStale = selectOwner([text, photo], ['missing']);
+assert.equal(manualStale.mode, 'manual');
+assert.equal(manualStale.moments.length, 0);
+
+let cycle = createLivingSkyCycleState();
+assert.equal(beginLivingSkyFadeIn(cycle).phase, 'visible');
+cycle = beginLivingSkyFadeOut(cycle);
+assert.equal(cycle.phase, 'fading-out');
+assert.equal(cycle.index, 0);
+cycle = completeLivingSkyFadeOut(cycle, 3);
+assert.equal(cycle.phase, 'hidden');
+assert.equal(cycle.index, 1);
+cycle = beginLivingSkyFadeIn(cycle);
+assert.equal(cycle.phase, 'fading-in');
+assert.equal(cycle.index, 1);
+cycle = completeLivingSkyFadeIn(cycle);
+assert.equal(cycle.phase, 'visible');
 
 console.log('livingSkyPreview.test.ts ok');

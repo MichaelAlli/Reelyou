@@ -18,13 +18,18 @@ import { Fonts } from '@/constants/theme';
 import { useReelyouConnect } from '@/connect/ReelyouConnectProvider';
 import { useQaPreviewMode } from '@/qa/QaPreviewContext';
 import { preserveQaPreviewRedirectHref } from '@/qa/preserveQaPreviewRedirectHref';
-import { useLivingSkyFeaturedIds } from '@/mySky/livingPreview/livingSkyFeaturedDraft';
-import { resolveFeaturedIdsForSky } from '@/mySky/livingPreview/livingSkyFeaturedLogic';
+import { useLivingSkyHighlightPreference } from '@/mySky/livingPreview/livingSkyFeaturedDraft';
 import { placeLivingSkyPreview } from '@/mySky/livingPreview/livingSkyPreviewPlacement';
 import {
-  bindLivingSkyPreviewRotation,
+  beginLivingSkyFadeIn,
+  beginLivingSkyFadeOut,
+  completeLivingSkyFadeIn,
+  completeLivingSkyFadeOut,
+  createLivingSkyCycleState,
   LIVING_SKY_PREVIEW_FADE_MS,
-  nextLivingSkyPreviewIndex,
+  LIVING_SKY_PREVIEW_INTERVAL_MS,
+  shouldCycleLivingSkyPreviews,
+  type LivingSkyCycleState,
 } from '@/mySky/livingPreview/livingSkyPreviewRotation';
 import {
   resolveLivingSkyPreviewTarget,
@@ -79,7 +84,10 @@ function LivingSkyPreviewOverlayComponent({
   const viewerIsOwner = Boolean(viewerId) && viewerId === ownerId;
   const { skyFollowGraph, messages, preferences } = useReelyouConnect();
   const library = useSkywriteLibrary();
-  const deviceDraftIds = useLivingSkyFeaturedIds(ownerId, viewerIsOwner && featuredIdsOverride === undefined);
+  const highlightPreference = useLivingSkyHighlightPreference(
+    ownerId,
+    viewerIsOwner && featuredIdsOverride === undefined,
+  );
   const [systemReducedMotion, setSystemReducedMotion] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const [pageVisible, setPageVisible] = useState(true);
@@ -87,6 +95,8 @@ function LivingSkyPreviewOverlayComponent({
   const [screenFocused, setScreenFocused] = useState(true);
   const [failedIds, setFailedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [index, setIndex] = useState(0);
+  const [cycle, setCycle] = useState<LivingSkyCycleState>(createLivingSkyCycleState);
+  const cycleRef = useRef(cycle);
   const opacity = useRef(new Animated.Value(1)).current;
   const countRef = useRef(0);
   const openedRef = useRef(false);
@@ -127,15 +137,18 @@ function LivingSkyPreviewOverlayComponent({
     return ids;
   }, [failedIds, library, posts]);
 
-  const manualIds = useMemo(
-    () =>
-      resolveFeaturedIdsForSky({
-        viewerIsOwner,
-        deviceDraftIds,
-        override: featuredIdsOverride,
-      }),
-    [deviceDraftIds, featuredIdsOverride, viewerIsOwner],
-  );
+  const manualIds = useMemo(() => {
+    if (featuredIdsOverride === null) return null;
+    if (featuredIdsOverride) return featuredIdsOverride;
+    if (viewerIsOwner && highlightPreference.mode === 'manual') return highlightPreference.ids;
+    return null;
+  }, [featuredIdsOverride, highlightPreference.ids, highlightPreference.mode, viewerIsOwner]);
+
+  const postClockKey = posts.map((post) => `${post.id}:${post.createdAt ?? ''}`).join('|');
+  const [highlightNowMs, setHighlightNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    setHighlightNowMs(Date.now());
+  }, [postClockKey]);
 
   const selection = useMemo(
     () =>
@@ -152,6 +165,7 @@ function LivingSkyPreviewOverlayComponent({
         },
         manualIds,
         unavailableIds,
+        nowMs: highlightNowMs,
       }),
     [
       manualIds,
@@ -160,6 +174,7 @@ function LivingSkyPreviewOverlayComponent({
       posts,
       skyFollowGraph,
       stars,
+      highlightNowMs,
       unavailableIds,
       viewerId,
       viewerIsOwner,
@@ -173,6 +188,9 @@ function LivingSkyPreviewOverlayComponent({
   const moment = moments[safeIndex] ?? null;
 
   useEffect(() => {
+    const reset = createLivingSkyCycleState();
+    cycleRef.current = reset;
+    setCycle(reset);
     setIndex(0);
     opacity.setValue(1);
   }, [momentKey, opacity]);
@@ -181,42 +199,66 @@ function LivingSkyPreviewOverlayComponent({
     systemReducedMotion || preferences.accessibilityPreferences.preferReducedMotion;
   const rotationPaused = paused || holding || !active || !screenFocused || !appActive || !pageVisible;
 
-  useEffect(() => {
-    let fadeTimer: ReturnType<typeof setTimeout> | null = null;
-    const stop = bindLivingSkyPreviewRotation({
-      count: moments.length,
-      paused: rotationPaused,
-      reducedMotion,
-      onAdvance: () => {
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: LIVING_SKY_PREVIEW_FADE_MS,
-          useNativeDriver: true,
-        }).start(({ finished }) => {
-          if (!finished) return;
-          fadeTimer = setTimeout(() => {
-            setIndex((current) => nextLivingSkyPreviewIndex(current, countRef.current));
-            Animated.timing(opacity, {
-              toValue: 1,
-              duration: LIVING_SKY_PREVIEW_FADE_MS,
-              useNativeDriver: true,
-            }).start();
-          }, 0);
-        });
-      },
-    });
-    return () => {
-      stop();
-      if (fadeTimer) clearTimeout(fadeTimer);
-      opacity.stopAnimation();
-    };
-  }, [momentKey, moments.length, opacity, reducedMotion, rotationPaused]);
+  const cycling = shouldCycleLivingSkyPreviews(moments.length, rotationPaused, reducedMotion);
 
   useEffect(() => {
-    if (!rotationPaused && !reducedMotion && moments.length > 1) return;
+    if (cycling) return;
     opacity.stopAnimation();
     opacity.setValue(1);
-  }, [moments.length, opacity, reducedMotion, rotationPaused]);
+    if (cycleRef.current.phase === 'visible') return;
+    const shown = createLivingSkyCycleState();
+    shown.index = cycleRef.current.index;
+    cycleRef.current = shown;
+    setCycle(shown);
+  }, [cycling, opacity]);
+
+  useEffect(() => {
+    if (!cycling) return;
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+    const state = cycleRef.current;
+
+    if (state.phase === 'visible') {
+      holdTimer = setTimeout(() => {
+        if (cancelled) return;
+        cycleRef.current = beginLivingSkyFadeOut(cycleRef.current);
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: reducedMotion ? 0 : LIVING_SKY_PREVIEW_FADE_MS,
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (!finished || cancelled) return;
+          const hidden = completeLivingSkyFadeOut(cycleRef.current, countRef.current);
+          cycleRef.current = hidden;
+          setIndex(hidden.index);
+          setCycle(hidden);
+        });
+      }, LIVING_SKY_PREVIEW_INTERVAL_MS);
+    } else if (state.phase === 'hidden') {
+      opacity.setValue(0);
+      const fadingIn = beginLivingSkyFadeIn(cycleRef.current);
+      cycleRef.current = fadingIn;
+      setCycle(fadingIn);
+    } else if (state.phase === 'fading-in') {
+      opacity.setValue(0);
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: reducedMotion ? 0 : LIVING_SKY_PREVIEW_FADE_MS,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (!finished || cancelled) return;
+        const shown = completeLivingSkyFadeIn(cycleRef.current);
+        cycleRef.current = shown;
+        setCycle(shown);
+      });
+    }
+
+    return () => {
+      cancelled = true;
+      if (holdTimer) clearTimeout(holdTimer);
+      opacity.stopAnimation();
+    };
+  }, [cycle.phase, cycling, momentKey, opacity, reducedMotion]);
 
   useEffect(() => {
     if (!active) return;
@@ -233,7 +275,7 @@ function LivingSkyPreviewOverlayComponent({
     }, []),
   );
 
-  if (!moment || layoutWidth <= 0 || layoutHeight <= 0) return null;
+  if (!moment || layoutWidth <= 0 || layoutHeight <= 0 || cycle.phase === 'hidden') return null;
 
   const frame = placeLivingSkyPreview({
     starX: moment.starX,

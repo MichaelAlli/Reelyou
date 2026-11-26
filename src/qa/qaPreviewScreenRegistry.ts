@@ -339,6 +339,12 @@ export const QA_PREVIEW_SCREEN_SPECS: QaPreviewScreenSpec[] = [
     screenMarker: 'LivingSkyQaPreviewScreen',
   },
   {
+    targetId: 'living-sky-two',
+    appRouteFile: 'src/app/(post-welcome)/qa/living-sky.tsx',
+    markerModule: 'src/screens/LivingSkyQaPreviewScreen.tsx',
+    screenMarker: 'LivingSkyQaPreviewScreen',
+  },
+  {
     targetId: 'living-sky-one',
     appRouteFile: 'src/app/(post-welcome)/qa/living-sky.tsx',
     markerModule: 'src/screens/LivingSkyQaPreviewScreen.tsx',
