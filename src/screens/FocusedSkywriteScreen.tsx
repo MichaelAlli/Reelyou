@@ -25,6 +25,7 @@ import { SkywritePlayCopy } from '@/constants/skywritePlayCopy';
 import { HomeBackdrop } from '@/components/home/HomeBackdrop';
 import { HomeHeaderLogo } from '@/components/home/HomeHeaderLogo';
 import { FirstStarReinforcementCard } from '@/components/my-sky/FirstStarReinforcementCard';
+import { LivingSkyPreviewOverlay } from '@/components/my-sky/LivingSkyPreviewOverlay';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
 import { MySkyStarInteractionOverlay } from '@/components/my-sky/MySkyStarInteractionOverlay';
 import { SkyStarMeaningIntroCard } from '@/components/my-sky/SkyStarMeaningIntroCard';
@@ -121,6 +122,10 @@ export function FocusedSkywriteScreen() {
   const { state: playSequenceState } = useSkywritePlaySequence();
   const { registry, ready: registryReady } = usePlaySkySequenceRegistry();
   const [headerStyleId, setHeaderStyleId] = useState<SkyHeaderStyleId>('starlight');
+  const [skyFocused, setSkyFocused] = useState(true);
+  const [previewInView, setPreviewInView] = useState(true);
+  const [headerBlock, setHeaderBlock] = useState(0);
+  const [cueBlock, setCueBlock] = useState(0);
   const activeContributionBeacons = useContributionBeaconOverlayQueue();
   const { showSkywriteIntro, dismissSkywriteIntro } = useMySkyStarIntro();
   const [firstStarReinforcementVisible, setFirstStarReinforcementVisible] = useState(false);
@@ -207,6 +212,13 @@ export function FocusedSkywriteScreen() {
     }, []),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      setSkyFocused(true);
+      return () => setSkyFocused(false);
+    }, []),
+  );
+
   const panelHeight = Math.min(Math.round(height * 0.72), 620);
   const regionCount = Math.min(
     3,
@@ -287,12 +299,19 @@ export function FocusedSkywriteScreen() {
 
   const launcherBottom = TabBarHeight + Math.max(insets.bottom, Spacing.sm) + 8;
   const canvasWidth = width - Spacing.sm * 2;
+  const visibleCanvas = Math.max(160, height - insets.top - (headerBlock || 200) - cueBlock - launcherBottom);
+  const previewBottomClearance = Math.max(8, panelHeight - visibleCanvas);
 
   return (
     <View style={styles.root}>
       <HomeBackdrop />
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
+        <View
+          style={styles.header}
+          onLayout={(event) => {
+            const next = Math.round(event.nativeEvent.layout.height);
+            setHeaderBlock((prev) => (prev === next ? prev : next));
+          }}>
           <HomeHeaderLogo />
           <SkywriteSkyOwnerHeader
             displayName={mySkyView.skyOwner.name}
@@ -304,6 +323,11 @@ export function FocusedSkywriteScreen() {
           <Text style={styles.hint}>{SkywritePlayCopy.playHint}</Text>
         </View>
 
+        <View
+          onLayout={(event) => {
+            const next = Math.round(event.nativeEvent.layout.height);
+            setCueBlock((prev) => (prev === next ? prev : next));
+          }}>
         <PlaySkyCue
           onPress={() => {
             skywriteNavTip.dismissIfLearned();
@@ -323,6 +347,7 @@ export function FocusedSkywriteScreen() {
           }}
           onEditJourneyTitle={() => setJourneyTitleEditorOpen(true)}
         />
+        </View>
 
         {skywriteNavTip.visible ? (
           <NavigationTipCallout
@@ -351,7 +376,12 @@ export function FocusedSkywriteScreen() {
             { paddingBottom: launcherBottom + 88 },
           ]}
           showsVerticalScrollIndicator={false}
-          onScroll={(event) => setScrollOffsetY(event.nativeEvent.contentOffset.y)}
+          onScroll={(event) => {
+            const offsetY = event.nativeEvent.contentOffset.y;
+            setScrollOffsetY(offsetY);
+            const next = offsetY < panelHeight * 0.7;
+            setPreviewInView((prev) => (prev === next ? prev : next));
+          }}
           scrollEventThrottle={32}>
           {Array.from({ length: regionCount }).map((_, index) => (
             <View
@@ -425,6 +455,29 @@ export function FocusedSkywriteScreen() {
                   }
                   onSkywriteStarOpened={index === 0 ? skywriteNavTip.dismissIfLearned : undefined}
                 />
+                {index === 0 ? (
+                  <LivingSkyPreviewOverlay
+                    layoutWidth={canvasWidth}
+                    layoutHeight={panelHeight}
+                    stars={displayView.stars}
+                    posts={skywrites}
+                    ownerId={displayView.skyOwner.id}
+                    protectedPoints={[
+                      { x: displayView.identityStar.x, y: displayView.identityStar.y },
+                    ]}
+                    bottomClearance={previewBottomClearance}
+                    active={previewInView && skyFocused}
+                    paused={
+                      spatialFocusBlocked ||
+                      mySkywritesOpen ||
+                      journeyEditorOpen ||
+                      journeyTitleEditorOpen ||
+                      beaconSheetOpen ||
+                      arrivalOverlayActive ||
+                      arrivalLandingPhase
+                    }
+                  />
+                ) : null}
               </SpatialFocusHost>
             </View>
           ))}

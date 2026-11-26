@@ -392,6 +392,47 @@ export const QA_PREVIEW_TARGETS: QaPreviewTarget[] = [
   },
 
   {
+    id: 'living-sky-three',
+    section: 'content',
+    label: 'Living Sky — three moments',
+    description: 'Synthetic snapshot with photo, video cover, and text previews',
+    href: '/qa/living-sky?fixture=three',
+    keywords: 'living sky preview thumbnail my sky',
+  },
+  {
+    id: 'living-sky-one',
+    section: 'content',
+    label: 'Living Sky — one moment',
+    description: 'Synthetic snapshot with a single photo preview',
+    href: '/qa/living-sky?fixture=one',
+    keywords: 'living sky one preview',
+  },
+  {
+    id: 'living-sky-none',
+    section: 'content',
+    label: 'Living Sky — empty',
+    description: 'Synthetic snapshot with no eligible Skywrites',
+    href: '/qa/living-sky?fixture=none',
+    keywords: 'living sky empty',
+  },
+  {
+    id: 'living-sky-visitor',
+    section: 'content',
+    label: 'Living Sky — visitor snapshot',
+    description: 'Friend view. Private and Sky Friends moments stay hidden',
+    href: '/qa/living-sky?fixture=visitor',
+    keywords: 'visitor sky snapshot privacy',
+  },
+  {
+    id: 'living-sky-manual',
+    section: 'content',
+    label: 'Living Sky — manual features',
+    description: 'Local preview of featuring up to three moments. Not synced.',
+    href: '/qa/living-sky?fixture=manual',
+    keywords: 'feature in my sky manual',
+  },
+
+  {
     id: 'theme-lab',
     section: 'system',
     label: 'Theme lab',

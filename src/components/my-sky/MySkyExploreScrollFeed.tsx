@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { memo, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -54,6 +54,11 @@ function MySkyExploreScrollFeedComponent({
   onScrollOffsetChange,
 }: MySkyExploreScrollFeedProps) {
   const scrollRef = useRef<ScrollView>(null);
+  const scrollPause = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollBucket = useRef(-1);
+  const [scrollY, setScrollY] = useState(initialScrollOffsetY);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [feedScrolling, setFeedScrolling] = useState(false);
   const router = useRouter();
   const { userId: sessionOwnerId, displayName: sessionDisplayName } = useSessionUserId();
   const { listFollowingUserIds, messages } = useReelyouConnect();
@@ -109,8 +114,24 @@ function MySkyExploreScrollFeedComponent({
     return [...connected, ...demo, ...suggested];
   }, [aroundYourSkyFeed, listFollowingUserIds, messages.blockedUserIds, nearbyAnchors, sessionOwnerId]);
 
+  useEffect(
+    () => () => {
+      if (scrollPause.current) clearTimeout(scrollPause.current);
+    },
+    [],
+  );
+
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    onScrollOffsetChange?.(event.nativeEvent.contentOffset.y);
+    const offsetY = event.nativeEvent.contentOffset.y;
+    onScrollOffsetChange?.(offsetY);
+    const bucket = Math.floor(offsetY / 80);
+    if (bucket !== scrollBucket.current) {
+      scrollBucket.current = bucket;
+      setScrollY(offsetY);
+    }
+    setFeedScrolling(true);
+    if (scrollPause.current) clearTimeout(scrollPause.current);
+    scrollPause.current = setTimeout(() => setFeedScrolling(false), 420);
   };
 
   return (
@@ -121,6 +142,10 @@ function MySkyExploreScrollFeedComponent({
       showsVerticalScrollIndicator={false}
       scrollEventThrottle={32}
       onScroll={handleScroll}
+      onLayout={(event) => {
+        const next = Math.round(event.nativeEvent.layout.height);
+        setViewportHeight((prev) => (prev === next ? prev : next));
+      }}
       contentOffset={{ x: 0, y: initialScrollOffsetY }}
       nestedScrollEnabled>
       <PeopleYouMayKnowSection />
@@ -144,6 +169,9 @@ function MySkyExploreScrollFeedComponent({
           }
           joinedCommunityIds={joinedCommunityIds}
           guidanceActive={guidanceActive}
+          scrollOffsetY={scrollY}
+          viewportHeight={viewportHeight}
+          previewsPaused={feedScrolling}
         />
       ))}
       {sections.length === 0 ? (

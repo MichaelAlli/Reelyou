@@ -333,6 +333,36 @@ export const QA_PREVIEW_SCREEN_SPECS: QaPreviewScreenSpec[] = [
     screenMarker: 'JourneySequenceEditorSheet',
   },
   {
+    targetId: 'living-sky-three',
+    appRouteFile: 'src/app/(post-welcome)/qa/living-sky.tsx',
+    markerModule: 'src/screens/LivingSkyQaPreviewScreen.tsx',
+    screenMarker: 'LivingSkyQaPreviewScreen',
+  },
+  {
+    targetId: 'living-sky-one',
+    appRouteFile: 'src/app/(post-welcome)/qa/living-sky.tsx',
+    markerModule: 'src/screens/LivingSkyQaPreviewScreen.tsx',
+    screenMarker: 'LivingSkyQaPreviewScreen',
+  },
+  {
+    targetId: 'living-sky-none',
+    appRouteFile: 'src/app/(post-welcome)/qa/living-sky.tsx',
+    markerModule: 'src/screens/LivingSkyQaPreviewScreen.tsx',
+    screenMarker: 'LivingSkyQaPreviewScreen',
+  },
+  {
+    targetId: 'living-sky-visitor',
+    appRouteFile: 'src/app/(post-welcome)/qa/living-sky.tsx',
+    markerModule: 'src/screens/LivingSkyQaPreviewScreen.tsx',
+    screenMarker: 'LivingSkyQaPreviewScreen',
+  },
+  {
+    targetId: 'living-sky-manual',
+    appRouteFile: 'src/app/(post-welcome)/qa/living-sky.tsx',
+    markerModule: 'src/screens/LivingSkyQaPreviewScreen.tsx',
+    screenMarker: 'LivingSkyQaPreviewScreen',
+  },
+  {
     targetId: 'theme-lab',
     appRouteFile: 'src/app/(post-welcome)/dev-theme-lab.tsx',
     markerModule: 'src/components/dev/ThemeModeDevControl.tsx',

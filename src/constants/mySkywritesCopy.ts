@@ -47,4 +47,11 @@ export const MySkywritesCopy = {
   resetJourneyTitle: 'Use default',
   journeyTitleInvalid: 'Enter a shorter title without special formatting.',
   journeyTitleSaveFailed: 'Couldn’t save your Journey name. Try again.',
+  featureInMySky: 'Feature in My Sky',
+  unfeatureInMySky: 'Remove from My Sky features',
+  useAutomaticSkyMoments: 'Use automatic Sky moments',
+  livingSkyFeatureLimit: 'Your Sky already features three moments. Remove one to choose another.',
+  livingSkyFeatureSaved:
+    'Featured on this device. It will appear on your other devices after the approved Sky update.',
+  livingSkyFeatureQaOnly: 'QA preview does not save featured moments.',
 } as const;

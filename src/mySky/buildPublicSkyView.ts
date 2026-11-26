@@ -68,7 +68,7 @@ function resolvePublicSkyOwnerSkywrites(
   ownerSkywrites?: readonly SkywriteRecord[] | null,
   sessionOwnerId?: string | null,
 ): SkywriteRecord[] {
-  if (ownerSkywrites && ownerSkywrites.length > 0) {
+  if (ownerSkywrites) {
     return [...ownerSkywrites];
   }
   if (sessionOwnerId && userId === sessionOwnerId) {

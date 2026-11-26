@@ -41,6 +41,13 @@ import { useSkywriteThreads } from '@/skywrite/threads/SkywriteThreadProvider';
 import { useApplySkywriteContentDeletion } from '@/skywrite/lifecycle/useApplySkywriteContentDeletion';
 import { usePlaySkySequenceRegistry } from '@/skywrite/play/usePlaySkySequenceRegistry';
 import { openSkywritePostView } from '@/skywrite/openSkywritePostView';
+import { useQaPreviewMode } from '@/qa/QaPreviewContext';
+import {
+  clearLivingSkyFeaturedIds,
+  consumeLivingSkyFeaturedDraftNotice,
+  toggleLivingSkyFeaturedId,
+  useLivingSkyFeaturedIds,
+} from '@/mySky/livingPreview/livingSkyFeaturedDraft';
 
 interface MySkywritesSheetProps {
   visible: boolean;
@@ -67,6 +74,8 @@ function MySkywritesSheetComponent({
   const router = useRouter();
   const { user: authUser } = useReelyouAuth();
   const ownerUserId = resolveActiveUserId(authUser);
+  const qaPreview = useQaPreviewMode();
+  const featuredIds = useLivingSkyFeaturedIds(ownerUserId, Boolean(ownerUserId));
   const { skywrites, addSkywriteToYourJourney, applySkywriteVideoCoverAt } = useOnboarding();
   const { library, archiveSkywrite, restoreSkywrite } = useSkywriteLibrary();
   const { threadState, contributions } = useSkywriteThreads();
@@ -358,6 +367,42 @@ function MySkywritesSheetComponent({
                       );
                     },
                   });
+                  const featured = featuredIds.includes(row.skywriteId);
+                  menuActions.push({
+                    id: featured ? 'unfeature-living-sky' : 'feature-living-sky',
+                    label: featured
+                      ? MySkywritesCopy.unfeatureInMySky
+                      : MySkywritesCopy.featureInMySky,
+                    onPress: () => {
+                      if (!ownerUserId) return;
+                      if (qaPreview.readOnly) {
+                        Alert.alert('My Sky', MySkywritesCopy.livingSkyFeatureQaOnly);
+                        return;
+                      }
+                      const result = toggleLivingSkyFeaturedId(ownerUserId, row.skywriteId);
+                      if (result.reason === 'limit') {
+                        Alert.alert('My Sky', MySkywritesCopy.livingSkyFeatureLimit);
+                        return;
+                      }
+                      if (result.reason === 'added' && consumeLivingSkyFeaturedDraftNotice()) {
+                        Alert.alert('My Sky', MySkywritesCopy.livingSkyFeatureSaved);
+                      }
+                    },
+                  });
+                  if (featuredIds.length > 0) {
+                    menuActions.push({
+                      id: 'automatic-living-sky',
+                      label: MySkywritesCopy.useAutomaticSkyMoments,
+                      onPress: () => {
+                        if (!ownerUserId) return;
+                        if (qaPreview.readOnly) {
+                          Alert.alert('My Sky', MySkywritesCopy.livingSkyFeatureQaOnly);
+                          return;
+                        }
+                        clearLivingSkyFeaturedIds(ownerUserId);
+                      },
+                    });
+                  }
                 }
                 menuActions.push({
                   id: 'archive-skywrite',

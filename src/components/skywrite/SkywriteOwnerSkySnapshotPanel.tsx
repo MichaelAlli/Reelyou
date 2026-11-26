@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { memo, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
+import { LivingSkyPreviewOverlay } from '@/components/my-sky/LivingSkyPreviewOverlay';
 import { MySkyRenderer } from '@/components/my-sky/MySkyRenderer';
 import { MySkyStarInteractionOverlay } from '@/components/my-sky/MySkyStarInteractionOverlay';
 import { PlaySkyCue } from '@/components/skywrite/PlaySkyCue';
@@ -32,6 +33,16 @@ interface SkywriteOwnerSkySnapshotPanelProps {
   ownerSkywrites?: readonly SkywriteRecord[];
   joinedCommunityIds: readonly string[];
   guidanceActive: boolean;
+  /** When set, only the on-screen snapshot rotates. Omit for a single snapshot. */
+  scrollOffsetY?: number;
+  viewportHeight?: number;
+  previewsPaused?: boolean;
+  /**
+   * undefined uses the owner's on-device draft.
+   * null keeps automatic selection.
+   * A list is an explicit preview selection and is still privacy-filtered.
+   */
+  featuredIdsOverride?: readonly string[] | null;
 }
 
 function SkywriteOwnerSkySnapshotPanelComponent({
@@ -42,6 +53,10 @@ function SkywriteOwnerSkySnapshotPanelComponent({
   ownerSkywrites,
   joinedCommunityIds,
   guidanceActive,
+  scrollOffsetY = 0,
+  viewportHeight,
+  previewsPaused = false,
+  featuredIdsOverride,
 }: SkywriteOwnerSkySnapshotPanelProps) {
   const router = useRouter();
   const { user: authUser } = useReelyouAuth();
@@ -51,6 +66,7 @@ function SkywriteOwnerSkySnapshotPanelComponent({
   const canvasWidth = width - Spacing.sm * 2;
   const panelHeight = Math.min(Math.max(Math.round(height * 0.58), 320), 520);
   const [headerStyleId, setHeaderStyleId] = useState<SkyHeaderStyleId>('starlight');
+  const [sectionFrame, setSectionFrame] = useState({ y: 0, height: 0 });
   const { registry, ready: registryReady } = usePlaySkySequenceRegistry();
   const [canPlay, setCanPlay] = useState(false);
 
@@ -69,7 +85,7 @@ function SkywriteOwnerSkySnapshotPanelComponent({
       connectionStatus,
       undefined,
       undefined,
-      ownerPosts.length ? ownerPosts : undefined,
+      ownerPosts,
       sessionOwnerId,
     );
   }, [connectionStatus, ownerId, ownerPosts, sessionOwnerId]);
@@ -142,9 +158,26 @@ function SkywriteOwnerSkySnapshotPanelComponent({
   }
 
   const hasVisibleStars = skyView.stars.some((star) => star.type === 'skywrite' && star.sourceId);
+  const tracksVisibility = viewportHeight != null;
+  const previewActive =
+    !tracksVisibility ||
+    (viewportHeight > 0 &&
+      sectionFrame.height > 0 &&
+      sectionFrame.y < scrollOffsetY + viewportHeight &&
+      sectionFrame.y + sectionFrame.height > scrollOffsetY);
 
   return (
-    <View style={styles.section}>
+    <View
+      style={styles.section}
+      onLayout={(event) => {
+        const next = {
+          y: event.nativeEvent.layout.y,
+          height: event.nativeEvent.layout.height,
+        };
+        setSectionFrame((prev) =>
+          prev.y === next.y && prev.height === next.height ? prev : next,
+        );
+      }}>
       <SkywriteSkyOwnerHeader
         displayName={displayName}
         headerStyleId={headerStyleId}
@@ -176,6 +209,16 @@ function SkywriteOwnerSkySnapshotPanelComponent({
               directIdentityProfileNavigation
               allowTapDuringGesture
               focusedSkywriteImmersiveTap
+            />
+            <LivingSkyPreviewOverlay
+              layoutWidth={canvasWidth}
+              layoutHeight={panelHeight}
+              stars={skyView.stars}
+              posts={ownerPosts}
+              ownerId={ownerId}
+              active={previewActive}
+              paused={previewsPaused}
+              featuredIdsOverride={featuredIdsOverride}
             />
           </>
         ) : (
